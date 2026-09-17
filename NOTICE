@@ -1,0 +1,13 @@
+ENH Master / HardwareKit
+Copyright 2026 Khris Audio
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+these files except in compliance with the License. You may obtain a copy of the
+License in the LICENSE file, or at http://www.apache.org/licenses/LICENSE-2.0
+
+If you redistribute this software, in source or binary form, or build on it,
+this NOTICE must be included and credit must be given to Khris Audio
+(https://github.com/thenameiscobmarley).
+
+This software is built with JUCE (https://juce.com), which is licensed
+separately by Raw Material Software Limited and is not covered by this license.

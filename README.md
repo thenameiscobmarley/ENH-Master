@@ -5,7 +5,12 @@ with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4
 
 ## Build
 
+Needs JUCE 8 and the [HardwareKit](../../../HardwareKit) module checked out next to this repository:
+
 ```sh
+git clone https://github.com/juce-framework/JUCE ~/JUCE
+git clone <HardwareKit repo> ~/Projects/HardwareKit     # or pass -DHARDWAREKIT_PATH=
+
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # JUCE_PATH defaults to ~/JUCE
 cmake --build build -j1                                   # -j1: JUCE needs a lot of RAM per job
 build/EnhDspTests_artefacts/Release/EnhDspTests           # offline DSP tests + CPU benchmark
@@ -13,11 +18,19 @@ build/EnhDspTests_artefacts/Release/EnhDspTests           # offline DSP tests + 
 
 Installs `~/.vst3/ENH Master.vst3`. Carla: *Add Plugin → Refresh (VST3) → ENH Master*.
 
+**Linux/X11 only right now.** `PORTING-TO-WINDOWS.md` lists the two files that need a platform
+version and includes a ready-made prompt you can hand to a coding AI to do the port.
+
+**Documentation:** `Vault/` is an Obsidian vault (open that folder as a vault) with a tutorial from
+install to tuning, plus notes on the DSP and the renderer. Start at `Vault/00 Start Here.md`.
+
 ## Reading the panels
 
 Hover anything - printed text, a knob, a button - and a **fisheye loupe** appears over it: the scene is re-rendered
-zoomed in (about 3x) behind a glass lens, so the magnified print is genuinely sharp rather than stretched pixels.
-Controls also show a small name + value pill under the lens, and their value arc lights up around the knob.
+zoomed in (about 2.2x) behind a glass lens, so the magnified print is genuinely sharp rather than stretched pixels.
+It magnifies about the cursor - what is under the pointer stays under the pointer - is slightly transparent, and
+locks onto a control while you drag it. Controls also show a small name + value pill under the lens, and their
+value arc lights up around the knob.
 
 ## Device masters
 
