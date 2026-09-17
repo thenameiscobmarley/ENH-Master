@@ -36,6 +36,9 @@ set(ENH_DSP_SOURCES
     Source/DSP/SubEnhancer.cpp
     Source/DSP/AnalogStage.cpp
     Source/DSP/Seraph.cpp
+    Source/DSP/DynamicCompressor.cpp
+    Source/DSP/SpectralLeveler.cpp
+    Source/DSP/SpectrumScope.cpp
     Source/DSP/EnhEngine.cpp)
 
 juce_add_plugin(EnhMaster

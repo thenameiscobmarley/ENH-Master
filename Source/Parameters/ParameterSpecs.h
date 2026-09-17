@@ -21,6 +21,16 @@ namespace pad::params
         inline constexpr const char* enhMultiply = "enhMultiply"; // multiplies every ENH Master knob (0-3x)
         inline constexpr const char* enhStrength = "enhStrength"; // how hard ENH Master's processing hits (0-5)
 
+        // TIDE - 1U dynamic compressor: two controls, everything else derived from the audio
+        inline constexpr const char* tideMix      = "tideMix";       // wet / dry (%)
+        inline constexpr const char* tideResponse = "tideResponse";  // how fast it reacts and adapts (0-10)
+        inline constexpr const char* tideActive   = "tideActive";    // IN / OUT (hardware bypass)
+
+        // LUMEN - 1U spectral leveler: lifts quiet material toward a target
+        inline constexpr const char* lumenTarget   = "lumenTarget";   // target level (dBFS)
+        inline constexpr const char* lumenResponse = "lumenResponse"; // how fast it follows (0-10)
+        inline constexpr const char* lumenActive   = "lumenActive";   // IN / OUT
+
         // SERAPH (the upper, purple unit): OFF / SILK / HEAVEN
         inline constexpr const char* seraphMode   = "seraphMode";
         inline constexpr const char* seraphMultiply = "seraphMultiply"; // multiplies every SERAPH knob except OUTPUT (0-3x)

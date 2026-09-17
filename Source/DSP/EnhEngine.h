@@ -9,6 +9,9 @@
 #include "SubEnhancer.h"
 #include "AnalogStage.h"
 #include "Seraph.h"
+#include "DynamicCompressor.h"
+#include "SpectralLeveler.h"
+#include "SpectrumScope.h"
 #include "EngineMeters.h"
 
 namespace enh::dsp
@@ -18,7 +21,7 @@ namespace enh::dsp
         input ─► analysis: 24 bands + long-term spectrum, FFT tonality,      [feed-forward]
           │                 footstep classifier, harmonic planner, sub follower
           │
-          └─► source-dependent EQ (+ footstep lift) ─► sub enhancer ─► analog stage ─► SERAPH ─► out
+          └─► source-dependent EQ (+ footstep lift) ─► sub enhancer ─► analog stage ─► LUMEN ─► TIDE ─► SERAPH ─► out
                                                                        (auto gain, 2x adaptive   (SILK tone &
                                                                         depth/clarity exciters,   texture, HALO
                                                                         colour, ceiling)          space & width)
@@ -39,6 +42,8 @@ namespace enh::dsp
             bool subBoost = false;
             bool footstep = false;
             float strength = 1.0f;    // ENH STRENGTH: 0 = no effect .. 5 = five times the effect
+            SpectralLeveler::Settings lumen {};   // LUMEN: lifts quiet material
+            DynamicCompressor::Settings tide {};  // TIDE: adaptive-threshold compressor
             Seraph::Settings seraph {};
         };
 
@@ -57,6 +62,12 @@ namespace enh::dsp
         const AdaptiveEQ& getEQ() const noexcept { return eq; }
         const FootstepDetector& getFootstepDetector() const noexcept { return steps; }
         const Seraph& getSeraph() const noexcept { return seraph; }
+        const DynamicCompressor& getCompressor() const noexcept { return tide; }
+        const SpectralLeveler& getLeveler() const noexcept { return lumen; }
+
+        /** Analyser taps: the audio thread only copies samples in, the editor does the FFT. */
+        const ScopeFifo& getInputScope() const noexcept { return scopeIn; }
+        const ScopeFifo& getOutputScope() const noexcept { return scopeOut; }
 
     private:
         void controlTick (const Parameters&) noexcept;
@@ -69,8 +80,15 @@ namespace enh::dsp
         AdaptiveEQ eq;
         SubEnhancer sub;
         AnalogStage analog;
+        SpectralLeveler lumen;
+        DynamicCompressor tide;
         Seraph seraph;
+        ScopeFifo scopeIn, scopeOut;
         EngineMeters meters;
+
+        /** Final safety limiter. SERAPH has its own, but it can be switched off, and no
+            combination of settings should be able to push the plugin past full scale. */
+        float safetyGain = 1.0f;
 
         double sampleRate = 48000.0;
         int maxBlock = 512;

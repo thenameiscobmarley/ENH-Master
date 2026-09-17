@@ -22,6 +22,12 @@ namespace enh::dsp
         float widthPercent = 120.0f, space = 2.5f, decayS = 2.2f, shimmer = 1.5f, tone = 6.0f;
         bool duck = true, bassMono = true, mod = true;
         float seraphMultiply = 1.0f, seraphStrength = 1.0f;
+
+        // TIDE (compressor) and LUMEN (leveler): two knobs each
+        float tideMixPercent = 60.0f, tideResponse = 5.0f;
+        bool tideActive = true;
+        float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
+        bool lumenActive = true;
     };
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -73,6 +79,14 @@ namespace enh::dsp
         s.halo.bassMono = k.bassMono;
         s.halo.mod      = k.mod;
         s.halo.strength = ss;
+
+        // TIDE / LUMEN: no device master, so their knobs map straight across
+        p.tide.mix      = std::clamp (k.tideMixPercent / 100.0f, 0.0f, 1.0f);
+        p.tide.response = std::clamp (k.tideResponse / 10.0f, 0.0f, 1.0f);
+        p.tide.active   = k.tideActive;
+        p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
+        p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);
+        p.lumen.active   = k.lumenActive;
         return p;
     }
 }

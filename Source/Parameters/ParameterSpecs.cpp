@@ -15,6 +15,14 @@ namespace pad::params
             { id::enhMultiply, "ENH Multiply",     "MULTIPLY", "x", Kind::continuous, 0.0f, 3.0f,   1.0f,  2 },
             { id::enhStrength, "ENH Strength",     "STRENGTH", "",  Kind::continuous, 0.0f, 5.0f,   1.0f,  2 },
 
+            { id::tideMix,      "Tide Mix",       "MIX",      " %", Kind::continuous, 0.0f, 100.0f, 60.0f, 0 },
+            { id::tideResponse, "Tide Response",  "RESPONSE", "",   Kind::continuous, 0.0f, 10.0f,  5.0f,  1 },
+            { id::tideActive,   "Tide In",        "IN",       "",   Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
+
+            { id::lumenTarget,   "Lumen Target",   "TARGET",   " dB", Kind::continuous, -36.0f, -6.0f, -18.0f, 1 },
+            { id::lumenResponse, "Lumen Response", "RESPONSE", "",    Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
+            { id::lumenActive,   "Lumen In",       "IN",       "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
+
             { id::seraphMode,  "Seraph Mode",     "POWER",   "",  Kind::choice,     0.0f, 2.0f,   2.0f,  0, 0.0f, { "Off", "Silk", "Heaven" } },
             { id::seraphMultiply, "Seraph Multiply", "MULTIPLY", "x", Kind::continuous, 0.0f, 3.0f, 1.0f, 2 },
             { id::seraphStrength, "Seraph Strength", "STRENGTH", "",  Kind::continuous, 0.0f, 5.0f, 1.0f, 2 },

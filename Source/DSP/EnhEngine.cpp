@@ -17,6 +17,8 @@ namespace enh::dsp
         eq.prepare (sr, controlRate, analyzer, numChannels);
         sub.prepare (sr, controlRate);
         analog.prepare (sr, maxBlock, numChannels);
+        lumen.prepare (sr, numChannels);
+        tide.prepare (sr, numChannels);
         seraph.prepare (sr);
         reset();
     }
@@ -30,10 +32,13 @@ namespace enh::dsp
         eq.reset();
         sub.reset();
         analog.reset();
+        lumen.reset();
+        tide.reset();
         seraph.reset();
 
         samplesToTick = controlInterval;
         planCountdown = 0;
+        safetyGain = 1.0f;
         transient = 0.0f;
 
         for (auto& g : meters.bandGainDb) g = 0.0f;
@@ -79,9 +84,31 @@ namespace enh::dsp
     {
         juce::ScopedNoDenormals noDenormals;
 
+        // Analyser tap, before anything: the audio thread only copies samples.
+        scopeIn.push (buffer.getArrayOfReadPointers(), std::min (2, buffer.getNumChannels()), buffer.getNumSamples());
+
         // Hosts may exceed the prepared block size: process in chunks the oversampler accepts.
         for (int start = 0; start < buffer.getNumSamples(); start += maxBlock)
             processChunk (buffer, start, std::min (maxBlock, buffer.getNumSamples() - start), p);
+
+        scopeOut.push (buffer.getArrayOfReadPointers(), std::min (2, buffer.getNumChannels()), buffer.getNumSamples());
+
+        const auto& comp = tide.getReadout();
+        meters.tideGrDb.store (comp.gainReductionDb, std::memory_order_relaxed);
+        meters.tideThresholdDb.store (comp.thresholdDb, std::memory_order_relaxed);
+        meters.tideRatio.store (comp.ratio, std::memory_order_relaxed);
+        meters.tideInputDb.store (comp.inputDb, std::memory_order_relaxed);
+        meters.tideOutputDb.store (comp.outputDb, std::memory_order_relaxed);
+        meters.tideAdaptivity.store (comp.adaptivity, std::memory_order_relaxed);
+
+        const auto& lev = lumen.getReadout();
+        for (int b = 0; b < SpectralLeveler::numBands; ++b)
+        {
+            meters.lumenGainDb[(size_t) b].store (lev.gainDb[(size_t) b], std::memory_order_relaxed);
+            meters.lumenLevelDb[(size_t) b].store (lev.levelDb[(size_t) b], std::memory_order_relaxed);
+        }
+        meters.lumenTotalDb.store (lev.totalGainDb, std::memory_order_relaxed);
+        meters.lumenActivity.store (lev.activity, std::memory_order_relaxed);
 
         meters.autoGainDb.store (analog.getAutoGainDb(), std::memory_order_relaxed);
         meters.outputPeakDb.store (analog.getPeakDb(), std::memory_order_relaxed);
@@ -141,7 +168,30 @@ namespace enh::dsp
         juce::dsp::AudioBlock<float> block (write, (size_t) chans, (size_t) start, (size_t) n);
         analog.process (block, { boost, transient, p.footstep ? steps.getConfidence() : 0.0f, planner.depth, planner.clarity, strength });
 
-        float* seraphChannels[2] { write[0] + start, write[chans - 1] + start };
-        seraph.process (seraphChannels, chans, n, p.seraph);
+        float* chunk[2] { write[0] + start, write[chans - 1] + start };
+
+        // LUMEN lifts what is too quiet, TIDE holds down what is too loud, SERAPH finishes.
+        lumen.process (chunk, chans, n, p.lumen);
+        tide.process (chunk, chans, n, p.tide);
+        seraph.process (chunk, chans, n, p.seraph);
+
+        // Safety limiter: instant gain-down, slow recovery, then a soft clip. Zero latency, so it
+        // cannot catch a single sample perfectly - the soft clip is what handles that.
+        constexpr float ceiling = 0.98f;
+        for (int i = 0; i < n; ++i)
+        {
+            float peak = 0.0f;
+            for (int c = 0; c < chans; ++c)
+                peak = std::max (peak, std::abs (chunk[c][i]));
+
+            const float needed = peak * safetyGain > ceiling ? ceiling / std::max (1.0e-6f, peak) : 1.0f;
+            safetyGain = needed < safetyGain ? needed : needed + (safetyGain - needed) * 0.9999f;
+
+            for (int c = 0; c < chans; ++c)
+            {
+                const float y = chunk[c][i] * safetyGain;
+                chunk[c][i] = std::abs (y) <= ceiling ? y : std::copysign (ceiling + (1.0f - ceiling) * std::tanh ((std::abs (y) - ceiling) / (1.0f - ceiling)), y);
+            }
+        }
     }
 }

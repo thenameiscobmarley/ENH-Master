@@ -1577,13 +1577,198 @@ int main (int argc, char** argv)
         check (r.finite, "full chain stays finite with everything at maximum");
     }
 
+    //==========================================================================
+    std::printf ("\n== TIDE (adaptive compressor) ==\n");
+    {
+        using enh::dsp::DynamicCompressor;
+
+        auto runTide = [&] (float levelDb, float response, float mix, bool dense, double seconds)
+        {
+            DynamicCompressor comp;
+            comp.prepare (sr, 2);
+            DynamicCompressor::Settings s;
+            s.active = true;
+            s.response = response;
+            s.mix = mix;
+
+            const int n = (int) (seconds * sr);
+            std::vector<float> l ((size_t) n), r ((size_t) n);
+            juce::Random rnd (7);
+            Pink pk;
+            double inSq = 0.0, outSq = 0.0;
+
+            for (int i = 0; i < n; ++i)
+            {
+                float x = dbfs (levelDb) * pk.next (rnd) * 4.0f;
+                if (! dense)   // sparse hits: high crest factor
+                    x *= (i % (int) (0.4 * sr) < (int) (0.02 * sr)) ? 3.0f : 0.05f;
+                l[(size_t) i] = r[(size_t) i] = x;
+                inSq += (double) x * x;
+            }
+
+            for (int pos = 0; pos < n; pos += block)
+            {
+                float* c[2] { l.data() + pos, r.data() + pos };
+                comp.process (c, 2, std::min (block, n - pos), s);
+            }
+
+            bool finite = true;
+            for (int i = n / 2; i < n; ++i)
+            {
+                outSq += (double) l[(size_t) i] * l[(size_t) i];
+                finite = finite && std::isfinite (l[(size_t) i]);
+            }
+
+            struct R { float threshold, gr, ratio, inDb, outDb; bool finite; };
+            const double half = (double) (n - n / 2);
+            return R { comp.getReadout().thresholdDb, comp.getReadout().gainReductionDb, comp.getReadout().ratio,
+                       (float) (10.0 * std::log10 (inSq / n + 1e-12)), (float) (10.0 * std::log10 (outSq / half + 1e-12)), finite };
+        };
+
+        const auto loud = runTide (-12.0f, 0.5f, 1.0f, true, 6.0);
+        const auto quiet = runTide (-30.0f, 0.5f, 1.0f, true, 6.0);
+        std::printf ("  dense -12 dBFS: threshold %.1f dB, GR %.1f dB, ratio %.2f\n", loud.threshold, loud.gr, loud.ratio);
+        std::printf ("  dense -30 dBFS: threshold %.1f dB, GR %.1f dB, ratio %.2f\n", quiet.threshold, quiet.gr, quiet.ratio);
+        check (loud.threshold > quiet.threshold + 8.0f, "the threshold follows the programme level, it is not fixed");
+        check (loud.gr > 0.5f, "dense material is actually compressed");
+
+        const auto peaky = runTide (-12.0f, 0.5f, 1.0f, false, 6.0);
+        std::printf ("  peaky -12 dBFS: threshold %.1f dB, ratio %.2f\n", peaky.threshold, peaky.ratio);
+        check (peaky.ratio < loud.ratio, "peaky material gets a gentler ratio than dense material");
+
+        const auto fast = runTide (-12.0f, 1.0f, 1.0f, true, 6.0);
+        const auto slow = runTide (-12.0f, 0.0f, 1.0f, true, 6.0);
+        std::printf ("  RESPONSE 10: threshold %.1f dB / RESPONSE 0: %.1f dB\n", fast.threshold, slow.threshold);
+        check (fast.threshold < slow.threshold, "RESPONSE digs the threshold deeper into the programme");
+
+        std::printf ("  level match: in %.1f dB -> out %.1f dB (MIX 100%%)\n", loud.inDb, loud.outDb);
+        check (std::abs (loud.outDb - loud.inDb) < 4.0f, "auto make-up keeps the level within 4 dB, so MIX is usable");
+        check (loud.finite && quiet.finite && peaky.finite, "TIDE stays finite");
+
+        {
+            DynamicCompressor comp;
+            comp.prepare (sr, 2);
+            DynamicCompressor::Settings s;
+            s.active = true;
+            s.mix = 0.0f;
+            std::vector<float> a (512), b (512);
+            juce::Random rnd (3);
+            for (size_t i = 0; i < a.size(); ++i) a[i] = b[i] = dbfs (-6.0f) * (rnd.nextFloat() * 2.0f - 1.0f);
+            const std::vector<float> before = a;
+            float* c[2] { a.data(), b.data() };
+            comp.process (c, 2, 512, s);
+            float worst = 0.0f;
+            for (size_t i = 0; i < a.size(); ++i) worst = std::max (worst, std::abs (a[i] - before[i]));
+            check (worst == 0.0f, "MIX 0 % passes the signal through untouched");
+        }
+    }
+
+    //==========================================================================
+    std::printf ("\n== LUMEN (spectral leveler) ==\n");
+    {
+        using enh::dsp::SpectralLeveler;
+
+        auto runLumen = [&] (float levelDb, float targetDb, double seconds)
+        {
+            SpectralLeveler lev;
+            lev.prepare (sr, 2);
+            SpectralLeveler::Settings s;
+            s.active = true;
+            s.targetDb = targetDb;
+            s.response = 0.6f;
+
+            const int n = (int) (seconds * sr);
+            std::vector<float> l ((size_t) n), r ((size_t) n);
+            juce::Random rnd (11);
+            Pink pk;
+            for (int i = 0; i < n; ++i)
+                l[(size_t) i] = r[(size_t) i] = dbfs (levelDb) * pk.next (rnd) * 4.0f;
+
+            const std::vector<float> dry = l;
+
+            for (int pos = 0; pos < n; pos += block)
+            {
+                float* c[2] { l.data() + pos, r.data() + pos };
+                lev.process (c, 2, std::min (block, n - pos), s);
+            }
+
+            double inSq = 0.0, outSq = 0.0;
+            bool finite = true;
+            for (int i = n / 2; i < n; ++i)
+            {
+                inSq += (double) dry[(size_t) i] * dry[(size_t) i];
+                outSq += (double) l[(size_t) i] * l[(size_t) i];
+                finite = finite && std::isfinite (l[(size_t) i]);
+            }
+            const double half = (double) (n - n / 2);
+            struct R { float inDb, outDb, liftDb, total; bool finite; };
+            return R { (float) (10.0 * std::log10 (inSq / half + 1e-12)), (float) (10.0 * std::log10 (outSq / half + 1e-12)),
+                       (float) (10.0 * std::log10 (outSq / std::max (1e-12, inSq))), lev.getReadout().totalGainDb, finite };
+        };
+
+        const auto quiet = runLumen (-34.0f, -18.0f, 8.0);
+        std::printf ("  quiet source: %.1f dB -> %.1f dB (lift %+.1f dB)\n", quiet.inDb, quiet.outDb, quiet.liftDb);
+        check (quiet.liftDb > 4.0f, "quiet material is lifted toward the target");
+        check (quiet.outDb <= -18.0f + 8.0f, "the lift stops near the target instead of running away");
+
+        const auto loud = runLumen (-8.0f, -18.0f, 8.0);
+        std::printf ("  loud source : %.1f dB -> %.1f dB (lift %+.1f dB)\n", loud.inDb, loud.outDb, loud.liftDb);
+        check (std::abs (loud.liftDb) < 1.0f, "material already above the target is left alone");
+
+        const auto floorOnly = runLumen (-72.0f, -18.0f, 8.0);
+        std::printf ("  noise floor : %.1f dB -> %.1f dB (lift %+.1f dB)\n", floorOnly.inDb, floorOnly.outDb, floorOnly.liftDb);
+        check (floorOnly.liftDb < 4.0f, "the noise floor is not dragged up to the target");
+
+        {
+            SpectralLeveler lev;
+            lev.prepare (sr, 2);
+            SpectralLeveler::Settings s;
+            s.active = false;
+            std::vector<float> a (2048), b (2048);
+            juce::Random rnd (5);
+            for (size_t i = 0; i < a.size(); ++i) a[i] = b[i] = dbfs (-10.0f) * (rnd.nextFloat() * 2.0f - 1.0f);
+            const std::vector<float> before = a;
+            float* c[2] { a.data(), b.data() };
+            lev.process (c, 2, (int) a.size(), s);
+            float worst = 0.0f;
+            for (size_t i = 0; i < a.size(); ++i) worst = std::max (worst, std::abs (a[i] - before[i]));
+            check (worst == 0.0f, "OUT is a true bypass");
+        }
+
+        {
+            SpectralLeveler lev;
+            lev.prepare (sr, 2);
+            SpectralLeveler::Settings s;
+            s.active = true;
+            s.targetDb = -60.0f;     // nothing is below this, so every band gain stays at 0 dB
+            std::vector<float> a (8192), b (8192);
+            juce::Random rnd (9);
+            Pink pk;
+            for (size_t i = 0; i < a.size(); ++i) a[i] = b[i] = dbfs (-10.0f) * pk.next (rnd) * 4.0f;
+            const std::vector<float> before = a;
+            for (int pos = 0; pos < (int) a.size(); pos += block)
+            {
+                float* c[2] { a.data() + pos, b.data() + pos };
+                lev.process (c, 2, std::min (block, (int) a.size() - pos), s);
+            }
+            float worst = 0.0f;
+            for (size_t i = 64; i < a.size(); ++i) worst = std::max (worst, std::abs (a[i] - before[i]));
+            std::printf ("  band sum error: %.2e\n", worst);
+            check (worst < 1.0e-5f, "the three bands sum back to the input (LR4 split is transparent)");
+        }
+
+        check (quiet.finite && loud.finite, "LUMEN stays finite");
+    }
+
     std::printf ("\n== CPU (this machine) ==\n");
     for (double rate : { 44100.0, 48000.0, 96000.0 })
     {
         const auto scene = makeScene (rate, 20.0, true, true, 42);
         EnhEngine::Parameters p;
         p.normalize = 0.7f; p.adaptSpeed = 0.5f; p.sub = 0.6f; p.subBoost = true; p.footstep = true;
-        p.seraph.mode = enh::dsp::Seraph::heaven;   // both units running, as in the plugin
+        p.seraph.mode = enh::dsp::Seraph::heaven;   // every unit running, as the plugin ships
+        p.lumen.active = true;
+        p.tide.active = true;
         const auto r = run (scene, rate, 256, p);
         const double realtime = 20.0 / r.seconds;
         std::printf ("  %6.0f Hz stereo : %.1fx realtime  (%.2f%% of one core)\n", rate, realtime, 100.0 / realtime);

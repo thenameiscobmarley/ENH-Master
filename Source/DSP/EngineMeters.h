@@ -17,6 +17,18 @@ namespace enh::dsp
         std::atomic<float> autoGainDb { 0.0f };
         std::atomic<float> outputPeakDb { -100.0f };
 
+        // TIDE (compressor): what the adaptive detector has decided, right now
+        std::atomic<float> tideGrDb { 0.0f };
+        std::atomic<float> tideThresholdDb { -20.0f };
+        std::atomic<float> tideRatio { 2.0f };
+        std::atomic<float> tideInputDb { -100.0f }, tideOutputDb { -100.0f };
+        std::atomic<float> tideAdaptivity { 0.0f };
+
+        // LUMEN (leveler): lift per band, and what each band is measuring
+        std::array<std::atomic<float>, 3> lumenGainDb {};
+        std::array<std::atomic<float>, 3> lumenLevelDb {};
+        std::atomic<float> lumenTotalDb { 0.0f }, lumenActivity { 0.0f };
+
         // SERAPH
         std::atomic<float> silkSmoothingDb { 0.0f };   // deepest resonance dip right now
         std::atomic<float> haloDb { -60.0f };          // tail level relative to the dry programme

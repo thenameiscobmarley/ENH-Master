@@ -23,6 +23,13 @@ PluginProcessor::PluginProcessor()
     subBoost   = state.getRawParameterValue (id::subBoost);
     footstep   = state.getRawParameterValue (id::footstep);
 
+    tideMix       = state.getRawParameterValue (id::tideMix);
+    tideResponse  = state.getRawParameterValue (id::tideResponse);
+    tideActive    = state.getRawParameterValue (id::tideActive);
+    lumenTarget   = state.getRawParameterValue (id::lumenTarget);
+    lumenResponse = state.getRawParameterValue (id::lumenResponse);
+    lumenActive   = state.getRawParameterValue (id::lumenActive);
+
     seraphMode   = state.getRawParameterValue (id::seraphMode);
     enhMultiply    = state.getRawParameterValue (id::enhMultiply);
     enhStrength    = state.getRawParameterValue (id::enhStrength);
@@ -79,6 +86,13 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.footstep       = footstep->load() > 0.5f;
     k.enhMultiply    = enhMultiply->load();
     k.enhStrength    = enhStrength->load();
+
+    k.tideMixPercent = tideMix->load();
+    k.tideResponse   = tideResponse->load();
+    k.tideActive     = tideActive->load() > 0.5f;
+    k.lumenTargetDb  = lumenTarget->load();
+    k.lumenResponse  = lumenResponse->load();
+    k.lumenActive    = lumenActive->load() > 0.5f;
 
     k.seraphMode     = juce::roundToInt (seraphMode->load());
     k.smooth         = silkSmooth->load();

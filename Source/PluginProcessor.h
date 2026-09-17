@@ -46,6 +46,8 @@ private:
     enh::dsp::EnhEngine engine;
 
     std::atomic<float>* enhMultiply = nullptr, *enhStrength = nullptr, *seraphMultiply = nullptr, *seraphStrength = nullptr;
+    std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
+    std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
     std::atomic<float>* seraphMode = nullptr,
                       * silkSmooth = nullptr, *silkAir = nullptr, *silkWarmth = nullptr, *silkBody = nullptr, *silkOutput = nullptr,
                       * silkProtect = nullptr, *silkTape = nullptr, *silkAuto = nullptr,
