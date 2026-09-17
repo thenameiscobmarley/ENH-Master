@@ -75,7 +75,7 @@ namespace enh::dsp
             return;
 
         // --- base-rate colour ------------------------------------------------------------
-        const float wantedAir = 1.8f * s.clarity;
+        const float wantedAir = 2.5f * s.clarity;
         if (std::abs (wantedAir - airDb) > 0.02f)
         {
             air = BiquadCoeffs::highShelf (sr, 11000.0, 0.7071, wantedAir);
@@ -87,7 +87,9 @@ namespace enh::dsp
         if (inDb > -60.0f)
         {
             const float k = 1.0f - std::exp (-(float) n / (float) sr / 1.5f);
-            autoGainDb = std::clamp (autoGainDb + (inDb - outDb) * k, -9.0f, 9.0f);
+            // Match loudness, but let full CLARITY sit ~1.5 dB up: enhancement should be heard
+            const float allowance = 1.5f * s.clarity;
+            autoGainDb = std::clamp (autoGainDb + (inDb + allowance - outDb) * k, -9.0f, 9.0f);
         }
 
         const float targetGain = dbToGain (autoGainDb);
@@ -116,8 +118,8 @@ namespace enh::dsp
         auto up = oversampling->processSamplesUp (sub);
         const int un = (int) up.getNumSamples();
 
-        const float hiTarget = s.clarity * (0.10f + 0.30f * s.transient) + 0.15f * s.footstep;
-        const float lmTarget = s.clarity * 0.12f;
+        const float hiTarget = s.clarity * (0.35f + 0.60f * s.transient) + 0.30f * s.footstep;
+        const float lmTarget = s.clarity * 0.30f;
         const float hiStep = (hiTarget - hiAmount) / (float) un;
         const float lmStep = (lmTarget - lmAmount) / (float) un;
 

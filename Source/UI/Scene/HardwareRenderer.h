@@ -64,6 +64,7 @@ namespace pad
                          float radius, float blur, float strength);
         void uploadOverlayIfChanged();
         void pollPointer() noexcept;
+        void handleInteraction() noexcept;
         void recordStats (double frameStartMs, double renderMs);
 
         ParameterBridge& bridge;
@@ -95,8 +96,10 @@ namespace pad
         std::array<float, 5> switchGlow {};
         std::array<float, enh::dsp::numBands> displayBands {};
         float stepFlash = 0.0f, activityGlow = 0.0f;
-        bool pointerInside = false;
-        float pointerNdcX = 0.0f, pointerNdcY = 0.0f;
+        bool pointerInside = false, pointerPolled = false, leftDown = false, lastLeftDown = false, fineDrag = false;
+        float pointerNdcX = 0.0f, pointerNdcY = 0.0f, pointerX = 0.0f, pointerY = 0.0f, lastPointerX = 0.0f, lastPointerY = 0.0f;
+        int dragControl = -1, dragParam = -1;
+        float dragValue = 0.0f;
         double lastFrameMs = 0.0, timeSeconds = 0.0, busyUntilMs = 0.0;
         int swapInterval = -1;
 

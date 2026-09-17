@@ -1,5 +1,6 @@
 #include "HardwareRenderer.h"
 #include "GeometryFactory.h"
+#include "Picking.h"
 
 using namespace juce::gl;
 
@@ -143,19 +144,26 @@ namespace pad
         const int w = juce::jmax (1, shared.viewWidth.load()), h = juce::jmax (1, shared.viewHeight.load());
         int wx = 0, wy = 0;
 
-        if (pointer.query ((unsigned long) shared.nativeWindow.load(), wx, wy))
+        bool left = false, fine = false;
+
+        if (pointer.query ((unsigned long) shared.nativeWindow.load(), wx, wy, left, fine))
         {
             // Window pixels -> this view's logical coordinates
             const float scale = std::max (0.25f, shared.platformScale.load());
-            const float x = (float) wx / scale - (float) shared.viewOffsetX.load();
-            const float y = (float) wy / scale - (float) shared.viewOffsetY.load();
+            pointerX = (float) wx / scale - (float) shared.viewOffsetX.load();
+            pointerY = (float) wy / scale - (float) shared.viewOffsetY.load();
 
-            pointerInside = x >= 0.0f && y >= 0.0f && x < (float) w && y < (float) h;
-            pointerNdcX = juce::jlimit (-1.0f, 1.0f, 2.0f * x / (float) w - 1.0f);
-            pointerNdcY = juce::jlimit (-1.0f, 1.0f, 1.0f - 2.0f * y / (float) h);
+            pointerInside = pointerX >= 0.0f && pointerY >= 0.0f && pointerX < (float) w && pointerY < (float) h;
+            pointerNdcX = juce::jlimit (-1.0f, 1.0f, 2.0f * pointerX / (float) w - 1.0f);
+            pointerNdcY = juce::jlimit (-1.0f, 1.0f, 1.0f - 2.0f * pointerY / (float) h);
+            leftDown = left;
+            fineDrag = fine;
+            pointerPolled = true;
         }
         else
         {
+            pointerPolled = false;
+            leftDown = false;
             // Fall back to the (host-paced) mouse events
             pointerInside = shared.mouseInside.load();
             pointerNdcX = shared.mouseNdcX.load();
@@ -163,6 +171,81 @@ namespace pad
         }
 
         shared.pointerInside = pointerInside;
+        shared.renderInteraction = pointerPolled;
+    }
+
+    void HardwareRenderer::handleInteraction() noexcept
+    {
+        // Clicks and drags straight from the polled pointer: the parameter changes on the
+        // very frame the button moves, instead of when the host delivers the mouse event.
+        // (Host gesture begin/end are still sent from the message-thread mouse events.)
+        if (! pointerPolled)
+        {
+            lastLeftDown = false;
+            return;
+        }
+
+        const bool pressed = leftDown && ! lastLeftDown;
+        const bool released = ! leftDown && lastLeftDown;
+        lastLeftDown = leftDown;
+
+        const int w = juce::jmax (1, shared.viewWidth.load()), h = juce::jmax (1, shared.viewHeight.load());
+
+        if (pressed && pointerInside)
+        {
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY);
+            const int hit = pickControl (cam, pointerNdcX, pointerNdcY);
+
+            if (hit >= 0)
+            {
+                shared.renderPressMs = juce::Time::getMillisecondCounterHiRes();
+                const int p = controlParam[(size_t) hit];
+
+                if (controls[(size_t) hit].kind == ControlKind::toggle)
+                {
+                    bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
+                }
+                else
+                {
+                    dragControl = hit;
+                    dragParam = p;
+                    dragValue = bridge.getNormalised (p);
+                    shared.activeControl = hit;
+                    shared.dragging = true;
+                    shared.renderDragParam = p;
+                }
+            }
+
+            lastPointerX = pointerX;
+            lastPointerY = pointerY;
+        }
+        else if (leftDown && dragParam >= 0)
+        {
+            const float dx = pointerX - lastPointerX, dy = pointerY - lastPointerY;
+            lastPointerX = pointerX;
+            lastPointerY = pointerY;
+
+            if (std::abs (dx) + std::abs (dy) > 0.0f)
+            {
+                const float pixelsForFullRange = fineDrag ? 1400.0f : 260.0f;
+                dragValue = juce::jlimit (0.0f, 1.0f, dragValue + (-dy + dx * 0.25f) / pixelsForFullRange);
+                bridge.setValueWithSource (dragParam, dragValue, ControlSource::user);
+            }
+        }
+
+        if (released && dragParam >= 0)
+        {
+            dragControl = dragParam = -1;
+            shared.activeControl = -1;
+            shared.dragging = false;
+            shared.renderDragParam = -1;
+        }
+
+        if (dragParam < 0 && pointerInside)
+        {
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY);
+            shared.hoveredControl = pickControl (cam, pointerNdcX, pointerNdcY);
+        }
     }
 
     void HardwareRenderer::updateAnimation (float dt)
@@ -296,6 +379,7 @@ namespace pad
         if (ready)
         {
             pollPointer();
+            handleInteraction();
             paceFrame (now);
             now = juce::Time::getMillisecondCounterHiRes();
         }

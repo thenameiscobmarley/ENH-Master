@@ -28,7 +28,7 @@ namespace pad::anim
         juce::uint32 lastCounter = 0;
         ControlSource source = ControlSource::none;
 
-        static constexpr float omega = 20.0f; // rad/s, settles in ~0.25 s
+        static constexpr float omega = 55.0f; // rad/s, settles in ~0.1 s
 
         void update (float targetAngle, bool changed, ControlSource changeSource, bool hovered, float dt) noexcept
         {
@@ -79,7 +79,7 @@ namespace pad::anim
         bool  state = false, initialised = false;
         float from = 0.0f, to = 0.0f, t = 1.0f, angle = 0.0f;
 
-        static constexpr float duration = 0.15f;
+        static constexpr float duration = 0.09f;
 
         /** easeOutBack: quick snap with slight overshoot (~6%). */
         static float snap (float x) noexcept

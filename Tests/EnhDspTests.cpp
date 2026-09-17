@@ -133,10 +133,67 @@ namespace
         return s;
     }
 
+    /** Music-like programme: kick, snare, hats, bass, pad and a formant "vocal". */
+    Scene makeMusic (double sr, double seconds, int seed)
+    {
+        Scene s;
+        const auto n = (size_t) (seconds * sr);
+        s.left.assign (n, 0.0f);
+        s.right.assign (n, 0.0f);
+        juce::Random r (seed);
+
+        auto hatHp = BiquadCoeffs::highPass (sr, 7000.0, 0.7);
+        auto snareBp = BiquadCoeffs::bandPass (sr, 1800.0, 0.8);
+        auto bassLp = BiquadCoeffs::lowPass (sr, 400.0, 0.9);
+        auto padLp = BiquadCoeffs::lowPass (sr, 1500.0, 0.7);
+        auto f1 = BiquadCoeffs::bandPass (sr, 700.0, 5.0), f2 = BiquadCoeffs::bandPass (sr, 1200.0, 6.0), f3 = BiquadCoeffs::bandPass (sr, 2600.0, 7.0);
+        BiquadState hat, snare, bass, padL, padR, v1, v2, v3;
+
+        const double bpm = 110.0, beat = 60.0 / bpm;
+        const double notes[4] { 55.0, 55.0, 73.4, 82.4 };
+        double bassPhase = 0, padP[3] {}, voxPhase = 0;
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            const double t = i / sr;
+            const double inBeat = std::fmod (t, beat), inEighth = std::fmod (t, beat * 0.5);
+            const int barIndex = (int) (t / (beat * 4.0)) % 4;
+
+            const float kick = (float) (std::sin (twoPi * (50.0 + 90.0 * std::exp (-inBeat * 30.0)) * inBeat) * std::exp (-inBeat * 9.0)) * 0.55f;
+            const double snT = std::fmod (t + beat, beat * 2.0);
+            const float sn = snT < 0.25 ? (float) ((snare.process (snareBp, r.nextFloat() * 2 - 1) * 2.5 + 0.3 * std::sin (twoPi * 190.0 * snT)) * std::exp (-snT * 18.0)) * 0.45f : 0.0f;
+            const float hh = hat.process (hatHp, r.nextFloat() * 2 - 1) * (float) std::exp (-inEighth * 60.0) * 0.18f;
+
+            bassPhase += notes[barIndex] / sr;
+            const float saw = (float) (2.0 * (bassPhase - std::floor (bassPhase)) - 1.0);
+            const float bs = bass.process (bassLp, saw) * 0.30f;
+
+            float pad = 0.0f;
+            for (int k = 0; k < 3; ++k)
+            {
+                padP[k] += (220.0 * (1.0 + 0.004 * (k - 1)) * (barIndex % 2 == 0 ? 1.0 : 1.335)) / sr;
+                pad += (float) (2.0 * (padP[k] - std::floor (padP[k])) - 1.0);
+            }
+
+            voxPhase += (180.0 + 20.0 * std::sin (twoPi * 0.5 * t)) / sr;
+            const float pulse = (voxPhase - std::floor (voxPhase)) < 0.15 ? 1.0f : -0.18f;
+            const float syll = (float) std::pow (std::max (0.0, std::sin (twoPi * 3.1 * t)), 1.5) * (std::fmod (t, 4.0) < 2.5 ? 1.0f : 0.0f);
+            const float vox = (v1.process (f1, pulse) * 1.0f + v2.process (f2, pulse) * 0.6f + v3.process (f3, pulse) * 0.35f) * syll * 0.35f;
+
+            const float mono = kick + sn + bs + vox;
+            s.left[i]  = 0.5f * (mono + hh * 0.8f + padL.process (padLp, pad) * 0.08f);
+            s.right[i] = 0.5f * (mono + hh * 1.2f + padR.process (padLp, pad) * 0.08f);
+        }
+
+        return s;
+    }
+
     struct RunResult
     {
         std::vector<float> confidence;   // per block
         std::vector<enh::dsp::FootstepDetector::Trace> traces;
+        double meanAbsBandGain = 0.0;
+        float maxAbsBandGain = 0.0f;
         std::vector<float> outL, outR;
         double seconds = 0.0;
         bool finite = true;
@@ -175,9 +232,19 @@ namespace
             }
 
             res.confidence.push_back (engine.getFootstepConfidence());
+
+            float blockAbs = 0.0f;
+            for (auto& g : engine.getMeters().bandGainDb)
+            {
+                const float v = std::abs (g.load());
+                blockAbs += v;
+                res.maxAbsBandGain = std::max (res.maxAbsBandGain, v);
+            }
+            res.meanAbsBandGain += blockAbs / (float) enh::dsp::numBands;
             res.traces.push_back (engine.getFootstepTrace());
         }
 
+        res.meanAbsBandGain /= (double) std::max<size_t> (1, res.confidence.size());
         res.seconds = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
         return res;
     }
@@ -383,6 +450,50 @@ int main (int argc, char** argv)
     }
 
     //==========================================================================
+    std::printf ("\n== Audible strength on a music-like mix ==\n");
+    {
+        const auto music = makeMusic (sr, 12.0, 21);
+        const size_t from = (size_t) (4.0 * sr), to = music.left.size();
+
+        EnhEngine::Parameters base;
+        base.clarity = 0.0f; base.adaptSpeed = 0.5f;
+        const auto ref = run (music, sr, block, base);
+
+        auto diffDb = [&] (const RunResult& r)
+        {
+            double d = 0, e = 0;
+            for (size_t i = from; i < to; ++i)
+            {
+                const double x = r.outL[i] - ref.outL[i];
+                d += x * x;
+                e += (double) ref.outL[i] * ref.outL[i];
+            }
+            return (float) (10.0 * std::log10 (d / e + 1e-20));
+        };
+
+        for (float c : { 0.5f, 1.0f })
+        {
+            EnhEngine::Parameters p = base;
+            p.clarity = c;
+            const auto r = run (music, sr, block, p);
+            std::printf ("  CLARITY %3.0f%%: difference %+.1f dB rel.  mean |band gain| %.1f dB  max %.1f dB  loudness %+.1f dB\n",
+                         c * 100.0f, diffDb (r), r.meanAbsBandGain, r.maxAbsBandGain, rmsDb (r.outL, from, to) - rmsDb (music.left, from, to));
+            if (c > 0.9f)
+            {
+                check (diffDb (r) > -12.0f, "full CLARITY changes the sound clearly (difference > -12 dB)");
+                check (r.meanAbsBandGain > 2.0, "adaptive EQ actively moving (mean |gain| > 2 dB)");
+                check (r.finite && r.peak <= 1.0f, "output finite and below full scale");
+            }
+        }
+
+        EnhEngine::Parameters p = base;
+        p.sub = 1.0f; p.subBoost = true;
+        const auto rs = run (music, sr, block, p);
+        std::printf ("  SUB 100%% + BOOST: difference %+.1f dB rel.\n", diffDb (rs));
+        check (diffDb (rs) > -12.0f, "SUB + BOOST changes the sound clearly");
+        check (rs.finite && rs.peak <= 1.0f, "SUB + BOOST output below full scale (peak " + juce::String (rs.peak, 3) + ")");
+    }
+
     std::printf ("\n== CPU (this machine) ==\n");
     for (double rate : { 44100.0, 48000.0, 96000.0 })
     {

@@ -21,6 +21,9 @@ namespace pad
             Returns false if unavailable (no X server, window gone, pointer on another screen). */
         bool query (unsigned long window, int& windowX, int& windowY) noexcept;
 
+        /** Same, also reporting the left button and Shift/Ctrl state. */
+        bool query (unsigned long window, int& windowX, int& windowY, bool& leftDown, bool& fineModifier) noexcept;
+
     private:
         struct Impl;
         std::unique_ptr<Impl> impl;

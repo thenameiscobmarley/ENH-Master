@@ -2,6 +2,7 @@
 #include "Scene/HardwareRenderer.h"
 #include "Scene/CameraRig.h"
 #include "Scene/DeviceLayout.h"
+#include "Scene/Picking.h"
 #include "../PluginProcessor.h"
 
 namespace pad
@@ -79,27 +80,7 @@ namespace pad
     {
         const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
         const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load());
-        const float nx = 2.0f * pos.x / w - 1.0f, ny = 1.0f - 2.0f * pos.y / h;
-
-        for (int i = 0; i < numControls; ++i)
-        {
-            const auto& c = controls[(size_t) i];
-            float lx = 0, lz = 0;
-
-            if (c.kind == ControlKind::toggle)
-            {
-                if (cam.intersectPanel (nx, ny, 0.12f, lx, lz)
-                    && Rect { c.x, c.z, switchPlateHalfW + 0.08f, switchPlateHalfD + 0.10f }.contains (lx, lz))
-                    return i;
-            }
-            else if (cam.intersectPanel (nx, ny, capTop * 0.6f, lx, lz)
-                     && std::hypot (lx - c.x, lz - c.z) < bezelRadius * 1.08f)
-            {
-                return i;
-            }
-        }
-
-        return -1;
+        return pad::pickControl (cam, 2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h);
     }
 
     void HardwareView::updateMouse (juce::Point<float> pos)
@@ -141,8 +122,27 @@ namespace pad
             return;
 
         const int p = paramIndexForControl (hit);
+        const bool isToggle = controls[(size_t) hit].kind == ControlKind::toggle;
 
-        if (controls[(size_t) hit].kind == ControlKind::toggle)
+        if (shared.renderInteraction.load())
+        {
+            // The render thread already applied the change from the polled pointer;
+            // mouse events (delivered late by some hosts) only frame the host gesture.
+            pressEventMs = juce::Time::getMillisecondCounterHiRes();
+
+            if (isToggle)
+            {
+                pendingToggle = hit;
+            }
+            else
+            {
+                gestureParam = p;
+                bridge.beginGesture (p, ControlSource::user);
+            }
+            return;
+        }
+
+        if (isToggle)
         {
             bridge.beginGesture (p, ControlSource::user);
             bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
@@ -177,12 +177,35 @@ namespace pad
 
     void HardwareView::mouseUp (const juce::MouseEvent&)
     {
+        if (gestureParam >= 0)
+        {
+            bridge.endGesture (gestureParam);
+            gestureParam = -1;
+        }
+
+        if (pendingToggle >= 0)
+        {
+            const int p = paramIndexForControl (pendingToggle);
+            bridge.beginGesture (p, ControlSource::user);
+
+            // A click shorter than one rendered frame can slip past the pointer poll: apply it here.
+            if (shared.renderPressMs.load() < pressEventMs - 1500.0)
+                bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
+
+            bridge.endGesture (p);
+            pendingToggle = -1;
+        }
+
         if (dragParam >= 0)
             bridge.endGesture (dragParam);
 
         dragControl = dragParam = -1;
-        shared.activeControl = -1;
-        shared.dragging = false;
+
+        if (! shared.renderInteraction.load())
+        {
+            shared.activeControl = -1;
+            shared.dragging = false;
+        }
     }
 
     void HardwareView::mouseDoubleClick (const juce::MouseEvent& e)

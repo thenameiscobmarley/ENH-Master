@@ -25,6 +25,9 @@ namespace pad
         // written by render thread
         std::atomic<float> parallaxX { 0.0f }, parallaxY { 0.0f };
         std::atomic<bool>  pointerInside { false };
+        std::atomic<bool>  renderInteraction { false };  // true: clicks/drags handled on the render thread
+        std::atomic<int>   renderDragParam { -1 };        // parameter being dragged by the render thread
+        std::atomic<double> renderPressMs { -1.0e9 };     // when the render thread last handled a press
         std::atomic<bool>  animating { true };
 
         // scope overlay hand-off

@@ -49,6 +49,7 @@ namespace enh::dsp
         std::array<std::array<BiquadState, numBands>, maxChannels> states {};
         std::array<PDController, numBands> controllers {};
         std::array<float, numBands> detailWeight {};
+        std::array<float, numBands> signatureDb {};   // CLARITY tonal shape at full setting
         std::array<bool, numBands> active {};
         int activeCount = 0;
         float lookahead = 0.01f;

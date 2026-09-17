@@ -25,6 +25,12 @@ namespace enh::dsp
                           + 0.55f * octaveBell (hz, 2800.0, 1.4)    // vocal presence / detail
                           + 0.30f * octaveBell (hz, 10000.0, 1.0);  // air
             detailWeight[i] = std::clamp (w, 0.15f, 1.2f);
+
+            // Pro "clarity" moves: bass definition, less mud, vocal presence, air
+            signatureDb[i] = 2.5f * octaveBell (hz, 90.0, 0.8)
+                           - 3.5f * octaveBell (hz, 320.0, 0.9)
+                           + 4.0f * octaveBell (hz, 3200.0, 1.1)
+                           + 3.5f * octaveBell (hz, 11000.0, 0.9);
         }
 
         // Analysis delay (short follower attack) + half a control period
@@ -81,18 +87,29 @@ namespace enh::dsp
             const float burst = a.shortDb[i] - a.mediumDb[i];     // momentary burst in this band
 
             // Self-tuned threshold: busier bands get more tolerance before being cut
-            const float cutThreshold = 3.0f + 0.4f * sigma;
-            const float cut = 0.55f * softRamp (prominence - cutThreshold, 4.0f)
-                            + 0.40f * softRamp (burst - 5.0f, 4.0f);
+            const float cutThreshold = 1.5f + 0.25f * sigma;
+            const float cut = 0.80f * softRamp (prominence - cutThreshold, 3.0f)      // masking band
+                            + 0.60f * softRamp (burst - 3.0f, 3.0f);                  // momentary burst
 
             const float aboveFloor = saturate01 ((a.mediumDb[i] - a.floorDb[i] - 6.0f) / 6.0f);
-            const float boost = 0.50f * softRamp (-prominence - 2.5f, 4.0f) * aboveFloor * detailWeight[i];
+
+            // Buried under the neighbourhood -> lift
+            const float unmask = 0.80f * softRamp (-prominence - 1.0f, 3.0f) * aboveFloor * detailWeight[i];
+
+            // Detail lift (per-band upward compression): quiet moments, decays, tails, distant sounds
+            const float quietness = a.mediumDb[i] - a.shortDb[i];
+            const float detail = std::min (5.0f, 0.55f * softRamp (quietness - 2.0f, 4.0f)) * aboveFloor * detailWeight[i];
+
+            // Tonal signature, backing off where the band already sticks out (or is already cut)
+            const float sig = signatureDb[i];
+            const float signature = sig > 0.0f ? sig * (1.0f - saturate01 (prominence / 9.0f))
+                                               : sig * (0.6f + saturate01 (prominence / 6.0f));
 
             float target = silent ? 0.0f
-                                  : std::clamp (clarity * (boost - cut), -10.0f * clarity, 8.0f * clarity);
+                                  : std::clamp (clarity * (signature + unmask + detail - cut), -12.0f * clarity, 10.0f * clarity);
 
             // Footstep priority: lift step regions, duck their usual maskers
-            target += footConfidence * (6.0f * steps.stepWeight[i] - 2.5f * steps.competitorWeight[i]);
+            target += footConfidence * (9.0f * steps.stepWeight[i] - 4.0f * steps.competitorWeight[i]);
 
             // Cuts react faster than lifts (no pumping noise up between events);
             // bands with more movement get a faster controller.

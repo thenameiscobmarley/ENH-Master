@@ -53,6 +53,8 @@ namespace pad
         juce::OpenGLContext glContext;
 
         int dragControl = -1, dragParam = -1;
+        int gestureParam = -1, pendingToggle = -1;
+        double pressEventMs = 0.0;
         float dragValue = 0.0f;
         juce::Point<float> lastDragPos;
         juce::uint32 openedAtMs = 0;

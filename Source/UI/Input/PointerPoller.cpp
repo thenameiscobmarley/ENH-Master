@@ -22,6 +22,12 @@ namespace pad
 
     bool PointerPoller::query (unsigned long window, int& windowX, int& windowY) noexcept
     {
+        bool left = false, fine = false;
+        return query (window, windowX, windowY, left, fine);
+    }
+
+    bool PointerPoller::query (unsigned long window, int& windowX, int& windowY, bool& leftDown, bool& fineModifier) noexcept
+    {
         if (window == 0 || impl->failed)
             return false;
 
@@ -40,7 +46,10 @@ namespace pad
         int rootX = 0, rootY = 0;
         unsigned int mask = 0;
 
-        return XQueryPointer (impl->display, (::Window) window, &root, &child,
-                              &rootX, &rootY, &windowX, &windowY, &mask) != 0;
+        const bool ok = XQueryPointer (impl->display, (::Window) window, &root, &child,
+                                       &rootX, &rootY, &windowX, &windowY, &mask) != 0;
+        leftDown = (mask & Button1Mask) != 0;
+        fineModifier = (mask & (ShiftMask | ControlMask)) != 0;
+        return ok;
     }
 }

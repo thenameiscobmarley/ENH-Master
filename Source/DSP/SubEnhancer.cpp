@@ -36,14 +36,14 @@ namespace enh::dsp
         const float subDb = subFollower.db();
         const float fullDb = fullFollower.db();
 
-        const float ceiling = s.boost ? 10.0f : 6.0f;
+        const float ceiling = s.boost ? 11.0f : 8.0f;
         const float dominance = saturate01 ((subDb - fullDb + 6.0f) / 12.0f);   // 1 = sub already dominates
         const float present = saturate01 ((subDb + 70.0f) / 10.0f);             // no lift on silence
 
-        const float target = s.amount * ceiling * (1.0f - 0.55f * dominance) * present;
+        const float target = s.amount * ceiling * (1.0f - 0.35f * dominance) * present;
         const float kp = 1.5f * std::pow (40.0f / 1.5f, s.speed) * (target < lift.value ? 2.0f : 1.0f);
         const float slopeSmoothing = 1.0f - std::exp (-dt / 0.02f);
-        const float liftDb = lift.step (target, kp, 0.35f, dt, 0.02f, slopeSmoothing, 12.0f);
+        const float liftDb = lift.step (target, kp, 0.35f, dt, 0.02f, slopeSmoothing, 15.0f);
 
         if (std::abs (liftDb - lastShelfDb) > 0.02f)
         {
@@ -51,14 +51,14 @@ namespace enh::dsp
             lastShelfDb = liftDb;
         }
 
-        const float punchDb = s.boost ? 3.0f * s.amount : 0.0f;
+        const float punchDb = s.boost ? 4.5f * s.amount : 0.0f;
         if (std::abs (punchDb - lastPunchDb) > 0.02f)
         {
             punchCoeffs = BiquadCoeffs::peaking (sr, 55.0, 1.2, punchDb);
             lastPunchDb = punchDb;
         }
 
-        harmonicTarget = s.amount * (s.boost ? 0.55f : 0.32f) * present;
+        harmonicTarget = s.amount * (s.boost ? 0.9f : 0.55f) * present;
         drive = s.boost ? 3.2f : 2.2f;
     }
 
