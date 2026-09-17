@@ -3,6 +3,11 @@
 Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
+![ENH Master](docs/screenshot.png)
+
+*Lower unit: adaptive clarity, sub and footstep priority. Upper unit (SERAPH): silk and halo. The
+glass is the hover loupe, magnifying the label under the cursor.*
+
 ## Build
 
 Needs JUCE 8 and the [HardwareKit](../../../HardwareKit) module checked out next to this repository:
