@@ -10,8 +10,9 @@ namespace enh::dsp
         - Dynamic low shelf: lifts the sub region more when it is weak relative to the
           programme and less when it already dominates (upward compression, no mud).
           The lift follows a PD controller like every other adaptive gain.
-        - Psychoacoustic bass: the sub band is saturated and band-passed around
-          120-240 Hz so the fundamental is "heard" on headsets/small drivers.
+        - Psychoacoustic bass: the sub band is saturated and band-passed around its own
+          2nd/3rd harmonics, so the fundamental is "heard" on headsets/small drivers. The
+          split and harmonic band follow the programme's bass fundamental (HarmonicPlanner).
         - BOOST: higher lift ceiling, a tuned 55 Hz punch peak and more harmonics.
     */
     class SubEnhancer
@@ -22,6 +23,8 @@ namespace enh::dsp
             float amount = 0.0f;   // 0..1
             bool boost = false;
             float speed = 0.4f;    // shared ADAPT SPEED
+            float bassHz = 60.0f;  // current bass fundamental estimate
+            float strength = 1.0f; // device STRENGTH (0..5)
         };
 
         void prepare (double sampleRate, double controlRate);
@@ -44,13 +47,16 @@ namespace enh::dsp
         static constexpr int maxChannels = 2;
         double sr = 48000.0;
 
-        BiquadCoeffs lowCoeffs, shelfCoeffs, punchCoeffs, harmonicLow, harmonicBand;
+        BiquadCoeffs lowCoeffs, shelfCoeffs, punchCoeffs;
+        SvfCoeffs harmonicLow, harmonicBand;
+        float designedBassHz = 0.0f;
         BiquadState lowState1, lowState2;
         PowerFollower subFollower, fullFollower;
 
         struct Channel
         {
-            BiquadState shelf, punch, split1, split2, hBand1, hBand2;
+            BiquadState shelf, punch;
+            SvfState split1, split2, hBand1, hBand2;
         };
 
         std::array<Channel, maxChannels> channels {};

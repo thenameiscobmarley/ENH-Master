@@ -31,7 +31,8 @@ namespace enh::dsp
         {
             state[(size_t) k].reset();
             transient[(size_t) k].env = shortTerm[(size_t) k].env = medium[(size_t) k].env = 0.0f;
-            shortDb[(size_t) k] = mediumDb[(size_t) k] = meanDb[(size_t) k] = -120.0f;
+            transientDb[(size_t) k] = shortDb[(size_t) k] = mediumDb[(size_t) k] = meanDb[(size_t) k] = ltasDb[(size_t) k] = -120.0f;
+            ltasPower[(size_t) k] = 0.0f;
             floorDb[(size_t) k] = -90.0f;
             varDb[(size_t) k] = 0.0f;
             sigmaDb[(size_t) k] = 0.0f;
@@ -39,10 +40,21 @@ namespace enh::dsp
 
         fullTransient.env = fullShort.env = 0.0f;
         fullShortDb = fullTransientDb = programMaxDb = -120.0f;
+        learnedSeconds = 0.0f;
     }
 
-    void BandAnalyzer::update (float dt) noexcept
+    void BandAnalyzer::update (float dt, float ltasSeconds) noexcept
     {
+        // The long-term spectrum only learns from programme, not from silence between sounds
+        const bool learning = fullShort.db() > -75.0f;
+        float ltasK = 0.0f;
+        if (learning)
+        {
+            // Plain running average until one time constant of programme has been heard (fast warm-up)
+            learnedSeconds += dt;
+            ltasK = std::max (1.0f - std::exp (-dt / std::max (0.1f, ltasSeconds)), dt / learnedSeconds);
+        }
+
         const float statsK = 1.0f - std::exp (-dt / 1.5f);     // ~1.5 s rolling window
         const float floorFall = 1.0f - std::exp (-dt / 0.4f);
         const float floorRise = 1.0f - std::exp (-dt / 6.0f);
@@ -50,8 +62,12 @@ namespace enh::dsp
         for (int k = 0; k < activeCount; ++k)
         {
             const auto i = (size_t) k;
+            transientDb[i] = transient[i].db();
             shortDb[i] = shortTerm[i].db();
             mediumDb[i] = medium[i].db();
+
+            ltasPower[i] += (shortTerm[i].env - ltasPower[i]) * ltasK;
+            ltasDb[i] = powerToDb (ltasPower[i]);
 
             // Rolling mean / variance of the short-term level (self-tuning statistics)
             const float d = shortDb[i] - meanDb[i];

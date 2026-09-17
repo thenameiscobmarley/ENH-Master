@@ -2,6 +2,33 @@
 
 namespace enh::dsp
 {
+    void AnalogStage::ExciterCoeffs::design (double osr, float hz) noexcept
+    {
+        pre  = SvfCoeffs::make (osr, hz, 1.3);
+        post = SvfCoeffs::make (osr, 1.45 * hz, 0.7071);
+        top  = SvfCoeffs::make (osr, std::min (4.2 * hz, 19000.0), 0.7071);
+    }
+
+    inline float AnalogStage::excite (Exciter& e, const ExciterCoeffs& c, float in, float attack, float release) noexcept
+    {
+        const float x = e.pre2.process (c.pre, e.pre1.process (c.pre, in).band).band;
+
+        // Peak envelope of the partial
+        const float m = std::abs (x);
+        e.env = (m > e.env ? attack : release) * (e.env - m) + m;
+        const float amp = e.env + 1.0e-6f;
+
+        // Normalised partial (soft-limited so the polynomials stay bounded on peaks)
+        const float v = x / amp;
+        const float u = v / (1.0f + 0.2f * std::abs (v));
+        const float h = (c.w2 * (2.0f * u * u - 1.0f) + c.w3 * (4.0f * u * u - 3.0f) * u) * amp;
+
+        // Keep only what lies above the source: DC, the fundamental and IM products below go
+        const float hp = e.post2.process (c.post, e.post1.process (c.post, h).high).high;
+        const float gate = e.env / (e.env + 1.0e-4f);   // nothing on silence (~ -80 dBFS)
+        return e.top.process (c.top, hp).low * gate;
+    }
+
     void AnalogStage::prepare (double sampleRate, int maxBlockSize, int numChannels)
     {
         sr = sampleRate;
@@ -16,15 +43,13 @@ namespace enh::dsp
         kHp       = BiquadCoeffs::highPass (sr, 200.0, 0.7071); // ignore sub region: SUB is a deliberate lift
         kShelf    = BiquadCoeffs::highShelf (sr, 1500.0, 0.7071, 4.0);
         subsonic  = BiquadCoeffs::highPass (sr, 18.0, 0.7071);
-        bump      = BiquadCoeffs::lowShelf (sr, 45.0, 0.8, 0.6);
-        air       = BiquadCoeffs::highShelf (sr, 11000.0, 0.7071, 0.0);
-        airDb     = 0.0f;
 
-        osHi      = BiquadCoeffs::highPass (osr, 2800.0, 0.7071);
-        osHiPost  = BiquadCoeffs::highPass (osr, 2400.0, 0.7071);
-        osLm      = BiquadCoeffs::bandPass (osr, 190.0, 0.9);
-        osLmPost  = BiquadCoeffs::bandPass (osr, 420.0, 0.9);
+        depthCoeffs.w2 = 0.75f;   depthCoeffs.w3 = 0.35f;    // body: mostly even
+        clarityCoeffs.w2 = 0.55f; clarityCoeffs.w3 = 0.50f;  // definition: even + odd
+        depthHz = clarityHz = 0.0f;
 
+        envAttack = onePole (0.001, osr);
+        envRelease = onePole (0.060, osr);
         msCoeff = onePole (0.4, sr);
         dcCoeff = (float) std::exp (-2.0 * pi * 8.0 / osr);
         reset();
@@ -42,7 +67,7 @@ namespace enh::dsp
 
         autoGainDb = 0.0f;
         appliedGain = 1.0f;
-        hiAmount = lmAmount = 0.0f;
+        depthMix = clarityMix = 0.0f;
         peakDb = -100.0f;
     }
 
@@ -74,21 +99,13 @@ namespace enh::dsp
         if (n == 0 || chans == 0)
             return;
 
-        // --- base-rate colour ------------------------------------------------------------
-        const float wantedAir = 2.5f * s.clarity;
-        if (std::abs (wantedAir - airDb) > 0.02f)
-        {
-            air = BiquadCoeffs::highShelf (sr, 11000.0, 0.7071, wantedAir);
-            airDb = wantedAir;
-        }
-
         // Auto gain: slow loop driving output loudness toward input loudness
         const float inDb = powerToDb (inputK.meanSquare), outDb = powerToDb (outputK.meanSquare);
         if (inDb > -60.0f)
         {
             const float k = 1.0f - std::exp (-(float) n / (float) sr / 1.5f);
-            // Match loudness, but let full CLARITY sit ~1.5 dB up: enhancement should be heard
-            const float allowance = 1.5f * s.clarity;
+            // Match loudness (NORM); in ADD mode let full enhancement sit ~2 dB up so it is heard
+            const float allowance = 2.0f * s.boost;
             autoGainDb = std::clamp (autoGainDb + (inDb + allowance - outDb) * k, -9.0f, 9.0f);
         }
 
@@ -103,28 +120,40 @@ namespace enh::dsp
 
             for (int i = 0; i < n; ++i)
             {
-                float y = b.subsonic.process (subsonic, x[i]);
-                y = b.bump.process (bump, y);
-                y = b.air.process (air, y);
                 g += gainStep;
-                x[i] = y * g;
+                x[i] = b.subsonic.process (subsonic, x[i]) * g;
             }
         }
 
         appliedGain = targetGain;
 
         // --- 2x oversampled non-linear stage ---------------------------------------------
+        const double osr = sr * 2.0;
+        if (std::abs (s.depth.hz - depthHz) > 0.002f * depthHz)
+        {
+            depthCoeffs.design (osr, s.depth.hz);
+            depthHz = s.depth.hz;
+        }
+        if (std::abs (s.clarityBand.hz - clarityHz) > 0.002f * clarityHz)
+        {
+            clarityCoeffs.design (osr, s.clarityBand.hz);
+            clarityHz = s.clarityBand.hz;
+        }
+
         auto sub = block.getSubsetChannelBlock (0, (size_t) chans);
         auto up = oversampling->processSamplesUp (sub);
         const int un = (int) up.getNumSamples();
 
-        const float hiTarget = s.clarity * (0.35f + 0.60f * s.transient) + 0.30f * s.footstep;
-        const float lmTarget = s.clarity * 0.30f;
-        const float hiStep = (hiTarget - hiAmount) / (float) un;
-        const float lmStep = (lmTarget - lmAmount) / (float) un;
+        // Amounts: ADD x how useful the planner found harmonics there
+        // ADD mode only; a floor keeps it audible even where the planner is unsure
+        const float strength = std::clamp (s.strength, 0.0f, 5.0f);
+        const float depthTarget = std::min (4.0f, 1.1f * s.boost * (0.5f + 0.5f * s.depth.amount) * strength);
+        const float clarityTarget = std::min (4.0f, 1.05f * s.boost * (0.5f + 0.5f * s.clarityBand.amount) * (0.8f + 0.4f * s.transient)
+                                                    * (1.0f + 0.4f * s.footstep) * strength);
+        const float depthStep = (depthTarget - depthMix) / (float) un;
+        const float clarityStep = (clarityTarget - clarityMix) / (float) un;
+        const bool exciting = depthTarget + depthMix + clarityTarget + clarityMix > 1.0e-5f;
 
-        constexpr float hiPre = 8.0f, hiBias = 0.10f, lmPre = 4.0f, lmBias = 0.08f;
-        const float hiBiasOut = std::tanh (hiBias), lmBiasOut = std::tanh (lmBias);
         constexpr float c2 = 0.05f, c3 = 0.03f;
         constexpr float knee = 0.85f, ceiling = 0.977f;
 
@@ -132,24 +161,20 @@ namespace enh::dsp
         {
             auto* x = up.getChannelPointer ((size_t) c);
             auto& o = os[(size_t) c];
-            float hiAmt = hiAmount, lmAmt = lmAmount;
+            float dMix = depthMix, cMix = clarityMix;
 
             for (int i = 0; i < un; ++i)
             {
                 const float in = x[i];
+                float y = in;
 
-                // Exciter: saturate isolated bands, keep only the generated harmonics
-                const float hi = o.hi2.process (osHi, o.hi1.process (osHi, in));
-                const float hiSat = (std::tanh (hiPre * hi + hiBias) - hiBiasOut) / hiPre;
-                const float hiHarm = o.hiPost.process (osHiPost, hiSat - hi);
-
-                const float lm = o.lm1.process (osLm, in);
-                const float lmSat = (std::tanh (lmPre * lm + lmBias) - lmBiasOut) / lmPre;
-                const float lmHarm = o.lmPost.process (osLmPost, lmSat - lm);
-
-                hiAmt += hiStep;
-                lmAmt += lmStep;
-                float y = in + hiHarm * hiAmt * 6.0f + lmHarm * lmAmt * 5.0f;
+                if (exciting)
+                {
+                    dMix += depthStep;
+                    cMix += clarityStep;
+                    y += dMix * excite (o.depth, depthCoeffs, in, envAttack, envRelease)
+                       + cMix * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease);
+                }
 
                 // Transformer / valve colour
                 y = y + c2 * y * y - c3 * y * y * y;
@@ -169,8 +194,8 @@ namespace enh::dsp
             }
         }
 
-        hiAmount = hiTarget;
-        lmAmount = lmTarget;
+        depthMix = depthTarget;
+        clarityMix = clarityTarget;
 
         oversampling->processSamplesDown (sub);
 

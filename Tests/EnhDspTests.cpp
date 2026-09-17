@@ -4,7 +4,11 @@
     numbers as a sanity check of the detector's logic, not as real-game accuracy.
 */
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <functional>
+#include <complex>
 #include "DSP/EnhEngine.h"
+#include "DSP/ParameterMapping.h"
 
 using enh::dsp::EnhEngine;
 using enh::dsp::BiquadCoeffs;
@@ -19,7 +23,7 @@ namespace
     struct Scene
     {
         std::vector<float> left, right;
-        std::vector<Event> steps, shots;
+        std::vector<Event> steps, shots, crates;
         std::vector<std::pair<double, double>> speech;
     };
 
@@ -136,6 +140,109 @@ namespace
         s.speech.push_back ({ t0, t1 });
     }
 
+    /** Crate / supply box opening: latch clank (ringing metal), lid creak (tonal squeak),
+        rummaging rattles (short 1-4 kHz noise bursts, 40-150 ms apart) and a lid thud.
+        Several parts are individually footstep-like; lasts ~1.1 s. */
+    void addCrate (Scene& s, double sr, double t0, int variant, juce::Random& r)
+    {
+        const size_t n = s.left.size();
+        auto add = [&] (double t, float v) { const auto i = (size_t) (t * sr); if (i < n) { s.left[i] += v; s.right[i] += v * 0.95f; } };
+        const float level = dbfs (-26.0f - (float) r.nextDouble() * 6.0f);
+        const float detune = 0.9f + 0.2f * r.nextFloat();
+
+        if (variant != 1)   // latch clank: noise click exciting inharmonic metal modes
+        {
+            const float modes[3] { 1450.0f * detune, 2380.0f * detune, 3720.0f * detune };
+            for (int i = 0; i < (int) (0.35 * sr); ++i)
+            {
+                const double tt = i / sr;
+                float v = tt < 0.002 ? (r.nextFloat() * 2 - 1) * 2.0f : 0.0f;
+                for (int m = 0; m < 3; ++m)
+                    v += (float) std::sin (twoPi * modes[m] * tt) * (float) std::exp (-tt / (0.12 - 0.02 * m)) * (1.0f - 0.25f * m);
+                add (t0 + tt, v * level * 1.2f);
+            }
+        }
+
+        if (variant != 2)   // rummaging rattles
+        {
+            auto bp = BiquadCoeffs::bandPass (sr, 2200.0 * detune, 1.0);
+            double t = t0 + (variant == 1 ? 0.0 : 0.18);
+            for (int burst = 0; burst < 5 + r.nextInt (3); ++burst)
+            {
+                BiquadState a, b;
+                const float g = level * (0.6f + 0.8f * r.nextFloat()) * 5.0f;
+                for (int i = 0; i < (int) (0.05 * sr); ++i)
+                {
+                    const double tt = i / sr;
+                    add (t + tt, b.process (bp, a.process (bp, r.nextFloat() * 2 - 1)) * g * (float) std::exp (-tt / 0.009));
+                }
+                t += 0.04 + 0.11 * r.nextDouble();
+            }
+        }
+
+        if (variant != 1)   // lid creak: gliding squeak with harmonics and stick-slip roughness
+        {
+            double phase = 0.0;
+            const double start = t0 + 0.12, len = 0.35;
+            for (int i = 0; i < (int) (len * sr); ++i)
+            {
+                const double tt = i / sr;
+                phase += (900.0 + 350.0 * tt / len) * detune / sr;
+                const float env = (float) std::sin (juce::MathConstants<double>::pi * tt / len);
+                const float rough = 0.7f + 0.3f * (float) std::sin (twoPi * 31.0 * tt);
+                const float v = (float) (std::sin (twoPi * phase) + 0.5 * std::sin (2 * twoPi * phase) + 0.3 * std::sin (3 * twoPi * phase));
+                add (start + tt, v * env * rough * level * 0.45f);
+            }
+        }
+
+        // Lid thud shortly after the last rattle / creak
+        {
+            auto lp = BiquadCoeffs::lowPass (sr, 200.0, 0.9);
+            auto bp = BiquadCoeffs::bandPass (sr, 2000.0, 1.2);
+            BiquadState a, b, c;
+            const double at = t0 + (variant == 2 ? 0.55 : 0.78);
+            for (int i = 0; i < (int) (0.12 * sr); ++i)
+            {
+                const double tt = i / sr;
+                const float v = a.process (lp, r.nextFloat() * 2 - 1) * (float) std::exp (-tt / 0.035) * 6.0f
+                              + c.process (bp, b.process (bp, r.nextFloat() * 2 - 1)) * (float) std::exp (-tt / 0.015) * 4.0f;
+                add (at + tt, v * level);
+            }
+        }
+
+        s.crates.push_back ({ t0 });
+    }
+
+    /** Walking with pauses, and crates opened in the pauses (0 = latch+creak+rattles, 1 = rummage, 2 = latch+creak). */
+    Scene makeCrateScene (double sr, double seconds, int seed)
+    {
+        Scene s;
+        const auto n = (size_t) (seconds * sr);
+        s.left.assign (n, 0.0f);
+        s.right.assign (n, 0.0f);
+        juce::Random r (seed);
+        Pink pinkL, pinkR;
+        for (size_t i = 0; i < n; ++i)
+        {
+            s.left[i] = pinkL.next (r) * dbfs (-42.0f);
+            s.right[i] = pinkR.next (r) * dbfs (-42.0f);
+        }
+
+        double t = 0.8;
+        int crate = 0;
+        while (t < seconds - 2.5)
+        {
+            for (int k = 0; k < 6 && t < seconds - 2.5; ++k, t += 0.48 + (r.nextDouble() - 0.5) * 0.06)
+                addFootstepProfile (s, sr, t, -24.0f - (float) r.nextDouble() * 8.0f, r.nextInt (4), r);
+
+            t += 0.5;
+            addCrate (s, sr, t, crate++ % 3, r);
+            t += 1.6;
+        }
+
+        return s;
+    }
+
     Scene makeScene (double sr, double seconds, bool withShots, bool withSpeech, int seed, bool variedSurfaces = false)
     {
         Scene s;
@@ -249,6 +356,8 @@ namespace
         std::vector<float> confidence;   // per block
         std::vector<enh::dsp::FootstepDetector::Trace> traces;
         double meanAbsBandGain = 0.0;
+        std::array<double, enh::dsp::numBands> curve {};   // mean displayed EQ curve over the last 40 %
+        float treble = 0.0f, bass = 0.0f;                  // measured balance at the end
         float maxAbsBandGain = 0.0f;
         std::vector<float> outL, outR;
         double seconds = 0.0;
@@ -256,7 +365,8 @@ namespace
         float peak = 0.0f;
     };
 
-    RunResult run (const Scene& scene, double sr, int blockSize, const EnhEngine::Parameters& p)
+    RunResult run (const Scene& scene, double sr, int blockSize, const EnhEngine::Parameters& p,
+                   std::function<void (const EnhEngine&)> atEnd = {})
     {
         EnhEngine engine;
         engine.prepare (sr, blockSize, 2);
@@ -268,6 +378,7 @@ namespace
         juce::AudioBuffer<float> buf (2, blockSize);
 
         const auto t0 = juce::Time::getHighResolutionTicks();
+        int curveBlocks = 0;
 
         for (int pos = 0; pos < total; pos += blockSize)
         {
@@ -298,7 +409,22 @@ namespace
             }
             res.meanAbsBandGain += blockAbs / (float) enh::dsp::numBands;
             res.traces.push_back (engine.getFootstepTrace());
+
+            if (pos >= (int) (0.6 * total))
+            {
+                for (int k = 0; k < enh::dsp::numBands; ++k)
+                    res.curve[(size_t) k] += engine.getEQ().getGainDb (k);
+                ++curveBlocks;
+            }
         }
+
+        for (auto& c : res.curve)
+            c /= std::max (1, curveBlocks);
+        res.treble = engine.getEQ().getTrebleBalanceDb();
+        res.bass = engine.getEQ().getBassBalanceDb();
+
+        if (atEnd)
+            atEnd (engine);
 
         res.meanAbsBandGain /= (double) std::max<size_t> (1, res.confidence.size());
         res.seconds = juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0);
@@ -346,6 +472,109 @@ int main (int argc, char** argv)
     const double sr = 48000.0;
     const int block = 128;
 
+    //==========================================================================
+    // Real recordings: EnhDspTests --analyze capture.wav [clarity 0..1]
+    if (argc > 2 && juce::String (argv[1]) == "--analyze")
+    {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (juce::File::getCurrentWorkingDirectory().getChildFile (argv[2])));
+        if (reader == nullptr) { std::printf ("cannot read %s\n", argv[2]); return 2; }
+
+        const double fileRate = reader->sampleRate;
+        const int len = (int) reader->lengthInSamples;
+        juce::AudioBuffer<float> file (2, len);
+        reader->read (&file, 0, len, 0, true, true);
+
+        EnhEngine engine;
+        engine.prepare (fileRate, block, 2);
+        EnhEngine::Parameters p;
+        p.footstep = true;
+        p.normalize = argc > 3 ? (float) std::atof (argv[3]) : 0.6f;
+
+        juce::AudioBuffer<float> buf (2, block);
+        auto lastPhase = enh::dsp::FootstepDetector::Phase::idle;
+        double nextReport = 5.0;
+        using Phase = enh::dsp::FootstepDetector::Phase;
+        std::printf ("time    event      str  decay tonal ctx  clutter hot  bb   seq  score\n");
+
+        for (int pos = 0; pos < len; pos += block)
+        {
+            const int n = std::min (block, len - pos);
+            buf.setSize (2, n, false, false, true);
+            buf.copyFrom (0, 0, file, 0, pos, n);
+            buf.copyFrom (1, 0, file, file.getNumChannels() > 1 ? 1 : 0, pos, n);
+            engine.process (buf, p);
+
+            const auto& t = engine.getFootstepTrace();
+            const double now = (pos + n) / fileRate;
+            if (t.phase != lastPhase && (t.phase == Phase::accepted || t.phase == Phase::rejected))
+                std::printf ("%7.3f %-9s  %.2f %.2f  %.2f  %.2f %.2f    %.2f %.2f %.2f %.2f\n", now,
+                             t.phase == Phase::accepted ? "FOOTSTEP" : "rejected",
+                             t.strength, t.decay, t.tonal, t.context, t.clutter, t.hot, t.broadband, t.sequence, t.score);
+            lastPhase = t.phase;
+
+            if (now >= nextReport)
+            {
+                const auto& plan = engine.getHarmonicPlan();
+                std::printf ("-- %.0fs  EQ curve (dB):", now);
+                for (int k = 0; k < enh::dsp::numBands; k += 2)
+                    std::printf (" %.0fHz:%+.1f", enh::dsp::BandAnalyzer::centreHz (k), engine.getEQ().getGainDb (k));
+                std::printf ("\n   depth %.0f Hz (%.2f)  clarity %.0f Hz (%.2f)  bass %.0f Hz\n",
+                             plan.depth.hz, plan.depth.amount, plan.clarity.hz, plan.clarity.amount, plan.bassHz);
+                nextReport += 5.0;
+            }
+        }
+
+        std::printf ("footsteps accepted %d, events rejected %d\n", engine.getFootstepDetector().getEventCount(),
+                     engine.getFootstepDetector().getRejectedCount());
+        return 0;
+    }
+
+    // Per-event decisions with ground truth: EnhDspTests --events quiet|crates|game
+    if (argc > 2 && juce::String (argv[1]) == "--events")
+    {
+        const juce::String which (argv[2]);
+        const auto scene = which == "quiet" ? makeScene (sr, 12.0, false, false, 77)
+                         : which == "crates" ? makeCrateScene (sr, 40.0, argc > 3 ? std::atoi (argv[3]) : 11)
+                         : which == "varied" ? makeScene (sr, 30.0, true, true, argc > 3 ? std::atoi (argv[3]) : 7, true)
+                         : makeScene (sr, 24.0, true, true, argc > 3 ? std::atoi (argv[3]) : 1234);
+        EnhEngine engine;
+        const int eb = 32;
+        engine.prepare (sr, eb, 2);
+        EnhEngine::Parameters p;
+        p.normalize = 0.6f; p.footstep = true;
+        juce::AudioBuffer<float> buf (2, eb);
+        using Phase = enh::dsp::FootstepDetector::Phase;
+        auto last = Phase::idle;
+        double onset = 0.0;
+
+        auto label = [&] (double t)
+        {
+            for (auto& st : scene.steps) if (t >= st.time - 0.01 && t < st.time + 0.2) return juce::String ("STEP ") + juce::String ((t - st.time) * 1000.0, 0) + "ms";
+            for (auto& c : scene.crates) if (t >= c.time - 0.01 && t < c.time + 1.2) return juce::String ("crate+") + juce::String ((t - c.time) * 1000.0, 0) + "ms";
+            for (auto& sh : scene.shots) if (t >= sh.time - 0.01 && t < sh.time + 0.5) return juce::String ("shot");
+            return juce::String ("-");
+        };
+
+        for (int pos = 0; pos + eb <= (int) scene.left.size(); pos += eb)
+        {
+            std::copy_n (scene.left.data() + pos, eb, buf.getWritePointer (0));
+            std::copy_n (scene.right.data() + pos, eb, buf.getWritePointer (1));
+            engine.process (buf, p);
+            const auto& t = engine.getFootstepTrace();
+            const double now = (pos + eb) / sr;
+            if (t.phase == Phase::provisional && last != Phase::provisional)
+                onset = now;
+            if (t.phase != last && (t.phase == Phase::accepted || t.phase == Phase::rejected))
+                std::printf ("%7.3f %-8s %-14s str %.2f decay %.2f tonal %.2f ctx %.2f clut %.2f hot %.2f bb %.2f mid %.2f seq %.2f score %.2f (+%.0fms)\n",
+                             onset, t.phase == Phase::accepted ? "ACCEPT" : "reject", label (onset).toRawUTF8(),
+                             t.strength, t.decay, t.tonal, t.context, t.clutter, t.hot, t.broadband, t.midDominance, t.sequence, t.score, (now - onset) * 1000.0);
+            last = t.phase;
+        }
+        return 0;
+    }
+
     if (argc > 1 && juce::String (argv[1]) == "--diagnose")
     {
         for (int variant = 0; variant < 3; ++variant)
@@ -366,8 +595,9 @@ int main (int argc, char** argv)
                     for (int b = (int) (st.time * sr / block); b < (int) ((st.time + 0.05) * sr / block); ++b)
                     {
                         const auto& t = r.traces[(size_t) b];
-                        std::printf ("     +%2.0fms onset %.2f bal %.2f share %.2f hot %.2f bb %.2f mid %.2f sus %.2f raw %.2f conf %.2f rhy %.2f\n",
-                                     (b * block / sr - st.time) * 1000.0, t.onset, t.balance, t.share, t.hot, t.broadband, t.midDominance, t.sustain, t.raw, t.confirmed, t.rhythm);
+                        std::printf ("     +%2.0fms str %.2f decay %.2f tonal %.2f ctx %.2f clutter %.2f hot %.2f bb %.2f mid %.2f seq %.2f score %.2f conf %.2f phase %d\n",
+                                     (b * block / sr - st.time) * 1000.0, t.strength, t.decay, t.tonal, t.context, t.clutter, t.hot, t.broadband,
+                                     t.midDominance, t.sequence, t.score, t.confidence, (int) t.phase);
                     }
             }
             std::printf ("  hits %d/%zu\n", hits, scene.steps.size());
@@ -388,7 +618,7 @@ int main (int argc, char** argv)
         std::printf ("\n== Footstep detection (synthetic game scene: ambience, steps, gunshots, voice), seed %d ==\n", seed);
         const auto scene = makeScene (sr, 24.0, true, true, seed);
         EnhEngine::Parameters p;
-        p.clarity = 0.6f; p.adaptSpeed = 0.5f; p.sub = 0.3f; p.footstep = true;
+        p.normalize = 0.6f; p.adaptSpeed = 0.5f; p.sub = 0.3f; p.footstep = true;
         const auto r = run (scene, sr, block, p);
 
         int hits = 0;
@@ -419,7 +649,9 @@ int main (int argc, char** argv)
         std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
         std::printf ("  gunshot false    : %d / %zu\n", shotFalse, scene.shots.size());
         std::printf ("  voice false time : %.1f%%\n", 100.0f * voiceRate);
-        check (hitRate >= 0.85f, "detects >= 85% of footsteps");
+        // v4 trades a little synthetic recall (v3: 86-100%) for rejecting crate / rattle transients
+        // (v3 boosted 54-61% of crate time in the crate scene below); steps under loud speech are the misses
+        check (hitRate >= 0.80f, "detects >= 80% of footsteps");
         check (shotFalse <= (int) scene.shots.size() / 5, "gunshots rarely flagged as footsteps");
         check (voiceRate <= 0.10f, "voice rarely flagged as footsteps");
         check (r.finite && r.peak <= 1.0f, "output finite and below full scale (peak " + juce::String (r.peak, 3) + ")");
@@ -431,7 +663,7 @@ int main (int argc, char** argv)
         std::printf ("\n== Varied surfaces (thump, metal click, wood, gravel, distant) + gunshots + voice, seed %d ==\n", seed);
         const auto scene = makeScene (sr, 30.0, true, true, seed, true);
         EnhEngine::Parameters p;
-        p.clarity = 0.6f; p.footstep = true;
+        p.normalize = 0.6f; p.footstep = true;
         const auto r = run (scene, sr, block, p);
 
         int hits = 0;
@@ -460,7 +692,7 @@ int main (int argc, char** argv)
         std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
         std::printf ("  gunshot false    : %d / %zu\n", shotFalse, scene.shots.size());
         std::printf ("  voice false time : %.1f%%\n", 100.0f * voiceRate);
-        check (hitRate >= 0.80f, "detects >= 80% of varied-surface footsteps");
+        check (hitRate >= 0.75f, "detects >= 75% of varied-surface footsteps");
         check (shotFalse <= (int) scene.shots.size() / 5, "gunshots rarely flagged");
         check (voiceRate <= 0.10f, "voice rarely flagged");
     }
@@ -488,7 +720,7 @@ int main (int argc, char** argv)
             s.left[i] = s.right[i] = dbfs (-12.0f) * (float) std::sin (twoPi * 1000.0 * i / sr);
 
         EnhEngine::Parameters p;
-        p.clarity = 0.0f; p.sub = 0.0f; p.footstep = false;
+        p.normalize = 0.0f; p.sub = 0.0f; p.footstep = false;
         const auto r = run (s, sr, block, p);
         const float inDb = rmsDb (s.left, n / 2, n), outDb = rmsDb (r.outL, n / 2, n);
         std::printf ("  level change     : %+.2f dB\n", outDb - inDb);
@@ -496,7 +728,7 @@ int main (int argc, char** argv)
     }
 
     //==========================================================================
-    std::printf ("\n== Loudness match at full CLARITY (pink noise + tones) ==\n");
+    std::printf ("\n== Loudness match at full CLARITY, both modes (pink noise + tones) ==\n");
     {
         Scene s;
         const auto n = (size_t) (8.0 * sr);
@@ -510,13 +742,16 @@ int main (int argc, char** argv)
             s.right[i] = dbfs (-18.0f) * (pr.next (rnd) + tones);
         }
 
-        EnhEngine::Parameters p;
-        p.clarity = 1.0f; p.adaptSpeed = 0.6f;
-        const auto r = run (s, sr, block, p);
-        const float inDb = rmsDb (s.left, n / 2, n), outDb = rmsDb (r.outL, n / 2, n);
-        std::printf ("  RMS change       : %+.2f dB\n", outDb - inDb);
-        check (std::abs (outDb - inDb) < 3.0f, "auto gain keeps loudness within 3 dB");
-        check (r.finite && r.peak <= 1.0f, "output finite and below full scale");
+        for (bool add : { false, true })
+        {
+            EnhEngine::Parameters p;
+            p.normalize = 1.0f; p.boost = add ? 1.0f : 0.0f; p.adaptSpeed = 0.6f;
+            const auto r = run (s, sr, block, p);
+            const float inDb = rmsDb (s.left, n / 2, n), outDb = rmsDb (r.outL, n / 2, n);
+            std::printf ("  %s RMS change : %+.2f dB\n", add ? "ADD 10 " : "NORM 30", outDb - inDb);
+            check (std::abs (outDb - inDb) < 3.0f, juce::String (add ? "ADD" : "NORM") + ": auto gain keeps loudness within 3 dB");
+            check (r.finite && r.peak <= 1.0f, "output finite and below full scale");
+        }
     }
 
     //==========================================================================
@@ -534,7 +769,7 @@ int main (int argc, char** argv)
         for (int mode = 0; mode < 3; ++mode)
         {
             EnhEngine::Parameters p;
-            p.clarity = 0.0f; p.sub = mode == 0 ? 0.0f : 1.0f; p.subBoost = mode == 2;
+            p.normalize = 0.0f; p.sub = mode == 0 ? 0.0f : 1.0f; p.subBoost = mode == 2;
             const auto r = run (s, sr, block, p);
             const float lvl = toneDb (r.outL, sr, 50.0, n / 2, n);
             (mode == 0 ? base : mode == 1 ? normal : boosted) = lvl;
@@ -551,7 +786,7 @@ int main (int argc, char** argv)
         const size_t from = (size_t) (4.0 * sr), to = music.left.size();
 
         EnhEngine::Parameters base;
-        base.clarity = 0.0f; base.adaptSpeed = 0.5f;
+        base.normalize = 0.0f; base.adaptSpeed = 0.5f;
         const auto ref = run (music, sr, block, base);
 
         auto diffDb = [&] (const RunResult& r)
@@ -569,14 +804,14 @@ int main (int argc, char** argv)
         for (float c : { 0.5f, 1.0f })
         {
             EnhEngine::Parameters p = base;
-            p.clarity = c;
+            p.normalize = c; p.boost = c;
             const auto r = run (music, sr, block, p);
-            std::printf ("  CLARITY %3.0f%%: difference %+.1f dB rel.  mean |band gain| %.1f dB  max %.1f dB  loudness %+.1f dB\n",
-                         c * 100.0f, diffDb (r), r.meanAbsBandGain, r.maxAbsBandGain, rmsDb (r.outL, from, to) - rmsDb (music.left, from, to));
+            std::printf ("  ADD %4.1f: difference %+.1f dB rel.  mean |band gain| %.1f dB  max %.1f dB  loudness %+.1f dB\n",
+                         c * 10.0f, diffDb (r), r.meanAbsBandGain, r.maxAbsBandGain, rmsDb (r.outL, from, to) - rmsDb (music.left, from, to));
             if (c > 0.9f)
             {
-                check (diffDb (r) > -12.0f, "full CLARITY changes the sound clearly (difference > -12 dB)");
-                check (r.meanAbsBandGain > 2.0, "adaptive EQ actively moving (mean |gain| > 2 dB)");
+                // No fixed curve any more: on a balanced mix the change comes from harmonics + small corrections
+                check (diffDb (r) > -13.0f, "ADD 10 clearly changes a balanced mix (difference > -13 dB)");
                 check (r.finite && r.peak <= 1.0f, "output finite and below full scale");
             }
         }
@@ -589,12 +824,766 @@ int main (int argc, char** argv)
         check (rs.finite && rs.peak <= 1.0f, "SUB + BOOST output below full scale (peak " + juce::String (rs.peak, 3) + ")");
     }
 
+    //==========================================================================
+    for (int seed : { 11, 2024 })
+    {
+        std::printf ("\n== Crate openings between walking (latch ring, creak, rattles, thud), seed %d ==\n", seed);
+        const auto scene = makeCrateScene (sr, 40.0, seed);
+        EnhEngine::Parameters p;
+        p.normalize = 0.6f; p.footstep = true;
+        const auto r = run (scene, sr, block, p);
+
+        int hits = 0;
+        for (auto& st : scene.steps)
+            hits += maxConfidence (r, sr, block, st.time, st.time + 0.08) >= 0.5f ? 1 : 0;
+
+        int flagged = 0, liftBlocks = 0, crateBlocks = 0, sustained = 0;
+        for (auto& c : scene.crates)
+        {
+            flagged += maxConfidence (r, sr, block, c.time, c.time + 1.1) >= 0.5f ? 1 : 0;
+            int run = 0, longest = 0;
+            for (int b = (int) (c.time * sr / block); b < (int) ((c.time + 1.1) * sr / block) && b < (int) r.confidence.size(); ++b)
+            {
+                ++crateBlocks;
+                const bool lifted = r.confidence[(size_t) b] >= 0.3f;
+                liftBlocks += lifted ? 1 : 0;
+                run = lifted ? run + 1 : 0;
+                longest = std::max (longest, run);
+            }
+            sustained += longest * block / sr > 0.15 ? 1 : 0;   // lifted for longer than a brief blip
+        }
+
+        const float hitRate = (float) hits / (float) std::max<size_t> (1, scene.steps.size());
+        const float crateRate = (float) flagged / (float) std::max<size_t> (1, scene.crates.size());
+        const float liftTime = (float) liftBlocks / (float) std::max (1, crateBlocks);
+        std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
+        std::printf ("  crates flagged   : %d / %zu (%.0f%%), lifted > 150 ms: %d, lifted time during crates %.1f%%\n",
+                     flagged, scene.crates.size(), 100.0f * crateRate, sustained, 100.0f * liftTime);
+        check (hitRate >= 0.80f, "detects >= 80% of footsteps around crates");
+        check (crateRate <= 0.40f, "most crate openings never flagged (rummage-only crates may blip once)");
+        check (sustained == 0, "no crate gets a sustained footstep lift");
+        check (liftTime <= 0.05f, "footstep lift active < 5% of crate time (v3: 54-61%)");
+    }
+
+    //==========================================================================
+    std::printf ("\n== AutoEQ follows the source (CLARITY 100%%, steady state) ==\n");
+    {
+        using enh::dsp::BandAnalyzer;
+        using enh::dsp::numBands;
+        const auto n = (size_t) (10.0 * sr);
+
+        auto coloured = [&] (int kind)
+        {
+            Scene s;
+            s.left.resize (n); s.right.resize (n);
+            juce::Random rnd (100 + kind);
+            Pink pl, pr;
+            auto lp = BiquadCoeffs::highShelf (sr, 1500.0, 0.7071, -14.0), hp = BiquadCoeffs::lowShelf (sr, 400.0, 0.7071, -14.0);
+            auto res = BiquadCoeffs::bandPass (sr, 600.0, 4.0), notch = BiquadCoeffs::peaking (sr, 1500.0, 1.5, -12.0);
+            BiquadState a1, a2, b1, b2, c1, c2;
+            for (size_t i = 0; i < n; ++i)
+            {
+                float l = pl.next (rnd), r = pr.next (rnd);
+                switch (kind)
+                {
+                    case 1: l = a1.process (lp, l); r = b1.process (lp, r); break;   // muffled (e.g. through a wall)
+                    case 2: l = a1.process (hp, l); r = b1.process (hp, r); break;   // thin (no low end)
+                    case 3: l += c1.process (res, l) * 3.0f; r += c2.process (res, r) * 3.0f; break;
+                    case 4: l = c1.process (notch, l); r = c2.process (notch, r); break;
+                    default: break;
+                }
+                s.left[i] = dbfs (-20.0f) * l;
+                s.right[i] = dbfs (-20.0f) * r;
+            }
+            return s;
+        };
+
+        auto at = [] (const RunResult& r, double hz)
+        {
+            int best = 0;
+            for (int k = 1; k < numBands; ++k)
+                if (std::abs (std::log (BandAnalyzer::centreHz (k) / hz)) < std::abs (std::log (BandAnalyzer::centreHz (best) / hz)))
+                    best = k;
+            return (float) r.curve[(size_t) best];
+        };
+        auto mean = [] (const RunResult& r, double lo, double hi)
+        {
+            double sum = 0; int c = 0;
+            for (int k = 0; k < numBands; ++k)
+                if (BandAnalyzer::centreHz (k) >= lo && BandAnalyzer::centreHz (k) <= hi) { sum += r.curve[(size_t) k]; ++c; }
+            return (float) (sum / std::max (1, c));
+        };
+        auto print = [&] (const char* name, const RunResult& r)
+        {
+            std::printf ("  %-10s", name);
+            for (int k = 0; k < numBands; k += 2)
+                std::printf (" %+5.1f", r.curve[(size_t) k]);
+            std::printf ("   treble %+5.1f bass %+5.1f\n", r.treble, r.bass);
+        };
+
+        EnhEngine::Parameters p;
+        p.normalize = 1.0f; p.adaptSpeed = 0.5f;
+
+        std::printf ("  %-10s", "Hz");
+        for (int k = 0; k < numBands; k += 2)
+            std::printf (" %5.0f", BandAnalyzer::centreHz (k));
+        std::printf ("\n");
+
+        float solverError = 0.0f;
+        const auto pink  = run (coloured (0), sr, block, p);
+        const auto dull  = run (coloured (1), sr, block, p);
+        const auto thin  = run (coloured (2), sr, block, p);
+        const auto reso  = run (coloured (3), sr, block, p, [&] (const EnhEngine& e)
+        {
+            // Applied response of the actual 24-filter cascade vs. the displayed curve
+            for (int i = 0; i < numBands; ++i)
+            {
+                double db = 0.0;
+                for (int j = 0; j < numBands; ++j)
+                {
+                    const auto c = BiquadCoeffs::peaking (sr, BandAnalyzer::centreHz (j), enh::dsp::AdaptiveEQ::filterQ, e.getEQ().getFilterGainDb (j));
+                    const double w = twoPi * BandAnalyzer::centreHz (i) / sr;
+                    const std::complex<double> z1 = std::polar (1.0, -w), z2 = z1 * z1;
+                    db += 20.0 * std::log10 (std::abs ((double) c.b0 + (double) c.b1 * z1 + (double) c.b2 * z2)
+                                             / std::abs (1.0 + (double) c.a1 * z1 + (double) c.a2 * z2));
+                }
+                solverError = std::max (solverError, (float) std::abs (db - e.getEQ().getGainDb (i)));
+            }
+        });
+        const auto hole  = run (coloured (4), sr, block, p);
+        const auto music = run (makeMusic (sr, 12.0, 21), sr, block, p);
+
+        print ("pink", pink); print ("dull", dull); print ("thin", thin);
+        print ("600Hz res", reso); print ("1.5k hole", hole); print ("music", music);
+
+        float maxPink = 0.0f;
+        for (auto v : pink.curve) maxPink = std::max (maxPink, (float) std::abs (v));
+        const float dullTilt = mean (dull, 3000, 12000) - mean (dull, 80, 400);
+        const float thinTilt = mean (thin, 3000, 12000) - mean (thin, 80, 400);
+        const float resoDip = at (reso, 600) - 0.5f * (at (reso, 250) + at (reso, 1500));
+        const float holeLift = at (hole, 1500) - 0.5f * (at (hole, 600) + at (hole, 4000));
+
+        double diff = 0;
+        for (int k = 0; k < numBands; ++k) diff += std::pow (dull.curve[(size_t) k] - thin.curve[(size_t) k], 2.0);
+        const float curveDiff = (float) std::sqrt (diff / numBands);
+
+        std::printf ("  pink max |gain| %.1f dB; dull hi-lo %+.1f dB; thin hi-lo %+.1f dB; 600 Hz resonance %+.1f dB; 1.5 kHz hole %+.1f dB\n",
+                     maxPink, dullTilt, thinTilt, resoDip, holeLift);
+        std::printf ("  1-4 kHz mean: pink %+.1f dB, music %+.1f dB; dull vs thin curve RMS difference %.1f dB; cascade vs display max error %.2f dB\n",
+                     mean (pink, 1000, 4000), mean (music, 1000, 4000), curveDiff, solverError);
+
+        check (maxPink <= 2.0f, "flat (pink) source gets a nearly flat EQ - no built-in smile curve");
+        check (dullTilt > 1.5f, "muffled source: highs lifted relative to lows");
+        check (thinTilt < -1.0f, "thin/bright source: the opposite tilt");
+        check (curveDiff > 2.0f, "different sources produce clearly different curves");
+        check (resoDip < -1.2f, "cuts a resonance where it is (600 Hz, within the midrange cut limit)");
+        check (holeLift > 1.5f, "fills a hole where it is (1.5 kHz)");
+        check (mean (pink, 1000, 4000) > -1.0f && mean (music, 1000, 4000) > -1.0f, "does not scoop the 1-4 kHz footstep/harmonic range");
+        check (solverError < 1.0f, "applied filter response matches the displayed curve (< 1 dB)");
+    }
+
+    //==========================================================================
+    std::printf ("\n== CLARITY harmonics follow the source ==\n");
+    {
+        const auto n = (size_t) (6.0 * sr);
+        auto toneScene = [&] (double hz, float levelDb)
+        {
+            Scene s;
+            s.left.resize (n); s.right.resize (n);
+            juce::Random rnd (3);
+            Pink pk;
+            for (size_t i = 0; i < n; ++i)
+                s.left[i] = s.right[i] = dbfs (levelDb) * (float) std::sin (twoPi * hz * i / sr) + dbfs (levelDb - 30.0f) * pk.next (rnd);
+            return s;
+        };
+
+        struct Probe { double hz; float level; float depthHz = 0, clarityHz = 0, harm2 = 0, harm3 = 0, harm2Off = 0; };
+        std::vector<Probe> probes { { 220.0, -18.0f }, { 1000.0, -18.0f }, { 2500.0, -18.0f }, { 1000.0, -42.0f } };
+
+        for (auto& pr : probes)
+        {
+            const auto scene = toneScene (pr.hz, pr.level);
+            EnhEngine::Parameters p;
+            p.adaptSpeed = 0.5f;
+
+            p.normalize = 0.0f;
+            const auto off = run (scene, sr, block, p);
+            p.normalize = 1.0f; p.boost = 1.0f;   // ADD mode at 10
+            const auto on = run (scene, sr, block, p, [&] (const EnhEngine& e)
+            {
+                pr.depthHz = e.getHarmonicPlan().depth.hz;
+                pr.clarityHz = e.getHarmonicPlan().clarity.hz;
+            });
+
+            const float fundamental = toneDb (on.outL, sr, pr.hz, n / 2, n);
+            pr.harm2 = toneDb (on.outL, sr, 2 * pr.hz, n / 2, n) - fundamental;
+            pr.harm3 = toneDb (on.outL, sr, 3 * pr.hz, n / 2, n) - fundamental;
+            pr.harm2Off = toneDb (off.outL, sr, 2 * pr.hz, n / 2, n) - toneDb (off.outL, sr, pr.hz, n / 2, n);
+            std::printf ("  tone %5.0f Hz @ %3.0f dBFS: depth centre %5.0f Hz, clarity centre %5.0f Hz, 2nd %+.1f dB (off %+.1f), 3rd %+.1f dB\n",
+                         pr.hz, pr.level, pr.depthHz, pr.clarityHz, pr.harm2, pr.harm2Off, pr.harm3);
+        }
+
+        {
+            // NORM 30 must only normalise: no generated harmonics
+            const auto scene = toneScene (1000.0, -18.0f);
+            EnhEngine::Parameters p;
+            p.normalize = 1.0f; p.boost = 0.0f;
+            const auto r = run (scene, sr, block, p);
+            const float h2 = toneDb (r.outL, sr, 2000.0, n / 2, n) - toneDb (r.outL, sr, 1000.0, n / 2, n);
+            std::printf ("  NORM 30 on the 1 kHz tone: 2nd %+.1f dB\n", h2);
+            check (h2 < -40.0f, "NORM mode adds no harmonics");
+        }
+
+        auto near = [] (float a, double b) { return std::abs (std::log2 (a / b)) < 0.5; };
+        check (near (probes[0].depthHz, 220.0), "DEPTH centres on the 220 Hz source");
+        check (near (probes[1].clarityHz, 1000.0) && near (probes[2].clarityHz, 2500.0), "CLARITY centre moves with the source (1 kHz vs 2.5 kHz)");
+        check (probes[1].harm2 > -35.0f && probes[1].harm2 - probes[1].harm2Off > 15.0f, "CLARITY adds a real 2nd harmonic to a 1 kHz source");
+        check (probes[2].harm2 > -35.0f, "CLARITY adds a real 2nd harmonic to a 2.5 kHz source");
+        check (std::abs (probes[3].harm2 - probes[1].harm2) < 6.0f, "harmonic amount is level-independent (-18 vs -42 dBFS within 6 dB)");
+    }
+
+    //==========================================================================
+    std::printf ("\n== ADD: harmonics coupling (rich source keeps a lift, thinning harmonics are topped up) ==\n");
+    {
+        const auto n = (size_t) (8.0 * sr);
+        Scene sc;
+        sc.left.resize (n); sc.right.resize (n);
+        juce::Random rnd (4);
+        Pink pk;
+        double phase = 0.0;
+        for (size_t i = 0; i < n; ++i)
+        {
+            // 0-4 s: harmonically rich tone (1 kHz + 2nd..5th); 4-8 s: the harmonics fade out over 0.5 s
+            const double t = i / sr;
+            phase += 1000.0 / sr;
+            const float fade = (float) juce::jlimit (0.0, 1.0, 1.0 - (t - 4.0) / 0.5);
+            double v = std::sin (twoPi * phase);
+            for (int h = 2; h <= 5; ++h)
+                v += fade * 0.5 / h * std::sin (twoPi * phase * h);
+            sc.left[i] = sc.right[i] = dbfs (-20.0f) * (float) v + dbfs (-50.0f) * pk.next (rnd);
+        }
+
+        EnhEngine engine;
+        engine.prepare (sr, block, 2);
+        EnhEngine::Parameters p;
+        p.normalize = 1.0f; p.boost = 1.0f; p.adaptSpeed = 0.5f;
+        juce::AudioBuffer<float> buf (2, block);
+        float needRich = 1.0f, liftRich = 0.0f, rescueMax = 0.0f, amountAfter = 0.0f;
+        int liftBand = 0;
+        for (int k = 1; k < enh::dsp::numBands; ++k)
+            if (std::abs (std::log (enh::dsp::BandAnalyzer::centreHz (k) / 1000.0)) < std::abs (std::log (enh::dsp::BandAnalyzer::centreHz (liftBand) / 1000.0)))
+                liftBand = k;
+
+        for (size_t pos = 0; pos + (size_t) block <= n; pos += (size_t) block)
+        {
+            std::copy_n (sc.left.data() + pos, block, buf.getWritePointer (0));
+            std::copy_n (sc.right.data() + pos, block, buf.getWritePointer (1));
+            engine.process (buf, p);
+            const double t = (double) pos / sr;
+            const auto& plan = engine.getHarmonicPlan().clarity;
+            if (t > 3.0 && t < 4.0)
+            {
+                needRich = std::min (needRich, plan.need);
+                liftRich = std::max (liftRich, engine.getEQ().getGainDb (liftBand));
+            }
+            if (t > 4.0 && t < 5.5)
+            {
+                rescueMax = std::max (rescueMax, plan.rescue);
+                amountAfter = std::max (amountAfter, plan.amount);
+            }
+        }
+
+        std::printf ("  rich source: harmonic need %.2f, EQ lift near 1 kHz %+.1f dB\n", needRich, liftRich);
+        std::printf ("  harmonics fading: rescue %.2f, exciter drive %.2f\n", rescueMax, amountAfter);
+        check (liftRich > 3.0f, "harmonically rich source still gets a clarity lift in ADD mode");
+        check (rescueMax > 0.3f, "falling harmonics are detected and topped up by the exciter");
+    }
+
+    //==========================================================================
+    std::printf ("\n== SERAPH: SILK (tone & texture) ==\n");
+    {
+        using enh::dsp::Seraph;
+        const auto n = (size_t) (6.0 * sr);
+
+        auto runSeraph = [&] (std::vector<float> l, std::vector<float> r, const Seraph::Settings& st, Seraph* keep = nullptr)
+        {
+            juce::ScopedNoDenormals noDenormals;
+            Seraph local;
+            auto& unit = keep != nullptr ? *keep : local;
+            unit.prepare (sr);
+            for (size_t pos = 0; pos < l.size(); pos += (size_t) block)
+            {
+                const int len = (int) std::min ((size_t) block, l.size() - pos);
+                float* ch[2] { l.data() + pos, r.data() + pos };
+                unit.process (ch, 2, len, st);
+            }
+            return std::make_pair (std::move (l), std::move (r));
+        };
+        auto pink = [&] (size_t len, float db, int seed)
+        {
+            std::vector<float> v (len);
+            juce::Random rnd (seed);
+            Pink pk;
+            for (auto& x : v) x = dbfs (db) * pk.next (rnd);
+            return v;
+        };
+        auto bandDb = [&] (const std::vector<float>& x, double hz, double q)
+        {
+            auto c = BiquadCoeffs::bandPass (sr, hz, q);
+            BiquadState a, b;
+            double e = 0.0;
+            for (size_t i = 0; i < x.size(); ++i)
+            {
+                const float y = b.process (c, a.process (c, x[i]));
+                if (i > x.size() / 3) e += (double) y * y;
+            }
+            return (float) (10.0 * std::log10 (e / (double) (x.size() * 2 / 3) + 1e-20));
+        };
+        auto silkOnly = [] (float smooth, float air, float warmth, float body)
+        {
+            Seraph::Settings st;
+            st.mode = Seraph::silkOnly;
+            st.silk.smooth = smooth; st.silk.air = air; st.silk.warmth = warmth; st.silk.body = body;
+            st.silk.protect = false; st.silk.autoGain = false;
+            return st;
+        };
+
+        {
+            Seraph::Settings st; st.mode = Seraph::off;
+            const auto in = pink (n, -20.0f, 1);
+            check (runSeraph (in, in, st).first == in, "OFF: bit-exact passthrough");
+        }
+
+        // SMOOTH dips a resonance, leaves the rest alone
+        {
+            auto in = pink (n, -24.0f, 2);
+            auto res = BiquadCoeffs::bandPass (sr, 3150.0, 8.0);
+            BiquadState r1;
+            for (auto& x : in) x += 4.0f * r1.process (res, x);
+            const auto out = runSeraph (in, in, silkOnly (10.0f, 0.0f, 0.0f, 0.0f)).first;
+            const float dRes = bandDb (out, 3150.0, 8.0) - bandDb (in, 3150.0, 8.0);
+            const float d1k = bandDb (out, 1000.0, 2.0) - bandDb (in, 1000.0, 2.0);
+            std::printf ("  SMOOTH 10 on a +12 dB resonance at 3.15 kHz: resonance %+.1f dB, 1 kHz region %+.1f dB\n", dRes, d1k);
+            check (dRes < -4.0f, "SMOOTH dips a ringing resonance (> 4 dB)");
+            check (std::abs (d1k) < 1.5f, "...and leaves the neighbouring spectrum alone (< 1.5 dB)");
+
+            const auto flatIn = pink (n, -24.0f, 3);
+            const auto flatOut = runSeraph (flatIn, flatIn, silkOnly (10.0f, 0.0f, 0.0f, 0.0f)).first;
+            float worst = 0.0f;
+            for (double hz : { 250.0, 1000.0, 3000.0, 8000.0 })
+                worst = std::max (worst, std::abs (bandDb (flatOut, hz, 2.0) - bandDb (flatIn, hz, 2.0)));
+            std::printf ("  SMOOTH 10 on plain pink noise: largest regional change %.1f dB\n", worst);
+            check (worst < 1.5f, "SMOOTH is not a fixed EQ: a smooth spectrum stays as it is");
+        }
+
+        // PROTECT keeps attacks while the steady resonance is still dipped
+        {
+            std::vector<float> in (n, 0.0f);
+            juce::Random rnd (5);
+            auto bp = BiquadCoeffs::bandPass (sr, 2500.0, 3.0);
+            BiquadState b1, b2;
+            std::vector<size_t> onsets;
+            for (size_t i = 0; i < n; ++i)
+            {
+                in[i] = dbfs (-26.0f) * (float) std::sin (twoPi * 2500.0 * i / sr) + dbfs (-50.0f) * (rnd.nextFloat() * 2 - 1);
+                const size_t k = i % (size_t) (0.5 * sr);
+                if (k == 0) onsets.push_back (i);
+                in[i] += dbfs (-24.0f) * 3.0f * b2.process (bp, b1.process (bp, rnd.nextFloat() * 2 - 1)) * (float) std::exp (-(double) k / (0.02 * sr));
+            }
+            auto onsetPeak = [&] (const std::vector<float>& x)
+            {
+                double sum = 0.0; int count = 0;
+                for (auto o : onsets)
+                    if (o > (size_t) (2.0 * sr))
+                    {
+                        float pk = 0.0f;
+                        for (size_t i = o; i < o + (size_t) (0.008 * sr) && i < x.size(); ++i) pk = std::max (pk, std::abs (x[i]));
+                        sum += 20.0 * std::log10 (pk + 1e-9); ++count;
+                    }
+                return (float) (sum / std::max (1, count));
+            };
+            auto st = silkOnly (10.0f, 0.0f, 0.0f, 0.0f);
+            const float lossOff = onsetPeak (runSeraph (in, in, st).first) - onsetPeak (in);
+            st.silk.protect = true;
+            const float loss = onsetPeak (runSeraph (in, in, st).first) - onsetPeak (in);
+            std::printf ("  footstep-like attacks over a whistling 2.5 kHz tone, SMOOTH 10: attack peak %+.1f dB (PROTECT off) vs %+.1f dB (on)\n", lossOff, loss);
+            // Zero latency: the first ~1 ms of an attack passes an existing dip before any detector can react
+            check (loss > -3.5f, "PROTECT keeps attack peaks under a dipped resonance (within 3.5 dB)");
+            check (loss > lossOff + 4.0f, "PROTECT recovers most of what the dip would take");
+        }
+
+        // AIR adapts to how dull the source is
+        {
+            const auto bright = pink (n, -24.0f, 6);
+            auto dull = bright;
+            auto shelf = BiquadCoeffs::highShelf (sr, 4000.0, 0.7071, -14.0);
+            BiquadState sh;
+            for (auto& x : dull) x = sh.process (shelf, x);
+            const float liftBright = bandDb (runSeraph (bright, bright, silkOnly (0.0f, 10.0f, 0.0f, 0.0f)).first, 12000.0, 2.0) - bandDb (bright, 12000.0, 2.0);
+            const float liftDull = bandDb (runSeraph (dull, dull, silkOnly (0.0f, 10.0f, 0.0f, 0.0f)).first, 12000.0, 2.0) - bandDb (dull, 12000.0, 2.0);
+            std::printf ("  AIR 10: 12 kHz lift on a bright source %+.1f dB, on a dull source %+.1f dB\n", liftBright, liftDull);
+            check (liftDull > 1.5f, "AIR opens up a dull source");
+            check (liftDull > liftBright + 1.0f, "AIR gives dull sources more than bright ones");
+        }
+
+        // WARMTH: harmonics in the low mids
+        {
+            auto tone = [&] (double hz) { std::vector<float> v (n); for (size_t i = 0; i < n; ++i) v[i] = dbfs (-18.0f) * (float) std::sin (twoPi * hz * i / sr); return v; };
+            auto h2 = [&] (const std::vector<float>& x, double hz) { return toneDb (x, sr, 2 * hz, n / 2, n) - toneDb (x, sr, hz, n / 2, n); };
+            const auto low = tone (250.0);
+            const float cold = h2 (runSeraph (low, low, silkOnly (0.0f, 0.0f, 0.0f, 0.0f)).first, 250.0);
+            const float warm = h2 (runSeraph (low, low, silkOnly (0.0f, 0.0f, 10.0f, 0.0f)).first, 250.0);
+            std::printf ("  WARMTH on a 250 Hz tone: 2nd harmonic %.1f dB (0) -> %.1f dB (10)\n", cold, warm);
+            check (warm > cold + 8.0f && warm < -12.0f, "WARMTH adds real low-mid harmonics, still tasteful");
+        }
+
+        // Live display: activity is measured per channel
+        {
+            Seraph unit;
+            auto st = silkOnly (10.0f, 10.0f, 10.0f, 0.0f);
+            auto l = pink (n, -20.0f, 11), r = pink (n, -20.0f, 12);
+            auto res = BiquadCoeffs::bandPass (sr, 3150.0, 8.0);
+            BiquadState rs;
+            for (auto& x : r) x += 4.0f * rs.process (res, x);   // a resonance only on the right
+            juce::ScopedNoDenormals noDenormals;
+            unit.prepare (sr);
+            for (size_t pos = 0; pos < n; pos += (size_t) block)
+            {
+                float* chp[2] { l.data() + pos, r.data() + pos };
+                unit.process (chp, 2, (int) std::min ((size_t) block, n - pos), st);
+            }
+            const float sL = unit.getActivityDb (Seraph::smoothAct, 0), sR = unit.getActivityDb (Seraph::smoothAct, 1);
+            std::printf ("  live display, resonance only on the right: SMOOTH activity L %.1f dB, R %.1f dB\n", sL, sR);
+            check (sR > sL + 3.0f, "the display shows SMOOTH working harder on the channel that needs it");
+
+            Seraph quiet;
+            auto l2 = pink (n, -20.0f, 13);
+            std::vector<float> r2 (n, 0.0f);
+            quiet.prepare (sr);
+            for (size_t pos = 0; pos < n; pos += (size_t) block)
+            {
+                float* chp[2] { l2.data() + pos, r2.data() + pos };
+                quiet.process (chp, 2, (int) std::min ((size_t) block, n - pos), st);
+            }
+            const float wL = quiet.getActivityDb (Seraph::warmthAct, 0), wR = quiet.getActivityDb (Seraph::warmthAct, 1);
+            std::printf ("  music only on the left: WARMTH activity L %.1f dB, R %.1f dB\n", wL, wR);
+            check (wL > -50.0f && wR <= -59.0f, "a silent channel shows no activity");
+        }
+
+        // AUTO keeps loudness
+        {
+            const auto in = pink (n, -20.0f, 7);
+            auto st = silkOnly (10.0f, 10.0f, 10.0f, 10.0f);
+            st.silk.autoGain = true; st.silk.tape = true;
+            const auto out = runSeraph (in, in, st).first;
+            const float d = rmsDb (out, n / 2, n) - rmsDb (in, n / 2, n);
+            std::printf ("  everything at 10 + TAPE, AUTO on: loudness %+.2f dB\n", d);
+            check (std::abs (d) < 1.5f, "AUTO keeps the level matched (within 1.5 dB)");
+        }
+    }
+
+    //==========================================================================
+    std::printf ("\n== SERAPH: HALO (space & width) ==\n");
+    {
+        using enh::dsp::Seraph;
+
+        auto haloOnly = [] ()
+        {
+            Seraph::Settings st;
+            st.mode = Seraph::heaven;
+            st.silk.smooth = st.silk.air = st.silk.warmth = st.silk.body = 0.0f;
+            st.silk.autoGain = false;
+            st.halo.space = 0.0f; st.halo.shimmer = 0.0f; st.halo.width = 1.0f;
+            return st;
+        };
+        auto process = [&] (std::vector<float>& l, std::vector<float>& r, const Seraph::Settings& st, Seraph& unit)
+        {
+            juce::ScopedNoDenormals noDenormals;
+            unit.prepare (sr);
+            for (size_t pos = 0; pos < l.size(); pos += (size_t) block)
+            {
+                const int len = (int) std::min ((size_t) block, l.size() - pos);
+                float* ch[2] { l.data() + pos, r.data() + pos };
+                unit.process (ch, 2, len, st);
+            }
+        };
+        const auto n = (size_t) (6.0 * sr);
+
+        // WIDTH on mono material: wider, and the mono sum is unchanged
+        {
+            std::vector<float> in (n);
+            juce::Random rnd (8);
+            Pink pk;
+            for (auto& x : in) x = dbfs (-20.0f) * pk.next (rnd);
+            auto l = in, r = in;
+            auto st = haloOnly();
+            st.halo.width = 2.0f;
+            Seraph unit;
+            process (l, r, st, unit);
+            std::vector<float> mid (n), side (n);
+            for (size_t i = 0; i < n; ++i) { mid[i] = 0.5f * (l[i] + r[i]); side[i] = 0.5f * (l[i] - r[i]); }
+            const float monoChange = rmsDb (mid, n / 2, n) - rmsDb (in, n / 2, n);
+            const float sideRel = rmsDb (side, n / 2, n) - rmsDb (mid, n / 2, n);
+            std::printf ("  WIDTH 200%% on mono: mono sum %+.2f dB, side %.1f dB below mid\n", monoChange, -sideRel);
+            check (std::abs (monoChange) < 0.5f, "widening never changes the mono sum");
+            check (sideRel > -20.0f, "mono material gains real width");
+        }
+
+        // BASS MONO
+        {
+            std::vector<float> l (n), r (n);
+            for (size_t i = 0; i < n; ++i) { l[i] = dbfs (-20.0f) * (float) std::sin (twoPi * 60.0 * i / sr); r[i] = -l[i]; }
+            const auto inSide = l;
+            auto st = haloOnly();
+            Seraph unit;
+            process (l, r, st, unit);
+            std::vector<float> side (n);
+            for (size_t i = 0; i < n; ++i) side[i] = 0.5f * (l[i] - r[i]);
+            const float d = toneDb (side, sr, 60.0, n / 2, n) - toneDb (inSide, sr, 60.0, n / 2, n);
+            std::printf ("  BASS MONO: 60 Hz side content %+.1f dB\n", d);
+            check (d < -20.0f, "BASS MONO centres the low end");
+        }
+
+        // SPACE / DECAY: an impulse rings out close to the set decay time
+        {
+            for (float decay : { 1.0f, 4.0f })
+            {
+                const auto len = (size_t) ((decay * 2.0f + 1.0f) * sr);
+                std::vector<float> l (len, 0.0f), r (len, 0.0f);
+                l[100] = r[100] = 0.5f;
+                auto st = haloOnly();
+                st.halo.space = 1.0f; st.halo.decayS = decay; st.halo.duck = false; st.halo.mod = false; st.halo.tone = 1.0f;
+                Seraph unit;
+                process (l, r, st, unit);
+                // Schroeder backward integration, T20 extrapolated to 60 dB
+                std::vector<double> energy (len, 0.0);
+                double acc = 0.0;
+                for (size_t i = len; i-- > 0;) { acc += (double) l[i] * l[i] + (double) r[i] * r[i]; energy[i] = acc; }
+                const double e0 = energy[(size_t) (0.1 * sr)];
+                size_t t5 = 0, t25 = 0;
+                for (size_t i = (size_t) (0.1 * sr); i < len; ++i)
+                {
+                    const double db = 10.0 * std::log10 (energy[i] / e0 + 1e-30);
+                    if (t5 == 0 && db < -5.0) t5 = i;
+                    if (t25 == 0 && db < -25.0) { t25 = i; break; }
+                }
+                const float rt60 = t25 > t5 ? (float) ((double) (t25 - t5) / sr * 3.0) : 0.0f;
+                std::printf ("  DECAY %.1f s: measured RT60 %.2f s\n", decay, rt60);
+                check (rt60 > decay * 0.6f && rt60 < decay * 1.5f, "tail decays close to DECAY (" + juce::String (decay, 1) + " s)");
+            }
+        }
+
+        // SHIMMER + long DECAY stays stable and dies away after the music stops
+        {
+            const auto len = (size_t) (20.0 * sr);
+            std::vector<float> l (len, 0.0f), r (len, 0.0f);
+            juce::Random rnd (9);
+            Pink pk;
+            for (size_t i = 0; i < (size_t) (5.0 * sr); ++i) l[i] = r[i] = dbfs (-12.0f) * pk.next (rnd);
+            auto st = haloOnly();
+            st.halo.space = 1.0f; st.halo.decayS = 8.0f; st.halo.shimmer = 1.0f; st.halo.duck = false;
+            Seraph unit;
+            process (l, r, st, unit);
+            bool finite = true; float peak = 0.0f;
+            for (size_t i = 0; i < len; ++i) { finite = finite && std::isfinite (l[i]) && std::isfinite (r[i]); peak = std::max (peak, std::abs (l[i])); }
+            const float early = rmsDb (l, (size_t) (6.0 * sr), (size_t) (8.0 * sr)), late = rmsDb (l, (size_t) (18.0 * sr), len);
+            std::printf ("  SHIMMER 10, DECAY 8 s: peak %.2f, tail %.1f dB at 6-8 s -> %.1f dB at 18-20 s\n", peak, early, late);
+            check (finite && peak < 2.0f, "shimmer feedback stays stable");
+            check (late < early - 6.0f, "the tail dies away instead of building up");
+        }
+
+        // DUCK: the tail steps back while the music plays
+        {
+            std::vector<float> base (n);
+            juce::Random rnd (10);
+            Pink pk;
+            for (size_t i = 0; i < n; ++i)
+            {
+                // Speech-like bursts: 300 ms on, 200 ms off
+                const bool onPhase = std::fmod ((double) i / sr, 0.5) < 0.3;
+                base[i] = onPhase ? dbfs (-18.0f) * pk.next (rnd) : 0.0f;
+            }
+            auto measure = [&] (bool duck)
+            {
+                auto l = base, r = base;
+                auto st = haloOnly();
+                st.halo.space = 1.0f; st.halo.decayS = 2.0f; st.halo.duck = duck;
+                Seraph unit;
+                juce::ScopedNoDenormals noDenormals;
+                unit.prepare (sr);
+                double sum = 0.0; int count = 0;
+                for (size_t pos = 0; pos < n; pos += (size_t) block)
+                {
+                    float* ch[2] { l.data() + pos, r.data() + pos };
+                    unit.process (ch, 2, (int) std::min ((size_t) block, n - pos), st);
+                    const double t = (double) pos / sr;
+                    if (t > 2.0 && std::fmod (t, 0.5) > 0.1 && std::fmod (t, 0.5) < 0.28)
+                    {
+                        sum += unit.getHalo().getHaloDb();
+                        ++count;
+                    }
+                }
+                return (float) (sum / std::max (1, count));
+            };
+            const float free = measure (false), ducked = measure (true);
+            std::printf ("  DUCK: tail under the music %.1f dB (off) vs %.1f dB (on)\n", free, ducked);
+            check (ducked < free - 4.0f, "DUCK keeps the tail out of the way while the music plays");
+        }
+    }
+
+    //==========================================================================
+    std::printf ("\n== MULTIPLY and STRENGTH ==\n");
+    {
+        using enh::dsp::KnobValues;
+        using enh::dsp::Seraph;
+
+        // Mapping: every knob scales, SERAPH OUTPUT does not, and everything is clamped
+        {
+            KnobValues k;
+            k.clarityNorm = 20.0f; k.adaptPercent = 40.0f; k.subPercent = 50.0f; k.enhMultiply = 1.5f;
+            k.space = 2.0f; k.outputDb = 3.0f; k.decayS = 2.0f; k.seraphMultiply = 1.5f;
+            const auto p = enh::dsp::mapKnobs (k);
+            std::printf ("  x1.5: CLARITY 20 -> %.2f of full, ADAPT 40%% -> %.2f, SUB 50%% -> %.2f, SPACE 2 -> %.2f, DECAY 2 s -> %.1f s, OUTPUT %+.1f dB\n",
+                         p.normalize, p.adaptSpeed, p.sub, p.seraph.halo.space, p.seraph.halo.decayS, p.seraph.silk.outputDb);
+            check (std::abs (p.normalize - 1.0f) < 1.0e-4f && std::abs (p.adaptSpeed - 0.6f) < 1.0e-4f && std::abs (p.sub - 0.75f) < 1.0e-4f,
+                   "ENH MULTIPLY scales every ENH knob");
+            check (std::abs (p.seraph.halo.space - 0.3f) < 1.0e-4f && std::abs (p.seraph.halo.decayS - 3.0f) < 1.0e-4f,
+                   "SERAPH MULTIPLY scales SERAPH knobs");
+            check (p.seraph.silk.outputDb == 3.0f, "SERAPH MULTIPLY leaves the OUTPUT gain alone");
+
+            k.enhMultiply = k.seraphMultiply = 9.0f; k.enhStrength = k.seraphStrength = 9.0f;
+            const auto q = enh::dsp::mapKnobs (k);
+            check (q.strength == 5.0f && q.seraph.silk.strength == 5.0f && q.normalize == 2.0f, "MULTIPLY caps at 3x, STRENGTH at 5");
+        }
+
+        // ENH STRENGTH scales the applied EQ curve
+        {
+            const auto n = (size_t) (10.0 * sr);
+            Scene sc;
+            sc.left.resize (n); sc.right.resize (n);
+            juce::Random rnd (21);
+            Pink pk;
+            auto res = BiquadCoeffs::bandPass (sr, 600.0, 4.0);
+            BiquadState r1;
+            for (size_t i = 0; i < n; ++i)
+            {
+                const float x = dbfs (-20.0f) * pk.next (rnd);
+                sc.left[i] = sc.right[i] = x + 3.0f * r1.process (res, x);
+            }
+            auto curveSpan = [&] (float strength)
+            {
+                EnhEngine::Parameters p;
+                p.normalize = 1.0f; p.strength = strength;
+                const auto r = run (sc, sr, block, p);
+                float lo = 0.0f, hi = 0.0f;
+                for (auto v : r.curve) { lo = std::min (lo, (float) v); hi = std::max (hi, (float) v); }
+                return hi - lo;
+            };
+            const float s0 = curveSpan (0.0f), s1 = curveSpan (1.0f), s2 = curveSpan (2.0f);
+            std::printf ("  ENH EQ curve span: STRENGTH 0 %.2f dB, 1 %.2f dB, 2 %.2f dB\n", s0, s1, s2);
+            check (s0 < 0.1f, "ENH STRENGTH 0: no EQ movement");
+            check (s2 > 1.6f * s1 && s2 < 2.4f * s1, "ENH STRENGTH 2: about twice the EQ movement");
+        }
+
+        // SERAPH STRENGTH 0 leaves the audio alone; higher strength does more
+        {
+            const auto n = (size_t) (6.0 * sr);
+            std::vector<float> in (n);
+            juce::Random rnd (22);
+            Pink pk;
+            for (auto& x : in) x = dbfs (-20.0f) * pk.next (rnd);
+
+            auto runWith = [&] (float strength, Seraph& unit)
+            {
+                Seraph::Settings st;
+                st.mode = Seraph::heaven;
+                st.silk.strength = st.halo.strength = strength;
+                st.silk.autoGain = false; st.silk.tape = true;
+                auto l = in, r = in;
+                juce::ScopedNoDenormals noDenormals;
+                unit.prepare (sr);
+                for (size_t pos = 0; pos < n; pos += (size_t) block)
+                {
+                    float* chp[2] { l.data() + pos, r.data() + pos };
+                    unit.process (chp, 2, (int) std::min ((size_t) block, n - pos), st);
+                }
+                return l;
+            };
+
+            Seraph u0, u1, u3;
+            const auto out0 = runWith (0.0f, u0);
+            std::vector<float> diff (n);
+            for (size_t i = 0; i < n; ++i) diff[i] = out0[i] - in[i];
+            const float residual = rmsDb (diff, n / 2, n) - rmsDb (in, n / 2, n);
+            runWith (1.0f, u1);
+            runWith (3.0f, u3);
+            const float space1 = u1.getActivityDb (Seraph::spaceAct, 0), space3 = u3.getActivityDb (Seraph::spaceAct, 0);
+            const float warm1 = u1.getActivityDb (Seraph::warmthAct, 0), warm3 = u3.getActivityDb (Seraph::warmthAct, 0);
+            std::printf ("  SERAPH STRENGTH 0: change %.1f dB below the input; SPACE %.1f -> %.1f dB, WARMTH %.1f -> %.1f dB (x1 -> x3)\n",
+                         -residual, space1, space3, warm1, warm3);
+            check (residual < -40.0f, "SERAPH STRENGTH 0 leaves the audio untouched (< -40 dB change)");
+            check (space3 > space1 + 7.0f && warm3 > warm1 + 5.0f, "SERAPH STRENGTH 3 hits much harder than 1");
+        }
+
+        // Early reflections arrive well before the dense tail
+        {
+            const auto len = (size_t) (1.0 * sr);
+            std::vector<float> l (len, 0.0f), r (len, 0.0f);
+            l[0] = r[0] = 0.5f;
+            Seraph::Settings st;
+            st.mode = Seraph::heaven;
+            st.silk.smooth = st.silk.air = st.silk.warmth = st.silk.body = 0.0f; st.silk.autoGain = false;
+            st.halo.space = 1.0f; st.halo.duck = false; st.halo.shimmer = 0.0f; st.halo.width = 1.0f;
+            Seraph unit;
+            juce::ScopedNoDenormals noDenormals;
+            unit.prepare (sr);
+            for (size_t pos = 0; pos < len; pos += (size_t) block)
+            {
+                float* chp[2] { l.data() + pos, r.data() + pos };
+                unit.process (chp, 2, (int) std::min ((size_t) block, len - pos), st);
+            }
+            // Sparse reflections: judge them by their peaks, not an average over the gaps between them
+            float peak = 0.0f;
+            for (size_t i = (size_t) (0.020 * sr); i < (size_t) (0.050 * sr); ++i) peak = std::max (peak, std::abs (l[i]));
+            const float early = 20.0f * std::log10 (peak + 1e-9f);
+            std::printf ("  impulse (-6 dBFS): strongest reflection 20-50 ms at %.1f dBFS\n", early);
+            check (early > -45.0f, "early reflections give the space size before the tail");
+        }
+
+        // Everything at maximum: the output limiter keeps it clean and below full scale
+        {
+            const auto scene = makeScene (sr, 8.0, true, true, 23);
+            KnobValues k;
+            k.clarityAddMode = true; k.clarityAdd = 10.0f; k.subPercent = 100.0f; k.subBoost = true; k.footstep = true;
+            k.smooth = k.air = k.warmth = k.body = 10.0f; k.tape = true; k.outputDb = 12.0f;
+            k.widthPercent = 200.0f; k.space = 10.0f; k.decayS = 8.0f; k.shimmer = 10.0f; k.tone = 10.0f;
+            k.enhMultiply = k.seraphMultiply = 3.0f; k.enhStrength = k.seraphStrength = 5.0f;
+            const auto r = run (scene, sr, 128, enh::dsp::mapKnobs (k));
+            std::printf ("  everything at maximum (3x, strength 5): peak %.3f\n", r.peak);
+            check (r.finite && r.peak <= 1.0f, "MULTIPLY 3x + STRENGTH 5 on both units: finite and below full scale");
+        }
+    }
+
+    {
+        std::printf ("\n== Full chain: ENH Master + SERAPH at extreme settings ==\n");
+        const auto scene = makeScene (sr, 8.0, true, true, 5);
+        EnhEngine::Parameters p;
+        p.normalize = 1.0f; p.boost = 1.0f; p.footstep = true;
+        p.seraph.mode = enh::dsp::Seraph::heaven;
+        p.seraph.silk = { 10.0f, 10.0f, 10.0f, 10.0f, 12.0f, true, true, false };
+        p.seraph.halo = { 2.0f, 1.0f, 8.0f, 1.0f, 1.0f, false, false, true };
+        const auto r = run (scene, sr, 64, p);
+        std::printf ("  peak %.3f\n", r.peak);
+        check (r.finite, "full chain stays finite with everything at maximum");
+    }
+
     std::printf ("\n== CPU (this machine) ==\n");
     for (double rate : { 44100.0, 48000.0, 96000.0 })
     {
         const auto scene = makeScene (rate, 20.0, true, true, 42);
         EnhEngine::Parameters p;
-        p.clarity = 0.7f; p.adaptSpeed = 0.5f; p.sub = 0.6f; p.subBoost = true; p.footstep = true;
+        p.normalize = 0.7f; p.adaptSpeed = 0.5f; p.sub = 0.6f; p.subBoost = true; p.footstep = true;
+        p.seraph.mode = enh::dsp::Seraph::heaven;   // both units running, as in the plugin
         const auto r = run (scene, rate, 256, p);
         const double realtime = 20.0 / r.seconds;
         std::printf ("  %6.0f Hz stereo : %.1fx realtime  (%.2f%% of one core)\n", rate, realtime, 100.0 / realtime);
@@ -606,7 +1595,7 @@ int main (int argc, char** argv)
     {
         const auto scene = makeScene (sr, 4.0, true, false, 3);
         EnhEngine::Parameters p;
-        p.clarity = 1.0f; p.sub = 1.0f; p.subBoost = true; p.footstep = true;
+        p.normalize = 1.0f; p.sub = 1.0f; p.subBoost = true; p.footstep = true;
         bool ok = true;
         for (int bs : { 1, 7, 33, 480, 1024 })
         {

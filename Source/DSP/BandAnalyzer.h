@@ -33,11 +33,17 @@ namespace enh::dsp
             fullShort.push (p);
         }
 
-        /** Control-rate update of dB values and rolling statistics. */
-        void update (float dt) noexcept;
+        /** Control-rate update of dB values and rolling statistics.
+            ltasSeconds: integration time of the long-term spectrum (follows ADAPT). */
+        void update (float dt, float ltasSeconds = 2.5f) noexcept;
 
         // Per-band, valid after update()
-        std::array<float, numBands> shortDb {}, mediumDb {}, floorDb {}, sigmaDb {};
+        std::array<float, numBands> transientDb {}, shortDb {}, mediumDb {}, floorDb {}, sigmaDb {};
+
+        /** Long-term average spectrum of the programme (power-averaged, frozen during silence). */
+        std::array<float, numBands> ltasDb {};
+
+        int getActiveCount() const noexcept { return activeCount; }
 
         // Raw followers for group measurements
         std::array<PowerFollower, numBands> transient {}, shortTerm {}, medium {};
@@ -50,7 +56,8 @@ namespace enh::dsp
         std::array<BiquadCoeffs, numBands> coeffs {};
         std::array<BiquadState, numBands> state {};
         std::array<bool, numBands> active {};
-        std::array<float, numBands> meanDb {}, varDb {};
+        std::array<float, numBands> meanDb {}, varDb {}, ltasPower {};
         int activeCount = 0;
+        float learnedSeconds = 0.0f;
     };
 }

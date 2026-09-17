@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Render/GLMath.h"
+#include "../HardwareKit.h"
 #include "DeviceLayout.h"
 #include <algorithm>
 
@@ -26,9 +26,11 @@ namespace pad
             c.aspect = std::max (0.2f, aspectRatio);
             c.tanHalfFovY = std::tan (fovY * 0.5f);
 
-            // Frame the faceplate (incl. ears) plus a sliver of the lid above it.
+            // Frame the whole rack stack (ENH Master + SERAPH, incl. ears) plus a sliver of the top lid.
+            const float stackBottom = layout::faceCenterY - layout::faceHalfH;
+            const float stackTop = layout::tubeCenterY + layout::tubeHalfH;
             const float halfW = layout::faceHalfW + 0.10f;
-            const float vertHalf = layout::faceHalfH + 0.30f;
+            const float vertHalf = 0.5f * (stackTop - stackBottom) + 0.28f;
 
             const float distW = halfW / (c.tanHalfFovY * c.aspect);
             const float distV = vertHalf / c.tanHalfFovY;
@@ -37,7 +39,7 @@ namespace pad
             const float yaw   = parallaxX * 2.0f * deg;
             const float pitch = basePitch + parallaxY * 1.2f * deg;
 
-            const gfx::Vec3 target { 0.0f, layout::faceCenterY + 0.12f, 0.45f };
+            const gfx::Vec3 target { 0.0f, 0.5f * (stackTop + stackBottom) + 0.12f, 0.45f };
             const gfx::Vec3 dir { std::sin (yaw) * std::cos (pitch), std::sin (pitch), std::cos (yaw) * std::cos (pitch) };
 
             c.eye = target + dir * distance;
@@ -62,7 +64,8 @@ namespace pad
 
         /** Intersect with a plane parallel to the faceplate, `height` out from it.
             Returns panel-local (x, z). */
-        bool intersectPanel (float ndcX, float ndcY, float height, float& localX, float& localZ) const noexcept
+        bool intersectPanel (float ndcX, float ndcY, float height, float& localX, float& localZ,
+                             float panelCentreY = layout::faceCenterY) const noexcept
         {
             const auto d = rayDirection (ndcX, ndcY);
             if (std::abs (d.z) < 1.0e-5f)
@@ -73,7 +76,7 @@ namespace pad
                 return false;
 
             localX = eye.x + d.x * t;
-            localZ = layout::faceCenterY - (eye.y + d.y * t);
+            localZ = panelCentreY - (eye.y + d.y * t);
             return true;
         }
     };

@@ -11,27 +11,29 @@ namespace enh::dsp
         const double controlRate = sr / controlInterval;
 
         analyzer.prepare (sr, controlRate);
+        spectrum.prepare (sr);
         steps.prepare (analyzer, controlRate);
+        planner.prepare (analyzer);
         eq.prepare (sr, controlRate, analyzer, numChannels);
         sub.prepare (sr, controlRate);
         analog.prepare (sr, maxBlock, numChannels);
-
-        thumpCoeffs = BiquadCoeffs::peaking (sr, 160.0, 0.9, 0.0);
-        scuffCoeffs = BiquadCoeffs::peaking (sr, 3800.0, 1.0, 0.0);
+        seraph.prepare (sr);
         reset();
     }
 
     void EnhEngine::reset()
     {
         analyzer.reset();
+        spectrum.reset();
         steps.reset();
+        planner.reset();
         eq.reset();
         sub.reset();
         analog.reset();
+        seraph.reset();
 
-        for (auto& f : focus) f = FocusChannel {};
-        focusAmount = -1.0f;
         samplesToTick = controlInterval;
+        planCountdown = 0;
         transient = 0.0f;
 
         for (auto& g : meters.bandGainDb) g = 0.0f;
@@ -41,24 +43,23 @@ namespace enh::dsp
     {
         const float dt = controlDt;
         const float smooth = 1.0f - std::exp (-dt / 0.05f);
-        clarity   += (p.clarity - clarity) * smooth;
+        normalize += (p.normalize - normalize) * smooth;
+        boost     += (p.boost - boost) * smooth;
+        strength  += (p.strength - strength) * smooth;
         speed     += (p.adaptSpeed - speed) * smooth;
         subAmount += (p.sub - subAmount) * smooth;
-        focusTarget += ((p.footstep ? 1.0f : 0.0f) - focusTarget) * smooth;
 
-        analyzer.update (dt);
-        const float confidence = steps.update (analyzer, dt);
-
-        eq.update (analyzer, steps, { clarity, speed, p.footstep }, dt);
-        sub.update ({ subAmount, p.subBoost, speed }, dt);
-
-        // Static footstep regions: +2.5 dB thump, +3.5 dB scuff, faded with the switch
-        if (std::abs (focusTarget - focusAmount) > 0.002f)
+        // Long-term spectrum integration follows ADAPT: 6 s (steady) .. 0.8 s (fast)
+        analyzer.update (dt, 6.0f * std::pow (0.8f / 6.0f, speed));
+        const float confidence = steps.update (analyzer, spectrum, dt);
+        if (--planCountdown <= 0)
         {
-            focusAmount = focusTarget;
-            thumpCoeffs = BiquadCoeffs::peaking (sampleRate, 160.0, 0.9, 2.5 * focusAmount);
-            scuffCoeffs = BiquadCoeffs::peaking (sampleRate, 3800.0, 1.0, 3.5 * focusAmount);
+            planCountdown = 2;
+            planner.update (analyzer, speed, 2.0f * dt);
         }
+
+        eq.update (analyzer, steps, { normalize, boost, std::min (speed, 1.5f), p.footstep, planner.depth, planner.clarity, strength }, dt);
+        sub.update ({ subAmount, p.subBoost, std::min (speed, 1.5f), planner.bassHz, strength }, dt);
 
         const float t = saturate01 ((analyzer.fullTransientDb - analyzer.fullShortDb) / 6.0f);
         transient = std::max (t, transient * std::exp (-dt / 0.08f));
@@ -68,7 +69,9 @@ namespace enh::dsp
             meters.bandGainDb[(size_t) k].store (eq.getGainDb (k), std::memory_order_relaxed);
 
         meters.footstepConfidence.store (p.footstep ? confidence : 0.0f, std::memory_order_relaxed);
-        meters.enhancement.store (saturate01 (eq.getActivity() + 0.25f * clarity), std::memory_order_relaxed);
+        // What is actually being done to the signal right now (EQ movement + harmonics being generated)
+        const float harmonics = boost * std::max (planner.depth.amount, planner.clarity.amount) * saturate01 ((analyzer.fullShortDb + 70.0f) / 20.0f);
+        meters.enhancement.store (saturate01 (eq.getActivity() + 0.6f * harmonics), std::memory_order_relaxed);
         meters.subLiftDb.store (sub.getLiftDb(), std::memory_order_relaxed);
     }
 
@@ -82,6 +85,19 @@ namespace enh::dsp
 
         meters.autoGainDb.store (analog.getAutoGainDb(), std::memory_order_relaxed);
         meters.outputPeakDb.store (analog.getPeakDb(), std::memory_order_relaxed);
+
+        meters.silkSmoothingDb.store (seraph.getSilk().getSmoothingDb(), std::memory_order_relaxed);
+        meters.haloDb.store (seraph.getHalo().getHaloDb(), std::memory_order_relaxed);
+        meters.silkBlend.store (seraph.getSilk().getBlend(), std::memory_order_relaxed);
+        meters.haloBlend.store (seraph.getHalo().getBlend(), std::memory_order_relaxed);
+
+        for (int a = 0; a < Seraph::numActivities; ++a)
+            for (int c = 0; c < 2; ++c)
+                meters.seraphActivityDb[(size_t) (a * 2 + c)].store (seraph.getActivityDb (a, c), std::memory_order_relaxed);
+        meters.seraphLevelDb.store (seraph.getSilk().getBlend() > 0.01f ? seraph.getSilk().getLevelDb() : 0.0f, std::memory_order_relaxed);
+        const auto& dips = seraph.getSilk().getDips();
+        for (size_t k = 0; k < dips.size(); ++k)
+            meters.silkDipDb[k].store (dips[k], std::memory_order_relaxed);
     }
 
     void EnhEngine::processChunk (juce::AudioBuffer<float>& buffer, int start, int n, const Parameters& p) noexcept
@@ -105,6 +121,7 @@ namespace enh::dsp
             {
                 const float mono = chans == 2 ? 0.5f * (write[0][at + i] + write[1][at + i]) : write[0][at + i];
                 analyzer.push (mono);
+                spectrum.push (mono);
                 sub.measure (mono);
             }
 
@@ -117,20 +134,14 @@ namespace enh::dsp
 
             eq.process (write, chans, at, seg);
 
-            if (focusAmount > 0.001f)
-                for (int c = 0; c < chans; ++c)
-                {
-                    auto& f = focus[(size_t) c];
-                    auto* x = write[c] + at;
-                    for (int i = 0; i < seg; ++i)
-                        x[i] = f.scuff.process (scuffCoeffs, f.thump.process (thumpCoeffs, x[i]));
-                }
-
             sub.process (write, chans, at, seg);
             pos += seg;
         }
 
         juce::dsp::AudioBlock<float> block (write, (size_t) chans, (size_t) start, (size_t) n);
-        analog.process (block, { clarity, transient, p.footstep ? steps.getConfidence() : 0.0f });
+        analog.process (block, { boost, transient, p.footstep ? steps.getConfidence() : 0.0f, planner.depth, planner.clarity, strength });
+
+        float* seraphChannels[2] { write[0] + start, write[chans - 1] + start };
+        seraph.process (seraphChannels, chans, n, p.seraph);
     }
 }

@@ -12,18 +12,23 @@ namespace pad
 
     namespace colours
     {
-        constexpr Vec3 chassisPink { 0.95f, 0.52f, 0.68f };
-        constexpr Vec3 pink        { 1.00f, 0.12f, 0.46f };
-        constexpr Vec3 lime        { 0.45f, 1.00f, 0.15f };
+        constexpr Vec3 chassisBlack { 0.045f, 0.046f, 0.050f };
+        constexpr Vec3 ledGreen     { 0.25f, 1.00f, 0.20f };
+        constexpr Vec3 ledYellow    { 1.00f, 0.78f, 0.10f };
+        constexpr Vec3 ledRed       { 1.00f, 0.12f, 0.06f };
+        constexpr Vec3 amber        { 1.00f, 0.55f, 0.15f };
+        constexpr Vec3 knobBlack    { 0.030f, 0.030f, 0.033f };
+        constexpr Vec3 buttonGrey   { 0.40f, 0.41f, 0.43f };
+        constexpr Vec3 seraphPurple { 0.30f, 0.14f, 0.55f };
         constexpr Vec3 user        { 1.00f, 0.70f, 0.20f };
         constexpr Vec3 automation  { 0.20f, 0.82f, 1.00f };
         constexpr Vec3 selfTune    { 0.68f, 0.42f, 1.00f };
-        constexpr Vec3 neutral     { 0.95f, 0.88f, 0.92f };
-        constexpr Vec3 bakelite    { 0.035f, 0.032f, 0.038f };
+        constexpr Vec3 neutral     { 0.92f, 0.93f, 0.95f };
         constexpr Vec3 chrome      { 0.92f, 0.90f, 0.93f };
     }
 
     static Vec3 mixVec (Vec3 a, Vec3 b, float t) noexcept { return a + (b - a) * t; }
+    static float saturateUi (float x) noexcept { return std::clamp (x, 0.0f, 1.0f); }
 
     Vec3 HardwareRenderer::sourceColour (ControlSource s) noexcept
     {
@@ -39,11 +44,100 @@ namespace pad
 
     //==============================================================================
     HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const enh::dsp::EngineMeters& m,
-                                        const UIConfig& c, artwork::RawTexture decal, artwork::RawTexture dial)
-        : bridge (b), shared (s), meters (m), config (c), decalData (std::move (decal)), dialData (std::move (dial))
+                                        const UIConfig& c, artwork::TextureSet textures)
+        : bridge (b), shared (s), meters (m), config (c), textureData (std::move (textures))
     {
+        seraphModeParam = bridge.indexOf (params::id::seraphMode);
+
         for (int i = 0; i < numControls; ++i)
-            controlParam[(size_t) i] = bridge.indexOf (controls[(size_t) i].paramId);
+        {
+            const auto& def = controls[(size_t) i];
+            controlParam[(size_t) i] = bridge.indexOf (def.paramId);
+            altParam[(size_t) i] = def.altParamId != nullptr ? bridge.indexOf (def.altParamId) : -1;
+            modeParam[(size_t) i] = def.modeParamId != nullptr ? bridge.indexOf (def.modeParamId) : -1;
+        }
+
+        footstepControl = controlIndex (params::id::footstep);
+        modeControl = controlIndex (params::id::clarityMode);
+
+        // Which printed scale ring each ENH knob wears (by its parameter's range)
+        for (int i = 0; i < numControls; ++i)
+            if (auto* spec = params::findSpec (controls[(size_t) i].paramId))
+                ringScale[(size_t) i] = spec->maxValue <= 3.01f ? 3 : spec->maxValue <= 5.01f ? 5 : 10;
+    }
+
+    //==============================================================================
+    void HardwareRenderer::GpuModel::upload (const hwk::models::Model& model)
+    {
+        release();
+        for (auto& part : model.parts)
+        {
+            auto gpu = std::make_unique<Part>();
+            gpu->mesh.upload (part.mesh);
+            gpu->role = part.role;
+            gpu->rotates = part.rotates;
+            gpu->brushed = part.brushedRings;
+            gpu->colour = part.colour;
+            gpu->ridges = part.ridges;
+            gpu->ridgesBelowY = part.ridgesBelowY;
+            gpu->polish = part.polish;
+            parts.push_back (std::move (gpu));
+        }
+        footprint = model.footprintRadius;
+        shadowRadius = model.bodyShadowRadius();
+        beakLength = model.beakLength;
+        beakHalfWidth = model.beakHalfWidth;
+    }
+
+    void HardwareRenderer::GpuModel::release()
+    {
+        for (auto& p : parts)
+            p->mesh.release();
+        parts.clear();
+    }
+
+    void HardwareRenderer::drawModel (const GpuModel& model, const Mat4& moving, const Mat4& fixed, Vec3 hoverLift,
+                                      Vec3 pointerColour, float accentGain)
+    {
+        using hwk::models::Role;
+        for (auto& part : model.parts)
+        {
+            const Mat4& m = part->rotates ? moving : fixed;
+            switch (part->role)
+            {
+                case Role::body:
+                    use (shaders::plastic).set ("uParams", part->ridges, part->ridgesBelowY, 0.0f, 0.0f);
+                    draw (part->mesh, m, part->colour, hoverLift);
+                    break;
+                case Role::accent:
+                    use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                    draw (part->mesh, m, part->colour * accentGain, hoverLift * 0.6f);
+                    break;
+                case Role::metal:
+                    use (shaders::chrome).set ("uParams", part->polish, part->brushed ? 1.0f : 0.0f, 0.0f, 0.0f);
+                    draw (part->mesh, m, part->colour, hoverLift * 0.5f);
+                    break;
+                case Role::pointer:
+                    use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                    draw (part->mesh, m, pointerColour * 0.55f, pointerColour * 0.45f);
+                    break;
+            }
+        }
+    }
+
+    void HardwareRenderer::queueGlow (const Mat4& space, float x, float z, float size, Vec3 colour, float intensity) noexcept
+    {
+        if (intensity < 0.02f || glowCount >= (int) glows.size())
+            return;
+        glows[(size_t) glowCount++] = { space * Mat4::translation ({ x, 0.02f, z }) * Mat4::scale (size, 1.0f, size), colour, intensity };
+    }
+
+    int HardwareRenderer::parameterFor (int control) const noexcept
+    {
+        const auto i = (size_t) control;
+        if (altParam[i] >= 0 && modeParam[i] >= 0 && bridge.getNormalised (modeParam[i]) > 0.5f)
+            return altParam[i];
+        return controlParam[i];
     }
 
     HardwareRenderer::~HardwareRenderer()
@@ -56,10 +150,10 @@ namespace pad
     {
         for (int m = 0; m < shaders::numMaterials; ++m)
         {
-            const auto fragment = juce::String ("#version 150\n#define MATERIAL ") + juce::String (m) + "\n" + shaders::fragmentBody;
+            const auto fragment = hwk::shaders::fragmentSource (shaders::materialFor (m));
             juce::String error;
 
-            if (! programs[(size_t) m].build (shaders::vertex, fragment.toRawUTF8(), error))
+            if (! programs[(size_t) m].build (hwk::shaders::vertex, fragment.toRawUTF8(), error))
             {
                 juce::Logger::writeToLog ("ENH Master: shader " + juce::String (m) + " failed: " + error);
                 ready = false;
@@ -82,18 +176,62 @@ namespace pad
         meshes.earWalls.upload (geo::earSlotWalls());
         meshes.earFloors.upload (geo::earSlotFloors());
         meshes.screws.upload (geo::screwHeads());
-        meshes.knobBezel.upload (geo::knobBezel());
-        meshes.knobSkirt.upload (geo::knobSkirt());
-        meshes.knobCap.upload (geo::knobCap());
-        meshes.knobInsert.upload (geo::knobCapInsert());
-        meshes.indicator.upload (geo::box ({ -0.009f, 0.001f, -indicatorFar }, { 0.009f, 0.006f, -indicatorNear }));
-        meshes.switchPlate.upload (geo::switchPlate());
-        meshes.switchBushing.upload (geo::switchBushing());
-        meshes.switchLever.upload (geo::switchLever());
-        meshes.led.upload (geo::dome (1.0f, 0.55f, 12, 3));
+        meshes.screwSlots.upload (geo::screwSlots());
+        meshes.lidScrews.upload (geo::lidScrews());
+        meshes.scaleRing.upload (geo::knobScaleRing());
+        meshes.arcRing.upload (hwk::geo::flatAnnulus (1.0f, 1.16f, 96));
+        meshes.tubeChassis.upload (geo::tubeChassisBody());
+        meshes.tubeFaceTop.upload (geo::tubeFaceTop());
+        meshes.tubeFaceEdges.upload (geo::tubeFaceEdges());
+        meshes.tubeEarWalls.upload (geo::tubeEarSlotWalls());
+        meshes.tubeEarFloors.upload (geo::tubeEarSlotFloors());
+        meshes.tubeScrews.upload (geo::tubeScrewHeads());
+        meshes.tubeScrewSlots.upload (geo::tubeScrewSlots());
+        meshes.seraphWalls.upload (geo::seraphDisplayWalls());
+        meshes.seraphGlass.upload (geo::seraphDisplayGlass());
+        meshes.seraphBezel.upload (geo::seraphDisplayBezel());
+        // HardwareKit models: one GPU model per distinct (style, radius)
+        knobModels.clear();
+        std::vector<std::pair<int, float>> built;
+        for (int i = 0; i < numControls; ++i)
+        {
+            const auto& c = controls[(size_t) i];
+            knobModelIndex[(size_t) i] = -1;
+            if (c.kind != ControlKind::knob && c.kind != ControlKind::selector)
+                continue;
 
-        decalTex.upload (decalData.pixels.data(), decalData.width, decalData.height, decalData.channels, true, config.anisotropy);
-        dialTex.upload (dialData.pixels.data(), dialData.width, dialData.height, dialData.channels, true, config.anisotropy);
+            const float r = knobBodyRadius (c);
+            const auto accent = c.unit == tubeUnit ? Vec3 { 0.62f, 0.44f, 1.0f } : Vec3 { 0.55f, 0.56f, 0.60f };
+            const auto key = std::make_pair ((int) c.style, r);
+            const auto found = std::find (built.begin(), built.end(), key);
+            if (found != built.end())
+            {
+                knobModelIndex[(size_t) i] = (int) (found - built.begin());
+                continue;
+            }
+            auto model = std::make_unique<GpuModel>();
+            model->upload (hwk::models::knob (c.style, r, accent));
+            knobModelIndex[(size_t) i] = (int) knobModels.size();
+            knobModels.push_back (std::move (model));
+            built.push_back (key);
+        }
+        buttonModel.upload (hwk::models::pushButton (buttonHalfW, buttonHalfD));
+        toggleBaseModel.upload (hwk::models::batToggleBase());
+        toggleLeverModel.upload (hwk::models::batToggleLever());
+        lampModel.upload (hwk::models::jewelLamp());
+        meshes.led.upload (hwk::models::ledLens());
+
+        auto upload = [this] (gfx::Texture2D& tex, const artwork::RawTexture& raw)
+        {
+            tex.upload (raw.pixels.data(), raw.width, raw.height, raw.channels, true, config.anisotropy);
+        };
+        upload (decalTex, textureData.faceplateDecal);
+        upload (scaleTex, textureData.scale10);
+        upload (scaleWideTex, textureData.scale30);
+        upload (scale3Tex, textureData.scale3);
+        upload (scale5Tex, textureData.scale5);
+        upload (tubeDecalTex, textureData.tubeDecal);
+        upload (seraphLabelTex, textureData.seraphLabels);
 
         const std::vector<juce::uint8> blank ((size_t) (artwork::displayOverlayWidth * artwork::displayOverlayHeight), 0);
         overlayTex.upload (blank.data(), artwork::displayOverlayWidth, artwork::displayOverlayHeight, 1, true, 1);
@@ -108,8 +246,25 @@ namespace pad
     {
         meshes.forEach ([] (gfx::GpuMesh& m) { m.release(); });
         decalTex.release();
-        dialTex.release();
+        scaleTex.release();
+        scaleWideTex.release();
+        scale3Tex.release();
+        scale5Tex.release();
+        tubeDecalTex.release();
+        for (auto& model : knobModels)
+            model->release();
+        knobModels.clear();
+        buttonModel.release();
+        toggleBaseModel.release();
+        toggleLeverModel.release();
+        lampModel.release();
+        loupeTarget.release();
+        loupeReady = false;
+        seraphLabelTex.release();
         overlayTex.release();
+        calloutTex.release();
+        uploadedCalloutVersion = 0;
+        calloutW = calloutH = 0;
 
         for (auto& p : programs)
             p.release();
@@ -137,6 +292,130 @@ namespace pad
             overlayTex.upload (overlayScratch.data(), artwork::displayOverlayWidth, artwork::displayOverlayHeight, 1, true, 1);
 
         uploadedOverlayVersion = version;
+    }
+
+    void HardwareRenderer::uploadCalloutIfChanged()
+    {
+        juce::uint32 version = 0;
+        int w = 0, h = 0;
+
+        {
+            const juce::SpinLock::ScopedLockType lock (shared.calloutLock);
+            if (shared.calloutVersion == uploadedCalloutVersion || shared.calloutPending.pixels.empty())
+                return;
+
+            std::swap (calloutScratch, shared.calloutPending.pixels);
+            w = shared.calloutPending.width;
+            h = shared.calloutPending.height;
+            version = shared.calloutVersion;
+        }
+
+        if (w > 0 && h > 0 && calloutScratch.size() == (size_t) (w * h * 4))
+        {
+            calloutTex.upload (calloutScratch.data(), w, h, 4, false, 1);
+            calloutW = w;
+            calloutH = h;
+        }
+
+        uploadedCalloutVersion = version;
+    }
+
+    void HardwareRenderer::renderLoupeView (const CameraRig& camera, int vw, int vh)
+    {
+        loupeReady = false;
+        float ax = 0.0f, ay = 0.0f;
+
+        // Normally the glass magnifies about the cursor itself: what sits under the pointer stays
+        // under the pointer, only bigger, so moving on to the next label walks straight through the
+        // lens. While a control is being adjusted (or for the screenshot hook, which has no real
+        // pointer) it locks onto the control instead, so the value stays in view as the mouse moves.
+        const bool atPointer = shared.calloutAtPointer.load() && ! shared.dragging.load()
+                                 && (pointerInside || shared.mouseInside.load());
+        if (atPointer)
+        {
+            ax = pointerNdcX;
+            ay = pointerNdcY;
+        }
+        else
+        {
+            const auto world = panelToWorld (loupeUnit).transformPoint ({ loupeX, 0.004f, loupeZ });
+            if (! gfx::projectToNdc (camera.viewProj, world, ax, ay))
+                return;
+        }
+
+        const float px = (float) vw / (float) juce::jmax (1, shared.viewWidth.load());
+        const float maxRadius = 62.0f * px;
+        loupeRadius = maxRadius * (0.55f + 0.45f * loupeAlpha);   // grows out of the panel, shrinks back into it
+        const float margin = loupeRadius + 6.0f * px;
+        loupeCx = juce::jlimit (margin, std::max (margin, (float) vw - margin), (ax + 1.0f) * 0.5f * (float) vw);
+        loupeCy = juce::jlimit (margin, std::max (margin, (float) vh - margin), (ay + 1.0f) * 0.5f * (float) vh);
+
+        // Fixed target size (only the window size changes it), so opening the loupe never reallocates
+        const int size = juce::jmax (8, juce::roundToInt (2.0f * maxRadius));
+        if (! loupeTarget.ensureSize (size, size))
+            return;
+
+        // Re-render the scene zoomed in around the anchor: real detail, not stretched pixels
+        auto zoomed = camera;
+        zoomed.viewProj = hwk::fx::Loupe::zoomedViewProj (camera.viewProj, ax, ay, loupeZoom, maxRadius, vw, vh);
+
+        loupeTarget.bind();
+        vignette = 0.0f;
+        drawScene (zoomed, size, size);
+        vignette = 1.0f;
+        gfx::RenderTarget::unbind();
+        glViewport (0, 0, vw, vh);
+        loupeReady = true;
+    }
+
+    void HardwareRenderer::drawLoupe (int vw, int vh)
+    {
+        if (! loupeReady || loupeAlpha < 0.01f)
+            return;
+
+        const float px = (float) vw / (float) juce::jmax (1, shared.viewWidth.load());
+        const float R = loupeRadius;
+
+        glDisable (GL_DEPTH_TEST);
+        glEnable (GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask (GL_FALSE);
+
+        // Soft drop shadow and a dark outer rim, like a glass loupe lifted off the panel
+        auto& overlay = use (shaders::callout);
+        overlay.set ("uViewProj", Mat4::identity());
+        overlay.set ("uParams", 0.0f, 0.34f * loupeAlpha, 1.0f, 1.0f);
+        draw (meshes.quad, gfx::screenQuad (vw, vh, loupeCx + 3.0f * px, loupeCy - 7.0f * px, R * 1.18f, 0.0f, 0.0f, R * 1.18f), {});
+        overlay.set ("uParams", 0.0f, 0.80f * loupeAlpha, 1.0f, 1.0f);
+        draw (meshes.quad, gfx::screenQuad (vw, vh, loupeCx, loupeCy, R * 1.05f, 0.0f, 0.0f, R * 1.05f), { 0.05f, 0.05f, 0.06f });
+
+        loupeTarget.bindColour (0);
+        auto& lens = use (shaders::lens);
+        lens.set ("uViewProj", Mat4::identity());
+        lens.set ("uParams", 0.38f, 0.012f, 0.94f, loupeAlpha);   // .z = glass opacity: just barely see-through
+        lens.set ("uParams2", loupeCx, loupeCy, R, 0.0f);
+        draw (meshes.quad, gfx::screenQuad (vw, vh, loupeCx, loupeCy, R, 0.0f, 0.0f, R), {});
+
+        // Controls: a small name + value pill under the lens
+        if (shared.calloutHasPill.load() && calloutW > 0 && calloutTex.isValid())
+        {
+            const float boxScale = px / std::max (1.0f, shared.calloutPixelScale.load()) * 0.72f;
+            const float bw = (float) calloutW * boxScale, bh = (float) calloutH * boxScale;
+            float by = loupeCy - R - 10.0f * px - 0.5f * bh;
+            if (by - 0.5f * bh < 4.0f * px)
+                by = loupeCy + R + 10.0f * px + 0.5f * bh;
+            const float bx = juce::jlimit (0.5f * bw + 4.0f * px, std::max (0.5f * bw + 4.0f * px, (float) vw - 0.5f * bw - 4.0f * px), loupeCx);
+
+            calloutTex.bind (0);
+            auto& pill = use (shaders::callout);
+            pill.set ("uViewProj", Mat4::identity());
+            pill.set ("uParams", 1.0f, loupeAlpha, 0.0f, 0.0f);
+            draw (meshes.quad, gfx::screenQuad (vw, vh, bx, by, 0.5f * bw, 0.0f, 0.0f, -0.5f * bh), {});
+        }
+
+        glDisable (GL_BLEND);
+        glDepthMask (GL_TRUE);
+        glEnable (GL_DEPTH_TEST);
     }
 
     void HardwareRenderer::pollPointer() noexcept
@@ -171,6 +450,8 @@ namespace pad
         }
 
         shared.pointerInside = pointerInside;
+        shared.pointerNdcX = pointerNdcX;
+        shared.pointerNdcY = pointerNdcY;
         shared.renderInteraction = pointerPolled;
     }
 
@@ -191,7 +472,8 @@ namespace pad
 
         const int w = juce::jmax (1, shared.viewWidth.load()), h = juce::jmax (1, shared.viewHeight.load());
 
-        if (pressed && pointerInside)
+        // A press only counts when our window is really the one under the pointer
+        if (pressed && pointerInside && pointer.isTopmostUnderPointer ((unsigned long) shared.nativeWindow.load()))
         {
             const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY);
             const int hit = pickControl (cam, pointerNdcX, pointerNdcY);
@@ -199,11 +481,12 @@ namespace pad
             if (hit >= 0)
             {
                 shared.renderPressMs = juce::Time::getMillisecondCounterHiRes();
-                const int p = controlParam[(size_t) hit];
+                const int p = parameterFor (hit);
 
-                if (controls[(size_t) hit].kind == ControlKind::toggle)
+                if (controls[(size_t) hit].kind == ControlKind::button || controls[(size_t) hit].kind == ControlKind::toggle)
                 {
                     bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
+                    heldButton = hit;
                 }
                 else
                 {
@@ -233,6 +516,9 @@ namespace pad
             }
         }
 
+        if (released)
+            heldButton = -1;
+
         if (released && dragParam >= 0)
         {
             dragControl = dragParam = -1;
@@ -257,15 +543,22 @@ namespace pad
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            const int p = controlParam[(size_t) i];
+            const int p = parameterFor (i);
             const float value = bridge.getNormalised (p);
+
+            if (c.kind == ControlKind::button)
+            {
+                auto& bt = buttons[(size_t) i];
+                bt.update (value > 0.5f, heldButton == i && leftDown, dt);
+                busy = busy || ! bt.isIdle();
+                continue;
+            }
 
             if (c.kind == ControlKind::toggle)
             {
-                auto& sw = switches[(size_t) i];
-                sw.update (value > 0.5f, -switchAngle, switchAngle, dt);
-                switchGlow[(size_t) i] = anim::approach (switchGlow[(size_t) i], value > 0.5f ? 1.0f : 0.0f, 10.0f, dt);
-                busy = busy || ! sw.isIdle();
+                auto& tg = toggles[(size_t) i];
+                tg.update (value > 0.5f, toggleAngle, -toggleAngle, dt);
+                busy = busy || ! tg.isIdle();
                 continue;
             }
 
@@ -277,7 +570,7 @@ namespace pad
             {
                 k.boundParam = p;
                 k.lastCounter = counter;
-                k.source = bridge.getLastSource (p);
+                k.source = (int) bridge.getLastSource (p);
             }
             else if (counter != k.lastCounter)
             {
@@ -285,10 +578,71 @@ namespace pad
                 changed = true;
             }
 
-            const float target = knobAngleForValue (value);
+            const float target = c.kind == ControlKind::selector ? selectorAngleForValue (value) : knobAngleForValue (value);
             const bool isHovered = (hovered == i || active == i);
-            k.update (target, changed, bridge.getLastSource (p), isHovered, dt);
+            k.update (target, changed, (int) bridge.getLastSource (p), isHovered, dt);
             busy = busy || ! k.isIdle (target, isHovered);
+        }
+
+        // SERAPH: power lamp / backlight, live L/R display, glow through the lid
+        {
+            const bool on = seraphModeParam >= 0 && bridge.getNormalised (seraphModeParam) > 0.25f;
+            tubePower = anim::approach (tubePower, on ? 1.0f : 0.0f, on ? 5.0f : 3.0f, dt);   // filament-like warm up
+
+            // Bars rise instantly and fall like a meter (~250 ms); dips follow a little faster
+            auto meter = [dt, &busy] (float& shown, float target, float fallRate)
+            {
+                const float before = shown;
+                shown = target > shown ? target : anim::approach (shown, target, fallRate, dt);
+                busy = busy || std::abs (shown - before) > 1.0e-3f;
+            };
+
+            // Display order: SMOOTH AIR WARMTH BODY TAPE | LEVEL | WIDTH SPACE SHIMMER
+            constexpr std::array<int, displayColumns> activityOf { 0, 1, 2, 3, 4, -1, 5, 6, 7 };
+            const float level = std::clamp (meters.seraphLevelDb.load (std::memory_order_relaxed) / 9.0f, -1.0f, 1.0f);
+            for (int col = 0; col < displayColumns; ++col)
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    auto& shown = seraphColumns[(size_t) (col * 2 + ch)];
+                    if (activityOf[(size_t) col] < 0)
+                    {
+                        const float before = shown;
+                        shown = anim::approach (shown, level, 6.0f, dt);
+                        busy = busy || std::abs (shown - before) > 1.0e-3f;
+                        continue;
+                    }
+                    float db = meters.seraphActivityDb[(size_t) (activityOf[(size_t) col] * 2 + ch)].load (std::memory_order_relaxed);
+                    if (demoMeters)   // PAD_UI_TEST_DEMO=1: animated values for screenshots without audio
+                        db = -30.0f + 18.0f * (0.5f + 0.5f * std::sin ((float) timeSeconds * 1.3f + (float) col * 0.9f + (float) ch * 0.6f));
+                    meter (shown, saturateUi ((db + 42.0f) / 36.0f) * tubePower, 4.0f);   // -42 dB .. -6 dB
+                }
+
+            for (size_t k = 0; k < seraphDips.size(); ++k)
+            {
+                const float before = seraphDips[k];
+                const float dipTarget = demoMeters ? -9.0f * std::exp (-std::pow (((float) k - 17.0f) / 1.2f, 2.0f)) - 4.0f * std::exp (-std::pow (((float) k - 7.0f) / 1.0f, 2.0f))
+                                                   : meters.silkDipDb[k].load (std::memory_order_relaxed);
+                seraphDips[k] = anim::approach (seraphDips[k], dipTarget, 18.0f, dt);
+                busy = busy || std::abs (seraphDips[k] - before) > 0.01f;
+            }
+
+            const float space = std::max (seraphColumns[14], seraphColumns[15]);
+            tubeWarmth = anim::approach (tubeWarmth, tubePower * (0.35f + 0.65f * space), 4.0f, dt);
+            busy = busy || std::abs (tubePower - (on ? 1.0f : 0.0f)) > 1.0e-3f;
+        }
+
+        // CLARITY scale swap: the printed scale cross-fades and the knob dips as it changes over
+        {
+            const bool addMode = modeControl >= 0 && bridge.getNormalised (controlParam[(size_t) modeControl]) > 0.5f;
+            if (modeBlend < 0.0f)
+                modeBlend = addMode ? 1.0f : 0.0f;
+            else if (addMode != lastAddMode)
+                swapPulse = 1.0f;
+
+            lastAddMode = addMode;
+            modeBlend = anim::approach (modeBlend, addMode ? 1.0f : 0.0f, 9.0f, dt);
+            swapPulse = std::max (0.0f, swapPulse - dt / 0.35f);
+            busy = busy || swapPulse > 0.0f || std::abs (modeBlend - (addMode ? 1.0f : 0.0f)) > 1.0e-3f;
         }
 
         // Live DSP meters (smoothed for display only)
@@ -298,6 +652,21 @@ namespace pad
 
         stepFlash = std::max (meters.footstepConfidence.load (std::memory_order_relaxed), stepFlash * std::exp (-dt / 0.25f));
         activityGlow = anim::approach (activityGlow, meters.enhancement.load (std::memory_order_relaxed), 6.0f, dt);
+
+        // LED ladders: instant on, short fade off (like real LED meters with a little lag)
+        const float outDb = meters.outputPeakDb.load (std::memory_order_relaxed);
+        auto ladder = [dt] (std::array<float, ladderSegments>& leds, int segments, auto&& lit)
+        {
+            for (int k = 0; k < segments; ++k)
+            {
+                const float target = lit (k) ? 1.0f : 0.0f;
+                auto& v = leds[(size_t) k];
+                v = target > v ? target : anim::approach (v, target, 14.0f, dt);
+            }
+        };
+        ladder (outLeds, outLadder.segments, [outDb] (int k) { return outDb >= (float) outLadderDb[(size_t) k]; });
+        ladder (enhLeds, enhLadder.segments, [this] (int k) { return activityGlow * (float) enhLadder.segments > (float) k + 0.5f; });
+        ladder (detectLeds, detectLadder.segments, [this] (int k) { return stepFlash * (float) detectLadder.segments > (float) k + 0.3f; });
 
         // Parallax: subtle, and fast enough that it never feels like it is chasing the pointer
         const bool parallaxOn = ! config.reduceMotion && pointerInside;
@@ -405,9 +774,27 @@ namespace pad
 
         updateAnimation (dt);
         uploadOverlayIfChanged();
+        uploadCalloutIfChanged();
 
         const auto camera = CameraRig::build ((float) logicalW / (float) logicalH, parallaxX, parallaxY);
+
+        // Loupe: fades and zooms in over hovered print, keeps its last anchor while fading out
+        const bool loupeWanted = shared.calloutVisible.load();
+        if (loupeWanted)
+        {
+            loupeUnit = shared.calloutUnit.load();
+            loupeX = shared.calloutX.load();
+            loupeZ = shared.calloutZ.load();
+        }
+        // Opening: zoom and fade together. Closing: the glass zooms back out first (fast), the
+        // fade trails it (slow), so it reads as zooming out and then being gone.
+        loupeAlpha = anim::approach (loupeAlpha, loupeWanted ? 1.0f : 0.0f, loupeWanted ? 17.0f : 6.5f, dt);
+        loupeZoom = anim::approach (loupeZoom, loupeWanted ? 2.2f : 1.0f, loupeWanted ? 10.0f : 15.0f, dt);
+        if (loupeAlpha > 0.01f)
+            renderLoupeView (camera, w, h);
+
         drawScene (camera, w, h);
+        drawLoupe (w, h);
 
         if (statsEnabled)
             recordStats (now, juce::Time::getMillisecondCounterHiRes() - now);
@@ -434,6 +821,7 @@ namespace pad
             program.set ("uLightDir", frameCamera.lightDir);
             program.set ("uTime", (float) timeSeconds);
             program.set ("uViewport", (float) frameW, (float) frameH);
+            program.set ("uVignette", vignette);
             program.set ("uTex", 0);
         }
 
@@ -459,6 +847,14 @@ namespace pad
         draw (meshes.quad, space * Mat4::translation ({ cx, y, cz }) * Mat4::scale (sx, 1.0f, sz), {});
     }
 
+    void HardwareRenderer::drawLed (const Mat4& panel, float x, float z, Vec3 colour, float on)
+    {
+        // Lens tinted even when off, like real coloured LEDs; lit ones also get a soft halo
+        draw (meshes.led, panel * Mat4::translation ({ x, 0.0f, z }) * Mat4::scale (ledRadius, ledRadius, ledRadius),
+              mixVec (colour * 0.07f, colour * 0.35f, on), colour * (1.25f * on));
+        queueGlow (panel, x, z, ledRadius * 4.0f, colour, 0.42f * on);
+    }
+
     void HardwareRenderer::drawScene (const CameraRig& cam, int vw, int vh)
     {
         ++frameIndex;
@@ -471,6 +867,8 @@ namespace pad
         const Vec3 zero {};
         const Vec3 L = cam.lightDir;
         const Mat4 panel = panelToWorld();
+        const Mat4 tubePanel = panelToWorld (tubeUnit);
+        const Mat4 tubeLid = Mat4::translation ({ 0.0f, tubeChassisTop, 0.0f });
         const Mat4 I = Mat4::identity();
         const Mat4 lid = Mat4::translation ({ 0.0f, chassisTop, 0.0f });
 
@@ -483,22 +881,11 @@ namespace pad
         glDisable (GL_BLEND);
         glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        const float footOn = switchGlow[4];
+        const float footOn = footstepControl >= 0 ? buttons[(size_t) footstepControl].led : 0.0f;
         const float breath = 0.90f + 0.10f * std::sin (t * 1.6f);
+        const Vec3 ventGlow = colours::amber * ((0.05f + 0.45f * activityGlow) * breath) + colours::ledGreen * (stepFlash * footOn * 0.35f);
 
-        // Glyph + vent glow driven by the real DSP: detected footsteps flash lime,
-        // enhancement activity glows pink.
-        const Vec3 glyph = colours::lime * (footOn * (0.30f + 0.70f * stepFlash));
-        const Vec3 ventGlow = colours::pink * ((0.12f + 0.75f * activityGlow) * breath) + colours::lime * (stepFlash * 0.9f);
-
-        float sheenPhase = 0.0f, sheenStrength = 0.0f;
-        if (! config.reduceMotion)
-        {
-            const float cycle = std::fmod (t, 12.0f) / 7.0f;
-            const float e = juce::jlimit (0.0f, 1.0f, cycle);
-            sheenPhase = -3.2f + 6.4f * (e * e * (3.0f - 2.0f * e));
-            sheenStrength = cycle <= 1.0f ? (0.14f + 0.05f * std::sin (t * 0.9f)) * std::sin (e * pi) : 0.0f;
-        }
+        glowCount = 0;
 
         // =============================================================================
         // Opaque, front to back
@@ -506,60 +893,135 @@ namespace pad
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            const auto base = panel * Mat4::translation ({ c.x, 0.0f, c.z });
+            const auto& unitPanel = c.unit == tubeUnit ? tubePanel : panel;
+            const auto base = unitPanel * Mat4::translation ({ c.x, 0.0f, c.z });
+            const bool hovered = shared.hoveredControl.load() == i || shared.activeControl.load() == i;
 
-            if (c.kind == ControlKind::knob)
+            if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
             {
                 const auto& k = knobs[(size_t) i];
-                const auto scaled = base * Mat4::scale (c.scale);
-                const auto spin = base * Mat4::rotationY (-k.angle) * Mat4::scale (c.scale);
+                const int modelIndex = knobModelIndex[(size_t) i];
+                if (modelIndex < 0)
+                    continue;
 
-                use (shaders::plastic).set ("uParams", 36.0f, capTop - 0.03f, 0.0f, 0.0f);
-                draw (meshes.knobCap, spin, colours::bakelite, Vec3 { 0.05f, 0.03f, 0.045f } * k.hover);
+                // A mode-switched knob sinks briefly while its printed scale swaps
+                const float dip = altParam[(size_t) i] >= 0 ? -0.035f * std::sin (pi * swapPulse) : 0.0f;
+                const auto spin = base * Mat4::translation ({ 0.0f, dip, 0.0f }) * Mat4::rotationY (-k.angle);
 
-                use (shaders::chrome).set ("uParams", 0.55f, 1.0f, 0.0f, 0.0f);
-                draw (meshes.knobInsert, spin, { 0.82f, 0.80f, 0.84f });
-
-                dialTex.bind (0);
-                use (shaders::skirt).set ("uParams", dialRadius, dialTop, 0.0f, 0.0f);
-                draw (meshes.knobSkirt, spin, colours::bakelite, Vec3 { 0.03f, 0.02f, 0.03f } * k.hover);
-
-                use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
-                draw (meshes.knobBezel, scaled, { 0.55f, 0.53f, 0.57f });
-
-                // Fixed indicator: tinted by who moved the knob, bright while it moves
-                const Vec3 src = sourceColour (k.source);
-                const Vec3 lit = mixVec (mixVec ({ 0.10f, 0.09f, 0.10f }, src, 0.25f), src * 1.6f, k.activity);
-                use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-                draw (meshes.indicator, scaled, lit * 0.6f, lit * 0.6f);
+                // Pointer: white, tinted by who moved the knob while it moves
+                const Vec3 pointer = mixVec ({ 0.94f, 0.94f, 0.96f }, sourceColour ((ControlSource) k.source), 0.55f * k.activity);
+                drawModel (*knobModels[(size_t) modelIndex], spin, base, Vec3 { 0.035f, 0.033f, 0.042f } * k.hover, pointer);
+            }
+            else if (c.kind == ControlKind::toggle)
+            {
+                const auto& tg = toggles[(size_t) i];
+                const Vec3 lift = hovered ? Vec3 { 0.08f, 0.08f, 0.09f } : Vec3 {};
+                drawModel (toggleLeverModel, base * Mat4::translation ({ 0.0f, togglePivotY, 0.0f }) * Mat4::rotationX (tg.angle), base, lift, {});
+                drawModel (toggleBaseModel, base, base, {}, {});
             }
             else
             {
-                const auto& sw = switches[(size_t) i];
-                const bool hovered = shared.hoveredControl.load() == i;
-                const bool isFootstep = i == 4;
-                const float glow = switchGlow[(size_t) i];
+                const auto& bt = buttons[(size_t) i];
+                const auto pressed = base * Mat4::translation ({ 0.0f, -buttonTravel * bt.travel(), 0.0f });
+                drawModel (buttonModel, pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
 
-                use (shaders::chrome).set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
-                draw (meshes.switchLever, base * Mat4::translation ({ 0.0f, switchPivotY, 0.0f }) * Mat4::rotationX (sw.angle),
-                      hovered ? Vec3 { 1.0f, 0.97f, 1.0f } : colours::chrome);
-                draw (meshes.switchBushing, base, colours::chrome);
-                use (shaders::chrome).set ("uParams", 0.8f, 0.0f, 0.0f, 0.0f);
-                draw (meshes.switchPlate, base, { 0.86f, 0.85f, 0.88f });
-
-                const Vec3 ledColour = isFootstep ? colours::lime : colours::pink;
-                const float flash = isFootstep ? glow * (0.55f + 0.45f * stepFlash) : glow;
                 use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-                draw (meshes.led, panel * Mat4::translation ({ c.x, 0.0f, c.z + switchLedOffset }) * Mat4::scale (0.034f),
-                      mixVec ({ 0.07f, 0.06f, 0.07f }, ledColour * 0.45f, glow), ledColour * flash);
+                if (i == modeControl)
+                {
+                    drawLed (panel, c.x - modeLedDx, c.z + buttonLedDz, colours::ledGreen, 1.0f - bt.led);
+                    drawLed (panel, c.x + modeLedDx, c.z + buttonLedDz, colours::ledYellow, bt.led);
+                }
+                else
+                {
+                    const bool isFootstep = i == footstepControl;
+                    const float on = isFootstep ? bt.led * (0.75f + 0.25f * stepFlash) : bt.led;
+                    drawLed (panel, c.x, c.z + buttonLedDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
+                }
             }
         }
+
+        // --- SERAPH: VU meters, lamp, screws, faceplate, chassis --------------------------------
+        {
+            seraphLabelTex.bind (0);
+            auto& live = use (shaders::seraphDisplay);
+            live.set ("uParams", tubePower, displayDipsU0, displayDipsU1, displayColsU0);
+            live.set ("uParams2", displayColsU1, 0.0f, 0.0f, 0.0f);
+            live.setArray ("uDips", seraphDips.data(), (int) seraphDips.size());
+            live.setArray ("uActivity", seraphColumns.data(), (int) seraphColumns.size());
+            draw (meshes.seraphGlass, tubePanel, zero);
+
+            auto& vuRecess = use (shaders::recess);
+            vuRecess.set ("uParams", seraphDisplayDepth, 0.0f, 0.0f, 0.0f);
+            vuRecess.set ("uGlow", Vec3 { 0.18f, 0.10f, 0.30f } * tubePower);
+            draw (meshes.seraphWalls, tubePanel, { 0.06f, 0.05f, 0.08f });
+            vuRecess.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
+            vuRecess.set ("uGlow", zero);
+            draw (meshes.tubeEarWalls, tubePanel, { 0.10f, 0.08f, 0.14f });
+
+            use (shaders::chrome).set ("uParams", 0.75f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.seraphBezel, tubePanel, { 0.82f, 0.81f, 0.85f });
+            use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.tubeScrews, tubePanel, { 0.75f, 0.74f, 0.78f });
+
+            // Jewel lamp (HardwareKit model): the jewel is the "pointer" part, lit by POWER
+            const auto lampAt = tubePanel * Mat4::translation ({ lampX, 0.0f, lampZ });
+            const float lampOn = tubePower * (0.92f + 0.08f * breath);
+            drawModel (lampModel, lampAt, lampAt, {}, Vec3 { 0.45f, 0.05f, 0.04f } + Vec3 { 2.4f, 0.18f, 0.09f } * lampOn);
+            queueGlow (tubePanel, lampX, lampZ, 0.26f, { 1.0f, 0.12f, 0.06f }, 0.55f * lampOn);
+
+            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.tubeEarFloors, tubePanel, { 0.012f, 0.01f, 0.014f });
+
+            use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.tubeScrewSlots, tubePanel, { 0.02f, 0.02f, 0.025f });
+
+            tubeDecalTex.bind (0);
+            auto& paint = use (shaders::paint);
+            paint.set ("uParams", -faceHalfW, -tubeHalfH, 2.0f * faceHalfW, 2.0f * tubeHalfH);
+            draw (meshes.tubeFaceTop, tubePanel, colours::seraphPurple);
+            draw (meshes.tubeFaceEdges, tubePanel, colours::seraphPurple);
+
+            use (shaders::chassis);
+            draw (meshes.tubeChassis, I, colours::chassisBlack);
+            draw (meshes.lidTop, tubeLid, colours::chassisBlack);
+
+            // Tubes glowing through the lid perforation
+            const Vec3 tubeGlow = colours::amber * (0.55f * tubeWarmth * (0.94f + 0.06f * breath));
+            auto& tubeVents = use (shaders::recess);
+            tubeVents.set ("uParams", lidVentDepth, 0.0f, 0.0f, 0.0f);
+            tubeVents.set ("uGlow", tubeGlow);
+            draw (meshes.lidVentWalls, tubeLid, { 0.05f, 0.05f, 0.055f });
+            auto& tubeVentFloor = use (shaders::emissive);
+            tubeVentFloor.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
+            tubeVentFloor.set ("uGlow", tubeGlow);
+            draw (meshes.lidVentFloors, tubeLid, { 0.006f, 0.006f, 0.007f });
+
+            use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.lidScrews, tubeLid, { 0.40f, 0.40f, 0.42f });
+        }
+
+        // --- LED ladders ------------------------------------------------------------------------
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        for (int k = 0; k < outLadder.segments; ++k)
+        {
+            const Vec3 colour = k >= 11 ? colours::ledRed : k >= 8 ? colours::ledYellow : colours::ledGreen;
+            drawLed (panel, outLadder.x, ladderLedZ (k), colour, outLeds[(size_t) k]);
+        }
+        for (int k = 0; k < enhLadder.segments; ++k)
+            drawLed (panel, enhLadder.x, ladderLedZ (k), k >= 9 ? colours::ledYellow : colours::ledGreen, enhLeds[(size_t) k]);
+        for (int k = 0; k < detectLadder.segments; ++k)
+            drawLed (panel, detectLadder.x, ladderLedZ (k), k >= detectLadder.segments - 1 ? colours::ledYellow : colours::ledGreen,
+                     detectLeds[(size_t) k] * footOn);
+
+        drawLed (panel, powerLedX, powerLedZ, colours::ledRed, 0.85f * breath);
 
         // --- screws, display ----------------------------------------------------------------
         use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
         draw (meshes.screws, panel, { 0.75f, 0.74f, 0.78f });
+        draw (meshes.lidScrews, lid, { 0.40f, 0.40f, 0.42f });
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.displayBezel, panel, { 0.05f, 0.046f, 0.055f });
+        draw (meshes.screwSlots, panel, { 0.02f, 0.02f, 0.025f });
+        draw (meshes.displayBezel, panel, { 0.03f, 0.031f, 0.035f });
 
         overlayTex.bind (0);
         auto& display = use (shaders::display);
@@ -570,9 +1032,9 @@ namespace pad
         auto& recess = use (shaders::recess);
         recess.set ("uParams", displayDepth, 0.0f, 0.0f, 0.0f);
         recess.set ("uGlow", zero);
-        draw (meshes.displayWalls, panel, { 0.08f, 0.08f, 0.09f });
+        draw (meshes.displayWalls, panel, { 0.05f, 0.05f, 0.06f });
         recess.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
-        draw (meshes.earWalls, panel, { 0.12f, 0.10f, 0.11f });
+        draw (meshes.earWalls, panel, { 0.10f, 0.10f, 0.11f });
 
         auto& glow = use (shaders::emissive);
         glow.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
@@ -582,55 +1044,120 @@ namespace pad
         decalTex.bind (0);
         auto& face = use (shaders::faceplate);
         face.set ("uParams", -faceHalfW, -faceHalfH, 2.0f * faceHalfW, 2.0f * faceHalfH);
-        face.set ("uParams2", sheenPhase, sheenStrength, 0.0f, 0.0f);
-        face.set ("uGlyphL", glyph);
-        face.set ("uGlyphR", glyph);
         draw (meshes.faceTop, panel, zero);
         draw (meshes.faceEdges, panel, zero);
 
         // --- chassis + lid vents, feet, table ------------------------------------------------------
         use (shaders::chassis);
-        draw (meshes.chassis, I, colours::chassisPink);
-        draw (meshes.lidTop, lid, colours::chassisPink);
+        draw (meshes.chassis, I, colours::chassisBlack);
+        draw (meshes.lidTop, lid, colours::chassisBlack);
 
         auto& ventRecess = use (shaders::recess);
         ventRecess.set ("uParams", lidVentDepth, 0.0f, 0.0f, 0.0f);
         ventRecess.set ("uGlow", ventGlow);
-        draw (meshes.lidVentWalls, lid, { 0.10f, 0.07f, 0.08f });
+        draw (meshes.lidVentWalls, lid, { 0.05f, 0.05f, 0.055f });
 
         auto& ventFloor = use (shaders::emissive);
         ventFloor.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
         ventFloor.set ("uGlow", ventGlow);
-        draw (meshes.lidVentFloors, lid, { 0.01f, 0.006f, 0.008f });
+        draw (meshes.lidVentFloors, lid, { 0.006f, 0.006f, 0.007f });
 
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.feet, I, { 0.03f, 0.028f, 0.03f });
+        draw (meshes.feet, I, { 0.02f, 0.02f, 0.022f });
         use (shaders::table);
         draw (meshes.table, I, zero);
 
         // =============================================================================
-        // Blended soft shadows
+        // Blended: printed knob scales, then soft shadows
         // =============================================================================
         glEnable (GL_BLEND);
         glDepthMask (GL_FALSE);
+
+        scaleWideTex.bind (1);
+        auto& print = use (shaders::print);
+        print.set ("uTex2", 1);
+        for (int i = 0; i < numControls; ++i)
+        {
+            const auto& c = controls[(size_t) i];
+            if (c.kind != ControlKind::knob || c.unit != enhUnit)
+                continue;
+
+            // NORM prints the 0-30 scale in white, ADD the 0-10 scale in amber; masters wear 0-3x / 0-5
+            const bool swappable = altParam[(size_t) i] >= 0;
+            const int scale = ringScale[(size_t) i];
+            (scale == 3 ? scale3Tex : scale == 5 ? scale5Tex : scaleTex).bind (0);
+            print.set ("uParams", scaleOuter, 0.0f, swappable ? 1.0f - modeBlend : 0.0f, swappable ? modeBlend : 0.0f);
+            draw (meshes.scaleRing, panel * Mat4::translation ({ c.x, 0.0015f, c.z }) * Mat4::scale (c.size, 1.0f, c.size), zero);
+        }
+        scaleTex.bind (0);
+
+        // Value arcs: a thin lit arc from zero to the pointer while a knob is hovered or moving
+        {
+            auto& arc = use (shaders::valueArc);
+            for (int i = 0; i < numControls; ++i)
+            {
+                const auto& c = controls[(size_t) i];
+                const int modelIndex = knobModelIndex[(size_t) i];
+                if (c.kind != ControlKind::knob || modelIndex < 0)
+                    continue;
+
+                const auto& k = knobs[(size_t) i];
+                const float show = std::max (k.hover, k.activity);
+                if (show < 0.01f)
+                    continue;
+
+                const float r = knobModels[(size_t) modelIndex]->footprint * 1.04f;
+                const auto& unitPanel = c.unit == tubeUnit ? tubePanel : panel;
+                arc.set ("uParams", knobAngleForValue (0.0f), k.angle, 0.9f * show, 0.22f);
+                draw (meshes.arcRing, unitPanel * Mat4::translation ({ c.x, 0.0025f, c.z }) * Mat4::scale (r, 1.0f, r),
+                      c.unit == tubeUnit ? Vec3 { 0.86f, 0.74f, 1.0f } : Vec3 { 1.0f, 0.76f, 0.32f });
+            }
+        }
 
         const float chassisCz = chassisFrontZ - 0.5f * chassisDepth;
         drawShadow (I, -L.x * 0.35f, 0.002f, chassisCz - L.z * 0.35f, chassisHalfW + 0.10f, 0.5f * chassisDepth + 0.12f, 0.25f, 0.40f, 0.75f);
         drawShadow (I, 0.0f, 0.003f, frontZ - 0.02f, faceHalfW + 0.02f, 0.07f, 0.05f, 0.08f, 0.55f);
 
         const float offX = -L.x, offZ = L.y;
-        for (auto& c : controls)
+        for (int i = 0; i < numControls; ++i)
         {
-            if (c.kind == ControlKind::knob)
+            const auto& c = controls[(size_t) i];
+            const auto& unitPanel = c.unit == tubeUnit ? tubePanel : panel;
+
+            if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
             {
-                const float r = skirtRadius * c.scale;
-                drawShadow (panel, c.x + offX * 0.10f, 0.004f, c.z + offZ * 0.10f, r, r, r, 0.07f, 0.55f);
+                const int modelIndex = knobModelIndex[(size_t) i];
+                const auto* model = modelIndex >= 0 ? knobModels[(size_t) modelIndex].get() : nullptr;
+                const float r = model != nullptr ? model->shadowRadius : knobFlange;
+                const float sx = c.x + offX * 0.05f, sz = c.z + offZ * 0.05f;
+                drawShadow (unitPanel, sx, 0.003f, sz, r, r, r, 0.035f, 0.6f);
+
+                // Pointer knobs (chicken head): the beak casts its own shadow, turning with the knob
+                if (model != nullptr && model->beakLength > 0.0f)
+                {
+                    const float half = 0.5f * (model->beakLength + r * 0.4f);
+                    const auto space = unitPanel * Mat4::translation ({ sx, 0.0f, sz })
+                                                 * Mat4::rotationY (-knobs[(size_t) i].angle);
+                    drawShadow (space, 0.0f, 0.003f, -half + r * 0.35f, model->beakHalfWidth, half,
+                                model->beakHalfWidth, 0.030f, 0.55f);
+                }
             }
+            else if (c.kind == ControlKind::toggle)
+                drawShadow (unitPanel, c.x + offX * 0.02f, 0.003f, c.z + offZ * 0.02f, 0.042f, 0.042f, 0.042f, 0.02f, 0.5f);
             else
-            {
-                drawShadow (panel, c.x + offX * 0.03f, 0.004f, c.z + offZ * 0.03f, switchPlateHalfW, switchPlateHalfD, 0.035f, 0.03f, 0.4f);
-            }
+                drawShadow (unitPanel, c.x + offX * 0.015f, 0.003f, c.z + offZ * 0.015f, buttonHalfW + 0.014f, buttonHalfD + 0.014f, 0.016f, 0.015f, 0.5f);
         }
+
+        // LED / lamp halos, additive, on top of everything
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE);
+        auto& halo = use (shaders::glow);
+        for (int g = 0; g < glowCount; ++g)
+        {
+            const auto& item = glows[(size_t) g];
+            halo.set ("uParams", item.intensity, 3.2f, 0.0f, 0.0f);
+            draw (meshes.quad, item.model, item.colour);
+        }
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glDepthMask (GL_TRUE);
         glDisable (GL_BLEND);

@@ -134,6 +134,40 @@ namespace enh::dsp
         }
     };
 
+    /** Topology-preserving-transform state-variable filter (Cytomic / Zavalishin).
+        Stays clean while its frequency moves, so it is used wherever the centre is adaptive. */
+    struct SvfCoeffs
+    {
+        float a1 = 1.0f, a2 = 0.0f, a3 = 0.0f, k = 1.4142f;
+
+        static SvfCoeffs make (double sr, double hz, double q) noexcept
+        {
+            const double g = std::tan (pi * BiquadCoeffs::clampHz (sr, hz) / sr);
+            const double kk = 1.0 / q;
+            const double a1 = 1.0 / (1.0 + g * (g + kk));
+            return { (float) a1, (float) (g * a1), (float) (g * g * a1), (float) kk };
+        }
+    };
+
+    struct SvfState
+    {
+        float ic1 = 0.0f, ic2 = 0.0f;
+
+        struct Out { float low, band, high; };   // band is normalised to 0 dB peak
+
+        inline Out process (const SvfCoeffs& c, float v0) noexcept
+        {
+            const float v3 = v0 - ic2;
+            const float v1 = c.a1 * ic1 + c.a2 * v3;
+            const float v2 = ic2 + c.a2 * ic1 + c.a3 * v3;
+            ic1 = 2.0f * v1 - ic1;
+            ic2 = 2.0f * v2 - ic2;
+            return { v2, c.k * v1, v0 - c.k * v1 - v2 };
+        }
+
+        void reset() noexcept { ic1 = ic2 = 0.0f; }
+    };
+
     /** Attack/release follower of signal power. */
     struct PowerFollower
     {

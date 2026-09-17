@@ -2,3 +2,5 @@ build/
 build.log
 build-configure.log
 build-tests.log
+build-*/
+*.raw.png

@@ -7,8 +7,8 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 
     // Host-driven resizing only (no corner component overlapping the GL surface).
     setResizable (true, false);
-    setResizeLimits (420, 220, 2560, 1440);
-    setSize (1000, 480);
+    setResizeLimits (420, 320, 2560, 1600);
+    setSize (1000, 740);   // two racked units
 
     // Dev-only: PAD_UI_TEST_SIZE="640x340" to check small layouts without a resizable host.
     const auto testSize = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_SIZE", {});

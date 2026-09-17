@@ -4,6 +4,7 @@
 #include "SharedUIState.h"
 #include "../Config/UIConfig.h"
 #include "../DSP/EngineMeters.h"
+#include "HardwareKit.h"
 
 class PluginProcessor;
 
@@ -43,6 +44,8 @@ namespace pad
         void refreshOverlay();
         void applyTestParams();
         void publishWindowGeometry();
+        void updateCallout();
+        bool updateRenderingState();
 
         ParameterBridge& bridge;
         const enh::dsp::EngineMeters& meters;
@@ -61,6 +64,15 @@ namespace pad
         double lastStepSeenMs = -10000.0;
         bool testParamsApplied = false;
         artwork::DisplayText lastText;
+
+        artwork::TextRegistry textItems;   // every printed word on both panels, for the hover callouts
+        juce::String lastCalloutKey;
+
+        // Rendering is paused while the window is minimised or hidden
+        WindowVisibility windowVisibility;
+        bool renderingActive = true;
+        int visibilityCountdown = 0;
+        const bool logPausing = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STATS", {}).isNotEmpty();
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HardwareView)
     };

@@ -5,9 +5,10 @@
 /*  2D artwork rendered with juce::Graphics on the message thread and uploaded
     as small textures:
 
-    - Faceplate decal (RGBA): R = dark ink, G = pink accent ink,
-                              B = left footprint glyph mask, A = right footprint glyph mask
-    - Knob dial (R8): numbers + ticks printed on the rotating skirt
+    - Faceplate decal (RGBA): R = white silkscreen, G = grey section outlines,
+                              B = section fields (slightly lighter panel), A = unused
+    - Knob scale (R8): fixed printed scale ring around a knob (0-10, or 0-30 for NORM)
+    - SERAPH decal (R8) and live display labels (R8)
     - Display overlay (R8): phosphor text, re-rendered only when the text changes
 */
 namespace pad::artwork
@@ -18,8 +19,36 @@ namespace pad::artwork
         std::vector<juce::uint8> pixels;
     };
 
-    RawTexture renderFaceplateDecal (int textureWidth);
-    RawTexture renderKnobDial (int size);
+    /** Everything the renderer uploads once when the GL context is created. */
+    struct TextureSet
+    {
+        RawTexture faceplateDecal, scale10, scale30, scale3, scale5, tubeDecal, seraphLabels;
+    };
+
+    /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */
+    struct TextItem
+    {
+        int unit = 0;
+        float x = 0.0f, z = 0.0f, halfW = 0.0f, halfH = 0.0f;
+        juce::String text;
+        int control = -1;       // control this text names (label), or -1
+        int clarityScale = -1;  // printed CLARITY scale number: 0 = NORM scale, 1 = ADD scale, -1 = always shown
+    };
+
+    using TextRegistry = std::vector<TextItem>;
+
+    RawTexture renderFaceplateDecal (int textureWidth, TextRegistry* registry = nullptr);
+    RawTexture renderKnobScale (int size, int maxValue = 10);
+
+    /** SERAPH faceplate print (R8 white silkscreen) and the live display's labels (R8). */
+    RawTexture renderTubeDecal (int textureWidth, TextRegistry* registry = nullptr);
+    RawTexture renderSeraphDisplayLabels (int width, TextRegistry* registry = nullptr);
+
+    /** Numbers of the printed scale rings around ENH Master's knobs (they are drawn per knob at render time). */
+    void collectKnobScaleText (TextRegistry&);
+
+    /** The zoomed text box shown next to hovered print: a title line and an optional value line. */
+    RawTexture renderCallout (const juce::String& title, const juce::String& detail, float pixelScale);
 
     struct DisplayText
     {
@@ -31,7 +60,7 @@ namespace pad::artwork
         }
     };
 
-    inline constexpr int displayOverlayWidth = 512, displayOverlayHeight = 342;
+    inline constexpr int displayOverlayWidth = 512, displayOverlayHeight = 452;
 
     RawTexture renderDisplayOverlay (const DisplayText&);
 }

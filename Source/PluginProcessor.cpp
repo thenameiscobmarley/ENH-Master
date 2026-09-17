@@ -15,11 +15,35 @@ PluginProcessor::PluginProcessor()
       bridge (state)
 {
     namespace id = pad::params::id;
-    clarity    = state.getRawParameterValue (id::clarity);
+    clarityNorm = state.getRawParameterValue (id::clarityNorm);
+    clarityAdd  = state.getRawParameterValue (id::clarityAdd);
+    clarityMode = state.getRawParameterValue (id::clarityMode);
     adaptSpeed = state.getRawParameterValue (id::adaptSpeed);
     sub        = state.getRawParameterValue (id::sub);
     subBoost   = state.getRawParameterValue (id::subBoost);
     footstep   = state.getRawParameterValue (id::footstep);
+
+    seraphMode   = state.getRawParameterValue (id::seraphMode);
+    enhMultiply    = state.getRawParameterValue (id::enhMultiply);
+    enhStrength    = state.getRawParameterValue (id::enhStrength);
+    seraphMultiply = state.getRawParameterValue (id::seraphMultiply);
+    seraphStrength = state.getRawParameterValue (id::seraphStrength);
+    silkSmooth   = state.getRawParameterValue (id::silkSmooth);
+    silkAir      = state.getRawParameterValue (id::silkAir);
+    silkWarmth   = state.getRawParameterValue (id::silkWarmth);
+    silkBody     = state.getRawParameterValue (id::silkBody);
+    silkOutput   = state.getRawParameterValue (id::silkOutput);
+    silkProtect  = state.getRawParameterValue (id::silkProtect);
+    silkTape     = state.getRawParameterValue (id::silkTape);
+    silkAuto     = state.getRawParameterValue (id::silkAuto);
+    haloWidth    = state.getRawParameterValue (id::haloWidth);
+    haloSpace    = state.getRawParameterValue (id::haloSpace);
+    haloDecay    = state.getRawParameterValue (id::haloDecay);
+    haloShimmer  = state.getRawParameterValue (id::haloShimmer);
+    haloTone     = state.getRawParameterValue (id::haloTone);
+    haloDuck     = state.getRawParameterValue (id::haloDuck);
+    haloBassMono = state.getRawParameterValue (id::haloBassMono);
+    haloMod      = state.getRawParameterValue (id::haloMod);
 }
 
 void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -45,13 +69,38 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
 
-    enh::dsp::EnhEngine::Parameters p;
-    p.clarity    = clarity->load() / 100.0f;
-    p.adaptSpeed = adaptSpeed->load() / 100.0f;
-    p.sub        = sub->load() / 100.0f;
-    p.subBoost   = subBoost->load() > 0.5f;
-    p.footstep   = footstep->load() > 0.5f;
+    enh::dsp::KnobValues k;
+    k.clarityNorm    = clarityNorm->load();
+    k.clarityAdd     = clarityAdd->load();
+    k.clarityAddMode = clarityMode->load() > 0.5f;
+    k.adaptPercent   = adaptSpeed->load();
+    k.subPercent     = sub->load();
+    k.subBoost       = subBoost->load() > 0.5f;
+    k.footstep       = footstep->load() > 0.5f;
+    k.enhMultiply    = enhMultiply->load();
+    k.enhStrength    = enhStrength->load();
 
+    k.seraphMode     = juce::roundToInt (seraphMode->load());
+    k.smooth         = silkSmooth->load();
+    k.air            = silkAir->load();
+    k.warmth         = silkWarmth->load();
+    k.body           = silkBody->load();
+    k.outputDb       = silkOutput->load();
+    k.protect        = silkProtect->load() > 0.5f;
+    k.tape           = silkTape->load() > 0.5f;
+    k.autoGain       = silkAuto->load() > 0.5f;
+    k.widthPercent   = haloWidth->load();
+    k.space          = haloSpace->load();
+    k.decayS         = haloDecay->load();
+    k.shimmer        = haloShimmer->load();
+    k.tone           = haloTone->load();
+    k.duck           = haloDuck->load() > 0.5f;
+    k.bassMono       = haloBassMono->load() > 0.5f;
+    k.mod            = haloMod->load() > 0.5f;
+    k.seraphMultiply = seraphMultiply->load();
+    k.seraphStrength = seraphStrength->load();
+
+    const auto p = enh::dsp::mapKnobs (k);
     engine.process (buffer, p);
 }
 

@@ -16,6 +16,10 @@ option(ENH_BUILD_STANDALONE "Also build a Standalone app" ON)
 option(ENH_BUILD_TESTS "Build the offline DSP test/benchmark tool" ON)
 
 add_subdirectory(${JUCE_PATH} JUCE EXCLUDE_FROM_ALL)
+
+# Shared 3D hardware model / material library (reused by other Khris Audio plugins)
+set(HARDWAREKIT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../HardwareKit" CACHE PATH "HardwareKit checkout")
+juce_add_module("${HARDWAREKIT_PATH}/modules/hardwarekit")
 find_package(X11 REQUIRED)
 
 set(ENH_FORMATS VST3)
@@ -25,10 +29,13 @@ endif()
 
 set(ENH_DSP_SOURCES
     Source/DSP/BandAnalyzer.cpp
+    Source/DSP/SpectralAnalyzer.cpp
     Source/DSP/FootstepDetector.cpp
+    Source/DSP/HarmonicPlanner.cpp
     Source/DSP/AdaptiveEQ.cpp
     Source/DSP/SubEnhancer.cpp
     Source/DSP/AnalogStage.cpp
+    Source/DSP/Seraph.cpp
     Source/DSP/EnhEngine.cpp)
 
 juce_add_plugin(EnhMaster
@@ -58,8 +65,6 @@ target_sources(EnhMaster PRIVATE
     ${ENH_DSP_SOURCES}
 
     Source/UI/HardwareView.cpp
-    Source/UI/Input/PointerPoller.cpp
-    Source/UI/Render/GLResources.cpp
     Source/UI/Scene/GeometryFactory.cpp
     Source/UI/Scene/PanelArtwork.cpp
     Source/UI/Scene/HardwareRenderer.cpp)
@@ -77,6 +82,7 @@ target_link_libraries(EnhMaster
         juce::juce_audio_utils
         juce::juce_dsp
         juce::juce_opengl
+        hardwarekit
         X11::X11
     PUBLIC
         juce::juce_recommended_config_flags
@@ -93,6 +99,7 @@ if(ENH_BUILD_TESTS)
         PRIVATE
             juce::juce_dsp
             juce::juce_audio_basics
+            juce::juce_audio_formats
         PUBLIC
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)

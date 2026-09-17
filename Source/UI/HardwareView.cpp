@@ -3,11 +3,15 @@
 #include "Scene/CameraRig.h"
 #include "Scene/DeviceLayout.h"
 #include "Scene/Picking.h"
+#include "Controls/ControlBinding.h"
 #include "../PluginProcessor.h"
 
 namespace pad
 {
     using namespace layout;
+
+    /** Buttons and bat toggles flip on click; knobs and the selector are dragged. */
+    static bool isSwitchLike (ControlKind k) noexcept { return k == ControlKind::button || k == ControlKind::toggle; }
 
     HardwareView::HardwareView (PluginProcessor& p)
         : bridge (p.getBridge()),
@@ -16,9 +20,16 @@ namespace pad
     {
         setOpaque (true);
 
-        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config,
-                                                       artwork::renderFaceplateDecal (config.panelTextureWidth),
-                                                       artwork::renderKnobDial (512));
+        artwork::TextureSet textures;
+        textures.faceplateDecal = artwork::renderFaceplateDecal (config.panelTextureWidth, &textItems);
+        textures.scale10 = artwork::renderKnobScale (512, 10);
+        textures.scale30 = artwork::renderKnobScale (512, 30);
+        textures.scale3 = artwork::renderKnobScale (512, 3);
+        textures.scale5 = artwork::renderKnobScale (512, 5);
+        textures.tubeDecal = artwork::renderTubeDecal (config.panelTextureWidth, &textItems);
+        textures.seraphLabels = artwork::renderSeraphDisplayLabels (1536, &textItems);
+        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures));
+        artwork::collectKnobScaleText (textItems);
 
         juce::OpenGLPixelFormat format;
         format.depthBufferBits = 24;
@@ -33,7 +44,7 @@ namespace pad
 
         openedAtMs = juce::Time::getMillisecondCounter();
         refreshOverlay();
-        startTimerHz (20); // display text only
+        startTimerHz (30); // display text + hover callouts
     }
 
     HardwareView::~HardwareView()
@@ -73,7 +84,7 @@ namespace pad
     //==============================================================================
     int HardwareView::paramIndexForControl (int i) const
     {
-        return bridge.indexOf (controls[(size_t) i].paramId);
+        return boundParameter (bridge, i);
     }
 
     int HardwareView::pickControl (juce::Point<float> pos) const
@@ -102,7 +113,7 @@ namespace pad
 
         if (hovered < 0)
             setMouseCursor (juce::MouseCursor::NormalCursor);
-        else if (controls[(size_t) hovered].kind == ControlKind::toggle)
+        else if (isSwitchLike (controls[(size_t) hovered].kind))
             setMouseCursor (juce::MouseCursor::PointingHandCursor);
         else
             setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
@@ -122,7 +133,7 @@ namespace pad
             return;
 
         const int p = paramIndexForControl (hit);
-        const bool isToggle = controls[(size_t) hit].kind == ControlKind::toggle;
+        const bool isToggle = isSwitchLike (controls[(size_t) hit].kind);
 
         if (shared.renderInteraction.load())
         {
@@ -211,7 +222,7 @@ namespace pad
     void HardwareView::mouseDoubleClick (const juce::MouseEvent& e)
     {
         const int hit = pickControl (e.position);
-        if (hit < 0 || controls[(size_t) hit].kind == ControlKind::toggle)
+        if (hit < 0 || isSwitchLike (controls[(size_t) hit].kind))
             return;
 
         const int p = paramIndexForControl (hit);
@@ -231,11 +242,14 @@ namespace pad
     void HardwareView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
         const int hit = pickControl (e.position);
-        if (hit < 0 || controls[(size_t) hit].kind == ControlKind::toggle)
+        if (hit < 0 || isSwitchLike (controls[(size_t) hit].kind))
             return;
 
         const float step = (std::abs (wheel.deltaY) > 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
-        nudge (hit, step * (e.mods.isShiftDown() ? 0.01f : 0.05f));
+        if (controls[(size_t) hit].kind == ControlKind::selector)
+            nudge (hit, step > 0.0f ? 0.5f : -0.5f);   // one position per wheel step
+        else
+            nudge (hit, step * (e.mods.isShiftDown() ? 0.01f : 0.05f));
     }
 
     //==============================================================================
@@ -250,10 +264,18 @@ namespace pad
             return text;
         };
 
-        auto percent = [this] (int control)
+        // Values as the number under the knob's indicator
+        auto dial = [this] (const char* paramId)
         {
-            return juce::String (juce::roundToInt (bridge.getNormalised (paramIndexForControl (control)) * 100.0f));
+            const int control = controlIndex (paramId);
+            const int index = paramIndexForControl (control);
+            auto* param = bridge.getParameter (index);
+            const float value = param->convertFrom0to1 (bridge.getNormalised (index));
+            // Percent parameters are printed 0-10 on the dial; CLARITY carries its own 0-30 / 0-10 scale
+            return juce::String (param->getNormalisableRange().end > 50.0f ? value / 10.0f : value, 1);
         };
+
+        const bool addMode = bridge.getNormalised (bridge.indexOf (pad::params::id::clarityMode)) > 0.5f;
 
         const double now = juce::Time::getMillisecondCounterHiRes();
         if (meters.footstepConfidence.load (std::memory_order_relaxed) > 0.5f)
@@ -262,12 +284,21 @@ namespace pad
         const int shown = dragControl >= 0 ? dragControl : shared.hoveredControl.load();
 
         artwork::DisplayText text;
-        text.title = "ADAPTIVE EQ";
+        text.title = addMode ? "ADD + NORM" : "NORMALIZE";
         text.tag = now - lastStepSeenMs < 350.0 ? "STEP" : "";
-        text.lineLeft = "CLR " + percent (0) + "  ADP " + percent (1) + "  SUB " + percent (2);
+        text.lineLeft = "CLR " + dial (pad::params::id::clarityNorm) + " ADP " + dial (pad::params::id::adaptSpeed)
+                      + " SUB " + dial (pad::params::id::sub);
 
         if (shown >= 0)
-            text.focusLine = juce::String (controls[(size_t) shown].label) + "  " + valueText (paramIndexForControl (shown));
+        {
+            const int index = paramIndexForControl (shown);
+            const auto& c = controls[(size_t) shown];
+            text.focusLine = (c.group != nullptr ? juce::String (c.group) + " " : juce::String())
+                           + juce::String (c.label) + "  " + valueText (index);
+
+            if (c.altParamId != nullptr)
+                text.focusLine << (addMode ? " / 10" : " / 30");
+        }
 
         if (text == lastText)
             return;
@@ -296,6 +327,40 @@ namespace pad
         }
     }
 
+    bool HardwareView::updateRenderingState()
+    {
+        // Checked a few times a second; hidden = not showing, minimised peer, or the X window can't be seen
+        if (--visibilityCountdown > 0)
+            return renderingActive;
+        visibilityCountdown = renderingActive ? 8 : 1;
+
+        auto* peer = getPeer();
+        const bool visible = isShowing() && peer != nullptr && ! peer->isMinimised()
+                             && windowVisibility.isVisible ((unsigned long) shared.nativeWindow.load());
+
+        if (visible != renderingActive)
+        {
+            renderingActive = visible;
+            glContext.setContinuousRepainting (visible);
+
+            if (visible)
+            {
+                glContext.triggerRepaint();
+                startTimerHz (30);
+            }
+            else
+            {
+                shared.calloutVisible = false;
+                startTimerHz (4);   // only watching for the window to come back
+            }
+
+            if (logPausing)
+                std::fprintf (stderr, "[enh-stats] rendering %s\n", visible ? "resumed" : "paused (window minimised/hidden)");
+        }
+
+        return renderingActive;
+    }
+
     void HardwareView::timerCallback()
     {
         if (! testParamsApplied && juce::Time::getMillisecondCounter() - openedAtMs > 1500)
@@ -304,7 +369,153 @@ namespace pad
             applyTestParams();
         }
 
+        // Dev-only: PAD_UI_TEST_MINIMISE="3,8" minimises the window after 3 s and restores it after 8 s
+        const auto minimiseTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_MINIMISE", {});
+        if (minimiseTest.containsChar (','))
+            if (auto* peer = getPeer())
+            {
+                const double t = (juce::Time::getMillisecondCounter() - openedAtMs) / 1000.0;
+                const bool wantMinimised = t >= minimiseTest.upToFirstOccurrenceOf (",", false, false).getDoubleValue()
+                                        && t < minimiseTest.fromFirstOccurrenceOf (",", false, false).getDoubleValue();
+                if (wantMinimised != peer->isMinimised())
+                    peer->setMinimised (wantMinimised);
+            }
+
         publishWindowGeometry();
+        if (! updateRenderingState())
+            return;   // paused: no GL frames, no overlay or callout work
+
         refreshOverlay();
+        updateCallout();
+    }
+
+    void HardwareView::updateCallout()
+    {
+        // Pointer: mouse events, or PAD_UI_TEST_HOVER="x,y" (logical px) for screenshots
+        // Prefer the polled pointer where we have it: it is sampled every frame, so the loupe
+        // follows the cursor even while dragging or when the host delivers mouse moves late.
+        const bool polled = shared.renderInteraction.load();
+        float ndcX = polled ? shared.pointerNdcX.load() : shared.mouseNdcX.load();
+        float ndcY = polled ? shared.pointerNdcY.load() : shared.mouseNdcY.load();
+        bool inside = polled ? shared.pointerInside.load() : shared.mouseInside.load();
+
+        const auto testHover = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_HOVER", {});
+        const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+        if (testHover.containsChar (','))
+        {
+            ndcX = 2.0f * testHover.upToFirstOccurrenceOf (",", false, false).getFloatValue() / w - 1.0f;
+            ndcY = 1.0f - 2.0f * testHover.fromFirstOccurrenceOf (",", false, false).getFloatValue() / h;
+            inside = true;
+        }
+
+        auto hide = [this]
+        {
+            shared.calloutVisible = false;
+            lastCalloutKey.clear();
+        };
+
+        if (! inside)
+            return hide();
+
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load());
+        const bool addMode = bridge.getNormalised (bridge.indexOf (pad::params::id::clarityMode)) > 0.5f;
+
+        // While a control is being adjusted the loupe stays locked on it: moving the mouse to change
+        // the value must not pull the focus onto whatever print passes under the pointer. (In most
+        // hosts the drag runs on the render thread, hence shared.dragging rather than dragControl.)
+        const int adjusting = shared.dragging.load() ? shared.activeControl.load()
+                                                     : (dragControl >= 0 ? dragControl : -1);
+
+        // Smallest printed word under the pointer, on whichever panel the pointer is over.
+        // The lens is never hit-tested, so the pointer looks straight through it: whatever is under
+        // the cursor wins, even where the glass is drawn over it.
+        const artwork::TextItem* best = nullptr;
+        float bestArea = 1.0e9f;
+
+        for (int unit : { (int) enhUnit, (int) tubeUnit })
+        {
+            if (adjusting >= 0)
+                break;
+
+            float lx = 0.0f, lz = 0.0f;
+            if (! cam.intersectPanel (ndcX, ndcY, 0.0f, lx, lz, unitCenterY (unit))
+                || std::abs (lx) > faceHalfW || std::abs (lz) > unitHalfH (unit))
+                continue;
+
+            for (auto& item : textItems)
+            {
+                if (item.unit != unit || (item.clarityScale >= 0 && item.clarityScale != (addMode ? 1 : 0)))
+                    continue;
+
+                constexpr float pad = 0.018f;
+                if (std::abs (lx - item.x) <= item.halfW + pad && std::abs (lz - item.z) <= item.halfH + pad
+                    && item.halfW * item.halfH < bestArea)
+                {
+                    best = &item;
+                    bestArea = item.halfW * item.halfH;
+                }
+            }
+        }
+
+        auto describe = [this] (int control)
+        {
+            const auto& c = controls[(size_t) control];
+            auto* param = bridge.getParameter (paramIndexForControl (control));
+            auto value = param != nullptr ? param->getCurrentValueAsText() + param->getLabel() : juce::String();
+            if (c.altParamId != nullptr)
+                value << (bridge.getNormalised (bridge.indexOf (c.modeParamId)) > 0.5f ? " / 10  (ADD + NORM)" : " / 30  (NORM)");
+            return std::make_pair ((c.group != nullptr ? juce::String (c.group) + "  " : juce::String()) + c.label, value);
+        };
+
+        juce::String title, detail;
+        int unit = enhUnit;
+        float ax = 0.0f, az = 0.0f;
+
+        if (best != nullptr)
+        {
+            title = best->text;
+            if (best->control >= 0)
+                std::tie (title, detail) = describe (best->control);
+            unit = best->unit;
+            ax = best->x;
+            az = best->z;
+        }
+        else
+        {
+            const int control = adjusting >= 0 ? adjusting : shared.hoveredControl.load();
+            if (control < 0)
+                return hide();
+
+            // A control without text under the pointer: the loupe looks at the control itself
+            std::tie (title, detail) = describe (control);
+            const auto& c = controls[(size_t) control];
+            unit = c.unit;
+            ax = c.x;
+            az = c.z;
+        }
+
+        const auto key = title + "|" + detail + "|" + juce::String (unit) + "|" + juce::String (ax) + "|" + juce::String (az);
+        if (key == lastCalloutKey)
+            return;
+
+        lastCalloutKey = key;
+        constexpr float pixelScale = 2.0f;
+        // The loupe itself shows the print; controls also get a small name + value pill under it
+        const bool pill = detail.isNotEmpty();
+        if (pill)
+        {
+            auto raw = artwork::renderCallout (title, detail, pixelScale);
+            const juce::SpinLock::ScopedLockType lock (shared.calloutLock);
+            shared.calloutPending = std::move (raw);
+            ++shared.calloutVersion;
+        }
+        shared.calloutHasPill = pill;
+
+        shared.calloutUnit = unit;
+        shared.calloutX = ax;
+        shared.calloutZ = az;
+        shared.calloutPixelScale = pixelScale;
+        shared.calloutAtPointer = ! testHover.containsChar (',');
+        shared.calloutVisible = true;
     }
 }

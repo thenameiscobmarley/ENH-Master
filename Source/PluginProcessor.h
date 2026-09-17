@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters/ParameterBridge.h"
 #include "DSP/EnhEngine.h"
+#include "DSP/ParameterMapping.h"
 
 /*  ENH Master processor: owns the parameters and the DSP engine (Source/DSP). */
 class PluginProcessor final : public juce::AudioProcessor
@@ -44,7 +45,13 @@ private:
     pad::ParameterBridge bridge;
     enh::dsp::EnhEngine engine;
 
-    std::atomic<float>* clarity = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr;
+    std::atomic<float>* enhMultiply = nullptr, *enhStrength = nullptr, *seraphMultiply = nullptr, *seraphStrength = nullptr;
+    std::atomic<float>* seraphMode = nullptr,
+                      * silkSmooth = nullptr, *silkAir = nullptr, *silkWarmth = nullptr, *silkBody = nullptr, *silkOutput = nullptr,
+                      * silkProtect = nullptr, *silkTape = nullptr, *silkAuto = nullptr,
+                      * haloWidth = nullptr, *haloSpace = nullptr, *haloDecay = nullptr, *haloShimmer = nullptr, *haloTone = nullptr,
+                      * haloDuck = nullptr, *haloBassMono = nullptr, *haloMod = nullptr;
+    std::atomic<float>* clarityNorm = nullptr, *clarityAdd = nullptr, *clarityMode = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

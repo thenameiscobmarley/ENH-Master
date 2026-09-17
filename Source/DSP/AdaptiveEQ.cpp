@@ -1,37 +1,100 @@
 #include "AdaptiveEQ.h"
+#include <complex>
+#include <vector>
 
 namespace enh::dsp
 {
+    namespace
+    {
+        double magnitudeDb (const BiquadCoeffs& c, double sr, double hz)
+        {
+            const std::complex<double> z1 = std::polar (1.0, -2.0 * pi * hz / sr), z2 = z1 * z1;
+            const auto num = (double) c.b0 + (double) c.b1 * z1 + (double) c.b2 * z2;
+            const auto den = 1.0 + (double) c.a1 * z1 + (double) c.a2 * z2;
+            return 20.0 * std::log10 (std::abs (num) / std::abs (den));
+        }
+    }
+
     void AdaptiveEQ::prepare (double sr, double controlRate, const BandAnalyzer& analyzer, int)
     {
-        activeCount = 0;
+        activeCount = analyzer.getActiveCount();
 
         for (int k = 0; k < numBands; ++k)
         {
             const auto i = (size_t) k;
             const double hz = BandAnalyzer::centreHz (k);
             active[i] = analyzer.isActive (k);
+            designers[i].setup (sr, hz, filterQ);
+            octave[i] = (float) std::log2 (hz / 1000.0);
 
-            if (active[i])
-                activeCount = k + 1;
+            // 1 = free cuts, 0 = the footstep / voice / harmonic midrange where cuts are limited
+            midGuard[i] = 1.0f - saturate01 ((float) std::min (std::log2 (hz / 180.0), std::log2 (7000.0 / hz)) / 0.5f);
 
-            designers[i].setup (sr, hz, 1.6);
-            coeffs[i] = designers[i].make (0.0f);
+            // The extreme bands often roll off naturally: fill holes there only half as much
+            edgeLift[i] = hz < 60.0 || hz > 12000.0 ? 0.5f : 1.0f;
 
-            // Where lifting buried content helps intelligibility most
-            const float w = 0.45f
-                          + 0.35f * octaveBell (hz, 110.0, 1.0)     // bass definition
-                          - 0.25f * octaveBell (hz, 380.0, 0.8)     // leave low-mid mud alone
-                          + 0.55f * octaveBell (hz, 2800.0, 1.4)    // vocal presence / detail
-                          + 0.30f * octaveBell (hz, 10000.0, 1.0);  // air
-            detailWeight[i] = std::clamp (w, 0.15f, 1.2f);
-
-            // Pro "clarity" moves: bass definition, less mud, vocal presence, air
-            signatureDb[i] = 2.5f * octaveBell (hz, 90.0, 0.8)
-                           - 3.5f * octaveBell (hz, 320.0, 0.9)
-                           + 4.0f * octaveBell (hz, 3200.0, 1.1)
-                           + 3.5f * octaveBell (hz, 11000.0, 0.9);
+            midRegion[i] = active[i] && hz >= 250.0 && hz <= 2000.0;
+            trebleRegion[i] = active[i] && hz >= 2500.0 && hz <= 10000.0;
+            bassRegion[i] = active[i] && hz >= 40.0 && hz <= 160.0;
+            trebleWeight[i] = saturate01 ((float) std::log2 (hz / 1500.0) / 1.5f);
+            bassWeight[i] = saturate01 ((float) std::log2 (250.0 / hz) / 1.3f);
         }
+
+        // Overlap matrix: response (dB per dB) at band centre i of filter j
+        const int n = activeCount;
+        std::vector<double> B ((size_t) (n * n));
+        for (int j = 0; j < n; ++j)
+        {
+            const auto c = BiquadCoeffs::peaking (sr, BandAnalyzer::centreHz (j), filterQ, 6.0);
+            for (int i = 0; i < n; ++i)
+                B[(size_t) (i * n + j)] = magnitudeDb (c, sr, BandAnalyzer::centreHz (i)) / 6.0;
+        }
+
+        // solve = (B'B + lambda I)^-1 B'
+        constexpr double lambda = 0.02;
+        std::vector<double> A ((size_t) (n * n), 0.0), R ((size_t) (n * n), 0.0);
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c)
+            {
+                double s = r == c ? lambda : 0.0;
+                for (int i = 0; i < n; ++i)
+                    s += B[(size_t) (i * n + r)] * B[(size_t) (i * n + c)];
+                A[(size_t) (r * n + c)] = s;
+                R[(size_t) (r * n + c)] = B[(size_t) (c * n + r)];   // B'
+            }
+
+        for (int col = 0; col < n; ++col)   // Gauss-Jordan (A is symmetric positive definite)
+        {
+            const double d = A[(size_t) (col * n + col)];
+            for (int c = 0; c < n; ++c)
+            {
+                A[(size_t) (col * n + c)] /= d;
+                R[(size_t) (col * n + c)] /= d;
+            }
+
+            for (int r = 0; r < n; ++r)
+            {
+                if (r == col) continue;
+                const double f = A[(size_t) (r * n + col)];
+                for (int c = 0; c < n; ++c)
+                {
+                    A[(size_t) (r * n + c)] -= f * A[(size_t) (col * n + c)];
+                    R[(size_t) (r * n + c)] -= f * R[(size_t) (col * n + c)];
+                }
+            }
+        }
+
+        for (auto& row : overlap) row.fill (0.0f);
+        for (auto& row : solve) row.fill (0.0f);
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c)
+            {
+                overlap[(size_t) r][(size_t) c] = (float) B[(size_t) (r * n + c)];
+                solve[(size_t) r][(size_t) c] = (float) R[(size_t) (r * n + c)];
+            }
+
+        for (int d = -5; d <= 5; ++d)
+            localWeight[(size_t) (d + 5)] = (float) std::exp (-0.5 * (d / 2.5) * (d / 2.5));
 
         // Analysis delay (short follower attack) + half a control period
         lookahead = (float) (0.008 + 0.5 / controlRate);
@@ -50,81 +113,190 @@ namespace enh::dsp
             coeffs[(size_t) k] = designers[(size_t) k].make (0.0f);
         }
 
+        filterGain.fill (0.0f);
+        response.fill (0.0f);
+        curve.fill (0.0f);
+        addCurve.fill (0.0f);
+        analysisCountdown = 0;
+        lastDesigned.fill (0.0f);
         activity = 0.0f;
+    }
+
+    void AdaptiveEQ::analyseSource (const BandAnalyzer& a, const FootstepDetector& steps, const Settings& s) noexcept
+    {
+        const int n = activeCount;
+        const float clarity = s.normalize;
+        const bool silent = a.fullShortDb < -80.0f;
+
+        // --- what is actually in the source ----------------------------------------------------
+        float loudest = -120.0f;
+        for (int k = 0; k < n; ++k)
+            loudest = std::max (loudest, a.ltasDb[(size_t) k]);
+
+        std::array<float, numBands> presence {}, target {};
+        for (int k = 0; k < n; ++k)
+        {
+            const auto i = (size_t) k;
+            presence[i] = saturate01 ((a.ltasDb[i] - (loudest - 45.0f)) / 12.0f) * saturate01 ((a.ltasDb[i] + 95.0f) / 10.0f);
+        }
+
+        // Treble and bass balance, both measured against the midrange (which they never move).
+        // Levels are per constant-Q band, so pink noise reads 0 dB for both.
+        auto meanDb = [&] (const std::array<bool, numBands>& region)
+        {
+            double sum = 0.0; int count = 0;
+            for (int k = 0; k < n; ++k)
+                if (region[(size_t) k]) { sum += std::pow (10.0, a.ltasDb[(size_t) k] * 0.1); ++count; }
+            return count > 0 ? (float) (10.0 * std::log10 (sum / count + 1.0e-20)) : -120.0f;
+        };
+
+        const float mid = meanDb (midRegion);
+        trebleBalance = meanDb (trebleRegion) - mid;
+        bassBalance = meanDb (bassRegion) - mid;
+
+        // Normal programme spans a wide range; only a clearly muffled / harsh / thin / boomy source is rebalanced
+        const float trebleExcess = trebleBalance - std::clamp (trebleBalance, -8.0f, 1.0f);
+        const float bassExcess = bassBalance - std::clamp (bassBalance, -3.0f, 8.0f);
+
+        for (int k = 0; k < n; ++k)
+        {
+            const auto i = (size_t) k;
+
+            // Local-linear smoothing of the spectrum (follows natural roll-offs at the edges)
+            double lw = 0, lx = 0, ly = 0, lxx = 0, lxy = 0;
+            for (int j = std::max (0, k - 5); j <= std::min (n - 1, k + 5); ++j)
+            {
+                if (j == k) continue;
+                const double w = localWeight[(size_t) (j - k + 5)] * (presence[(size_t) j] + 0.05);
+                const double x = j - k, y = a.ltasDb[(size_t) j];
+                lw += w; lx += w * x; ly += w * y; lxx += w * x * x; lxy += w * x * y;
+            }
+            const double ldet = lw * lxx - lx * lx;
+            const float smooth = std::abs (ldet) > 1.0e-9 ? (float) ((ly * lxx - lx * lxy) / ldet) : (float) (ly / std::max (1.0e-9, lw));
+
+            const float residual = a.ltasDb[i] - smooth;
+            const float local = residual > 0.0f ? -0.85f * softRamp (residual - 1.0f, 2.0f)
+                                                : 0.85f * softRamp (-residual - 1.0f, 2.0f) * presence[i] * edgeLift[i];
+
+            // A balance lift only raises bands that actually carry content
+            float tilt = -0.8f * (trebleExcess * trebleWeight[i] + bassExcess * bassWeight[i]);
+            if (tilt > 0.0f)
+                tilt *= presence[i];
+            const float burst = -0.35f * softRamp (a.shortDb[i] - a.ltasDb[i] - 8.0f, 3.0f);
+
+            target[i] = std::clamp (local, -6.0f, 6.0f) + std::clamp (tilt, -5.0f, 5.0f) + std::max (burst, -4.0f);
+        }
+
+        // Anchor the curve on the midrange (content-weighted), so corrections elsewhere never drag
+        // the footstep / voice region down; auto gain in AnalogStage handles overall level
+        float mean = 0.0f, weight = 0.0f;
+        for (int k = 0; k < n; ++k)
+            if (midRegion[(size_t) k])
+            {
+                mean += target[(size_t) k] * (presence[(size_t) k] + 0.02f);
+                weight += presence[(size_t) k] + 0.02f;
+            }
+        mean /= std::max (1.0e-3f, weight);
+
+        for (int k = 0; k < n; ++k)
+        {
+            const auto i = (size_t) k;
+            float t = 1.6f * clarity * (target[i] - mean);   // NORM 30 / ADD 10 corrects 1.6x as hard as v4
+
+            // Midrange guard: cuts limited to -3 dB (-1.5 dB in the core); none on the current footstep's bands
+            if (t < 0.0f)
+            {
+                t = std::max (t, -3.0f * (0.5f + 0.5f * midGuard[i]) - 9.0f * midGuard[i] * midGuard[i]);
+                if (s.footstepMode)
+                    t *= 1.0f - saturate01 (steps.dynamicWeight[i] / 0.3f);
+            }
+
+            curve[i] = silent ? 0.0f : t;
+
+            // ADD: lift where the planner found definition / body lacking, plus upward detail
+            // (quiet decays and distant sounds), only in bands that carry content
+            if (s.boost > 0.001f && ! silent)
+            {
+                const double hz = BandAnalyzer::centreHz (k);
+                // Lift MORE where the harmonics are already rich (low need): the exciter then still has
+                // strong material to generate from, instead of both backing off together
+                const float definition = 10.0f * octaveBell (hz, s.clarity.hz, 1.1) * (0.55f + 0.45f * (1.0f - s.clarity.need));
+                const float body = 7.0f * octaveBell (hz, s.depth.hz, 1.0) * (0.55f + 0.45f * (1.0f - s.depth.need));
+                const float aboveFloor = saturate01 ((a.mediumDb[i] - a.floorDb[i] - 6.0f) / 6.0f);
+                const float detail = std::min (4.0f, 0.5f * softRamp (a.mediumDb[i] - a.shortDb[i] - 2.0f, 4.0f)) * aboveFloor;
+                addCurve[i] = std::min (12.0f, s.boost * (definition + body + detail) * presence[i]);
+            }
+            else
+            {
+                addCurve[i] = 0.0f;
+            }
+        }
     }
 
     void AdaptiveEQ::update (const BandAnalyzer& a, const FootstepDetector& steps, const Settings& s, float dt) noexcept
     {
-        const float clarity = s.clarity;
+        const int n = activeCount;
         const float footConfidence = s.footstepMode ? steps.getConfidence() : 0.0f;
+        std::array<float, numBands> target {};
 
-        // ADAPT SPEED: proportional gain 1.5 .. 40 per second (log)
+        // The source analysis follows slow spectra: ~375 Hz is plenty
+        if (--analysisCountdown <= 0)
+        {
+            analysisCountdown = 4;
+            analyseSource (a, steps, s);
+        }
+
+        // Light smoothing across frequency, then footstep priority on top
+        for (int k = 0; k < n; ++k)
+        {
+            const auto i = (size_t) k;
+            const float l = curve[(size_t) std::max (0, k - 1)], r = curve[(size_t) std::min (n - 1, k + 1)];
+            target[i] = std::clamp ((std::clamp (0.15f * l + 0.7f * curve[i] + 0.15f * r, -12.0f, 12.0f) + addCurve[i]
+                                     + footConfidence * (6.0f * steps.dynamicWeight[i] - 3.0f * steps.competitorWeight[i]))
+                                    * std::clamp (s.strength, 0.0f, 5.0f), -24.0f, 24.0f);
+        }
+
+        // --- PD controllers ---------------------------------------------------------------------
         const float kpBase = 1.5f * std::pow (40.0f / 1.5f, s.speed);
         constexpr float kd = 0.35f;
         const float slopeSmoothing = 1.0f - std::exp (-dt / 0.02f);
 
-        const bool silent = a.fullShortDb < -80.0f;
-        float absSum = 0.0f;
-
-        for (int k = 0; k < activeCount; ++k)
+        for (int k = 0; k < n; ++k)
         {
             const auto i = (size_t) k;
-
-            // Spectral neighbourhood (±3 bands, triangular weights)
-            float refSum = 0.0f, refW = 0.0f;
-            for (int j = std::max (0, k - 3); j <= std::min (activeCount - 1, k + 3); ++j)
-            {
-                if (j == k) continue;
-                const float w = (float) (4 - std::abs (j - k));
-                refSum += a.mediumDb[(size_t) j] * w;
-                refW += w;
-            }
-
-            const float reference = refW > 0.0f ? refSum / refW : a.mediumDb[i];
             const float sigma = std::min (a.sigmaDb[i], 12.0f);
-
-            const float prominence = a.mediumDb[i] - reference;   // steady masking by this band
-            const float burst = a.shortDb[i] - a.mediumDb[i];     // momentary burst in this band
-
-            // Self-tuned threshold: busier bands get more tolerance before being cut
-            const float cutThreshold = 1.5f + 0.25f * sigma;
-            const float cut = 0.80f * softRamp (prominence - cutThreshold, 3.0f)      // masking band
-                            + 0.60f * softRamp (burst - 3.0f, 3.0f);                  // momentary burst
-
-            const float aboveFloor = saturate01 ((a.mediumDb[i] - a.floorDb[i] - 6.0f) / 6.0f);
-
-            // Buried under the neighbourhood -> lift
-            const float unmask = 0.80f * softRamp (-prominence - 1.0f, 3.0f) * aboveFloor * detailWeight[i];
-
-            // Detail lift (per-band upward compression): quiet moments, decays, tails, distant sounds
-            const float quietness = a.mediumDb[i] - a.shortDb[i];
-            const float detail = std::min (5.0f, 0.55f * softRamp (quietness - 2.0f, 4.0f)) * aboveFloor * detailWeight[i];
-
-            // Tonal signature, backing off where the band already sticks out (or is already cut)
-            const float sig = signatureDb[i];
-            const float signature = sig > 0.0f ? sig * (1.0f - saturate01 (prominence / 9.0f))
-                                               : sig * (0.6f + saturate01 (prominence / 6.0f));
-
-            float target = silent ? 0.0f
-                                  : std::clamp (clarity * (signature + unmask + detail - cut), -12.0f * clarity, 10.0f * clarity);
-
-            // Footstep priority: lift step regions, duck their usual maskers
-            // The lift follows the regions the detected step actually lives in
-            const float stepW = steps.dynamicWeight[i];
-            target += footConfidence * (9.0f * stepW - 4.0f * steps.competitorWeight[i] * (1.0f - stepW));
-
-            // Cuts react faster than lifts (no pumping noise up between events);
-            // bands with more movement get a faster controller.
-            const auto& ctl = controllers[i];
             const float selfTune = std::clamp (0.6f + sigma / 8.0f, 0.6f, 2.2f);
-            const float kp = kpBase * selfTune * (target < ctl.value ? 2.5f : 1.0f);
-
-            const float gain = controllers[i].step (target, kp, kd, dt, lookahead, slopeSmoothing, 15.0f);
-            coeffs[i] = designers[i].make (gain);
-            absSum += std::abs (gain);
+            const auto& ctl = controllers[i];
+            const float kp = kpBase * selfTune * (target[i] < ctl.value ? 2.0f : 1.0f);
+            controllers[i].step (target[i], kp, kd, dt, lookahead, slopeSmoothing, 24.0f);
         }
 
-        activity = saturate01 (absSum / (float) std::max (1, activeCount) / 4.0f);
+        // --- solve filter gains so the summed response matches the curve ------------------------
+        float absSum = 0.0f;
+        for (int r = 0; r < n; ++r)
+        {
+            float g = 0.0f;
+            for (int c = 0; c < n; ++c)
+                g += solve[(size_t) r][(size_t) c] * controllers[(size_t) c].value;
+            filterGain[(size_t) r] = std::clamp (g, -30.0f, 30.0f);
+        }
+
+        for (int r = 0; r < n; ++r)
+        {
+            float v = 0.0f;
+            for (int c = 0; c < n; ++c)
+                v += overlap[(size_t) r][(size_t) c] * filterGain[(size_t) c];
+            response[(size_t) r] = v;
+            absSum += std::abs (v);
+
+            if (std::abs (filterGain[(size_t) r] - lastDesigned[(size_t) r]) > 0.01f)
+            {
+                coeffs[(size_t) r] = designers[(size_t) r].make (filterGain[(size_t) r]);
+                lastDesigned[(size_t) r] = filterGain[(size_t) r];
+            }
+        }
+
+        activity = saturate01 (absSum / (float) std::max (1, n) / 3.0f);
     }
 
     void AdaptiveEQ::process (float* const* channels, int numChannels, int start, int n) noexcept

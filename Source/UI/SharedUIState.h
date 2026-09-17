@@ -21,10 +21,12 @@ namespace pad
         std::atomic<int>   viewOffsetX { 0 }, viewOffsetY { 0 };
         std::atomic<float> platformScale { 1.0f };
         std::atomic<bool>  dragging { false };
+        std::atomic<bool>  calloutAtPointer { true };   // false: loupe locks to the anchor below
 
         // written by render thread
         std::atomic<float> parallaxX { 0.0f }, parallaxY { 0.0f };
         std::atomic<bool>  pointerInside { false };
+        std::atomic<float> pointerNdcX { 0.0f }, pointerNdcY { 0.0f };   // polled pointer, 1 per frame
         std::atomic<bool>  renderInteraction { false };  // true: clicks/drags handled on the render thread
         std::atomic<int>   renderDragParam { -1 };        // parameter being dragged by the render thread
         std::atomic<double> renderPressMs { -1.0e9 };     // when the render thread last handled a press
@@ -34,5 +36,15 @@ namespace pad
         juce::SpinLock        overlayLock;
         artwork::RawTexture   overlayPending;     // guarded by overlayLock
         juce::uint32          overlayVersion = 0; // guarded by overlayLock
+
+        // hover callout (zoomed text box + leader line) hand-off
+        juce::SpinLock        calloutLock;
+        artwork::RawTexture   calloutPending;     // guarded by calloutLock
+        juce::uint32          calloutVersion = 0; // guarded by calloutLock
+        std::atomic<bool>     calloutVisible { false };
+        std::atomic<int>      calloutUnit { 0 };
+        std::atomic<float>    calloutX { 0.0f }, calloutZ { 0.0f };   // anchor, panel-local
+        std::atomic<float>    calloutPixelScale { 2.0f };           // image pixels per logical pixel
+        std::atomic<bool>     calloutHasPill { false };             // a name + value pill under the loupe (controls)
     };
 }

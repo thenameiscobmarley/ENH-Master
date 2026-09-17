@@ -1,86 +1,93 @@
 #pragma once
 
 #include "BandAnalyzer.h"
+#include "SpectralAnalyzer.h"
 
 namespace enh::dsp
 {
-    /** Multi-region footstep detector for game audio (control rate).
+    /** Event-based footstep classifier for game audio (control rate).
 
-        Game footsteps vary a lot by surface, gear and distance (e.g. Call of Duty: concrete
-        clicks, wooden thumps, metal clanks, gravel/grass crunch, gear rustle, muffled steps
-        through walls). The detector therefore watches five regions:
+        Many game sounds are short transients that share a footstep's frequency range
+        (crate latches and lids, rummaging, reloads, UI clicks), so frequency alone cannot
+        identify a step. Every onset is treated as an event and judged on what it does,
+        not only where its energy sits:
 
-            thump  60-250 Hz   heel impact, heavy boots, floors
-            body   250-500 Hz  wood, stairs, hollow floors
-            click  1.3-2.6 kHz hard soles, metal, tile
-            scuff  2.6-7 kHz   concrete scuffs, grit
-            crunch 7-12 kHz    gravel, grass, gear rustle
+          onset     a sharp rise above each band's own background, in any band
+          decay     a step dies away quickly (>= ~7 dB within 42 ms, >= 9 dB by 110 ms);
+                    latches, lids and hinges ring or keep going
+          noise     a step is a noise burst: its new energy has no persistent spectral peaks
+                    (FFT, see SpectralAnalyzer); metal rings, creaks, chimes and voices do
+          clutter   steps come one at a time, >= 0.2 s apart; rummaging / rattling
+                    produces bursts of similar onsets 40-150 ms apart (a different sound
+                    overlapping a step, e.g. a voice, does not count)
+          context   onsets inside ongoing tonal activity (a creaking lid, speech) are suspect,
+                    and so is the second after a rejected ringing / rattling event (a crate's
+                    lid thud after its latch and rummage)
+          sequence  steps repeat with a steady interval and the same spectral fingerprint
+                    (same shoes, same surface); a matching event is trusted more
+          level     near-full-scale or broadband onsets (gunfire, explosions) are rejected
 
-        An onset in any region (or several at once) that stands out from that region's own
-        background counts. Onsets are rejected or down-weighted when they are near full scale
-        or broadband (gunfire, explosions), dominated by the voice region (450-1100 Hz), or keep
-        ringing past ~110 ms. A click-only onset (the region voices and UI sounds share most)
-        needs support from another region or a walking rhythm. Repeating onsets 0.22-0.9 s apart
-        raise confidence.
+        Timeline of an event: +4 ms a small provisional confidence (larger when the event fits
+        the current walking sequence), +42 ms the full decision, until +160 ms a watch for
+        ringing / sustain / re-attacks that retracts the decision. Only events that survive
+        are learned into the rhythm and fingerprint.
 
-        Besides the confidence, it reports WHICH regions made the step (dynamicWeight), so the
-        adaptive EQ lifts the frequencies of the actual footstep instead of fixed ones.
+        dynamicWeight describes where THIS step's energy actually rose above the background
+        (with a gentle preference for the 1-4 kHz detail region that carries footsteps in
+        games such as Call of Duty), so the EQ lifts the real step instead of a fixed region.
     */
     class FootstepDetector
     {
     public:
         void prepare (const BandAnalyzer&, double controlRate);
         void reset();
-        float update (const BandAnalyzer&, float dt) noexcept;
+        float update (const BandAnalyzer&, SpectralAnalyzer&, float dt) noexcept;
 
         float getConfidence() const noexcept { return confidence; }
         int getEventCount() const noexcept   { return eventCount; }
+        int getRejectedCount() const noexcept { return rejectedCount; }
 
-        /** Per band: where the current footstep lives (0..1), and regions that usually mask steps. */
+        /** Per band: where the current footstep lives (0..1), and nearby bands that mask it (0..1). */
         std::array<float, numBands> dynamicWeight {}, competitorWeight {};
 
-        /** Last computed decision factors (for tests / diagnostics). */
-        struct Trace { float onset, balance, share, hot, broadband, midDominance, sustain, raw, confirmed, rhythm; };
+        enum class Phase { idle, provisional, accepted, rejected };
+
+        /** Decision factors of the current / last event (tests, diagnostics). */
+        struct Trace
+        {
+            float strength, decay, tonal, context, clutter, hot, broadband, midDominance, sequence, score, confidence;
+            Phase phase;
+        };
         Trace trace {};
 
     private:
-        struct Group
-        {
-            std::array<bool, numBands> member {};
-            float background = -90.0f;
-            bool active = false;
+        void startEvent (const BandAnalyzer&, SpectralAnalyzer&) noexcept;
+        void evaluate (const BandAnalyzer&) noexcept;
+        void retract() noexcept;
+        void commit() noexcept;
+        void computeShape (std::array<float, numBands>& shape) const noexcept;
+        float fingerprintMatch() const noexcept;
+        float eventDropDb (const BandAnalyzer&, bool useShortTerm) const noexcept;
 
-            float power (const std::array<PowerFollower, numBands>& f) const noexcept
-            {
-                float sum = 0.0f;
-                for (int k = 0; k < numBands; ++k)
-                    if (member[(size_t) k])
-                        sum += f[(size_t) k].env;
-                return sum;
-            }
-        };
+        std::array<float, numBands> background {}, onsetBand {}, onsetPattern {}, emphasis {};
+        std::array<bool, numBands> voiceBand {}, lowBand {}, highBand {};
 
-        static constexpr int numRegions = 5;
-        enum Region { thump = 0, body, click, scuff, crunch };
+        // Current event
+        Phase phase = Phase::idle;
+        double clock = 0.0, onsetTime = -10.0, lastOnsetTime = -10.0;
+        std::array<float, numBands> preBackground {}, peakDb {};
+        float strengthMax = 0, hotMax = 0, broadbandMax = 0, midMax = 0, risingTonalMax = 0;
+        float contextTonal = 0, clutterAtOnset = 0, sequence = 0, expected = 0, eventScore = 0, lastDecay = 0;
+        bool decided = false, armed = true;
+        float strengthLow = 0.0f;
 
-        struct RegionState
-        {
-            Group group;
-            float trust = 1.0f;
-            float flux = 0, prominence = 0, level = -120.0f, score = 0;
-            std::array<float, numBands> bell {};
-        };
+        // History / sequence
+        float clutterCount = 0.0f, rhythm = 0.0f, hotHold = 0.0f, suspicion = 0.0f, suspicionAtDecision = 0.0f;
+        double lastStepTime = -10.0, lastInterval = 0.0;
+        std::array<float, numBands> fingerprint {};
+        float fingerprintStrength = 0.0f;
 
-        std::array<RegionState, numRegions> regions {};
-        std::array<float, numRegions> regionMix {};
-        Group voice;
-
-        float confidence = 0.0f, rhythm = 0.0f, sustainPenalty = 0.0f, hotHold = 0.0f, eventPeakDb = -120.0f, fullBackground = -90.0f;
-        double clock = 0.0, lastEvent = -10.0, lastInterval = 0.0;
-        int eventCount = 0;
-
-        static constexpr int maxConfirmTicks = 32;
-        std::array<float, maxConfirmTicks> rawHistory {};
-        int historyPos = 0, confirmTicks = 6;
+        float confidence = 0.0f, confidenceTarget = 0.0f;
+        int eventCount = 0, rejectedCount = 0, activeCount = 0;
     };
 }

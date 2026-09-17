@@ -2,21 +2,26 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "BandAnalyzer.h"
+#include "SpectralAnalyzer.h"
+#include "HarmonicPlanner.h"
 #include "FootstepDetector.h"
 #include "AdaptiveEQ.h"
 #include "SubEnhancer.h"
 #include "AnalogStage.h"
+#include "Seraph.h"
 #include "EngineMeters.h"
 
 namespace enh::dsp
 {
     /** ENH Master signal chain.
 
-        input ─► analysis (24 bands, footstep detector, sub follower)       [feed-forward]
+        input ─► analysis: 24 bands + long-term spectrum, FFT tonality,      [feed-forward]
+          │                 footstep classifier, harmonic planner, sub follower
           │
-          └─► adaptive spectral EQ ─► footstep focus EQ ─► sub enhancer ─► analog stage ─► out
-                                                                          (colour, auto gain,
-                                                                           2x exciter/saturation/ceiling)
+          └─► source-dependent EQ (+ footstep lift) ─► sub enhancer ─► analog stage ─► SERAPH ─► out
+                                                                       (auto gain, 2x adaptive   (SILK tone &
+                                                                        depth/clarity exciters,   texture, HALO
+                                                                        colour, ceiling)          space & width)
 
         Control updates run at ~1.5 kHz; audio runs through IIR filters only, so the added
         latency is just the oversampling filters (reported to the host).
@@ -27,11 +32,14 @@ namespace enh::dsp
     public:
         struct Parameters
         {
-            float clarity = 0.5f;     // 0..1
+            float normalize = 0.5f;   // 0..1 CLARITY correction strength (both modes)
+            float boost = 0.0f;       // 0..1 CLARITY enhancement (ADD mode only)
             float adaptSpeed = 0.4f;  // 0..1
             float sub = 0.0f;         // 0..1
             bool subBoost = false;
             bool footstep = false;
+            float strength = 1.0f;    // ENH STRENGTH: 0 = no effect .. 5 = five times the effect
+            Seraph::Settings seraph {};
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -45,29 +53,30 @@ namespace enh::dsp
         int getFootstepEventCount() const noexcept { return steps.getEventCount(); }
         float getFootstepConfidence() const noexcept { return steps.getConfidence(); }
         const FootstepDetector::Trace& getFootstepTrace() const noexcept { return steps.trace; }
+        const HarmonicPlanner& getHarmonicPlan() const noexcept { return planner; }
+        const AdaptiveEQ& getEQ() const noexcept { return eq; }
+        const FootstepDetector& getFootstepDetector() const noexcept { return steps; }
+        const Seraph& getSeraph() const noexcept { return seraph; }
 
     private:
         void controlTick (const Parameters&) noexcept;
         void processChunk (juce::AudioBuffer<float>&, int start, int n, const Parameters&) noexcept;
 
         BandAnalyzer analyzer;
+        SpectralAnalyzer spectrum;
         FootstepDetector steps;
+        HarmonicPlanner planner;
         AdaptiveEQ eq;
         SubEnhancer sub;
         AnalogStage analog;
+        Seraph seraph;
         EngineMeters meters;
-
-        // Footstep focus EQ (static regions, faded in with the mode)
-        struct FocusChannel { BiquadState thump, scuff; };
-        std::array<FocusChannel, 2> focus {};
-        BiquadCoeffs thumpCoeffs, scuffCoeffs;
-        float focusAmount = -1.0f;
 
         double sampleRate = 48000.0;
         int maxBlock = 512;
-        int controlInterval = 32, samplesToTick = 32;
+        int controlInterval = 32, samplesToTick = 32, planCountdown = 0;
         float controlDt = 1.0f / 1500.0f;
 
-        float clarity = 0.5f, speed = 0.4f, subAmount = 0.0f, focusTarget = 0.0f, transient = 0.0f;
+        float strength = 1.0f, normalize = 0.5f, boost = 0.0f, speed = 0.4f, subAmount = 0.0f, transient = 0.0f;
     };
 }
