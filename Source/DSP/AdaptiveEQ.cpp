@@ -109,7 +109,9 @@ namespace enh::dsp
                                   : std::clamp (clarity * (signature + unmask + detail - cut), -12.0f * clarity, 10.0f * clarity);
 
             // Footstep priority: lift step regions, duck their usual maskers
-            target += footConfidence * (9.0f * steps.stepWeight[i] - 4.0f * steps.competitorWeight[i]);
+            // The lift follows the regions the detected step actually lives in
+            const float stepW = steps.dynamicWeight[i];
+            target += footConfidence * (9.0f * stepW - 4.0f * steps.competitorWeight[i] * (1.0f - stepW));
 
             // Cuts react faster than lifts (no pumping noise up between events);
             // bands with more movement get a faster controller.

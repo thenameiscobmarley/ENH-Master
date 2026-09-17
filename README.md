@@ -44,16 +44,19 @@ input ─► BandAnalyzer (24 log bands, followers, rolling stats) ─► Footst
 - **PD control:** every adaptive gain follows its target with value' = (Kp·e + Kd·target') / (1 + Kd);
   Kp is set by ADAPT and self-tuned per band from rolling variance; targets are extrapolated by the
   analysis delay (latency compensation). Cuts react faster than lifts to avoid pumping.
-- **Footstep detector:** onset in the thump (70–260 Hz) / scuff (1.8–7 kHz) regions vs. their own
-  background; rejects hot/broadband events (gunfire, explosions), mid-dominated onsets (voice, weapon
-  bodies) and sustained tails; 4 ms onset confirmation; walking-rhythm prior.
+- **Footstep detector:** five regions for different surfaces/gear/distance — thump 60–250 Hz,
+  body 250–500 Hz (wood), click 1.3–2.6 kHz (hard floor/metal), scuff 2.6–7 kHz, crunch 7–12.5 kHz
+  (gravel/grass/gear). Onsets vs. each region's own background; rejects hot/broadband events
+  (gunfire, explosions), voice-dominated onsets and sustained tails; click-only onsets need support
+  or rhythm; 4 ms confirmation; walking-rhythm prior. The EQ lift follows the regions the detected
+  step actually lives in.
 - **Latency:** IIR only; the reported latency is the oversampling filters' (a couple of samples).
 - **CPU (J4105, 48 kHz stereo):** ~8 % of one core.
 
 ## Test results (`EnhDspTests`, synthetic scenes)
 
-Footsteps over ambience with gunshots and voice, three random scenes: 96–100 % of steps detected,
-0 gunshots flagged, ≤ 0.2 % of voice time flagged. Neutral settings ±0.04 dB; auto gain within ~1 dB
+Footsteps over ambience with gunshots and voice: classic steps 100 % detected; mixed surfaces
+(thump, metal click, wood, gravel, distant) 86–89 %; 0 gunshots flagged; ≤ 1.8 % of voice time flagged. Neutral settings ±0.04 dB; auto gain within ~1 dB
 at full CLARITY; SUB +3.8 dB at 50 Hz, +8.4 dB with BOOST; stable at 44.1/48/96 kHz and block sizes 1–1024;
 output peak ≤ 0.995. These are synthetic sounds — real game mixes will differ.
 

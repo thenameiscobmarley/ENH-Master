@@ -58,6 +58,51 @@ namespace
         s.steps.push_back ({ t });
     }
 
+    /** Surface / distance variations: 0 classic, 1 hard floor/metal, 2 wood, 3 gravel, 4 distant. */
+    void addFootstepProfile (Scene& s, double sr, double t, float peakDb, int profile, juce::Random& r)
+    {
+        if (profile == 0)
+        {
+            addFootstep (s, sr, t, peakDb, r);
+            return;
+        }
+
+        struct Part { BiquadCoeffs c; bool twoStage; float decay, gain, delay; };
+        std::vector<Part> parts;
+
+        switch (profile)
+        {
+            case 1: parts = { { BiquadCoeffs::bandPass (sr, 1900.0, 2.0), true, 0.015f, 7.0f, 0.0f },
+                              { BiquadCoeffs::bandPass (sr, 4500.0, 1.5), true, 0.012f, 4.0f, 0.002f } }; break;
+            case 2: parts = { { BiquadCoeffs::bandPass (sr, 350.0, 1.5), true, 0.040f, 7.0f, 0.0f },
+                              { BiquadCoeffs::lowPass (sr, 180.0, 0.9), false, 0.030f, 3.0f, 0.0f } }; break;
+            case 3: parts = { { BiquadCoeffs::highPass (sr, 7000.0, 0.7), false, 0.025f, 5.0f, 0.0f },
+                              { BiquadCoeffs::bandPass (sr, 3000.0, 1.2), true, 0.020f, 3.0f, 0.004f } }; break;
+            default: parts = { { BiquadCoeffs::lowPass (sr, 220.0, 0.9), false, 0.035f, 6.0f, 0.0f },
+                               { BiquadCoeffs::bandPass (sr, 450.0, 1.0), true, 0.030f, 2.5f, 0.003f } }; break;
+        }
+
+        const int start = (int) (t * sr), len = (int) (0.15 * sr);
+        const float amp = dbfs (peakDb);
+
+        for (auto& part : parts)
+        {
+            BiquadState a, b;
+            for (int i = 0; i < len && start + i < (int) s.left.size(); ++i)
+            {
+                const float tt = (float) i / (float) sr - part.delay;
+                if (tt < 0.0f) continue;
+                float x = a.process (part.c, r.nextFloat() * 2 - 1);
+                if (part.twoStage) x = b.process (part.c, x);
+                const float v = amp * x * part.gain * std::exp (-tt / part.decay);
+                s.left[(size_t) (start + i)] += v * 0.9f;
+                s.right[(size_t) (start + i)] += v * 1.1f;
+            }
+        }
+
+        s.steps.push_back ({ t });
+    }
+
     void addGunshot (Scene& s, double sr, double t, juce::Random& r)
     {
         auto lp = BiquadCoeffs::lowPass (sr, 7000.0, 0.7);
@@ -91,7 +136,7 @@ namespace
         s.speech.push_back ({ t0, t1 });
     }
 
-    Scene makeScene (double sr, double seconds, bool withShots, bool withSpeech, int seed)
+    Scene makeScene (double sr, double seconds, bool withShots, bool withSpeech, int seed, bool variedSurfaces = false)
     {
         Scene s;
         const auto n = (size_t) (seconds * sr);
@@ -118,7 +163,18 @@ namespace
                 nearShot = nearShot || std::abs (st - t) < 0.5;
 
             if (! nearShot)
-                addFootstep (s, sr, t, -24.0f - (float) r.nextDouble() * 8.0f, r);
+            {
+                if (variedSurfaces)
+                {
+                    const int profile = r.nextInt (5);
+                    const float level = -24.0f - (float) r.nextDouble() * 8.0f - (profile == 4 ? 6.0f : 0.0f);
+                    addFootstepProfile (s, sr, t, level, profile, r);
+                }
+                else
+                {
+                    addFootstep (s, sr, t, -24.0f - (float) r.nextDouble() * 8.0f, r);
+                }
+            }
         }
 
         for (auto st : shotTimes)
@@ -370,6 +426,45 @@ int main (int argc, char** argv)
     }
 
     //==========================================================================
+    for (int seed : { 7, 4242 })
+    {
+        std::printf ("\n== Varied surfaces (thump, metal click, wood, gravel, distant) + gunshots + voice, seed %d ==\n", seed);
+        const auto scene = makeScene (sr, 30.0, true, true, seed, true);
+        EnhEngine::Parameters p;
+        p.clarity = 0.6f; p.footstep = true;
+        const auto r = run (scene, sr, block, p);
+
+        int hits = 0;
+        for (auto& st : scene.steps)
+            hits += maxConfidence (r, sr, block, st.time, st.time + 0.08) >= 0.5f ? 1 : 0;
+
+        int shotFalse = 0;
+        for (auto& st : scene.shots)
+            shotFalse += maxConfidence (r, sr, block, st.time, st.time + 0.25) >= 0.5f ? 1 : 0;
+
+        int voiceBlocks = 0, voiceFalse = 0;
+        for (auto& seg : scene.speech)
+            for (int b = (int) (seg.first * sr / block); b < (int) (seg.second * sr / block); ++b)
+            {
+                const double t = b * block / sr;
+                bool nearStep = false;
+                for (auto& st : scene.steps)
+                    nearStep = nearStep || (t > st.time - 0.05 && t < st.time + 0.25);
+                if (nearStep) continue;
+                ++voiceBlocks;
+                voiceFalse += r.confidence[(size_t) b] >= 0.5f ? 1 : 0;
+            }
+
+        const float hitRate = (float) hits / (float) std::max<size_t> (1, scene.steps.size());
+        const float voiceRate = (float) voiceFalse / (float) std::max (1, voiceBlocks);
+        std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
+        std::printf ("  gunshot false    : %d / %zu\n", shotFalse, scene.shots.size());
+        std::printf ("  voice false time : %.1f%%\n", 100.0f * voiceRate);
+        check (hitRate >= 0.80f, "detects >= 80% of varied-surface footsteps");
+        check (shotFalse <= (int) scene.shots.size() / 5, "gunshots rarely flagged");
+        check (voiceRate <= 0.10f, "voice rarely flagged");
+    }
+
     std::printf ("\n== Quiet scene: only footsteps over ambience ==\n");
     {
         const auto scene = makeScene (sr, 12.0, false, false, 77);
