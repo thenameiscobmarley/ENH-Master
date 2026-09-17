@@ -3,8 +3,8 @@
 #include "../Render/GLResources.h"
 #include "DeviceLayout.h"
 
-/*  Procedural low-poly geometry. Everything is built once at context creation.
-    Total scene is a few thousand triangles.
+/*  Procedural low-poly geometry, built once at context creation.
+    Front-panel parts are in panel-local space (see DeviceLayout.h).
 */
 namespace pad::geo
 {
@@ -18,47 +18,48 @@ namespace pad::geo
     MeshData sweptRoundedRect (float halfW, float halfD, float radius, int cornerSegments,
                                const std::vector<ProfilePoint>& profile, bool capTop);
 
-    /** Flat horizontal rectangle at height y with axis-aligned rectangular holes. */
+    /** Flat rectangle at height y with axis-aligned rectangular holes. */
     MeshData plateWithHoles (const layout::Rect& outer, float y, const std::vector<layout::Rect>& holes);
 
     /** Inner walls of a rectangular cutout (normals pointing inward). */
     MeshData wellWalls (const layout::Rect& hole, float topY, float depth);
 
-    /** Horizontal quad with uv 0..1 (u along +x, v along +z). */
+    /** Flat quad with uv 0..1 (u along +x, v along +z). */
     MeshData horizontalQuad (const layout::Rect& r, float y);
 
     MeshData box (gfx::Vec3 minCorner, gfx::Vec3 maxCorner);
-    /** Flat ring in the XZ plane at y = 0, uv = (x, z). */
     MeshData flatAnnulus (float innerRadius, float outerRadius, int segments);
-
     MeshData dome (float radius, float height, int segments, int rings);
-
-    /** Triangular blade in the YZ plane extruded along X; pivot at origin. */
     MeshData triangularBlade (float baseHalfWidth, float height, float halfThickness);
 
-    // --- composite parts -------------------------------------------------------
+    // --- world space -------------------------------------------------------------
     MeshData chassisBody();
-    MeshData rackEars();
+    MeshData lidScrews();
     MeshData feet();
-    MeshData panelEdges();
-    MeshData panelTop();                  // with cutouts for scope, vents, switches
-    MeshData screws();
+    MeshData tablePlane();
+    MeshData unitQuad();          // [-1, 1] quad, for shadows / decals
 
-    MeshData knobFlange();                // static skirt + dial face
-    MeshData knobCapBody();               // rotating
-    MeshData knobCapInsert();             // rotating (metal top)
-    MeshData knobPointer();               // rotating
-
-    MeshData switchWellWalls();           // both switches
-    MeshData switchWellFloors();
-    MeshData switchBlade();               // single, at origin
-    MeshData switchHub();                 // single, at origin
-
-    MeshData scopeWalls();
-    MeshData scopeGlass();
-
+    // --- panel-local ---------------------------------------------------------------
+    MeshData faceplateEdges();
+    MeshData faceplateTop();      // with cutouts for display, vents, ear slots
+    MeshData displayWalls();
+    MeshData displayGlass();
+    MeshData displayBezel();
     MeshData ventWalls();
     MeshData ventFloors();
+    MeshData earSlotWalls();
+    MeshData earSlotFloors();
+    MeshData screwHeads();
+    MeshData handles();
 
-    MeshData tablePlane();
+    // --- knob (local to knob) --------------------------------------------------------
+    MeshData knobBezel();         // static, mounted to the panel
+    MeshData knobSkirt();         // rotating, carries the numbered scale
+    MeshData knobCap();           // rotating
+    MeshData knobCapInsert();     // rotating
+
+    // --- toggle switch (local to switch) ---------------------------------------------
+    MeshData switchPlate();       // rectangular chrome plate
+    MeshData switchBushing();     // round washer + bushing from the pivot outward
+    MeshData switchLever();       // rotating bat lever
 }

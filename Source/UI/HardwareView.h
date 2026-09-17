@@ -11,8 +11,8 @@ namespace pad
     class HardwareRenderer;
     class ParameterBridge;
 
-    /** Hosts the OpenGL context, handles mouse interaction/picking on the
-        message thread, and paces rendering. */
+    /** Hosts the OpenGL context and handles mouse interaction/picking on the
+        message thread. Frame pacing lives in the renderer (render thread). */
     class HardwareView final : public juce::Component,
                                private juce::Timer
     {
@@ -37,12 +37,10 @@ namespace pad
         void updateMouse (juce::Point<float>);
         int  pickControl (juce::Point<float>) const;
         int  paramIndexForControl (int controlIndex) const;
-        void setFocus (int pdTarget);
         void nudge (int controlIndex, float delta);
         void refreshOverlay();
         void applyTestParams();
 
-        PluginProcessor& processor;
         ParameterBridge& bridge;
         UIConfig config;
         SharedUIState shared;
@@ -53,11 +51,9 @@ namespace pad
         int dragControl = -1, dragParam = -1;
         float dragValue = 0.0f;
         juce::Point<float> lastDragPos;
-        int currentTimerHz = 0;
-        int overlayTick = 0;
         juce::uint32 openedAtMs = 0;
         bool testParamsApplied = false;
-        artwork::ScopeText lastText;
+        artwork::DisplayText lastText;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HardwareView)
     };

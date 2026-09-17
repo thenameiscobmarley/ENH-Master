@@ -1,20 +1,26 @@
 # PvP Adaptive Dynamics — Phase 1 (UI prototype, **no DSP**)
 
-JUCE VST3 plugin shell with a real-time 3D hardware UI (OpenGL 3.2 core).
-Audio is passed through untouched. Every parameter is a UI-facing placeholder.
+JUCE VST3 plugin shell with a real-time 3D hardware UI (OpenGL 3.2 core):
+a pink rack unit with a pearl faceplate, sitting on a desk, controls on the front.
+Audio is passed through untouched. Parameters are UI-facing placeholders.
 
 ## Build (Linux)
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # JUCE_PATH defaults to ~/JUCE
-cmake --build build -j1                                   # -j1 on low-RAM machines
+cmake --build build -j1                                   # -j1: JUCE needs a lot of RAM per job
 ```
 
 The VST3 is copied to `~/.vst3/PvP Adaptive Dynamics.vst3`.
-A Standalone app (`build/PvPAdaptiveDynamics_artefacts/Release/Standalone/`) is also
-built for quick UI iteration; disable with `-DPAD_BUILD_STANDALONE=OFF`.
+A Standalone app is also built (disable with `-DPAD_BUILD_STANDALONE=OFF`).
 
 In Carla: *Add Plugin → Refresh (VST3) → PvP Adaptive Dynamics*, then *Show GUI*.
+
+## Backups
+
+- Git tag `backup/phase1-top-panel-full-controls` — previous top-panel design with the full control set
+  (8 knobs, per-target Kp/Kd, masking + footstep switches).
+- `~/Projects/PvPAdaptiveDynamics-backups/` — source tarball and built `.vst3` of that version.
 
 ## Layout
 
@@ -30,43 +36,44 @@ Source/
   DSP/
     README.md              reserved backend location (intentionally no code)
   UI/
-    HardwareView.*         GL context, mouse picking, gestures, frame pacing, scope text
+    HardwareView.*         GL context, mouse picking, gestures, display text
     SharedUIState.h        atomics between message thread and GL thread
     Controls/ControlAnimation.h   knob spring (same path for all sources), switch snap
-    Render/                math, VAO/shader/texture wrappers, uber-shader
-    Scene/                 layout, camera, procedural geometry, panel artwork, renderer
+    Render/                math, VAO/shader/texture wrappers, per-material shaders
+    Scene/                 layout, camera, procedural geometry, artwork, renderer + frame pacing
 ```
 
 ## Controls
 
-| Control | Parameter(s) |
-|---|---|
-| 8 main knobs | `adaptDepth response bandLeveling maskDucking exciterDrive transientFocus stepFocus outputGain` |
-| Kp / Kd knobs | `pdKp_<target>` / `pdKd_<target>` for the **focused** target (click a main knob to focus it) |
-| REACT COMP | `reactionComp` |
-| MASKING / FOOTSTEP switches | `modeMasking` / `modeFootstep` |
+| Control | Parameter | Notes |
+|---|---|---|
+| CLARITY knob | `clarity` | depth / detail / clarity amount |
+| ADAPT SPEED knob | `adaptSpeed` | how fast the future auto-adjustment follows the material |
+| FOOTSTEP toggle | `modeFootstep` | lights the vents + footprints lime |
 
-Mouse: drag vertically (Shift/Ctrl = fine), wheel to nudge, double-click to reset.
+Knobs: the numbered skirt turns with the knob; the value is the number under the fixed
+indicator above it. Drag vertically (Shift/Ctrl = fine), wheel to nudge, double-click to reset.
 
-Movement colours (LED ring + pointer): **gold = user**, **cyan = host automation**,
+Indicator colour shows who moved the knob: **gold = user**, **cyan = host automation**,
 **violet = self-tune** (reserved; write via `ParameterBridge::setValueWithSource(..., ControlSource::selfTune)`).
-All sources use the identical critically-damped animation.
+All sources use the identical animation.
 
-## Performance notes (J4105 / UHD 600)
+## Performance (J4105 / UHD 600)
 
-~3–4k triangles, ~60 draw calls, one uber-shader, no shadow maps or post-processing.
-Textures: panel decal 2048×1024 RGBA (1024×512 via config), dial 512² R8, scope text 512×336 R8.
-Rendering drops to `idleFrameRate` when nothing moves and the mouse is outside.
+- One shader program per material (no per-pixel branching), opaque geometry drawn front-to-back.
+- Frame pacing on the render thread: continuous repainting locked to vsync — every refresh while
+  the mouse is over the UI or something animates, every second refresh when idle (1 s hold).
+- Measured in Carla at 1000×480 with 4× MSAA: 16.7 ms average frame interval, 0–6 late frames per 5 s,
+  ~0.3 ms CPU per frame.
 
 `ui-config.json` keys: `frameRate`, `idleFrameRate`, `msaaSamples` (0/2/4), `anisotropy`,
 `panelTextureWidth` (1024/2048), `parallaxAmount` (0–2), `reduceMotion`.
 
-Measured on the J4105 / UHD 600 inside Carla: ~9 % of one core while idle, ~97 MB RSS for the bridge process.
-
 ## Dev test hooks (no effect unless set)
 
-- `PAD_UI_TEST_PARAMS="focus=6;modeMasking=1;stepFocus=0.9"` — about 1.5 s after the editor opens,
-  writes normalised values as *host automation* (and sets PD focus), to exercise the UI without a host.
-- `PAD_UI_TEST_SIZE=520x280` — initial editor size.
+- `PAD_UI_TEST_PARAMS="clarity=0.8;modeFootstep=1"` — about 1.5 s after the editor opens, writes
+  normalised values as *host automation*, to exercise the UI without a host.
+- `PAD_UI_TEST_SIZE=520x250` — initial editor size.
+- `PAD_UI_TEST_STATS=1` — prints frame-interval statistics to stderr every 5 s.
 
-Example: `PAD_UI_TEST_PARAMS="modeFootstep=1" carla-single vst3 ~/.vst3/"PvP Adaptive Dynamics.vst3"`
+Example: `PAD_UI_TEST_STATS=1 carla-single vst3 ~/.vst3/"PvP Adaptive Dynamics.vst3"`

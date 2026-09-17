@@ -4,8 +4,7 @@
 
 namespace
 {
-    const juce::Identifier stateType   { "PvPAdaptiveDynamics" };
-    const juce::Identifier pdFocusProp { "uiPdFocus" };
+    const juce::Identifier stateType { "PvPAdaptiveDynamics" };
 }
 
 PluginProcessor::PluginProcessor()
@@ -50,16 +49,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<double>& buffer, juce::Mid
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
 {
     return new PluginEditor (*this);
-}
-
-int PluginProcessor::getPdFocus() const
-{
-    return juce::jlimit (0, pad::params::numPdTargets - 1, (int) state.state.getProperty (pdFocusProp, 0));
-}
-
-void PluginProcessor::setPdFocus (int targetIndex)
-{
-    state.state.setProperty (pdFocusProp, juce::jlimit (0, pad::params::numPdTargets - 1, targetIndex), nullptr);
 }
 
 void PluginProcessor::getStateInformation (juce::MemoryBlock& destData)

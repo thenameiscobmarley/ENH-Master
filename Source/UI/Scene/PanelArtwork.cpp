@@ -34,12 +34,12 @@ namespace pad::artwork
     //==============================================================================
     namespace
     {
-        /** Maps panel world coordinates (x, z) to decal pixels. */
+        /** Maps panel-local (x, z) to decal pixels. */
         struct PanelMapper
         {
             float sx, sz;
-            float px (float x) const { return (x + panelHalfW) * sx; }
-            float pz (float z) const { return (z + panelHalfD) * sz; }
+            float px (float x) const { return (x + faceHalfW) * sx; }
+            float pz (float z) const { return (z + faceHalfH) * sz; }
             float len (float w) const { return w * sx; }
 
             juce::Rectangle<float> rect (float x0, float z0, float x1, float z1) const
@@ -48,9 +48,8 @@ namespace pad::artwork
             }
         };
 
-        void drawTextWorld (juce::Graphics& g, const PanelMapper& m, const juce::String& text,
-                            float x, float z, float height, juce::Justification just,
-                            bool bold, float tracking = 0.06f, float boxWidth = 1.2f)
+        void text (juce::Graphics& g, const PanelMapper& m, const juce::String& s, float x, float z, float height,
+                   juce::Justification just, bool bold, float tracking, float boxWidth)
         {
             g.setFont (makeFont (m.len (height), bold, tracking));
 
@@ -58,25 +57,32 @@ namespace pad::artwork
             if (just.testFlags (juce::Justification::horizontallyCentred)) x0 = x - boxWidth * 0.5f;
             else if (just.testFlags (juce::Justification::right))          x0 = x - boxWidth;
 
-            g.drawText (text, m.rect (x0, z - height, x0 + boxWidth, z + height),
+            g.drawText (s, m.rect (x0, z - height, x0 + boxWidth, z + height),
                         juce::Justification (just.getOnlyHorizontalFlags() | juce::Justification::verticallyCentred), false);
         }
 
         juce::Path footprint (bool left)
         {
-            // Unit shoe print, toes towards -y, roughly 1 x 2 units.
             juce::Path p;
-            p.addEllipse (-0.50f, -1.00f, 1.00f, 1.20f);   // forefoot
-            p.addEllipse (-0.36f, 0.35f, 0.72f, 0.70f);    // heel
-            p.addEllipse (left ? -0.62f : 0.22f, -1.28f, 0.40f, 0.34f); // big toe
+            p.addEllipse (-0.50f, -1.00f, 1.00f, 1.25f);
+            p.addEllipse (-0.38f, 0.40f, 0.76f, 0.72f);
+            p.addEllipse (left ? -0.62f : 0.22f, -1.32f, 0.40f, 0.36f);
             return p;
+        }
+
+        juce::AffineTransform footTransform (const PanelMapper& m, bool left)
+        {
+            return juce::AffineTransform::rotation (left ? -0.20f : 0.20f)
+                     .scaled (m.len (0.048f))
+                     .translated (m.px (glyphX + (left ? -0.065f : 0.065f)), m.pz (glyphZ + (left ? 0.035f : -0.035f)));
         }
     }
 
-    RawTexture renderPanelDecal (int textureWidth)
+    RawTexture renderFaceplateDecal (int textureWidth)
     {
-        const int w = textureWidth, h = textureWidth / 2;
-        const PanelMapper m { (float) w / (2.0f * panelHalfW), (float) h / (2.0f * panelHalfD) };
+        const int w = textureWidth;
+        const int h = juce::roundToInt ((float) textureWidth * faceHalfH / faceHalfW);
+        const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * faceHalfH) };
 
         juce::Image ink (juce::Image::SingleChannel, w, h, true);
         juce::Image accent (juce::Image::SingleChannel, w, h, true);
@@ -84,81 +90,81 @@ namespace pad::artwork
         juce::Image glyphR (juce::Image::SingleChannel, w, h, true);
 
         const auto solid = juce::Colours::white;
+        const auto centred = juce::Justification::horizontallyCentred;
+        const auto left = juce::Justification::left;
 
         {
             juce::Graphics g (ink);
             g.setColour (solid);
 
             // Brand
-            drawTextWorld (g, m, "ADAPTIVE DYNAMICS", -2.22f, -1.02f, 0.085f, juce::Justification::left, true, 0.10f, 2.0f);
-            drawTextWorld (g, m, "PvP ANALOG CONTROL UNIT   /   MODEL AD-1", -2.22f, -0.905f, 0.030f, juce::Justification::left, false, 0.18f, 2.0f);
+            text (g, m, "ADAPTIVE DYNAMICS", displayRect.minX() - 0.02f, -0.575f, 0.075f, left, true, 0.12f, 2.0f);
+            text (g, m, "MODEL AD-1", 0.18f, -0.60f, 0.036f, centred, true, 0.25f, 0.6f);
 
-            // Scope caption
-            drawTextWorld (g, m, "RESPONSE MONITOR", scopeRect.minX(), scopeRect.maxZ() + 0.095f, 0.028f, juce::Justification::left, false, 0.2f, 1.0f);
-
-            // Knob labels
+            // Knobs: label, sub label, fixed indicator line
             for (auto& c : controls)
             {
                 if (c.kind == ControlKind::knob)
-                    drawTextWorld (g, m, c.label, c.x, c.z + 0.375f, 0.040f, juce::Justification::horizontallyCentred, true, 0.12f, 0.66f);
-                else if (c.kind == ControlKind::auxKnob)
-                    drawTextWorld (g, m, c.label, c.x, c.z + 0.25f, 0.030f, juce::Justification::horizontallyCentred, true, 0.08f, 0.40f);
+                {
+                    text (g, m, c.label, c.x, c.z + 0.465f, 0.060f, centred, true, 0.14f, 0.95f);
+                    text (g, m, c.subLabel, c.x, c.z + 0.575f, 0.030f, centred, false, 0.22f, 0.95f);
+
+                    g.fillRoundedRectangle (m.rect (c.x - 0.009f, c.z - indicatorFar - 0.005f, c.x + 0.009f, c.z - indicatorNear + 0.005f), m.len (0.006f));
+
+                    juce::Path arrow; // arrowhead pointing down at the rotating scale
+                    arrow.addTriangle (m.px (c.x - 0.03f), m.pz (c.z - indicatorNear + 0.005f),
+                                       m.px (c.x + 0.03f), m.pz (c.z - indicatorNear + 0.005f),
+                                       m.px (c.x), m.pz (c.z - indicatorNear + 0.035f));
+                    g.fillPath (arrow);
+                }
                 else
                 {
-                    drawTextWorld (g, m, c.label, c.x, c.z - 0.245f, 0.028f, juce::Justification::horizontallyCentred, true, 0.08f, 0.40f);
-                    drawTextWorld (g, m, "ON",  c.x + 0.112f, c.z - 0.15f, 0.020f, juce::Justification::left, false, 0.05f, 0.2f);
-                    drawTextWorld (g, m, "OFF", c.x + 0.112f, c.z + 0.15f, 0.020f, juce::Justification::left, false, 0.05f, 0.2f);
+                    text (g, m, c.label, c.x, c.z - 0.30f, 0.046f, centred, true, 0.14f, 0.6f);
+                    text (g, m, c.subLabel, c.x, c.z + 0.43f, 0.030f, centred, false, 0.22f, 0.6f);
+                    text (g, m, "ON",  c.x + switchPlateHalfW + 0.025f, c.z - 0.15f, 0.030f, left, true, 0.05f, 0.2f);
+                    text (g, m, "OFF", c.x + switchPlateHalfW + 0.025f, c.z + 0.15f, 0.030f, left, true, 0.05f, 0.2f);
                 }
             }
 
-            // Section frames
-            const auto stroke = m.len (0.006f);
-            g.drawRoundedRectangle (m.rect (-0.88f, -0.63f, 1.88f, 0.985f), m.len (0.04f), stroke);
-            g.drawRoundedRectangle (m.rect (1.935f, -0.63f, 2.27f, 0.985f), m.len (0.04f), stroke);
-            g.drawRoundedRectangle (m.rect (-2.27f, 0.365f, -1.00f, 0.985f), m.len (0.04f), stroke);
-            g.drawRoundedRectangle (m.rect (ventBlock.minX() - 0.05f, ventBlock.minZ() - 0.05f,
-                                            ventBlock.maxX() + 0.05f, ventBlock.maxZ() + 0.05f), m.len (0.03f), stroke);
-
-            // Scope bezel print
-            g.drawRect (m.rect (scopeRect.minX() - 0.03f, scopeRect.minZ() - 0.03f, scopeRect.maxX() + 0.03f, scopeRect.maxZ() + 0.03f), stroke * 1.4f);
-
-            // Legend
-            const char* legend[3] { "USER", "AUTOMATION", "SELF-TUNE" };
+            // Display caption + legend
+            const char* legend[3] { "USER", "AUTO", "SELF-TUNE" };
             for (int i = 0; i < 3; ++i)
-                drawTextWorld (g, m, legend[i], legendX[i] + 0.055f, legendZ, 0.024f, juce::Justification::left, true, 0.08f, 0.5f);
+                text (g, m, legend[i], legendX[i] + 0.05f, legendZ, 0.030f, left, true, 0.08f, 0.5f);
 
-            drawTextWorld (g, m, "PHASE 1  /  UI PROTOTYPE  /  NO DSP", 2.27f, 1.075f, 0.022f, juce::Justification::right, false, 0.16f, 1.6f);
+            text (g, m, "POWER", powerLampX, powerLampZ + 0.085f, 0.022f, centred, true, 0.18f, 0.4f);
+            text (g, m, "NO DSP  /  UI PROTOTYPE", 0.18f, 0.62f, 0.024f, centred, false, 0.22f, 1.2f);
 
-            // Faint glyph outline (visible when the mode is off)
-            g.setColour (solid.withAlpha (0.35f));
-            for (bool left : { true, false })
-            {
-                auto t = juce::AffineTransform::rotation (left ? -0.18f : 0.18f)
-                           .scaled (m.len (0.05f))
-                           .translated (m.px (glyphX + (left ? -0.07f : 0.07f)), m.pz (glyphZ + (left ? 0.045f : -0.045f)));
-                g.strokePath (footprint (left), juce::PathStrokeType (m.len (0.004f)), t);
-            }
+            // Faint footprint outline, visible when the mode is off
+            g.setColour (solid.withAlpha (0.45f));
+            for (bool isLeft : { true, false })
+                g.strokePath (footprint (isLeft), juce::PathStrokeType (m.len (0.005f)), footTransform (m, isLeft));
         }
 
         {
             juce::Graphics g (accent);
             g.setColour (solid);
-            g.fillRect (m.rect (-2.22f, -0.865f, -1.00f, -0.855f));
 
-            drawTextWorld (g, m, "ADAPTIVE CORE", -0.86f, -0.675f, 0.026f, juce::Justification::left, true, 0.22f, 1.0f);
-            drawTextWorld (g, m, "MODES", 1.95f, -0.675f, 0.026f, juce::Justification::left, true, 0.22f, 0.4f);
-            drawTextWorld (g, m, "PD CONTROL", -2.25f, 0.325f, 0.026f, juce::Justification::left, true, 0.22f, 1.0f);
-            drawTextWorld (g, m, "THERMAL / ACTIVITY", ventBlock.maxX() + 0.05f, ventBlock.minZ() - 0.085f, 0.022f, juce::Justification::right, true, 0.22f, 1.0f);
+            // Pink pinstripes
+            g.fillRect (m.rect (displayRect.minX() - 0.02f, -0.505f, displayRect.maxX(), -0.497f));
+            g.fillRect (m.rect (-0.70f, 0.660f, 1.20f, 0.668f));
+            g.fillRect (m.rect (-0.70f, -0.668f, 1.20f, -0.660f));
+
+            // Short pink arc behind each indicator
+            for (auto& c : controls)
+                if (c.kind == ControlKind::knob)
+                {
+                    juce::Path arc;
+                    const float r = m.len (bezelRadius + 0.03f);
+                    arc.addCentredArc (m.px (c.x), m.pz (c.z), r, r, 0.0f, -0.35f, 0.35f, true);
+                    g.strokePath (arc, juce::PathStrokeType (m.len (0.008f)));
+                }
         }
 
-        for (bool left : { true, false })
+        for (bool isLeft : { true, false })
         {
-            juce::Graphics g (left ? glyphL : glyphR);
+            juce::Graphics g (isLeft ? glyphL : glyphR);
             g.setColour (solid);
-            auto t = juce::AffineTransform::rotation (left ? -0.18f : 0.18f)
-                       .scaled (m.len (0.05f))
-                       .translated (m.px (glyphX + (left ? -0.07f : 0.07f)), m.pz (glyphZ + (left ? 0.045f : -0.045f)));
-            g.fillPath (footprint (left), t);
+            g.fillPath (footprint (isLeft), footTransform (m, isLeft));
         }
 
         RawTexture tex { w, h, 4, {} };
@@ -177,29 +183,30 @@ namespace pad::artwork
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
 
-        const float scale = (float) size / (2.0f * flangeRadius);
+        const float scale = (float) size / (2.0f * dialRadius);
         const juce::Point<float> centre ((float) size * 0.5f, (float) size * 0.5f);
-        const float numberRadius = 0.214f * scale;
+        const float numberRadius = 0.252f * scale;
 
-        g.setFont (makeFont (0.042f * scale, true));
+        g.setFont (makeFont (0.066f * scale, true));
 
+        // Laid out so the number under the fixed indicator equals the value.
         for (int i = 0; i <= 10; ++i)
         {
-            const float angle = knobAngleForValue ((float) i / 10.0f);
+            const float angle = scaleAngleForValue ((float) i / 10.0f);
             juce::Graphics::ScopedSaveState save (g);
             g.addTransform (juce::AffineTransform::rotation (angle, centre.x, centre.y));
 
-            const auto box = juce::Rectangle<float> (0.08f * scale, 0.06f * scale).withCentre ({ centre.x, centre.y - numberRadius });
+            const auto box = juce::Rectangle<float> (0.10f * scale, 0.075f * scale).withCentre ({ centre.x, centre.y - numberRadius });
             g.drawText (juce::String (i), box, juce::Justification::centred, false);
         }
 
         for (int i = 0; i <= 50; ++i)
         {
-            const float angle = knobAngleForValue ((float) i / 50.0f);
+            const float angle = scaleAngleForValue ((float) i / 50.0f);
             const bool major = (i % 5) == 0;
-            const float r0 = (major ? 0.247f : 0.256f) * scale, r1 = 0.270f * scale;
+            const float r0 = (major ? 0.178f : 0.192f) * scale, r1 = 0.212f * scale;
             const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
-            g.drawLine ({ centre + dir * r0, centre + dir * r1 }, (major ? 0.006f : 0.0035f) * scale);
+            g.drawLine ({ centre + dir * r0, centre + dir * r1 }, (major ? 0.009f : 0.005f) * scale);
         }
 
         RawTexture tex { size, size, 1, {} };
@@ -209,36 +216,31 @@ namespace pad::artwork
     }
 
     //==============================================================================
-    RawTexture renderScopeOverlay (const ScopeText& text)
+    RawTexture renderDisplayOverlay (const DisplayText& t)
     {
-        const int w = scopeOverlayWidth, h = scopeOverlayHeight;
+        const int w = displayOverlayWidth, h = displayOverlayHeight;
         juce::Image img (juce::Image::SingleChannel, w, h, true);
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
 
-        const float pad = 16.0f;
+        const float pad = 18.0f;
 
+        g.setFont (makeFont (34.0f, true, 0.02f, true));
+        g.drawText (t.title, juce::Rectangle<float> (pad, 8.0f, (float) w - 2.0f * pad, 42.0f), juce::Justification::centredLeft, false);
+        g.drawText (t.tag,   juce::Rectangle<float> (pad, 8.0f, (float) w - 2.0f * pad, 42.0f), juce::Justification::centredRight, false);
+
+        const float y = (float) h - 56.0f;
         g.setFont (makeFont (38.0f, true, 0.0f, true));
-        g.drawText (text.target, juce::Rectangle<float> (pad, 6.0f, (float) w - 2.0f * pad, 44.0f), juce::Justification::centredLeft, false);
 
-        g.setFont (makeFont (24.0f, true, 0.0f, true));
-        g.drawText (text.lineRight, juce::Rectangle<float> (pad, 12.0f, (float) w - 2.0f * pad, 34.0f), juce::Justification::centredRight, false);
-
-        g.setFont (makeFont (18.0f, false, 0.05f, true));
-        g.drawText (text.title + "  " + text.footer, juce::Rectangle<float> (pad, 50.0f, (float) w - 2.0f * pad, 22.0f), juce::Justification::centredLeft, false);
-
-        g.setFont (makeFont (36.0f, true, 0.0f, true));
-        const float y = (float) h - 52.0f;
-
-        if (text.focusLine.isNotEmpty())
+        if (t.focusLine.isNotEmpty())
         {
-            g.drawText (text.focusLine, juce::Rectangle<float> (pad, y, (float) w - 2.0f * pad, 44.0f), juce::Justification::centredLeft, false);
+            g.drawText (t.focusLine, juce::Rectangle<float> (pad, y, (float) w - 2.0f * pad, 48.0f), juce::Justification::centredLeft, false);
         }
         else
         {
             const float half = ((float) w - 2.0f * pad) * 0.5f;
-            g.drawText (text.lineLeft, juce::Rectangle<float> (pad, y, half, 44.0f), juce::Justification::centredLeft, false);
-            g.drawText (text.lineMid,  juce::Rectangle<float> (pad + half, y, half, 44.0f), juce::Justification::centredRight, false);
+            g.drawText (t.lineLeft,  juce::Rectangle<float> (pad, y, half, 48.0f), juce::Justification::centredLeft, false);
+            g.drawText (t.lineRight, juce::Rectangle<float> (pad + half, y, half, 48.0f), juce::Justification::centredRight, false);
         }
 
         RawTexture tex { w, h, 1, {} };

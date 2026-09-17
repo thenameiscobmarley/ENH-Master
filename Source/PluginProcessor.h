@@ -41,10 +41,6 @@ public:
     juce::AudioProcessorValueTreeState& getState() noexcept  { return state; }
     pad::ParameterBridge& getBridge() noexcept               { return bridge; }
 
-    /** Non-parameter UI state persisted with the session. */
-    int  getPdFocus() const;
-    void setPdFocus (int targetIndex);
-
 private:
     juce::AudioProcessorValueTreeState state;
     pad::ParameterBridge bridge;

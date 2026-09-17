@@ -4,29 +4,17 @@
 
 /*  Single source of truth for every host-visible parameter.
 
-    PHASE 1: all parameters are UI-facing placeholders. Nothing in the audio path
-    reads them. The future DSP backend (Source/DSP) will read the same IDs.
+    Reduced control set while DSP work begins (full set: git tag
+    backup/phase1-top-panel-full-controls). Nothing in the audio path reads
+    these yet; the future DSP backend (Source/DSP) will read the same IDs.
 */
 namespace pad::params
 {
     namespace id
     {
-        // Adaptive core targets (each gets its own PD controller later)
-        inline constexpr const char* adaptDepth     = "adaptDepth";
-        inline constexpr const char* response       = "response";
-        inline constexpr const char* bandLeveling   = "bandLeveling";
-        inline constexpr const char* maskDucking    = "maskDucking";
-        inline constexpr const char* exciterDrive   = "exciterDrive";
-        inline constexpr const char* transientFocus = "transientFocus";
-        inline constexpr const char* stepFocus      = "stepFocus";
-        inline constexpr const char* outputGain     = "outputGain";
-
-        // Controller / timing
-        inline constexpr const char* reactionComp   = "reactionComp";
-
-        // Modes
-        inline constexpr const char* modeMasking    = "modeMasking";
-        inline constexpr const char* modeFootstep   = "modeFootstep";
+        inline constexpr const char* clarity      = "clarity";      // depth / detail / clarity amount
+        inline constexpr const char* adaptSpeed   = "adaptSpeed";   // how fast the auto-adjustment follows the material
+        inline constexpr const char* modeFootstep = "modeFootstep"; // footstep-priority mode
     }
 
     enum class Kind { continuous, toggle };
@@ -38,13 +26,6 @@ namespace pad::params
         float minValue = 0.0f, maxValue = 1.0f, defaultValue = 0.0f;
         int decimals = 1;
     };
-
-    inline constexpr int numPdTargets = 8;
-
-    /** IDs of the parameters that will each be driven by a PD controller. */
-    const std::array<const char*, numPdTargets>& pdTargetIds();
-    juce::String pdKpId (int targetIndex);
-    juce::String pdKdId (int targetIndex);
 
     const std::vector<Spec>& allSpecs();
     const Spec* findSpec (const juce::String& paramId);

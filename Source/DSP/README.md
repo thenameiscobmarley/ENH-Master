@@ -8,7 +8,9 @@ When DSP is added it belongs here, owned by `PluginProcessor`:
   called from there.
 - Parameters are read by ID from `Source/Parameters/ParameterSpecs.h`
   (use `AudioProcessorValueTreeState::getRawParameterValue` on the audio thread).
-- Per-target PD gains already exist as parameters: `pdKp_<targetId>` / `pdKd_<targetId>`.
+- Current parameters: `clarity`, `adaptSpeed`, `modeFootstep`. The earlier full set
+  (per-target PD gains, masking mode, etc.) is preserved at git tag
+  `backup/phase1-top-panel-full-controls` for when those features return.
 - Any parameter written by future self-tuning must go through
   `ParameterBridge::setValueWithSource (index, value, ControlSource::selfTune)`
   so the UI animates it on the same path and tints it as self-tuned.

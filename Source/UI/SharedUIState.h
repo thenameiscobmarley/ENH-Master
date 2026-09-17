@@ -14,7 +14,6 @@ namespace pad
         std::atomic<bool>  mouseInside { false };
         std::atomic<int>   hoveredControl { -1 };
         std::atomic<int>   activeControl { -1 };
-        std::atomic<int>   pdFocus { 0 };
         std::atomic<int>   viewWidth { 1 }, viewHeight { 1 };
 
         // written by render thread
@@ -23,7 +22,7 @@ namespace pad
 
         // scope overlay hand-off
         juce::SpinLock        overlayLock;
-        artwork::RawTexture   overlayPending;   // guarded by overlayLock
+        artwork::RawTexture   overlayPending;     // guarded by overlayLock
         juce::uint32          overlayVersion = 0; // guarded by overlayLock
     };
 }

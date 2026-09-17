@@ -2,13 +2,13 @@
 
 #include <juce_graphics/juce_graphics.h>
 
-/*  2D artwork rendered with juce::Graphics on the message thread, uploaded to
-    the GPU as small textures:
+/*  2D artwork rendered with juce::Graphics on the message thread and uploaded
+    as small textures:
 
-    - Panel decal (RGBA): R = ink print, G = pink accent print,
-                          B = left footstep glyph mask, A = right footstep glyph mask
-    - Knob dial (R8): radial numbers + ticks for the flange face
-    - Scope overlay (R8): monochrome phosphor text, re-rendered only when text changes
+    - Faceplate decal (RGBA): R = dark ink, G = pink accent ink,
+                              B = left footprint glyph mask, A = right footprint glyph mask
+    - Knob dial (R8): numbers + ticks printed on the rotating skirt
+    - Display overlay (R8): phosphor text, re-rendered only when the text changes
 */
 namespace pad::artwork
 {
@@ -18,22 +18,21 @@ namespace pad::artwork
         std::vector<juce::uint8> pixels;
     };
 
-    RawTexture renderPanelDecal (int textureWidth);
+    RawTexture renderFaceplateDecal (int textureWidth);
     RawTexture renderKnobDial (int size);
 
-    struct ScopeText
+    struct DisplayText
     {
-        juce::String title, target, lineLeft, lineMid, lineRight, focusLine, footer;
+        juce::String title, tag, lineLeft, lineRight, focusLine;
 
-        bool operator== (const ScopeText& o) const
+        bool operator== (const DisplayText& o) const
         {
-            return title == o.title && target == o.target && lineLeft == o.lineLeft && lineMid == o.lineMid
-                && lineRight == o.lineRight && focusLine == o.focusLine && footer == o.footer;
+            return title == o.title && tag == o.tag && lineLeft == o.lineLeft
+                && lineRight == o.lineRight && focusLine == o.focusLine;
         }
-        bool operator!= (const ScopeText& o) const { return ! operator== (o); }
     };
 
-    inline constexpr int scopeOverlayWidth = 512, scopeOverlayHeight = 336;
+    inline constexpr int displayOverlayWidth = 512, displayOverlayHeight = 342;
 
-    RawTexture renderScopeOverlay (const ScopeText&);
+    RawTexture renderDisplayOverlay (const DisplayText&);
 }

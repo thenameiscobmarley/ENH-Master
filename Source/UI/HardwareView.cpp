@@ -9,15 +9,13 @@ namespace pad
     using namespace layout;
 
     HardwareView::HardwareView (PluginProcessor& p)
-        : processor (p),
-          bridge (p.getBridge()),
+        : bridge (p.getBridge()),
           config (UIConfig::loadOrCreate())
     {
         setOpaque (true);
-        shared.pdFocus = processor.getPdFocus();
 
         renderer = std::make_unique<HardwareRenderer> (bridge, shared, config,
-                                                       artwork::renderPanelDecal (config.panelTextureWidth),
+                                                       artwork::renderFaceplateDecal (config.panelTextureWidth),
                                                        artwork::renderKnobDial (512));
 
         juce::OpenGLPixelFormat format;
@@ -27,14 +25,13 @@ namespace pad
         glContext.setMultisamplingEnabled (config.msaaSamples > 0);
         glContext.setPreferredVersion ({ 3, 2 });
         glContext.setComponentPaintingEnabled (false);
-        glContext.setContinuousRepainting (false);
         glContext.setRenderer (renderer.get());
+        glContext.setContinuousRepainting (true); // paced on the render thread, locked to vsync
         glContext.attachTo (*this);
 
         openedAtMs = juce::Time::getMillisecondCounter();
         refreshOverlay();
-        startTimerHz (config.frameRate);
-        currentTimerHz = config.frameRate;
+        startTimerHz (20); // display text only
     }
 
     HardwareView::~HardwareView()
@@ -52,22 +49,12 @@ namespace pad
     {
         shared.viewWidth = juce::jmax (1, getWidth());
         shared.viewHeight = juce::jmax (1, getHeight());
-        glContext.triggerRepaint();
     }
 
     //==============================================================================
     int HardwareView::paramIndexForControl (int i) const
     {
-        const auto& c = controls[(size_t) i];
-        const int focus = shared.pdFocus.load();
-
-        switch (c.binding)
-        {
-            case Binding::pdKp:  return bridge.indexOf (params::pdKpId (focus));
-            case Binding::pdKd:  return bridge.indexOf (params::pdKdId (focus));
-            case Binding::fixed: break;
-        }
-        return bridge.indexOf (c.paramId);
+        return bridge.indexOf (controls[(size_t) i].paramId);
     }
 
     int HardwareView::pickControl (juce::Point<float> pos) const
@@ -76,37 +63,25 @@ namespace pad
         const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load());
         const float nx = 2.0f * pos.x / w - 1.0f, ny = 1.0f - 2.0f * pos.y / h;
 
-        int best = -1;
-        float bestDist = 1.0e9f;
-
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            float hx = 0, hz = 0;
+            float lx = 0, lz = 0;
 
             if (c.kind == ControlKind::toggle)
             {
-                if (cam.intersectPlaneY (nx, ny, panelTop + 0.08f, hx, hz))
-                {
-                    const Rect hit { c.x, c.z, switchWellHalfW + 0.07f, switchWellHalfD + 0.07f };
-                    if (hit.contains (hx, hz))
-                        return i;
-                }
-                continue;
+                if (cam.intersectPanel (nx, ny, 0.12f, lx, lz)
+                    && Rect { c.x, c.z, switchPlateHalfW + 0.08f, switchPlateHalfD + 0.10f }.contains (lx, lz))
+                    return i;
             }
-
-            if (! cam.intersectPlaneY (nx, ny, panelTop + capTop * c.scale * 0.75f, hx, hz))
-                continue;
-
-            const float d = std::hypot (hx - c.x, hz - c.z);
-            if (d < flangeRadius * c.scale * 1.15f && d < bestDist)
+            else if (cam.intersectPanel (nx, ny, capTop * 0.6f, lx, lz)
+                     && std::hypot (lx - c.x, lz - c.z) < bezelRadius * 1.08f)
             {
-                best = i;
-                bestDist = d;
+                return i;
             }
         }
 
-        return best;
+        return -1;
     }
 
     void HardwareView::updateMouse (juce::Point<float> pos)
@@ -115,15 +90,6 @@ namespace pad
         shared.mouseNdcX = juce::jlimit (-1.0f, 1.0f, 2.0f * pos.x / w - 1.0f);
         shared.mouseNdcY = juce::jlimit (-1.0f, 1.0f, 1.0f - 2.0f * pos.y / h);
         shared.mouseInside = true;
-    }
-
-    void HardwareView::setFocus (int pdTarget)
-    {
-        if (pdTarget < 0 || pdTarget == shared.pdFocus.load())
-            return;
-
-        shared.pdFocus = pdTarget;
-        processor.setPdFocus (pdTarget);
     }
 
     //==============================================================================
@@ -156,19 +122,15 @@ namespace pad
         if (hit < 0)
             return;
 
-        const auto& c = controls[(size_t) hit];
         const int p = paramIndexForControl (hit);
 
-        if (c.kind == ControlKind::toggle)
+        if (controls[(size_t) hit].kind == ControlKind::toggle)
         {
             bridge.beginGesture (p, ControlSource::user);
             bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
             bridge.endGesture (p);
             return;
         }
-
-        if (c.kind == ControlKind::knob)
-            setFocus (c.pdTarget);
 
         dragControl = hit;
         dragParam = p;
@@ -243,44 +205,39 @@ namespace pad
             case ControlSource::selfTune:       return "TUNE";
             case ControlSource::none:           break;
         }
-        return "--";
+        return "IDLE";
     }
 
     void HardwareView::refreshOverlay()
     {
-        const int focus = shared.pdFocus.load();
-        const int targetParam = bridge.indexOf (params::pdTargetIds()[(size_t) focus]);
-        const int kp = bridge.indexOf (params::pdKpId (focus));
-        const int kd = bridge.indexOf (params::pdKdId (focus));
+        const int clarity = paramIndexForControl (0);
+        const int speed = paramIndexForControl (1);
 
-        artwork::ScopeText text;
-        text.title = "PD RESPONSE";
-        text.target = controls[(size_t) focus].label;
-        text.footer = "PREVIEW / NO DSP";
-        text.lineLeft = "Kp " + bridge.getParameter (kp)->getCurrentValueAsText();
-        text.lineMid = "Kd " + bridge.getParameter (kd)->getCurrentValueAsText();
-        text.lineRight = sourceTag (bridge.getLastSource (targetParam));
+        auto valueText = [this] (int index)
+        {
+            auto* param = bridge.getParameter (index);
+            auto s = param->getCurrentValueAsText();
+            if (param->getLabel().isNotEmpty())
+                s << param->getLabel();
+            return s;
+        };
 
         const int shown = dragControl >= 0 ? dragControl : shared.hoveredControl.load();
 
+        artwork::DisplayText text;
+        text.title = "RESPONSE";
+        text.tag = sourceTag (shown >= 0 ? bridge.getLastSource (paramIndexForControl (shown)) : bridge.getLastSource (clarity));
+        text.lineLeft = "CLR " + valueText (clarity);
+        text.lineRight = "SPD " + valueText (speed);
+
         if (shown >= 0)
-        {
-            const auto& c = controls[(size_t) shown];
-            auto* param = bridge.getParameter (paramIndexForControl (shown));
-            auto value = param->getCurrentValueAsText();
-            const auto unit = param->getLabel();
-
-            if (unit.isNotEmpty())
-                value << " " << unit;
-
-            text.focusLine = juce::String (c.label).paddedRight (' ', 11) + value;
-        }
+            text.focusLine = juce::String (controls[(size_t) shown].label) + "  " + valueText (paramIndexForControl (shown));
 
         if (text == lastText)
             return;
 
         lastText = text;
-        auto raw = artwork::renderScopeOverlay (text);
+        auto raw = artwork::renderDisplayOverlay (text);
 
         const juce::SpinLock::ScopedLockType lock (shared.overlayLock);
         shared.overlayPending = std::move (raw);
@@ -289,8 +246,8 @@ namespace pad
 
     void HardwareView::applyTestParams()
     {
-        // Dev-only: PAD_UI_TEST_PARAMS="focus=6;modeFootstep=1;adaptDepth=0.8"
-        // Values are normalised and written as host automation, to exercise the UI without a host.
+        // Dev-only: PAD_UI_TEST_PARAMS="clarity=0.8;modeFootstep=1" (normalised values),
+        // written as host automation to exercise the UI without a host.
         const auto spec = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PARAMS", {});
 
         for (auto& token : juce::StringArray::fromTokens (spec, ";", {}))
@@ -298,9 +255,7 @@ namespace pad
             const auto key = token.upToFirstOccurrenceOf ("=", false, false).trim();
             const auto value = token.fromFirstOccurrenceOf ("=", false, false).getFloatValue();
 
-            if (key == "focus")
-                setFocus (juce::jlimit (0, params::numPdTargets - 1, (int) value));
-            else if (const int index = bridge.indexOf (key); index >= 0)
+            if (const int index = bridge.indexOf (key); index >= 0)
                 bridge.setValueWithSource (index, value, ControlSource::hostAutomation);
         }
     }
@@ -313,21 +268,6 @@ namespace pad
             applyTestParams();
         }
 
-        if (++overlayTick >= 3)
-        {
-            overlayTick = 0;
-            refreshOverlay();
-        }
-
-        const bool busy = shared.mouseInside.load() || shared.animating.load() || dragParam >= 0;
-        const int desired = busy ? config.frameRate : config.idleFrameRate;
-
-        if (desired != currentTimerHz)
-        {
-            currentTimerHz = desired;
-            startTimerHz (desired);
-        }
-
-        glContext.triggerRepaint();
+        refreshOverlay();
     }
 }

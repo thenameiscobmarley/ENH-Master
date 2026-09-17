@@ -270,160 +270,91 @@ namespace pad::geo
     }
 
     //==============================================================================
+    // World-space parts
     MeshData chassisBody()
     {
-        constexpr float r = 0.07f;
-        return sweptRoundedRect (bodyHalfW - r, bodyHalfD - r, r, 4,
-                                 { { 0.0f, bodyBottom }, { 0.0f, bodyTop - 0.035f }, { -0.035f, bodyTop } }, false); // top is covered by the panel; open so cutouts show their wells
+        constexpr float r = 0.05f;
+        const float halfD = 0.5f * chassisDepth;
+        MeshData mesh;
+        mesh.append (sweptRoundedRect (chassisHalfW - r, halfD - r, r, 3,
+                                       { { 0.0f, chassisBottom }, { 0.0f, chassisTop - 0.03f }, { -0.03f, chassisTop } }, true),
+                     Mat4::translation ({ 0.0f, 0.0f, chassisFrontZ - halfD }));
+        return mesh;
     }
 
-    MeshData rackEars()
+    MeshData lidScrews()
     {
         MeshData mesh;
-
-        for (float side : { -1.0f, 1.0f })
-        {
-            const float x0 = side > 0 ? bodyHalfW - 0.03f : -earOuterX;
-            const float x1 = side > 0 ? earOuterX : -bodyHalfW + 0.03f;
-            mesh.append (box ({ x0, bodyBottom, bodyHalfD - earThick }, { x1, bodyTop - 0.01f, bodyHalfD + 0.005f }));
-
-            // Carry handle: two standoffs and a bar
-            const float hx = side * 2.63f;
-            for (float y : { 0.17f, 0.50f })
-                mesh.append (box ({ hx - 0.035f, y - 0.03f, bodyHalfD }, { hx + 0.035f, y + 0.03f, bodyHalfD + 0.14f }));
-
-            mesh.append (sweptRoundedRect (0, 0, 0.035f, 3, { { -0.035f, 0.14f }, { 0.0f, 0.14f }, { 0.0f, 0.53f }, { -0.035f, 0.53f } }, false),
-                         Mat4::translation ({ hx, 0.0f, bodyHalfD + 0.14f }));
-        }
-
+        const auto head = dome (0.035f, 0.012f, 10, 2);
+        for (float x : { -1.95f, 0.0f, 1.95f })
+            for (float z : { chassisFrontZ - 0.12f, chassisBackZ + 0.12f })
+                mesh.append (head, Mat4::translation ({ x, chassisTop, z }));
         return mesh;
     }
 
     MeshData feet()
     {
         MeshData mesh;
-        for (float x : { -2.2f, 2.2f })
-            for (float z : { -1.1f, 1.1f })
-                mesh.append (sweptRoundedRect (0, 0, 0.12f, 3, { { 0.0f, 0.0f }, { 0.0f, bodyBottom } }, false),
+        for (float x : { -1.95f, 1.95f })
+            for (float z : { chassisFrontZ - 0.25f, chassisBackZ + 0.25f })
+                mesh.append (sweptRoundedRect (0, 0, 0.11f, 3, { { 0.0f, 0.0f }, { 0.0f, chassisBottom }, { -0.02f, chassisBottom + 0.005f } }, true),
                              Mat4::translation ({ x, 0, z }));
         return mesh;
     }
 
-    MeshData panelEdges()
+    MeshData tablePlane()
     {
-        constexpr float r = 0.012f;
-        return sweptRoundedRect (panelHalfW - r, panelHalfD - r, r, 2,
-                                 { { 0.0f, bodyTop - 0.01f }, { 0.0f, layout::panelTop - 0.009f }, { -0.009f, layout::panelTop } }, false);
+        return horizontalQuad ({ 0.0f, 0.0f, 24.0f, 24.0f }, 0.0f);
     }
 
-    static std::vector<Rect> panelHoles()
+    MeshData unitQuad()
     {
-        std::vector<Rect> holes { scopeRect };
+        return horizontalQuad ({ 0.0f, 0.0f, 1.0f, 1.0f }, 0.0f);
+    }
 
+    //==============================================================================
+    // Panel-local parts (y = out of the faceplate)
+    static std::vector<Rect> faceplateHoles()
+    {
+        std::vector<Rect> holes { displayRect };
         for (int i = 0; i < numVentSlots; ++i)
             holes.push_back (ventSlot (i));
-
-        for (auto& c : controls)
-            if (c.kind == ControlKind::toggle)
-                holes.push_back (switchWell (c));
-
+        for (auto& slot : earSlots)
+            holes.push_back (slot);
         return holes;
     }
 
-    MeshData panelTop()
+    MeshData faceplateEdges()
     {
-        const Rect outer { 0.0f, 0.0f, panelHalfW - 0.009f, panelHalfD - 0.009f };
-        return plateWithHoles (outer, layout::panelTop, panelHoles());
+        constexpr float r = 0.022f;
+        return sweptRoundedRect (faceHalfW - r, faceHalfH - r, r, 2,
+                                 { { 0.0f, -faceThick }, { 0.0f, -0.016f }, { -0.016f, 0.0f } }, false);
     }
 
-    MeshData screws()
+    MeshData faceplateTop()
     {
+        return plateWithHoles ({ 0.0f, 0.0f, faceHalfW - 0.016f, faceHalfH - 0.016f }, 0.0f, faceplateHoles());
+    }
+
+    MeshData displayWalls()  { return wellWalls (displayRect, 0.0f, displayDepth); }
+    MeshData displayGlass()  { return horizontalQuad (displayRect, -displayDepth); }
+
+    MeshData displayBezel()
+    {
+        // Frame around the display cutout. Profile runs outer edge -> inner lip so normals face correctly.
+        constexpr float r = 0.02f;
         MeshData mesh;
-        const auto head = dome (0.04f, 0.014f, 10, 2);
-
-        for (float sx : { -1.0f, 1.0f })
-            for (float sz : { -1.0f, 1.0f })
-                mesh.append (head, Mat4::translation ({ sx * (panelHalfW - 0.09f), layout::panelTop, sz * (panelHalfD - 0.09f) }));
-
-        for (float sx : { -1.0f, 1.0f })
-            for (float y : { 0.17f, 0.50f })
-                mesh.append (head, Mat4::translation ({ sx * 2.72f, y, bodyHalfD + 0.005f }) * Mat4::rotationX (0.5f * pi));
-
+        mesh.append (sweptRoundedRect (displayRect.hw - r, displayRect.hd - r, r, 3,
+                                       { { 0.07f, 0.0f }, { 0.07f, 0.012f }, { 0.055f, 0.026f }, { 0.02f, 0.026f }, { 0.0f, 0.012f }, { 0.0f, 0.0f } }, false),
+                     Mat4::translation ({ displayRect.cx, 0.0f, displayRect.cz }));
         return mesh;
-    }
-
-    MeshData knobFlange()
-    {
-        return sweptRoundedRect (0, 0, flangeRadius, 8,
-                                 { { 0.0f, 0.0f }, { -0.012f, 0.035f }, { -0.022f, flangeTop } }, true);
-    }
-
-    MeshData knobCapBody()
-    {
-        return sweptRoundedRect (0, 0, capRadius, 7,
-                                 { { 0.0f, flangeTop - 0.01f }, { 0.0f, capTop - 0.024f }, { -0.02f, capTop } }, true);
-    }
-
-    MeshData knobCapInsert()
-    {
-        return sweptRoundedRect (0, 0, 0.148f, 7, { { 0.0f, capTop - 0.01f }, { 0.0f, capTop + 0.004f } }, true);
-    }
-
-    MeshData knobPointer()
-    {
-        MeshData mesh;
-        mesh.append (box ({ -0.010f, capTop + 0.004f, -0.140f }, { 0.010f, capTop + 0.008f, -0.035f }));
-        mesh.append (box ({ -0.011f, flangeTop + 0.02f, -capRadius - 0.004f }, { 0.011f, capTop - 0.03f, -capRadius + 0.01f }));
-        return mesh;
-    }
-
-    MeshData switchWellWalls()
-    {
-        MeshData mesh;
-        for (auto& c : controls)
-            if (c.kind == ControlKind::toggle)
-                mesh.append (wellWalls (switchWell (c), layout::panelTop, switchWellDepth));
-        return mesh;
-    }
-
-    MeshData switchWellFloors()
-    {
-        MeshData mesh;
-        for (auto& c : controls)
-            if (c.kind == ControlKind::toggle)
-                mesh.append (horizontalQuad (switchWell (c), layout::panelTop - switchWellDepth));
-        return mesh;
-    }
-
-    MeshData switchBlade()
-    {
-        return triangularBlade (0.072f, 0.23f, 0.018f);
-    }
-
-    MeshData switchHub()
-    {
-        auto cyl = sweptRoundedRect (0, 0, 0.034f, 3,
-                                     { { -0.034f, -0.08f }, { 0.0f, -0.08f }, { 0.0f, 0.08f } }, true);
-        MeshData mesh;
-        mesh.append (cyl, Mat4::rotationZ (0.5f * pi));
-        return mesh;
-    }
-
-    MeshData scopeWalls()
-    {
-        return wellWalls (scopeRect, layout::panelTop, scopeDepth);
-    }
-
-    MeshData scopeGlass()
-    {
-        return horizontalQuad (scopeRect, layout::panelTop - scopeDepth);
     }
 
     MeshData ventWalls()
     {
         MeshData mesh;
         for (int i = 0; i < numVentSlots; ++i)
-            mesh.append (wellWalls (ventSlot (i), layout::panelTop, ventDepth));
+            mesh.append (wellWalls (ventSlot (i), 0.0f, ventDepth));
         return mesh;
     }
 
@@ -431,12 +362,114 @@ namespace pad::geo
     {
         MeshData mesh;
         for (int i = 0; i < numVentSlots; ++i)
-            mesh.append (horizontalQuad (ventSlot (i), layout::panelTop - ventDepth));
+            mesh.append (horizontalQuad (ventSlot (i), -ventDepth));
         return mesh;
     }
 
-    MeshData tablePlane()
+    MeshData earSlotWalls()
     {
-        return horizontalQuad ({ 0.0f, 0.0f, 24.0f, 24.0f }, 0.0f);
+        MeshData mesh;
+        for (auto& slot : earSlots)
+            mesh.append (wellWalls (slot, 0.0f, faceThick));
+        return mesh;
+    }
+
+    MeshData earSlotFloors()
+    {
+        MeshData mesh;
+        for (auto& slot : earSlots)
+            mesh.append (horizontalQuad (slot, -faceThick));
+        return mesh;
+    }
+
+    MeshData screwHeads()
+    {
+        MeshData mesh;
+        const auto head = sweptRoundedRect (0, 0, 0.05f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.02f, 0.03f } }, true);
+        for (auto& slot : earSlots)
+            mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
+        return mesh;
+    }
+
+    MeshData handles()
+    {
+        MeshData mesh;
+        constexpr float barR = 0.034f;
+
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float x = side * handleX;
+
+            for (float z : { -handleHalfSpan, handleHalfSpan })
+            {
+                mesh.append (sweptRoundedRect (0, 0, 0.045f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.03f }, { -0.01f, 0.04f } }, true),
+                             Mat4::translation ({ x, 0.0f, z }));
+                mesh.append (sweptRoundedRect (0, 0, barR, 3, { { 0.0f, 0.0f }, { 0.0f, handleReach } }, false),
+                             Mat4::translation ({ x, 0.0f, z }));
+            }
+
+            // Bar along z, with rounded end caps
+            const auto bar = sweptRoundedRect (0, 0, barR, 3, { { 0.0f, -handleHalfSpan }, { 0.0f, handleHalfSpan } }, false);
+            mesh.append (bar, Mat4::translation ({ x, handleReach, 0.0f }) * Mat4::rotationX (0.5f * pi));
+
+            for (float z : { -handleHalfSpan, handleHalfSpan })
+                mesh.append (dome (barR, barR, 10, 3), Mat4::translation ({ x, handleReach, z }) * Mat4::rotationX (z > 0 ? 0.5f * pi : -0.5f * pi));
+        }
+
+        return mesh;
+    }
+
+    //==============================================================================
+    // Knob (local to knob centre)
+    MeshData knobBezel()
+    {
+        return sweptRoundedRect (0, 0, bezelRadius, 9, { { 0.0f, 0.0f }, { 0.0f, 0.010f }, { -0.012f, 0.020f } }, true);
+    }
+
+    MeshData knobSkirt()
+    {
+        return sweptRoundedRect (0, 0, skirtRadius, 10,
+                                 { { 0.0f, 0.018f }, { -0.012f, 0.058f }, { -0.030f, dialTop } }, true);
+    }
+
+    MeshData knobCap()
+    {
+        return sweptRoundedRect (0, 0, capRadius, 10,
+                                 { { 0.0f, dialTop - 0.005f }, { 0.0f, capTop - 0.022f }, { -0.022f, capTop } }, true);
+    }
+
+    MeshData knobCapInsert()
+    {
+        return sweptRoundedRect (0, 0, capRadius - 0.028f, 8, { { 0.0f, capTop - 0.008f }, { 0.0f, capTop + 0.006f } }, true);
+    }
+
+    //==============================================================================
+    // Toggle switch (local to switch centre)
+    MeshData switchPlate()
+    {
+        constexpr float r = 0.035f;
+        return sweptRoundedRect (switchPlateHalfW - r, switchPlateHalfD - r, r, 3,
+                                 { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.012f, 0.022f } }, true);
+    }
+
+    MeshData switchBushing()
+    {
+        MeshData mesh;
+        // Round washer from the pivot out towards the rectangular plate, then the threaded bushing + nut
+        mesh.append (sweptRoundedRect (0, 0, 0.095f, 8, { { 0.0f, 0.020f }, { 0.0f, 0.030f }, { -0.012f, 0.038f } }, true));
+        mesh.append (sweptRoundedRect (0, 0, 0.068f, 3, { { 0.0f, 0.036f }, { 0.0f, 0.062f }, { -0.010f, 0.070f } }, true));
+        mesh.append (sweptRoundedRect (0, 0, 0.048f, 8, { { 0.0f, 0.068f }, { 0.0f, 0.100f }, { -0.008f, 0.108f } }, true));
+        return mesh;
+    }
+
+    MeshData switchLever()
+    {
+        MeshData mesh;
+        constexpr float length = 0.27f, ball = 0.034f;
+        mesh.append (sweptRoundedRect (0, 0, 0.024f, 4, { { -0.024f, -0.02f }, { 0.0f, -0.02f }, { -0.010f, length } }, false));
+        const auto half = dome (ball, ball, 12, 4);
+        mesh.append (half, Mat4::translation ({ 0.0f, length + 0.01f, 0.0f }));
+        mesh.append (half, Mat4::translation ({ 0.0f, length + 0.01f, 0.0f }) * Mat4::scale (1.0f, -1.0f, 1.0f));
+        return mesh;
     }
 }
