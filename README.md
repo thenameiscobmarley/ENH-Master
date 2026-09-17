@@ -1,6 +1,6 @@
 # ENH Master
 
-Adaptive clarity / footstep / sub-bass enhancer for game audio (VST3, Linux),
+Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
 ## Build
