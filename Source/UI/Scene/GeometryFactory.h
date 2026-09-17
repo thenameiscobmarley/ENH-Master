@@ -34,23 +34,22 @@ namespace pad::geo
 
     // --- world space -------------------------------------------------------------
     MeshData chassisBody();
-    MeshData lidScrews();
+    MeshData lidTop();            // lid-local (surface at y = 0), with vent slots
+    MeshData lidVentWalls();
+    MeshData lidVentFloors();
     MeshData feet();
     MeshData tablePlane();
     MeshData unitQuad();          // [-1, 1] quad, for shadows / decals
 
     // --- panel-local ---------------------------------------------------------------
     MeshData faceplateEdges();
-    MeshData faceplateTop();      // with cutouts for display, vents, ear slots
+    MeshData faceplateTop();      // with cutouts for display and ear slots
     MeshData displayWalls();
     MeshData displayGlass();
     MeshData displayBezel();
-    MeshData ventWalls();
-    MeshData ventFloors();
     MeshData earSlotWalls();
     MeshData earSlotFloors();
     MeshData screwHeads();
-    MeshData handles();
 
     // --- knob (local to knob) --------------------------------------------------------
     MeshData knobBezel();         // static, mounted to the panel
@@ -61,5 +60,5 @@ namespace pad::geo
     // --- toggle switch (local to switch) ---------------------------------------------
     MeshData switchPlate();       // rectangular chrome plate
     MeshData switchBushing();     // round washer + bushing from the pivot outward
-    MeshData switchLever();       // rotating bat lever
+    MeshData switchLever();       // rotating rectangular pole
 }

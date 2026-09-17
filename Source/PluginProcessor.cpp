@@ -4,7 +4,7 @@
 
 namespace
 {
-    const juce::Identifier stateType { "PvPAdaptiveDynamics" };
+    const juce::Identifier stateType { "EnhMaster" };
 }
 
 PluginProcessor::PluginProcessor()
@@ -14,11 +14,18 @@ PluginProcessor::PluginProcessor()
       state (*this, nullptr, stateType, pad::params::createLayout()),
       bridge (state)
 {
+    namespace id = pad::params::id;
+    clarity    = state.getRawParameterValue (id::clarity);
+    adaptSpeed = state.getRawParameterValue (id::adaptSpeed);
+    sub        = state.getRawParameterValue (id::sub);
+    subBoost   = state.getRawParameterValue (id::subBoost);
+    footstep   = state.getRawParameterValue (id::footstep);
 }
 
-void PluginProcessor::prepareToPlay (double, int)
+void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Future: prepare DSP backend here.
+    engine.prepare (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    setLatencySamples (engine.getLatencySamples());
 }
 
 bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -33,17 +40,19 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
-    // Pass-through. Input channels are already in place; only clear surplus outputs.
     juce::ScopedNoDenormals noDenormals;
 
     for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
         buffer.clear (ch, 0, buffer.getNumSamples());
-}
 
-void PluginProcessor::processBlock (juce::AudioBuffer<double>& buffer, juce::MidiBuffer&)
-{
-    for (int ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
-        buffer.clear (ch, 0, buffer.getNumSamples());
+    enh::dsp::EnhEngine::Parameters p;
+    p.clarity    = clarity->load() / 100.0f;
+    p.adaptSpeed = adaptSpeed->load() / 100.0f;
+    p.sub        = sub->load() / 100.0f;
+    p.subBoost   = subBoost->load() > 0.5f;
+    p.footstep   = footstep->load() > 0.5f;
+
+    engine.process (buffer, p);
 }
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()

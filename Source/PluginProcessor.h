@@ -2,12 +2,9 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters/ParameterBridge.h"
+#include "DSP/EnhEngine.h"
 
-/*  PHASE 1 PROCESSOR — pass-through only.
-
-    There is intentionally no DSP here. The future backend lives in Source/DSP
-    (see Source/DSP/README.md) and will be owned by this class.
-*/
+/*  ENH Master processor: owns the parameters and the DSP engine (Source/DSP). */
 class PluginProcessor final : public juce::AudioProcessor
 {
 public:
@@ -18,7 +15,7 @@ public:
     void releaseResources() override {}
     bool isBusesLayoutSupported (const BusesLayout&) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    void processBlock (juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
+    using AudioProcessor::processBlock;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override                          { return true; }
@@ -27,7 +24,7 @@ public:
     bool acceptsMidi() const override                        { return false; }
     bool producesMidi() const override                       { return false; }
     bool isMidiEffect() const override                       { return false; }
-    double getTailLengthSeconds() const override             { return 0.0; }
+    double getTailLengthSeconds() const override             { return 0.1; }
 
     int getNumPrograms() override                            { return 1; }
     int getCurrentProgram() override                         { return 0; }
@@ -40,10 +37,14 @@ public:
 
     juce::AudioProcessorValueTreeState& getState() noexcept  { return state; }
     pad::ParameterBridge& getBridge() noexcept               { return bridge; }
+    const enh::dsp::EngineMeters& getMeters() const noexcept { return engine.getMeters(); }
 
 private:
     juce::AudioProcessorValueTreeState state;
     pad::ParameterBridge bridge;
+    enh::dsp::EnhEngine engine;
+
+    std::atomic<float>* clarity = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

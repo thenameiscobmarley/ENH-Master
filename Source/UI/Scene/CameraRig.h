@@ -34,8 +34,8 @@ namespace pad
             const float distV = vertHalf / c.tanHalfFovY;
             const float distance = std::max (distW, distV) * 1.07f + 0.55f;
 
-            const float yaw   = parallaxX * 4.0f * deg;
-            const float pitch = basePitch + parallaxY * 2.5f * deg;
+            const float yaw   = parallaxX * 2.0f * deg;
+            const float pitch = basePitch + parallaxY * 1.2f * deg;
 
             const gfx::Vec3 target { 0.0f, layout::faceCenterY + 0.12f, 0.45f };
             const gfx::Vec3 dir { std::sin (yaw) * std::cos (pitch), std::sin (pitch), std::cos (yaw) * std::cos (pitch) };
@@ -50,7 +50,7 @@ namespace pad
             c.viewProj = c.proj * c.view;
 
             // Key light: upper-left-front, drifting slightly against the parallax.
-            c.lightDir = gfx::normalise ({ -0.50f - parallaxX * 0.30f, 0.85f + parallaxY * 0.15f, 0.80f });
+            c.lightDir = gfx::normalise ({ -0.50f - parallaxX * 0.15f, 0.85f + parallaxY * 0.08f, 0.80f });
             return c;
         }
 

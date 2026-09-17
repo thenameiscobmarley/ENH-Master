@@ -10,11 +10,12 @@ namespace pad
 
     HardwareView::HardwareView (PluginProcessor& p)
         : bridge (p.getBridge()),
+          meters (p.getMeters()),
           config (UIConfig::loadOrCreate())
     {
         setOpaque (true);
 
-        renderer = std::make_unique<HardwareRenderer> (bridge, shared, config,
+        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config,
                                                        artwork::renderFaceplateDecal (config.panelTextureWidth),
                                                        artwork::renderKnobDial (512));
 
@@ -49,6 +50,23 @@ namespace pad
     {
         shared.viewWidth = juce::jmax (1, getWidth());
         shared.viewHeight = juce::jmax (1, getHeight());
+        publishWindowGeometry();
+    }
+
+    void HardwareView::publishWindowGeometry()
+    {
+        if (auto* peer = getPeer())
+        {
+            const auto origin = peer->getComponent().getLocalPoint (this, juce::Point<int>());
+            shared.viewOffsetX = origin.x;
+            shared.viewOffsetY = origin.y;
+            shared.platformScale = (float) peer->getPlatformScaleFactor();
+            shared.nativeWindow = (juce::uint64) (juce::pointer_sized_uint) peer->getNativeHandle();
+        }
+        else
+        {
+            shared.nativeWindow = 0;
+        }
     }
 
     //==============================================================================
@@ -137,6 +155,7 @@ namespace pad
         dragValue = bridge.getNormalised (p);
         lastDragPos = e.position;
         shared.activeControl = hit;
+        shared.dragging = true;
         bridge.beginGesture (p, ControlSource::user);
     }
 
@@ -163,6 +182,7 @@ namespace pad
 
         dragControl = dragParam = -1;
         shared.activeControl = -1;
+        shared.dragging = false;
     }
 
     void HardwareView::mouseDoubleClick (const juce::MouseEvent& e)
@@ -196,39 +216,32 @@ namespace pad
     }
 
     //==============================================================================
-    static juce::String sourceTag (ControlSource s)
-    {
-        switch (s)
-        {
-            case ControlSource::user:           return "USER";
-            case ControlSource::hostAutomation: return "AUTO";
-            case ControlSource::selfTune:       return "TUNE";
-            case ControlSource::none:           break;
-        }
-        return "IDLE";
-    }
-
     void HardwareView::refreshOverlay()
     {
-        const int clarity = paramIndexForControl (0);
-        const int speed = paramIndexForControl (1);
-
         auto valueText = [this] (int index)
         {
             auto* param = bridge.getParameter (index);
-            auto s = param->getCurrentValueAsText();
+            auto text = param->getCurrentValueAsText();
             if (param->getLabel().isNotEmpty())
-                s << param->getLabel();
-            return s;
+                text << param->getLabel();
+            return text;
         };
+
+        auto percent = [this] (int control)
+        {
+            return juce::String (juce::roundToInt (bridge.getNormalised (paramIndexForControl (control)) * 100.0f));
+        };
+
+        const double now = juce::Time::getMillisecondCounterHiRes();
+        if (meters.footstepConfidence.load (std::memory_order_relaxed) > 0.5f)
+            lastStepSeenMs = now;
 
         const int shown = dragControl >= 0 ? dragControl : shared.hoveredControl.load();
 
         artwork::DisplayText text;
-        text.title = "RESPONSE";
-        text.tag = sourceTag (shown >= 0 ? bridge.getLastSource (paramIndexForControl (shown)) : bridge.getLastSource (clarity));
-        text.lineLeft = "CLR " + valueText (clarity);
-        text.lineRight = "SPD " + valueText (speed);
+        text.title = "ADAPTIVE EQ";
+        text.tag = now - lastStepSeenMs < 350.0 ? "STEP" : "";
+        text.lineLeft = "CLR " + percent (0) + "  ADP " + percent (1) + "  SUB " + percent (2);
 
         if (shown >= 0)
             text.focusLine = juce::String (controls[(size_t) shown].label) + "  " + valueText (paramIndexForControl (shown));
@@ -268,6 +281,7 @@ namespace pad
             applyTestParams();
         }
 
+        publishWindowGeometry();
         refreshOverlay();
     }
 }

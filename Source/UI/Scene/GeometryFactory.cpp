@@ -277,18 +277,36 @@ namespace pad::geo
         const float halfD = 0.5f * chassisDepth;
         MeshData mesh;
         mesh.append (sweptRoundedRect (chassisHalfW - r, halfD - r, r, 3,
-                                       { { 0.0f, chassisBottom }, { 0.0f, chassisTop - 0.03f }, { -0.03f, chassisTop } }, true),
+                                       { { 0.0f, chassisBottom }, { 0.0f, chassisTop - 0.03f }, { -0.03f, chassisTop } }, false),
                      Mat4::translation ({ 0.0f, 0.0f, chassisFrontZ - halfD }));
         return mesh;
     }
 
-    MeshData lidScrews()
+    static float chassisCentreZ() noexcept { return chassisFrontZ - 0.5f * chassisDepth; }
+
+    // Lid parts are built with the lid surface at y = 0 (draw translated to chassisTop)
+    MeshData lidTop()
+    {
+        std::vector<Rect> holes;
+        for (int i = 0; i < numLidVents; ++i)
+            holes.push_back (lidVent (i));
+
+        return plateWithHoles ({ 0.0f, chassisCentreZ(), chassisHalfW - 0.03f, 0.5f * chassisDepth - 0.03f }, 0.0f, holes);
+    }
+
+    MeshData lidVentWalls()
     {
         MeshData mesh;
-        const auto head = dome (0.035f, 0.012f, 10, 2);
-        for (float x : { -1.95f, 0.0f, 1.95f })
-            for (float z : { chassisFrontZ - 0.12f, chassisBackZ + 0.12f })
-                mesh.append (head, Mat4::translation ({ x, chassisTop, z }));
+        for (int i = 0; i < numLidVents; ++i)
+            mesh.append (wellWalls (lidVent (i), 0.0f, lidVentDepth));
+        return mesh;
+    }
+
+    MeshData lidVentFloors()
+    {
+        MeshData mesh;
+        for (int i = 0; i < numLidVents; ++i)
+            mesh.append (horizontalQuad (lidVent (i), -lidVentDepth));
         return mesh;
     }
 
@@ -317,8 +335,6 @@ namespace pad::geo
     static std::vector<Rect> faceplateHoles()
     {
         std::vector<Rect> holes { displayRect };
-        for (int i = 0; i < numVentSlots; ++i)
-            holes.push_back (ventSlot (i));
         for (auto& slot : earSlots)
             holes.push_back (slot);
         return holes;
@@ -350,22 +366,6 @@ namespace pad::geo
         return mesh;
     }
 
-    MeshData ventWalls()
-    {
-        MeshData mesh;
-        for (int i = 0; i < numVentSlots; ++i)
-            mesh.append (wellWalls (ventSlot (i), 0.0f, ventDepth));
-        return mesh;
-    }
-
-    MeshData ventFloors()
-    {
-        MeshData mesh;
-        for (int i = 0; i < numVentSlots; ++i)
-            mesh.append (horizontalQuad (ventSlot (i), -ventDepth));
-        return mesh;
-    }
-
     MeshData earSlotWalls()
     {
         MeshData mesh;
@@ -388,34 +388,6 @@ namespace pad::geo
         const auto head = sweptRoundedRect (0, 0, 0.05f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.02f, 0.03f } }, true);
         for (auto& slot : earSlots)
             mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
-        return mesh;
-    }
-
-    MeshData handles()
-    {
-        MeshData mesh;
-        constexpr float barR = 0.034f;
-
-        for (float side : { -1.0f, 1.0f })
-        {
-            const float x = side * handleX;
-
-            for (float z : { -handleHalfSpan, handleHalfSpan })
-            {
-                mesh.append (sweptRoundedRect (0, 0, 0.045f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.03f }, { -0.01f, 0.04f } }, true),
-                             Mat4::translation ({ x, 0.0f, z }));
-                mesh.append (sweptRoundedRect (0, 0, barR, 3, { { 0.0f, 0.0f }, { 0.0f, handleReach } }, false),
-                             Mat4::translation ({ x, 0.0f, z }));
-            }
-
-            // Bar along z, with rounded end caps
-            const auto bar = sweptRoundedRect (0, 0, barR, 3, { { 0.0f, -handleHalfSpan }, { 0.0f, handleHalfSpan } }, false);
-            mesh.append (bar, Mat4::translation ({ x, handleReach, 0.0f }) * Mat4::rotationX (0.5f * pi));
-
-            for (float z : { -handleHalfSpan, handleHalfSpan })
-                mesh.append (dome (barR, barR, 10, 3), Mat4::translation ({ x, handleReach, z }) * Mat4::rotationX (z > 0 ? 0.5f * pi : -0.5f * pi));
-        }
-
         return mesh;
     }
 
@@ -464,12 +436,9 @@ namespace pad::geo
 
     MeshData switchLever()
     {
-        MeshData mesh;
-        constexpr float length = 0.27f, ball = 0.034f;
-        mesh.append (sweptRoundedRect (0, 0, 0.024f, 4, { { -0.024f, -0.02f }, { 0.0f, -0.02f }, { -0.010f, length } }, false));
-        const auto half = dome (ball, ball, 12, 4);
-        mesh.append (half, Mat4::translation ({ 0.0f, length + 0.01f, 0.0f }));
-        mesh.append (half, Mat4::translation ({ 0.0f, length + 0.01f, 0.0f }) * Mat4::scale (1.0f, -1.0f, 1.0f));
-        return mesh;
+        // Rectangular chrome pole rising from the pivot, gently tapered, flat chamfered end
+        constexpr float halfW = 0.024f, halfD = 0.016f, r = 0.005f, length = 0.36f;
+        return sweptRoundedRect (halfW - r, halfD - r, r, 2,
+                                 { { -r, -0.03f }, { 0.0f, -0.03f }, { -0.005f, length - 0.012f }, { -0.009f, length } }, true);
     }
 }

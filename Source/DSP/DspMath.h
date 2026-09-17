@@ -1,0 +1,156 @@
+#pragma once
+
+#include <cmath>
+#include <algorithm>
+#include <array>
+#include <atomic>
+
+namespace enh::dsp
+{
+    inline constexpr double pi = 3.14159265358979323846;
+
+    inline float dbToGain (float db) noexcept      { return std::pow (10.0f, db * 0.05f); }
+    inline float powerToDb (float p) noexcept      { return 10.0f * std::log10 (p + 1.0e-12f); }
+    inline float saturate01 (float x) noexcept     { return std::clamp (x, 0.0f, 1.0f); }
+
+    /** One-pole coefficient for a time constant (seconds) at a given update rate. */
+    inline float onePole (double seconds, double rate) noexcept
+    {
+        return seconds <= 0.0 ? 0.0f : (float) std::exp (-1.0 / (seconds * rate));
+    }
+
+    /** 0 below the knee, quadratic through it, then linear. */
+    inline float softRamp (float x, float knee) noexcept
+    {
+        const float h = 0.5f * knee;
+        if (x <= -h) return 0.0f;
+        if (x >=  h) return x;
+        const float t = x + h;
+        return t * t / (2.0f * knee);
+    }
+
+    /** Gaussian bump in octaves around a centre frequency. */
+    inline float octaveBell (double hz, double centreHz, double widthOctaves) noexcept
+    {
+        const double d = std::log2 (hz / centreHz) / widthOctaves;
+        return (float) std::exp (-d * d);
+    }
+
+    //==============================================================================
+    struct BiquadCoeffs
+    {
+        float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f, a1 = 0.0f, a2 = 0.0f;
+
+        static BiquadCoeffs normalised (double b0, double b1, double b2, double a0, double a1, double a2) noexcept
+        {
+            return { (float) (b0 / a0), (float) (b1 / a0), (float) (b2 / a0), (float) (a1 / a0), (float) (a2 / a0) };
+        }
+
+        static double clampHz (double sr, double hz) noexcept { return std::clamp (hz, 5.0, 0.49 * sr); }
+
+        static BiquadCoeffs lowPass (double sr, double hz, double q) noexcept
+        {
+            const double w = 2.0 * pi * clampHz (sr, hz) / sr, c = std::cos (w), a = std::sin (w) / (2.0 * q);
+            return normalised ((1 - c) * 0.5, 1 - c, (1 - c) * 0.5, 1 + a, -2 * c, 1 - a);
+        }
+
+        static BiquadCoeffs highPass (double sr, double hz, double q) noexcept
+        {
+            const double w = 2.0 * pi * clampHz (sr, hz) / sr, c = std::cos (w), a = std::sin (w) / (2.0 * q);
+            return normalised ((1 + c) * 0.5, -(1 + c), (1 + c) * 0.5, 1 + a, -2 * c, 1 - a);
+        }
+
+        /** Band-pass with 0 dB peak gain. */
+        static BiquadCoeffs bandPass (double sr, double hz, double q) noexcept
+        {
+            const double w = 2.0 * pi * clampHz (sr, hz) / sr, c = std::cos (w), a = std::sin (w) / (2.0 * q);
+            return normalised (a, 0.0, -a, 1 + a, -2 * c, 1 - a);
+        }
+
+        static BiquadCoeffs peaking (double sr, double hz, double q, double db) noexcept
+        {
+            const double A = std::pow (10.0, db / 40.0);
+            const double w = 2.0 * pi * clampHz (sr, hz) / sr, c = std::cos (w), a = std::sin (w) / (2.0 * q);
+            return normalised (1 + a * A, -2 * c, 1 - a * A, 1 + a / A, -2 * c, 1 - a / A);
+        }
+
+        static BiquadCoeffs lowShelf (double sr, double hz, double q, double db) noexcept
+        {
+            const double A = std::pow (10.0, db / 40.0), sA = std::sqrt (A);
+            const double w = 2.0 * pi * clampHz (sr, hz) / sr, c = std::cos (w), a = std::sin (w) / (2.0 * q);
+            return normalised (A * ((A + 1) - (A - 1) * c + 2 * sA * a),
+                               2 * A * ((A - 1) - (A + 1) * c),
+                               A * ((A + 1) - (A - 1) * c - 2 * sA * a),
+                               (A + 1) + (A - 1) * c + 2 * sA * a,
+                               -2 * ((A - 1) + (A + 1) * c),
+                               (A + 1) + (A - 1) * c - 2 * sA * a);
+        }
+
+        static BiquadCoeffs highShelf (double sr, double hz, double q, double db) noexcept
+        {
+            const double A = std::pow (10.0, db / 40.0), sA = std::sqrt (A);
+            const double w = 2.0 * pi * clampHz (sr, hz) / sr, c = std::cos (w), a = std::sin (w) / (2.0 * q);
+            return normalised (A * ((A + 1) + (A - 1) * c + 2 * sA * a),
+                               -2 * A * ((A - 1) + (A + 1) * c),
+                               A * ((A + 1) + (A - 1) * c - 2 * sA * a),
+                               (A + 1) - (A - 1) * c + 2 * sA * a,
+                               2 * ((A - 1) - (A + 1) * c),
+                               (A + 1) - (A - 1) * c - 2 * sA * a);
+        }
+    };
+
+    /** Transposed direct form II state. */
+    struct BiquadState
+    {
+        float z1 = 0.0f, z2 = 0.0f;
+
+        inline float process (const BiquadCoeffs& c, float x) noexcept
+        {
+            const float y = c.b0 * x + z1;
+            z1 = c.b1 * x - c.a1 * y + z2;
+            z2 = c.b2 * x - c.a2 * y;
+            return y;
+        }
+
+        void reset() noexcept { z1 = z2 = 0.0f; }
+    };
+
+    /** Peaking EQ whose centre/Q are fixed and only gain changes: cheap per-tick redesign. */
+    struct PeakingDesigner
+    {
+        double cosW = 1.0, alpha = 0.0;
+
+        void setup (double sr, double hz, double q) noexcept
+        {
+            const double w = 2.0 * pi * BiquadCoeffs::clampHz (sr, hz) / sr;
+            cosW = std::cos (w);
+            alpha = std::sin (w) / (2.0 * q);
+        }
+
+        BiquadCoeffs make (float db) const noexcept
+        {
+            const double A = std::pow (10.0, (double) db / 40.0);
+            return BiquadCoeffs::normalised (1 + alpha * A, -2 * cosW, 1 - alpha * A, 1 + alpha / A, -2 * cosW, 1 - alpha / A);
+        }
+    };
+
+    /** Attack/release follower of signal power. */
+    struct PowerFollower
+    {
+        float attack = 0.0f, release = 0.0f, env = 0.0f;
+
+        void setup (double rate, double attackSeconds, double releaseSeconds) noexcept
+        {
+            attack = onePole (attackSeconds, rate);
+            release = onePole (releaseSeconds, rate);
+        }
+
+        inline void push (float power) noexcept
+        {
+            const float k = power > env ? attack : release;
+            env = k * env + (1.0f - k) * power;
+        }
+
+        float db() const noexcept { return powerToDb (env); }
+    };
+}

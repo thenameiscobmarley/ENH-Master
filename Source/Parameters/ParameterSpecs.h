@@ -3,18 +3,18 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 /*  Single source of truth for every host-visible parameter.
-
-    Reduced control set while DSP work begins (full set: git tag
-    backup/phase1-top-panel-full-controls). Nothing in the audio path reads
-    these yet; the future DSP backend (Source/DSP) will read the same IDs.
+    The DSP engine (Source/DSP) and the UI both address parameters by these IDs.
+    Earlier control sets are preserved in git tags (see README).
 */
 namespace pad::params
 {
     namespace id
     {
-        inline constexpr const char* clarity      = "clarity";      // depth / detail / clarity amount
-        inline constexpr const char* adaptSpeed   = "adaptSpeed";   // how fast the auto-adjustment follows the material
-        inline constexpr const char* modeFootstep = "modeFootstep"; // footstep-priority mode
+        inline constexpr const char* clarity    = "clarity";     // depth / detail / clarity amount
+        inline constexpr const char* adaptSpeed = "adaptSpeed";  // how fast adaptive gains follow the material
+        inline constexpr const char* sub        = "sub";         // sub-bass enhance amount
+        inline constexpr const char* subBoost   = "subBoost";    // + BOOST
+        inline constexpr const char* footstep   = "footstep";    // footstep priority mode
     }
 
     enum class Kind { continuous, toggle };

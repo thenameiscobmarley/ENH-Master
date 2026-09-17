@@ -1,8 +1,8 @@
 # ==============================================================================
-#  PvP Adaptive Dynamics — Phase 1: plugin shell + 3D hardware UI (NO DSP)
+#  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(PvPAdaptiveDynamics VERSION 0.1.0 LANGUAGES C CXX)
+project(EnhMaster VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,31 +12,41 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 set(JUCE_PATH "$ENV{HOME}/JUCE" CACHE PATH "Path to the JUCE source tree")
-option(PAD_BUILD_STANDALONE "Also build a Standalone app (handy for UI iteration)" ON)
+option(ENH_BUILD_STANDALONE "Also build a Standalone app" ON)
+option(ENH_BUILD_TESTS "Build the offline DSP test/benchmark tool" ON)
 
 add_subdirectory(${JUCE_PATH} JUCE EXCLUDE_FROM_ALL)
+find_package(X11 REQUIRED)
 
-set(PAD_FORMATS VST3)
-if(PAD_BUILD_STANDALONE)
-    list(APPEND PAD_FORMATS Standalone)
+set(ENH_FORMATS VST3)
+if(ENH_BUILD_STANDALONE)
+    list(APPEND ENH_FORMATS Standalone)
 endif()
 
-juce_add_plugin(PvPAdaptiveDynamics
+set(ENH_DSP_SOURCES
+    Source/DSP/BandAnalyzer.cpp
+    Source/DSP/FootstepDetector.cpp
+    Source/DSP/AdaptiveEQ.cpp
+    Source/DSP/SubEnhancer.cpp
+    Source/DSP/AnalogStage.cpp
+    Source/DSP/EnhEngine.cpp)
+
+juce_add_plugin(EnhMaster
     COMPANY_NAME                "Khris Audio"
     PLUGIN_MANUFACTURER_CODE    Khra
-    PLUGIN_CODE                 PvAd
-    FORMATS                     ${PAD_FORMATS}
-    PRODUCT_NAME                "PvP Adaptive Dynamics"
-    BUNDLE_ID                   "com.khrisaudio.pvpadaptivedynamics"
+    PLUGIN_CODE                 EnhM
+    FORMATS                     ${ENH_FORMATS}
+    PRODUCT_NAME                "ENH Master"
+    BUNDLE_ID                   "com.khrisaudio.enhmaster"
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            FALSE
     NEEDS_MIDI_OUTPUT           FALSE
     IS_MIDI_EFFECT              FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    VST3_CATEGORIES             Fx Dynamics
+    VST3_CATEGORIES             Fx Dynamics EQ
     COPY_PLUGIN_AFTER_BUILD     TRUE)
 
-target_sources(PvPAdaptiveDynamics PRIVATE
+target_sources(EnhMaster PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
 
@@ -45,24 +55,45 @@ target_sources(PvPAdaptiveDynamics PRIVATE
 
     Source/Config/UIConfig.cpp
 
+    ${ENH_DSP_SOURCES}
+
     Source/UI/HardwareView.cpp
+    Source/UI/Input/PointerPoller.cpp
     Source/UI/Render/GLResources.cpp
     Source/UI/Scene/GeometryFactory.cpp
     Source/UI/Scene/PanelArtwork.cpp
     Source/UI/Scene/HardwareRenderer.cpp)
 
-target_include_directories(PvPAdaptiveDynamics PRIVATE Source)
+target_include_directories(EnhMaster PRIVATE Source)
 
-target_compile_definitions(PvPAdaptiveDynamics PUBLIC
+target_compile_definitions(EnhMaster PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0)
 
-target_link_libraries(PvPAdaptiveDynamics
+target_link_libraries(EnhMaster
     PRIVATE
         juce::juce_audio_utils
+        juce::juce_dsp
         juce::juce_opengl
+        X11::X11
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
+
+# ------------------------------------------------------------------------------
+if(ENH_BUILD_TESTS)
+    juce_add_console_app(EnhDspTests PRODUCT_NAME "EnhDspTests")
+
+    target_sources(EnhDspTests PRIVATE Tests/EnhDspTests.cpp ${ENH_DSP_SOURCES})
+    target_include_directories(EnhDspTests PRIVATE Source)
+    target_compile_definitions(EnhDspTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(EnhDspTests
+        PRIVATE
+            juce::juce_dsp
+            juce::juce_audio_basics
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+endif()

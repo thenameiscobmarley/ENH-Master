@@ -71,6 +71,7 @@ namespace pad::gfx
         void set (const char* name, float a, float b);
         void set (const char* name, float a, float b, float c, float d);
         void set (const char* name, const Mat4& m);
+        void setArray (const char* name, const float* values, int count);
 
     private:
         GLuint program = 0;

@@ -10,6 +10,8 @@
 #include "DeviceLayout.h"
 #include "PanelArtwork.h"
 #include "CameraRig.h"
+#include "../Input/PointerPoller.h"
+#include "../../DSP/EngineMeters.h"
 
 namespace pad
 {
@@ -22,7 +24,7 @@ namespace pad
     class HardwareRenderer final : public juce::OpenGLRenderer
     {
     public:
-        HardwareRenderer (ParameterBridge&, SharedUIState&, const UIConfig&,
+        HardwareRenderer (ParameterBridge&, SharedUIState&, const enh::dsp::EngineMeters&, const UIConfig&,
                           artwork::RawTexture faceplateDecal, artwork::RawTexture knobDial);
         ~HardwareRenderer() override;
 
@@ -35,17 +37,17 @@ namespace pad
     private:
         struct Meshes
         {
-            gfx::GpuMesh table, quad, chassis, lidScrews, feet,
+            gfx::GpuMesh table, quad, chassis, lidTop, lidVentWalls, lidVentFloors, feet,
                          faceEdges, faceTop, displayWalls, displayGlass, displayBezel,
-                         ventWalls, ventFloors, earWalls, earFloors, screws, handles,
+                         earWalls, earFloors, screws,
                          knobBezel, knobSkirt, knobCap, knobInsert, indicator,
                          switchPlate, switchBushing, switchLever, led;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
-                for (auto* m : { &table, &quad, &chassis, &lidScrews, &feet,
+                for (auto* m : { &table, &quad, &chassis, &lidTop, &lidVentWalls, &lidVentFloors, &feet,
                                  &faceEdges, &faceTop, &displayWalls, &displayGlass, &displayBezel,
-                                 &ventWalls, &ventFloors, &earWalls, &earFloors, &screws, &handles,
+                                 &earWalls, &earFloors, &screws,
                                  &knobBezel, &knobSkirt, &knobCap, &knobInsert, &indicator,
                                  &switchPlate, &switchBushing, &switchLever, &led })
                     fn (*m);
@@ -61,10 +63,13 @@ namespace pad
         void drawShadow (const gfx::Mat4& space, float cx, float y, float cz, float hw, float hd,
                          float radius, float blur, float strength);
         void uploadOverlayIfChanged();
+        void pollPointer() noexcept;
         void recordStats (double frameStartMs, double renderMs);
 
         ParameterBridge& bridge;
         SharedUIState& shared;
+        const enh::dsp::EngineMeters& meters;
+        PointerPoller pointer;
         const UIConfig config;
 
         artwork::RawTexture decalData, dialData;
@@ -86,7 +91,12 @@ namespace pad
         std::array<anim::KnobAnimator, layout::numControls> knobs {};
         std::array<anim::SwitchAnimator, layout::numControls> switches {};
 
-        float parallaxX = 0.0f, parallaxY = 0.0f, stepGlow = 0.0f;
+        float parallaxX = 0.0f, parallaxY = 0.0f;
+        std::array<float, 5> switchGlow {};
+        std::array<float, enh::dsp::numBands> displayBands {};
+        float stepFlash = 0.0f, activityGlow = 0.0f;
+        bool pointerInside = false;
+        float pointerNdcX = 0.0f, pointerNdcY = 0.0f;
         double lastFrameMs = 0.0, timeSeconds = 0.0, busyUntilMs = 0.0;
         int swapInterval = -1;
 

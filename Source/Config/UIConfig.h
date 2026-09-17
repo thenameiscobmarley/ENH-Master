@@ -5,7 +5,7 @@
 namespace pad
 {
     /** UI / rendering preferences, loaded from
-        ~/.config/PvPAdaptiveDynamics/ui-config.json (created with defaults if missing).
+        ~/.config/ENHMaster/ui-config.json (created with defaults if missing).
 
         All values are validated and clamped; invalid entries fall back to defaults
         and are reported in `warnings`. The future DSP config loader will live

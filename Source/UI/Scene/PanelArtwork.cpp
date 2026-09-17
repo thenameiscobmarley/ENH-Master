@@ -72,9 +72,11 @@ namespace pad::artwork
 
         juce::AffineTransform footTransform (const PanelMapper& m, bool left)
         {
+            const auto& step = controls[4];
+            const float gx = step.x, gz = step.z + glyphOffset;
             return juce::AffineTransform::rotation (left ? -0.20f : 0.20f)
-                     .scaled (m.len (0.048f))
-                     .translated (m.px (glyphX + (left ? -0.065f : 0.065f)), m.pz (glyphZ + (left ? 0.035f : -0.035f)));
+                     .scaled (m.len (0.046f))
+                     .translated (m.px (gx + (left ? -0.06f : 0.06f)), m.pz (gz + (left ? 0.03f : -0.03f)));
         }
     }
 
@@ -91,51 +93,37 @@ namespace pad::artwork
 
         const auto solid = juce::Colours::white;
         const auto centred = juce::Justification::horizontallyCentred;
-        const auto left = juce::Justification::left;
 
         {
             juce::Graphics g (ink);
             g.setColour (solid);
 
-            // Brand
-            text (g, m, "ADAPTIVE DYNAMICS", displayRect.minX() - 0.02f, -0.575f, 0.075f, left, true, 0.12f, 2.0f);
-            text (g, m, "MODEL AD-1", 0.18f, -0.60f, 0.036f, centred, true, 0.25f, 0.6f);
+            text (g, m, "ENH MASTER", displayRect.minX(), -0.565f, 0.085f, juce::Justification::left, true, 0.20f, 2.0f);
 
-            // Knobs: label, sub label, fixed indicator line
             for (auto& c : controls)
             {
                 if (c.kind == ControlKind::knob)
                 {
-                    text (g, m, c.label, c.x, c.z + 0.465f, 0.060f, centred, true, 0.14f, 0.95f);
-                    text (g, m, c.subLabel, c.x, c.z + 0.575f, 0.030f, centred, false, 0.22f, 0.95f);
+                    text (g, m, c.label, c.x, c.z + labelOffset, 0.058f, centred, true, 0.16f, 0.8f);
 
-                    g.fillRoundedRectangle (m.rect (c.x - 0.009f, c.z - indicatorFar - 0.005f, c.x + 0.009f, c.z - indicatorNear + 0.005f), m.len (0.006f));
+                    // Fixed indicator line + arrowhead pointing at the rotating scale
+                    const float nearD = indicatorNear * c.scale, farD = indicatorFar * c.scale;
+                    g.fillRoundedRectangle (m.rect (c.x - 0.008f, c.z - farD, c.x + 0.008f, c.z - nearD + 0.004f), m.len (0.006f));
 
-                    juce::Path arrow; // arrowhead pointing down at the rotating scale
-                    arrow.addTriangle (m.px (c.x - 0.03f), m.pz (c.z - indicatorNear + 0.005f),
-                                       m.px (c.x + 0.03f), m.pz (c.z - indicatorNear + 0.005f),
-                                       m.px (c.x), m.pz (c.z - indicatorNear + 0.035f));
+                    juce::Path arrow;
+                    arrow.addTriangle (m.px (c.x - 0.027f), m.pz (c.z - nearD + 0.004f),
+                                       m.px (c.x + 0.027f), m.pz (c.z - nearD + 0.004f),
+                                       m.px (c.x), m.pz (c.z - nearD + 0.032f));
                     g.fillPath (arrow);
                 }
                 else
                 {
-                    text (g, m, c.label, c.x, c.z - 0.30f, 0.046f, centred, true, 0.14f, 0.6f);
-                    text (g, m, c.subLabel, c.x, c.z + 0.43f, 0.030f, centred, false, 0.22f, 0.6f);
-                    text (g, m, "ON",  c.x + switchPlateHalfW + 0.025f, c.z - 0.15f, 0.030f, left, true, 0.05f, 0.2f);
-                    text (g, m, "OFF", c.x + switchPlateHalfW + 0.025f, c.z + 0.15f, 0.030f, left, true, 0.05f, 0.2f);
+                    text (g, m, c.label, c.x, c.z + labelOffset, 0.042f, centred, true, 0.14f, 0.5f);
                 }
             }
 
-            // Display caption + legend
-            const char* legend[3] { "USER", "AUTO", "SELF-TUNE" };
-            for (int i = 0; i < 3; ++i)
-                text (g, m, legend[i], legendX[i] + 0.05f, legendZ, 0.030f, left, true, 0.08f, 0.5f);
-
-            text (g, m, "POWER", powerLampX, powerLampZ + 0.085f, 0.022f, centred, true, 0.18f, 0.4f);
-            text (g, m, "NO DSP  /  UI PROTOTYPE", 0.18f, 0.62f, 0.024f, centred, false, 0.22f, 1.2f);
-
             // Faint footprint outline, visible when the mode is off
-            g.setColour (solid.withAlpha (0.45f));
+            g.setColour (solid.withAlpha (0.35f));
             for (bool isLeft : { true, false })
                 g.strokePath (footprint (isLeft), juce::PathStrokeType (m.len (0.005f)), footTransform (m, isLeft));
         }
@@ -143,21 +131,7 @@ namespace pad::artwork
         {
             juce::Graphics g (accent);
             g.setColour (solid);
-
-            // Pink pinstripes
-            g.fillRect (m.rect (displayRect.minX() - 0.02f, -0.505f, displayRect.maxX(), -0.497f));
-            g.fillRect (m.rect (-0.70f, 0.660f, 1.20f, 0.668f));
-            g.fillRect (m.rect (-0.70f, -0.668f, 1.20f, -0.660f));
-
-            // Short pink arc behind each indicator
-            for (auto& c : controls)
-                if (c.kind == ControlKind::knob)
-                {
-                    juce::Path arc;
-                    const float r = m.len (bezelRadius + 0.03f);
-                    arc.addCentredArc (m.px (c.x), m.pz (c.z), r, r, 0.0f, -0.35f, 0.35f, true);
-                    g.strokePath (arc, juce::PathStrokeType (m.len (0.008f)));
-                }
+            g.fillRect (m.rect (displayRect.minX(), -0.487f, displayRect.maxX(), -0.479f));
         }
 
         for (bool isLeft : { true, false })
@@ -230,18 +204,10 @@ namespace pad::artwork
         g.drawText (t.tag,   juce::Rectangle<float> (pad, 8.0f, (float) w - 2.0f * pad, 42.0f), juce::Justification::centredRight, false);
 
         const float y = (float) h - 56.0f;
-        g.setFont (makeFont (38.0f, true, 0.0f, true));
+        g.setFont (makeFont (34.0f, true, 0.0f, true));
 
-        if (t.focusLine.isNotEmpty())
-        {
-            g.drawText (t.focusLine, juce::Rectangle<float> (pad, y, (float) w - 2.0f * pad, 48.0f), juce::Justification::centredLeft, false);
-        }
-        else
-        {
-            const float half = ((float) w - 2.0f * pad) * 0.5f;
-            g.drawText (t.lineLeft,  juce::Rectangle<float> (pad, y, half, 48.0f), juce::Justification::centredLeft, false);
-            g.drawText (t.lineRight, juce::Rectangle<float> (pad + half, y, half, 48.0f), juce::Justification::centredRight, false);
-        }
+        g.drawText (t.focusLine.isNotEmpty() ? t.focusLine : t.lineLeft,
+                    juce::Rectangle<float> (pad, y, (float) w - 2.0f * pad, 48.0f), juce::Justification::centredLeft, false);
 
         RawTexture tex { w, h, 1, {} };
         tex.pixels.assign ((size_t) (w * h), 0);

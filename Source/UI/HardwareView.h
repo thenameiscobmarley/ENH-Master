@@ -3,6 +3,7 @@
 #include <juce_opengl/juce_opengl.h>
 #include "SharedUIState.h"
 #include "../Config/UIConfig.h"
+#include "../DSP/EngineMeters.h"
 
 class PluginProcessor;
 
@@ -21,6 +22,7 @@ namespace pad
         ~HardwareView() override;
 
         void resized() override;
+        void parentHierarchyChanged() override { publishWindowGeometry(); }
         void paint (juce::Graphics&) override {}
 
         void mouseMove (const juce::MouseEvent&) override;
@@ -40,8 +42,10 @@ namespace pad
         void nudge (int controlIndex, float delta);
         void refreshOverlay();
         void applyTestParams();
+        void publishWindowGeometry();
 
         ParameterBridge& bridge;
+        const enh::dsp::EngineMeters& meters;
         UIConfig config;
         SharedUIState shared;
 
@@ -52,6 +56,7 @@ namespace pad
         float dragValue = 0.0f;
         juce::Point<float> lastDragPos;
         juce::uint32 openedAtMs = 0;
+        double lastStepSeenMs = -10000.0;
         bool testParamsApplied = false;
         artwork::DisplayText lastText;
 

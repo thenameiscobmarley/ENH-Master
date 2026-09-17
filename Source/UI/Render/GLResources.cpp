@@ -159,6 +159,7 @@ namespace pad::gfx
     void ShaderProgram::set (const char* n, float a, float b)   { glUniform2f (uniform (n), a, b); }
     void ShaderProgram::set (const char* n, float a, float b, float c, float d) { glUniform4f (uniform (n), a, b, c, d); }
     void ShaderProgram::set (const char* n, const Mat4& m)      { glUniformMatrix4fv (uniform (n), 1, GL_FALSE, m.m.data()); }
+    void ShaderProgram::setArray (const char* n, const float* v, int count) { glUniform1fv (uniform (n), count, v); }
 
     //==============================================================================
     void Texture2D::upload (const juce::uint8* data, int width, int height, int channels, bool mipmaps, int anisotropy)
@@ -176,8 +177,8 @@ namespace pad::gfx
         glBindTexture (GL_TEXTURE_2D, id);
         glPixelStorei (GL_UNPACK_ALIGNMENT, 1);
 
-        const GLenum internalFormat = channels == 1 ? GL_R8 : GL_RGBA8;
-        const GLenum format         = channels == 1 ? GL_RED : GL_RGBA;
+        const auto internalFormat = channels == 1 ? (GLenum) GL_R8 : (GLenum) GL_RGBA8;
+        const auto format         = channels == 1 ? (GLenum) GL_RED : (GLenum) GL_RGBA;
 
         if (sameShape)
             glTexSubImage2D (GL_TEXTURE_2D, 0, 0, 0, width, height, format, GL_UNSIGNED_BYTE, data);
@@ -208,7 +209,7 @@ namespace pad::gfx
 
     void Texture2D::bind (int unit) const
     {
-        glActiveTexture ((GLenum) (GL_TEXTURE0 + unit));
+        glActiveTexture ((GLenum) ((int) GL_TEXTURE0 + unit));
         glBindTexture (GL_TEXTURE_2D, id);
     }
 

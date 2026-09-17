@@ -5,9 +5,11 @@ namespace pad::params
     static std::vector<Spec> buildSpecs()
     {
         return {
-            { id::clarity,      "Clarity (Depth / Detail)", "CLARITY",     "%", Kind::continuous, 0.0f, 100.0f, 50.0f, 1 },
-            { id::adaptSpeed,   "Adapt Speed",              "ADAPT SPEED", "%", Kind::continuous, 0.0f, 100.0f, 40.0f, 1 },
-            { id::modeFootstep, "Footstep Priority Mode",   "FOOTSTEP",    "",  Kind::toggle,     0.0f, 1.0f,   0.0f,  0 },
+            { id::clarity,    "Clarity",           "CLARITY", "%", Kind::continuous, 0.0f, 100.0f, 50.0f, 1 },
+            { id::adaptSpeed, "Adapt Speed",       "ADAPT",   "%", Kind::continuous, 0.0f, 100.0f, 40.0f, 1 },
+            { id::sub,        "Sub Enhance",       "SUB",     "%", Kind::continuous, 0.0f, 100.0f, 0.0f,  1 },
+            { id::subBoost,   "Sub Boost",         "+BOOST",  "",  Kind::toggle,     0.0f, 1.0f,   0.0f,  0 },
+            { id::footstep,   "Footstep Priority", "FOOTSTEP","",  Kind::toggle,     0.0f, 1.0f,   0.0f,  0 },
         };
     }
 

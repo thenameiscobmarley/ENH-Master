@@ -37,9 +37,9 @@ namespace pad
     }
 
     //==============================================================================
-    HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const UIConfig& c,
-                                        artwork::RawTexture decal, artwork::RawTexture dial)
-        : bridge (b), shared (s), config (c), decalData (std::move (decal)), dialData (std::move (dial))
+    HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const enh::dsp::EngineMeters& m,
+                                        const UIConfig& c, artwork::RawTexture decal, artwork::RawTexture dial)
+        : bridge (b), shared (s), meters (m), config (c), decalData (std::move (decal)), dialData (std::move (dial))
     {
         for (int i = 0; i < numControls; ++i)
             controlParam[(size_t) i] = bridge.indexOf (controls[(size_t) i].paramId);
@@ -60,7 +60,7 @@ namespace pad
 
             if (! programs[(size_t) m].build (shaders::vertex, fragment.toRawUTF8(), error))
             {
-                juce::Logger::writeToLog ("PvPAdaptiveDynamics: shader " + juce::String (m) + " failed: " + error);
+                juce::Logger::writeToLog ("ENH Master: shader " + juce::String (m) + " failed: " + error);
                 ready = false;
                 return;
             }
@@ -69,24 +69,23 @@ namespace pad
         meshes.table.upload (geo::tablePlane());
         meshes.quad.upload (geo::unitQuad());
         meshes.chassis.upload (geo::chassisBody());
-        meshes.lidScrews.upload (geo::lidScrews());
+        meshes.lidTop.upload (geo::lidTop());
+        meshes.lidVentWalls.upload (geo::lidVentWalls());
+        meshes.lidVentFloors.upload (geo::lidVentFloors());
         meshes.feet.upload (geo::feet());
         meshes.faceEdges.upload (geo::faceplateEdges());
         meshes.faceTop.upload (geo::faceplateTop());
         meshes.displayWalls.upload (geo::displayWalls());
         meshes.displayGlass.upload (geo::displayGlass());
         meshes.displayBezel.upload (geo::displayBezel());
-        meshes.ventWalls.upload (geo::ventWalls());
-        meshes.ventFloors.upload (geo::ventFloors());
         meshes.earWalls.upload (geo::earSlotWalls());
         meshes.earFloors.upload (geo::earSlotFloors());
         meshes.screws.upload (geo::screwHeads());
-        meshes.handles.upload (geo::handles());
         meshes.knobBezel.upload (geo::knobBezel());
         meshes.knobSkirt.upload (geo::knobSkirt());
         meshes.knobCap.upload (geo::knobCap());
         meshes.knobInsert.upload (geo::knobCapInsert());
-        meshes.indicator.upload (geo::box ({ -0.010f, 0.001f, -indicatorFar }, { 0.010f, 0.007f, -indicatorNear }));
+        meshes.indicator.upload (geo::box ({ -0.009f, 0.001f, -indicatorFar }, { 0.009f, 0.006f, -indicatorNear }));
         meshes.switchPlate.upload (geo::switchPlate());
         meshes.switchBushing.upload (geo::switchBushing());
         meshes.switchLever.upload (geo::switchLever());
@@ -139,6 +138,33 @@ namespace pad
         uploadedOverlayVersion = version;
     }
 
+    void HardwareRenderer::pollPointer() noexcept
+    {
+        const int w = juce::jmax (1, shared.viewWidth.load()), h = juce::jmax (1, shared.viewHeight.load());
+        int wx = 0, wy = 0;
+
+        if (pointer.query ((unsigned long) shared.nativeWindow.load(), wx, wy))
+        {
+            // Window pixels -> this view's logical coordinates
+            const float scale = std::max (0.25f, shared.platformScale.load());
+            const float x = (float) wx / scale - (float) shared.viewOffsetX.load();
+            const float y = (float) wy / scale - (float) shared.viewOffsetY.load();
+
+            pointerInside = x >= 0.0f && y >= 0.0f && x < (float) w && y < (float) h;
+            pointerNdcX = juce::jlimit (-1.0f, 1.0f, 2.0f * x / (float) w - 1.0f);
+            pointerNdcY = juce::jlimit (-1.0f, 1.0f, 1.0f - 2.0f * y / (float) h);
+        }
+        else
+        {
+            // Fall back to the (host-paced) mouse events
+            pointerInside = shared.mouseInside.load();
+            pointerNdcX = shared.mouseNdcX.load();
+            pointerNdcY = shared.mouseNdcY.load();
+        }
+
+        shared.pointerInside = pointerInside;
+    }
+
     void HardwareRenderer::updateAnimation (float dt)
     {
         const int hovered = shared.hoveredControl.load();
@@ -155,6 +181,7 @@ namespace pad
             {
                 auto& sw = switches[(size_t) i];
                 sw.update (value > 0.5f, -switchAngle, switchAngle, dt);
+                switchGlow[(size_t) i] = anim::approach (switchGlow[(size_t) i], value > 0.5f ? 1.0f : 0.0f, 10.0f, dt);
                 busy = busy || ! sw.isIdle();
                 continue;
             }
@@ -181,6 +208,16 @@ namespace pad
             busy = busy || ! k.isIdle (target, isHovered);
         }
 
+        // Live DSP meters (smoothed for display only)
+        const float meterK = 1.0f - std::exp (-dt / 0.06f);
+        for (int b = 0; b < enh::dsp::numBands; ++b)
+            displayBands[(size_t) b] += (meters.bandGainDb[(size_t) b].load (std::memory_order_relaxed) - displayBands[(size_t) b]) * meterK;
+
+        stepFlash = std::max (meters.footstepConfidence.load (std::memory_order_relaxed), stepFlash * std::exp (-dt / 0.25f));
+        activityGlow = anim::approach (activityGlow, meters.enhancement.load (std::memory_order_relaxed), 6.0f, dt);
+
+        // Parallax: subtle, and fast enough that it never feels like it is chasing the pointer
+        const bool parallaxOn = ! config.reduceMotion && pointerInside;
         auto settle = [&busy, dt] (float& v, float target, float rate)
         {
             v = anim::approach (v, target, rate, dt);
@@ -188,12 +225,8 @@ namespace pad
                 busy = true;
         };
 
-        const int footParam = controlParam[2];
-        settle (stepGlow, bridge.getNormalised (footParam) > 0.5f ? 1.0f : 0.0f, 5.0f);
-
-        const bool parallaxOn = ! config.reduceMotion && shared.mouseInside.load();
-        settle (parallaxX, parallaxOn ? shared.mouseNdcX.load() * config.parallaxAmount : 0.0f, 4.5f);
-        settle (parallaxY, parallaxOn ? shared.mouseNdcY.load() * config.parallaxAmount : 0.0f, 4.5f);
+        settle (parallaxX, parallaxOn ? pointerNdcX * config.parallaxAmount : 0.0f, 12.0f);
+        settle (parallaxY, parallaxOn ? pointerNdcY * config.parallaxAmount : 0.0f, 12.0f);
 
         shared.parallaxX = parallaxX;
         shared.parallaxY = parallaxY;
@@ -203,8 +236,10 @@ namespace pad
     //==============================================================================
     void HardwareRenderer::paceFrame (double frameStartMs)
     {
-        // Hold "busy" for a second after the last activity so the rate doesn't flip-flop.
-        if (shared.mouseInside.load() || shared.animating.load() || shared.activeControl.load() >= 0)
+        // Live meters keep the UI "busy" while audio is being processed
+        const bool audioActive = meters.enhancement.load (std::memory_order_relaxed) > 0.01f || stepFlash > 0.01f;
+
+        if (pointerInside || audioActive || shared.animating.load() || shared.dragging.load())
             busyUntilMs = frameStartMs + 1000.0;
 
         const bool busy = frameStartMs < busyUntilMs;
@@ -218,7 +253,7 @@ namespace pad
                 swapInterval = wanted;
             }
 
-        // Fallback limiter when vsync isn't honoured (or on high-refresh displays).
+        // Fallback limiter when vsync isn't honoured (or on high-refresh displays)
         const double targetMs = 1000.0 / juce::jmax (1, rate);
         const double sinceLast = frameStartMs - lastFrameMs;
 
@@ -245,8 +280,9 @@ namespace pad
 
         if (frameStartMs - statStart > 5000.0 && statCount > 0)
         {
-            std::fprintf (stderr, "[pad-stats] swap=%d frames=%d avgInterval=%.2fms maxInterval=%.2fms late=%d avgCpuRender=%.2fms\n",
-                          swapInterval, statCount, statSum / statCount, statMax, statLong, statRenderSum / statCount);
+            std::fprintf (stderr, "[enh-stats] swap=%d frames=%d avgInterval=%.2fms maxInterval=%.2fms late=%d avgCpuRender=%.2fms pointer=%s\n",
+                          swapInterval, statCount, statSum / statCount, statMax, statLong, statRenderSum / statCount,
+                          shared.nativeWindow.load() != 0 ? "polled" : "events");
             statSum = statMax = statRenderSum = 0.0;
             statCount = statLong = 0;
             statStart = frameStartMs;
@@ -259,6 +295,7 @@ namespace pad
 
         if (ready)
         {
+            pollPointer();
             paceFrame (now);
             now = juce::Time::getMillisecondCounterHiRes();
         }
@@ -351,6 +388,7 @@ namespace pad
         const Vec3 L = cam.lightDir;
         const Mat4 panel = panelToWorld();
         const Mat4 I = Mat4::identity();
+        const Mat4 lid = Mat4::translation ({ 0.0f, chassisTop, 0.0f });
 
         glClearColor (0.03f, 0.022f, 0.026f, 1.0f);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -361,19 +399,13 @@ namespace pad
         glDisable (GL_BLEND);
         glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        // --- placeholder UI-state glows ---------------------------------------------
-        const float clarity = bridge.getNormalised (controlParam[0]);
-        const float breath = 0.86f + 0.14f * std::sin (t * 1.7f);
-        const Vec3 ventGlow = mixVec (colours::pink * (0.20f + 0.60f * clarity), colours::lime * 0.95f, stepGlow) * breath;
+        const float footOn = switchGlow[4];
+        const float breath = 0.90f + 0.10f * std::sin (t * 1.6f);
 
-        auto footPulse = [t] (float phase)
-        {
-            const float p = std::fmod (t * 0.9f + phase, 1.0f);
-            return 0.25f + 0.75f * std::exp (-p * 6.0f);
-        };
-
-        const Vec3 glyphL = colours::lime * (stepGlow * footPulse (0.0f));
-        const Vec3 glyphR = colours::lime * (stepGlow * footPulse (0.5f));
+        // Glyph + vent glow driven by the real DSP: detected footsteps flash lime,
+        // enhancement activity glows pink.
+        const Vec3 glyph = colours::lime * (footOn * (0.30f + 0.70f * stepFlash));
+        const Vec3 ventGlow = colours::pink * ((0.12f + 0.75f * activityGlow) * breath) + colours::lime * (stepFlash * 0.9f);
 
         float sheenPhase = 0.0f, sheenStrength = 0.0f;
         if (! config.reduceMotion)
@@ -381,128 +413,112 @@ namespace pad
             const float cycle = std::fmod (t, 12.0f) / 7.0f;
             const float e = juce::jlimit (0.0f, 1.0f, cycle);
             sheenPhase = -3.2f + 6.4f * (e * e * (3.0f - 2.0f * e));
-            sheenStrength = cycle <= 1.0f ? (0.16f + 0.06f * std::sin (t * 0.9f)) * std::sin (e * pi) : 0.0f;
+            sheenStrength = cycle <= 1.0f ? (0.14f + 0.05f * std::sin (t * 0.9f)) * std::sin (e * pi) : 0.0f;
         }
 
         // =============================================================================
-        // Opaque, front to back (cheap early-z rejection for the expensive panel shader)
+        // Opaque, front to back
         // =============================================================================
-
-        // --- knobs -----------------------------------------------------------------------
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            if (c.kind != ControlKind::knob)
-                continue;
-
-            const auto& k = knobs[(size_t) i];
-            const auto base = panel * Mat4::translation ({ c.x, 0.0f, c.z });
-            const auto spin = base * Mat4::rotationY (-k.angle);
-
-            use (shaders::plastic).set ("uParams", 36.0f, capTop - 0.03f, 0.0f, 0.0f);
-            draw (meshes.knobCap, spin, colours::bakelite, Vec3 { 0.05f, 0.03f, 0.045f } * k.hover);
-
-            use (shaders::chrome).set ("uParams", 0.55f, 1.0f, 0.0f, 0.0f);
-            draw (meshes.knobInsert, spin, { 0.82f, 0.80f, 0.84f });
-
-            dialTex.bind (0);
-            use (shaders::skirt).set ("uParams", dialRadius, dialTop, 0.0f, 0.0f);
-            draw (meshes.knobSkirt, spin, colours::bakelite, Vec3 { 0.03f, 0.02f, 0.03f } * k.hover);
-
-            // Static panel-mounted bezel
-            use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.knobBezel, base, { 0.55f, 0.53f, 0.57f });
-
-            // Fixed indicator LED: tinted by who moved the knob, bright while it moves
-            const Vec3 src = sourceColour (k.source);
-            const Vec3 idle = mixVec ({ 0.10f, 0.09f, 0.10f }, src, 0.25f);
-            const Vec3 lit = mixVec (idle, src * 1.6f, k.activity);
-            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.indicator, base, lit * 0.6f, lit * 0.6f);
-        }
-
-        // --- footstep toggle ---------------------------------------------------------------
-        {
-            const auto& c = controls[2];
-            const auto& sw = switches[2];
             const auto base = panel * Mat4::translation ({ c.x, 0.0f, c.z });
 
-            use (shaders::chrome).set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
-            const bool hovered = shared.hoveredControl.load() == 2;
-            draw (meshes.switchLever, base * Mat4::translation ({ 0.0f, switchPivotY, 0.0f }) * Mat4::rotationX (sw.angle),
-                  hovered ? Vec3 { 1.0f, 0.97f, 1.0f } : colours::chrome);
-            draw (meshes.switchBushing, base, colours::chrome);
-            use (shaders::chrome).set ("uParams", 0.8f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.switchPlate, base, { 0.86f, 0.85f, 0.88f });
+            if (c.kind == ControlKind::knob)
+            {
+                const auto& k = knobs[(size_t) i];
+                const auto scaled = base * Mat4::scale (c.scale);
+                const auto spin = base * Mat4::rotationY (-k.angle) * Mat4::scale (c.scale);
 
-            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.led, panel * Mat4::translation ({ c.x, 0.0f, c.z + 0.31f }) * Mat4::scale (0.036f),
-                  mixVec ({ 0.06f, 0.08f, 0.05f }, colours::lime * 0.45f, stepGlow), colours::lime * (stepGlow * breath));
+                use (shaders::plastic).set ("uParams", 36.0f, capTop - 0.03f, 0.0f, 0.0f);
+                draw (meshes.knobCap, spin, colours::bakelite, Vec3 { 0.05f, 0.03f, 0.045f } * k.hover);
+
+                use (shaders::chrome).set ("uParams", 0.55f, 1.0f, 0.0f, 0.0f);
+                draw (meshes.knobInsert, spin, { 0.82f, 0.80f, 0.84f });
+
+                dialTex.bind (0);
+                use (shaders::skirt).set ("uParams", dialRadius, dialTop, 0.0f, 0.0f);
+                draw (meshes.knobSkirt, spin, colours::bakelite, Vec3 { 0.03f, 0.02f, 0.03f } * k.hover);
+
+                use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
+                draw (meshes.knobBezel, scaled, { 0.55f, 0.53f, 0.57f });
+
+                // Fixed indicator: tinted by who moved the knob, bright while it moves
+                const Vec3 src = sourceColour (k.source);
+                const Vec3 lit = mixVec (mixVec ({ 0.10f, 0.09f, 0.10f }, src, 0.25f), src * 1.6f, k.activity);
+                use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                draw (meshes.indicator, scaled, lit * 0.6f, lit * 0.6f);
+            }
+            else
+            {
+                const auto& sw = switches[(size_t) i];
+                const bool hovered = shared.hoveredControl.load() == i;
+                const bool isFootstep = i == 4;
+                const float glow = switchGlow[(size_t) i];
+
+                use (shaders::chrome).set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
+                draw (meshes.switchLever, base * Mat4::translation ({ 0.0f, switchPivotY, 0.0f }) * Mat4::rotationX (sw.angle),
+                      hovered ? Vec3 { 1.0f, 0.97f, 1.0f } : colours::chrome);
+                draw (meshes.switchBushing, base, colours::chrome);
+                use (shaders::chrome).set ("uParams", 0.8f, 0.0f, 0.0f, 0.0f);
+                draw (meshes.switchPlate, base, { 0.86f, 0.85f, 0.88f });
+
+                const Vec3 ledColour = isFootstep ? colours::lime : colours::pink;
+                const float flash = isFootstep ? glow * (0.55f + 0.45f * stepFlash) : glow;
+                use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                draw (meshes.led, panel * Mat4::translation ({ c.x, 0.0f, c.z + switchLedOffset }) * Mat4::scale (0.034f),
+                      mixVec ({ 0.07f, 0.06f, 0.07f }, ledColour * 0.45f, glow), ledColour * flash);
+            }
         }
 
-        // --- lamps & legend -----------------------------------------------------------------
-        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.led, panel * Mat4::translation ({ powerLampX, 0.012f, powerLampZ }) * Mat4::scale (0.05f),
-              colours::pink * 0.5f, colours::pink * (0.55f * breath));
-
-        const Vec3 legend[3] { colours::user, colours::automation, colours::selfTune };
-        for (int i = 0; i < 3; ++i)
-            draw (meshes.led, panel * Mat4::translation ({ legendX[i], 0.0f, legendZ }) * Mat4::scale (0.03f),
-                  legend[i] * 0.45f, legend[i] * 0.5f);
-
-        use (shaders::chrome).set ("uParams", 0.6f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.knobBezel, panel * Mat4::translation ({ powerLampX, 0.0f, powerLampZ }) * Mat4::scale (0.19f), { 0.7f, 0.68f, 0.72f });
-
-        // --- handles, screws, display bezel ----------------------------------------------------
-        use (shaders::chrome).set ("uParams", 0.95f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.handles, panel, colours::chrome);
+        // --- screws, display ----------------------------------------------------------------
         use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
         draw (meshes.screws, panel, { 0.75f, 0.74f, 0.78f });
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.displayBezel, panel, { 0.06f, 0.055f, 0.065f });
+        draw (meshes.displayBezel, panel, { 0.05f, 0.046f, 0.055f });
 
-        // --- display --------------------------------------------------------------------------
         overlayTex.bind (0);
-        use (shaders::display).set ("uParams", std::fmod (t / 3.2f, 1.0f), 1.0f, displayRect.hw / displayRect.hd, 0.0f);
+        auto& display = use (shaders::display);
+        display.set ("uParams", 0.0f, 1.0f, displayRect.hw / displayRect.hd, footOn * stepFlash);
+        display.setArray ("uBands", displayBands.data(), enh::dsp::numBands);
         draw (meshes.displayGlass, panel, zero);
 
         auto& recess = use (shaders::recess);
         recess.set ("uParams", displayDepth, 0.0f, 0.0f, 0.0f);
         recess.set ("uGlow", zero);
         draw (meshes.displayWalls, panel, { 0.08f, 0.08f, 0.09f });
-
-        // --- vents + ear slots -------------------------------------------------------------------
-        recess.set ("uParams", ventDepth, 0.0f, 0.0f, 0.0f);
-        recess.set ("uGlow", ventGlow);
-        draw (meshes.ventWalls, panel, { 0.10f, 0.08f, 0.09f });
         recess.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
-        recess.set ("uGlow", zero);
         draw (meshes.earWalls, panel, { 0.12f, 0.10f, 0.11f });
 
         auto& glow = use (shaders::emissive);
-        glow.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
-        glow.set ("uGlow", ventGlow);
-        draw (meshes.ventFloors, panel, { 0.01f, 0.006f, 0.008f });
         glow.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        glow.set ("uGlow", zero);
         draw (meshes.earFloors, panel, { 0.012f, 0.01f, 0.012f });
 
-        // --- faceplate ----------------------------------------------------------------------------
+        // --- faceplate ------------------------------------------------------------------------
         decalTex.bind (0);
         auto& face = use (shaders::faceplate);
         face.set ("uParams", -faceHalfW, -faceHalfH, 2.0f * faceHalfW, 2.0f * faceHalfH);
-        face.set ("uParams2", sheenPhase, sheenStrength, ventBlock.cx, ventBlock.cz);
-        face.set ("uGlow", ventGlow);
-        face.set ("uGlyphL", glyphL);
-        face.set ("uGlyphR", glyphR);
-        draw (meshes.faceTop, panel, zero, { ventBlock.hw, ventBlock.hd, 0.0f });
-        draw (meshes.faceEdges, panel, zero, { ventBlock.hw, ventBlock.hd, 0.0f });
+        face.set ("uParams2", sheenPhase, sheenStrength, 0.0f, 0.0f);
+        face.set ("uGlyphL", glyph);
+        face.set ("uGlyphR", glyph);
+        draw (meshes.faceTop, panel, zero);
+        draw (meshes.faceEdges, panel, zero);
 
-        // --- chassis, feet, table ---------------------------------------------------------------------
+        // --- chassis + lid vents, feet, table ------------------------------------------------------
         use (shaders::chassis);
         draw (meshes.chassis, I, colours::chassisPink);
-        use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.lidScrews, I, { 0.75f, 0.74f, 0.78f });
+        draw (meshes.lidTop, lid, colours::chassisPink);
+
+        auto& ventRecess = use (shaders::recess);
+        ventRecess.set ("uParams", lidVentDepth, 0.0f, 0.0f, 0.0f);
+        ventRecess.set ("uGlow", ventGlow);
+        draw (meshes.lidVentWalls, lid, { 0.10f, 0.07f, 0.08f });
+
+        auto& ventFloor = use (shaders::emissive);
+        ventFloor.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
+        ventFloor.set ("uGlow", ventGlow);
+        draw (meshes.lidVentFloors, lid, { 0.01f, 0.006f, 0.008f });
+
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (meshes.feet, I, { 0.03f, 0.028f, 0.03f });
         use (shaders::table);
@@ -518,18 +534,19 @@ namespace pad
         drawShadow (I, -L.x * 0.35f, 0.002f, chassisCz - L.z * 0.35f, chassisHalfW + 0.10f, 0.5f * chassisDepth + 0.12f, 0.25f, 0.40f, 0.75f);
         drawShadow (I, 0.0f, 0.003f, frontZ - 0.02f, faceHalfW + 0.02f, 0.07f, 0.05f, 0.08f, 0.55f);
 
-        // Panel-local light offset: shadows fall away from the light across the faceplate
         const float offX = -L.x, offZ = L.y;
         for (auto& c : controls)
         {
             if (c.kind == ControlKind::knob)
-                drawShadow (panel, c.x + offX * 0.10f, 0.004f, c.z + offZ * 0.10f, skirtRadius, skirtRadius, skirtRadius, 0.07f, 0.55f);
+            {
+                const float r = skirtRadius * c.scale;
+                drawShadow (panel, c.x + offX * 0.10f, 0.004f, c.z + offZ * 0.10f, r, r, r, 0.07f, 0.55f);
+            }
             else
+            {
                 drawShadow (panel, c.x + offX * 0.03f, 0.004f, c.z + offZ * 0.03f, switchPlateHalfW, switchPlateHalfD, 0.035f, 0.03f, 0.4f);
+            }
         }
-
-        for (float side : { -1.0f, 1.0f })
-            drawShadow (panel, side * handleX + offX * 0.22f, 0.004f, offZ * 0.22f, 0.05f, handleHalfSpan + 0.03f, 0.05f, 0.08f, 0.45f);
 
         glDepthMask (GL_TRUE);
         glDisable (GL_BLEND);

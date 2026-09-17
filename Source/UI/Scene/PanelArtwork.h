@@ -23,12 +23,11 @@ namespace pad::artwork
 
     struct DisplayText
     {
-        juce::String title, tag, lineLeft, lineRight, focusLine;
+        juce::String title, tag, lineLeft, focusLine;
 
         bool operator== (const DisplayText& o) const
         {
-            return title == o.title && tag == o.tag && lineLeft == o.lineLeft
-                && lineRight == o.lineRight && focusLine == o.focusLine;
+            return title == o.title && tag == o.tag && lineLeft == o.lineLeft && focusLine == o.focusLine;
         }
     };
 

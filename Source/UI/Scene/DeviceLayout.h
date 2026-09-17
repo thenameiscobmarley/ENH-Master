@@ -45,23 +45,22 @@ namespace pad::layout
     inline constexpr float chassisFrontZ = frontZ - faceThick;
     inline constexpr float chassisBackZ  = chassisFrontZ - chassisDepth;
 
-    // --- Front panel features (panel-local) ------------------------------------
-    inline constexpr Rect  displayRect  { -1.36f, -0.02f, 0.54f, 0.36f };
-    inline constexpr float displayDepth = 0.05f;
+    // --- Lid vents (world space, on top of the chassis) ---------------------------
+    inline constexpr int   numLidVents   = 6;
+    inline constexpr float lidVentHalfW  = 0.62f;
+    inline constexpr float lidVentHalfD  = 0.028f;
+    inline constexpr float lidVentDepth  = 0.05f;
 
-    inline constexpr Rect  ventBlock     { 1.86f, 0.0f, 0.11f, 0.44f };
-    inline constexpr int   numVentSlots  = 8;
-    inline constexpr float ventSlotHalfD = 0.022f;
-    inline constexpr float ventDepth     = 0.06f;
-
-    inline constexpr Rect ventSlot (int i) noexcept
+    inline constexpr Rect lidVent (int i) noexcept
     {
-        const float pitch = (2.0f * ventBlock.hd - 2.0f * ventSlotHalfD) / (float) (numVentSlots - 1);
-        return { ventBlock.cx, ventBlock.minZ() + ventSlotHalfD + (float) i * pitch, ventBlock.hw, ventSlotHalfD };
+        const float side = (i % 2 == 0) ? -1.0f : 1.0f;
+        const int row = i / 2;
+        return { side * 1.15f, chassisFrontZ - 0.30f - (float) row * 0.14f, lidVentHalfW, lidVentHalfD };
     }
 
-    inline constexpr float powerLampX = 1.86f, powerLampZ = -0.58f;
-    inline constexpr float handleX = 2.13f, handleHalfSpan = 0.44f, handleReach = 0.17f;
+    // --- Front panel features (panel-local) ------------------------------------
+    inline constexpr Rect  displayRect  { -1.52f, -0.02f, 0.48f, 0.34f };
+    inline constexpr float displayDepth = 0.05f;
 
     inline constexpr std::array<Rect, 4> earSlots {{
         { -2.36f, -0.47f, 0.075f, 0.036f }, { -2.36f, 0.47f, 0.075f, 0.036f },
@@ -99,25 +98,28 @@ namespace pad::layout
     struct ControlDef
     {
         ControlKind kind;
-        float x, z;
+        float x, z, scale;
         const char* paramId;
         const char* label;
-        const char* subLabel;
     };
 
     namespace pid = pad::params::id;
 
-    inline constexpr std::array<ControlDef, 3> controls {{
-        { ControlKind::knob,   -0.30f, -0.02f, pid::clarity,      "CLARITY",     "DEPTH  /  DETAIL" },
-        { ControlKind::knob,    0.66f, -0.02f, pid::adaptSpeed,   "ADAPT SPEED", "SLOW  /  FAST" },
-        { ControlKind::toggle,  1.46f,  0.00f, pid::modeFootstep, "FOOTSTEP",    "PRIORITY" },
+    inline constexpr float knobScale = 0.9f;
+    inline constexpr float knobZ = -0.04f;
+    inline constexpr float switchZ = 0.02f;
+
+    inline constexpr std::array<ControlDef, 5> controls {{
+        { ControlKind::knob,   -0.58f, knobZ,   knobScale, pid::clarity,    "CLARITY" },
+        { ControlKind::knob,    0.18f, knobZ,   knobScale, pid::adaptSpeed, "ADAPT" },
+        { ControlKind::knob,    0.94f, knobZ,   knobScale, pid::sub,        "SUB" },
+        { ControlKind::toggle,  1.50f, switchZ, 1.0f,      pid::subBoost,   "+BOOST" },
+        { ControlKind::toggle,  1.98f, switchZ, 1.0f,      pid::footstep,   "FOOTSTEP" },
     }};
 
     inline constexpr int numControls = (int) controls.size();
 
-    inline constexpr float glyphX = 1.46f, glyphZ = -0.50f;
-
-    /** Source legend LEDs under the display (panel-local). */
-    inline constexpr float legendZ = 0.50f;
-    inline constexpr float legendX[3] { -1.84f, -1.44f, -1.02f };
+    inline constexpr float labelOffset = 0.43f;     // label centre below a control
+    inline constexpr float switchLedOffset = -0.31f; // status LED above a switch
+    inline constexpr float glyphOffset = -0.50f;     // footprint glyph above the footstep switch
 }

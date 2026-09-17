@@ -16,8 +16,15 @@ namespace pad
         std::atomic<int>   activeControl { -1 };
         std::atomic<int>   viewWidth { 1 }, viewHeight { 1 };
 
+        // for render-thread pointer polling (X11): peer window + this view's offset inside it
+        std::atomic<juce::uint64> nativeWindow { 0 };
+        std::atomic<int>   viewOffsetX { 0 }, viewOffsetY { 0 };
+        std::atomic<float> platformScale { 1.0f };
+        std::atomic<bool>  dragging { false };
+
         // written by render thread
         std::atomic<float> parallaxX { 0.0f }, parallaxY { 0.0f };
+        std::atomic<bool>  pointerInside { false };
         std::atomic<bool>  animating { true };
 
         // scope overlay hand-off

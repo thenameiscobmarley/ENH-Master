@@ -5,7 +5,7 @@ namespace pad
     juce::File UIConfig::getDefaultFile()
     {
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                 .getChildFile ("PvPAdaptiveDynamics")
+                 .getChildFile ("ENHMaster")
                  .getChildFile ("ui-config.json");
     }
 
@@ -118,7 +118,10 @@ namespace pad
         auto config = fromVar (parsed);
 
         for (auto& w : config.warnings)
+        {
+            juce::ignoreUnused (w);
             DBG ("[ui-config] " << w);
+        }
 
         return config;
     }

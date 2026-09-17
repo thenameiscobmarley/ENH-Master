@@ -70,6 +70,7 @@ uniform vec3  uGlyphL;
 uniform vec3  uGlyphR;
 
 uniform sampler2D uTex;
+uniform float uBands[24];     // live adaptive EQ gains (dB), display only
 
 const vec3 skyCol    = vec3 (0.80, 0.74, 0.80);
 const vec3 groundCol = vec3 (0.30, 0.22, 0.23);
@@ -110,14 +111,6 @@ float hash12 (vec2 p)
     return fract ((p3.x + p3.y) * p3.z);
 }
 
-// Decorative response shape for the placeholder monitor (no controller maths)
-float traceShape (float x)
-{
-    float s = max (x - 0.14, 0.0);
-    float rise = 1.0 - exp (-s * 7.5) * (cos (s * 17.0) + 0.45 * sin (s * 17.0));
-    return mix (0.0, rise, step (0.14, x));
-}
-
 void main()
 {
     vec3 N = normalize (vNormal);
@@ -148,7 +141,7 @@ void main()
 
 #elif MATERIAL == 1 // pearl faceplate + decal (panel-local)
     // uParams  = decal rect (minX, minZ, sizeX, sizeZ)
-    // uParams2 = (sheenPhase, sheenStrength, ventCx, ventCz); uEmissive.xy = vent half size
+    // uParams2 = (sheenPhase, sheenStrength, _, _)
     vec2 p = vLocal.xz;
     vec4 d = texture (uTex, (p - uParams.xy) / uParams.zw);
     float print = max (d.r, d.g);
@@ -169,11 +162,6 @@ void main()
     // Idle breathing sheen sweeping across the faceplate
     float band = p.x * 0.9 - p.y * 0.5 - uParams2.x;
     col += pearlPink (p.x * 0.2 + uTime * 0.03) * exp (-band * band / 0.10) * uParams2.y * coat;
-
-    // Vent glow spilling onto the faceplate
-    float vd = rrectSdf (p - uParams2.zw, uEmissive.xy, 0.02);
-    float halo = exp (-max (vd, 0.0) * 12.0) * step (0.0, vd);
-    col = mix (col, col * 0.6 + uGlow * 1.1, clamp (halo * length (uGlow) * 0.5, 0.0, 0.6));
 
     // Footprint glyphs
     col = mix (col, uGlyphL * 1.5, clamp (d.b * length (uGlyphL) * 1.6, 0.0, 1.0));
@@ -231,36 +219,46 @@ void main()
         col = mix (col, vec3 (0.93, 0.91, 0.93) * (0.70 + 0.40 * wrap), num);
     }
 
-#elif MATERIAL == 8 // display glass. uParams = (sweepHead, brightness, aspect, _)
+#elif MATERIAL == 8 // display glass: live spectral gain curve. uParams = (_, brightness, aspect, footstepConfidence)
     vec2 uv = vUV;
     vec3 phosphor = vec3 (0.40, 1.0, 0.80);
-    col = vec3 (0.010, 0.026, 0.024);
+    col = vec3 (0.010, 0.024, 0.022);
 
-    vec2 g  = uv * vec2 (10.0, 6.0);
-    vec2 gw = fwidth (g);
-    vec2 gl = 1.0 - smoothstep (vec2 (0.0), gw * 1.5, abs (fract (g + 0.5) - 0.5));
-    float grid = max (gl.x, gl.y) * 0.12;
-
-    float x = (uv.x - 0.05) / 0.90;
-    float inX = step (0.0, x) * step (x, 1.0);
-    float yTop = 0.32, yBot = 0.74;
-    float f  = mix (yBot, yTop, traceShape (x));
-    float f2 = mix (yBot, yTop, traceShape (x + 0.002));
-    float slope = (f2 - f) / (0.002 * 0.90) / uParams.z;
-    float dist = abs (uv.y - f) / sqrt (1.0 + slope * slope);
     float px = fwidth (uv.y);
+    float plotL = 0.05, plotR = 0.95, zeroY = 0.56, dbScale = 0.27 / 12.0;
 
-    float persistence = exp (-fract (uParams.x - x) * 2.2);
-    float core = 1.0 - smoothstep (px * 0.8, px * 2.2, dist);
-    float trace = (core + exp (-dist / 0.03) * 0.35) * persistence * inX;
-    float setpoint = (1.0 - smoothstep (px * 0.5, px * 1.5, abs (uv.y - yTop))) * step (0.5, fract (uv.x * 40.0)) * 0.35;
+    // Decade grid lines (100 Hz, 1 kHz, 10 kHz) and the 0 dB line
+    float grid = 0.0;
+    for (int i = 0; i < 3; ++i)
+    {
+        float gx = plotL + (plotR - plotL) * log (100.0 * pow (10.0, float (i)) / 40.0) / log (400.0);
+        grid = max (grid, 1.0 - smoothstep (0.0, fwidth (uv.x) * 1.5, abs (uv.x - gx)));
+    }
+    grid *= step (0.20, uv.y) * step (uv.y, 0.84) * 0.10;
+    float zero = (1.0 - smoothstep (px * 0.5, px * 1.5, abs (uv.y - zeroY))) * step (0.5, fract (uv.x * 48.0)) * 0.25;
+
+    // Catmull-Rom through the 24 band gains
+    float t = clamp ((uv.x - plotL) / (plotR - plotL), 0.0, 1.0) * 23.0;
+    int k = int (floor (t));
+    float f = t - float (k);
+    float p0 = uBands[max (k - 1, 0)], p1 = uBands[k], p2 = uBands[min (k + 1, 23)], p3 = uBands[min (k + 2, 23)];
+    float gainDb = 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f);
+    float curveY = zeroY - gainDb * dbScale;
+
+    float inPlot = step (plotL, uv.x) * step (uv.x, plotR);
+    float d = abs (uv.y - curveY);
+    float line = (1.0 - smoothstep (px * 1.0, px * 2.6, d)) + exp (-d / 0.025) * 0.30;
+    float plotFill = step (min (curveY, zeroY), uv.y) * step (uv.y, max (curveY, zeroY)) * 0.10;
 
     float text = texture (uTex, uv).r;
-    float scan = 0.92 + 0.08 * sin (uv.y * 420.0);
+    col += phosphor * ((grid + zero + (line + plotFill) * inPlot) + text) * uParams.y;
 
-    col += phosphor * (grid + trace + setpoint + text) * uParams.y * scan;
+    // Footstep detection: soft lime edge glow
+    float edge = 1.0 - smoothstep (0.0, 0.06, min (min (uv.x, 1.0 - uv.x), min (uv.y, 1.0 - uv.y)));
+    col += vec3 (0.45, 1.0, 0.15) * edge * uParams.w * 0.6;
+
     col += envColor (R) * (0.03 + 0.25 * pow (facing, 4.0));
-    col += vec3 (0.9, 0.95, 1.0) * exp (-pow ((uv.x + uv.y * 0.6 - 0.35) * 6.0, 2.0)) * 0.04;
+    col += vec3 (0.9, 0.95, 1.0) * exp (-pow ((uv.x + uv.y * 0.6 - 0.35) * 6.0, 2.0)) * 0.035;
 
 #elif MATERIAL == 9 // analytic soft shadow on a [-1,1] quad
     // uParams = (scaleX, scaleZ, halfW, halfD), uParams2 = (cornerRadius, blur, strength, _)

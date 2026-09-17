@@ -1,18 +1,21 @@
-# DSP backend — reserved (Phase 2+)
+# DSP (ENH Master)
 
-This folder is intentionally empty of code. **Phase 1 contains no DSP.**
+Owned by `PluginProcessor` via `EnhEngine`. Everything here is real-time safe: all state is
+allocated in `prepare()`, `process()` never allocates or locks. No JUCE UI dependencies, so the
+offline test tool (`Tests/EnhDspTests.cpp`) builds against these files directly.
 
-When DSP is added it belongs here, owned by `PluginProcessor`:
+| File | Role |
+|---|---|
+| `DspMath.h` | biquads (RBJ), cheap peaking redesign, power followers, helpers |
+| `PDController.h` | proportional-derivative gain follower with latency compensation |
+| `BandAnalyzer.*` | 24 log bands, transient/short/medium followers, noise floor, rolling variance |
+| `FootstepDetector.*` | onset + spectral-shape + rhythm footstep confidence |
+| `AdaptiveEQ.*` | masking-aware per-band targets → PD controllers → 24 dynamic peaking filters |
+| `SubEnhancer.*` | dynamic low shelf, 55 Hz punch (BOOST), band-limited bass harmonics |
+| `AnalogStage.*` | colour EQ, auto gain, 2x oversampled exciter / saturation / ceiling |
+| `EnhEngine.*` | chain + ~1.5 kHz control ticks + UI meters |
+| `EngineMeters.h` | atomics published to the UI |
 
-- `processBlock` currently passes audio through untouched; the backend will be
-  called from there.
-- Parameters are read by ID from `Source/Parameters/ParameterSpecs.h`
-  (use `AudioProcessorValueTreeState::getRawParameterValue` on the audio thread).
-- Current parameters: `clarity`, `adaptSpeed`, `modeFootstep`. The earlier full set
-  (per-target PD gains, masking mode, etc.) is preserved at git tag
-  `backup/phase1-top-panel-full-controls` for when those features return.
-- Any parameter written by future self-tuning must go through
-  `ParameterBridge::setValueWithSource (index, value, ControlSource::selfTune)`
-  so the UI animates it on the same path and tints it as self-tuned.
-- DSP configuration files (hot reload + validation) go in `Source/Config`, next to
-  the existing UI config loader, not in the audio thread.
+When changing the detector or leveler, run `EnhDspTests` (and `EnhDspTests --diagnose` for
+per-step traces). Parameters written by future self-tuning should go through
+`ParameterBridge::setValueWithSource (..., ControlSource::selfTune)`.
