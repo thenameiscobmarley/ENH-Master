@@ -41,12 +41,14 @@ namespace pad
             c.aspect = std::max (0.2f, aspectRatio);
             c.tanHalfFovY = std::tan (fovY * 0.5f);
 
-            // Wide framing: the whole case, including the empty rack space above and below
-            const float wideBottom = layout::rackFloorY - 0.09f;
-            const float wideTop = layout::rackTopY + 0.09f;
-            const float wideHalfW = layout::rackRailX + layout::rackRailHalfW + 0.10f;
-            const float wideHalfV = 0.5f * (wideTop - wideBottom) + 0.06f;
-            const float wideDist = std::max (wideHalfW / (c.tanHalfFovY * c.aspect), wideHalfV / c.tanHalfFovY) * 1.02f + 0.35f;
+            // Wide framing: the whole curved case, bottom unit to top unit plus its overhang
+            const auto bottom = layout::unitOrigin (layout::rackOrder.front());
+            const auto top = layout::unitOrigin (layout::rackOrder.back());
+            const float wideBottom = bottom.y - layout::unitHalfH (layout::rackOrder.front()) - layout::caseOverhang;
+            const float wideTop = top.y + layout::unitHalfH (layout::rackOrder.back()) + layout::caseOverhang;
+            const float wideHalfW = layout::caseSideX + layout::caseCheekW + 0.10f;
+            const float wideHalfV = 0.5f * (wideTop - wideBottom) + 0.05f;
+            const float wideDist = std::max (wideHalfW / (c.tanHalfFovY * c.aspect), wideHalfV / c.tanHalfFovY) * 1.02f + 0.25f;
             const float wideCentre = 0.5f * (wideTop + wideBottom);
 
             // Close framing: one unit and a little of its neighbours
@@ -54,7 +56,7 @@ namespace pad
             const float unitHalfV = layout::unitHalfH (focus.unit) + 0.22f;
             const float unitHalfW = layout::faceHalfW + 0.06f;
             const float nearDist = std::max (unitHalfW / (c.tanHalfFovY * c.aspect), unitHalfV / c.tanHalfFovY) * 1.02f + 0.35f;
-            const float nearCentre = layout::unitCenterY (focus.unit);
+            const float nearCentre = layout::unitOrigin (focus.unit).y;
 
             // Ease between the two so the move feels like walking up to the rack, not a jump cut
             const float e = t * t * (3.0f - 2.0f * t);
@@ -64,7 +66,7 @@ namespace pad
             const float yaw   = parallaxX * 2.0f * deg;
             const float pitch = basePitch * (1.0f - 0.7f * e) + parallaxY * 1.2f * deg;
 
-            const gfx::Vec3 target { 0.0f, centreY, 0.45f };
+            const gfx::Vec3 target { 0.0f, centreY, layout::arcCentreZ - layout::arcRadius + 0.45f };
             const gfx::Vec3 dir { std::sin (yaw) * std::cos (pitch), std::sin (pitch), std::cos (yaw) * std::cos (pitch) };
 
             c.eye = target + dir * distance;
@@ -87,21 +89,28 @@ namespace pad
             return gfx::normalise (forward + right * (ndcX * tanHalfFovY * aspect) + up * (ndcY * tanHalfFovY));
         }
 
-        /** Intersect with a plane parallel to the faceplate, `height` out from it.
-            Returns panel-local (x, z). */
-        bool intersectPanel (float ndcX, float ndcY, float height, float& localX, float& localZ,
-                             float panelCentreY = layout::faceCenterY) const noexcept
+        /** Intersect a unit's faceplate plane, `height` out from it (the units are tilted on
+            the arc, so each one has its own plane). Returns panel-local (x, z). */
+        bool intersectUnit (int unit, float ndcX, float ndcY, float height, float& localX, float& localZ) const noexcept
         {
+            const auto n = layout::unitNormal (unit);
+            const auto origin = layout::unitOrigin (unit) + n * height;
             const auto d = rayDirection (ndcX, ndcY);
-            if (std::abs (d.z) < 1.0e-5f)
+
+            const float denom = gfx::dot (d, n);
+            if (std::abs (denom) < 1.0e-5f)
                 return false;
 
-            const float t = (layout::frontZ + height - eye.z) / d.z;
+            const float t = gfx::dot (origin - eye, n) / denom;
             if (t <= 0.0f)
                 return false;
 
-            localX = eye.x + d.x * t;
-            localZ = panelCentreY - (eye.y + d.y * t);
+            const auto hit = eye + d * t;
+
+            // Panel axes: x across (world +x), z down the panel (the arc's tangent, downward)
+            const gfx::Vec3 down { 0.0f, -n.z, n.y };   // n rotated 90 degrees in the yz plane
+            localX = hit.x - origin.x;
+            localZ = gfx::dot (hit - origin, down);
             return true;
         }
     };

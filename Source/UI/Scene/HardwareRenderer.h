@@ -36,27 +36,27 @@ namespace pad
     private:
         struct Meshes
         {
-            gfx::GpuMesh table, quad, chassis, lidTop, lidVentWalls, lidVentFloors, feet,
+            gfx::GpuMesh table, quad,
                          faceEdges, faceTop, displayWalls, displayGlass, displayBezel,
-                         earWalls, earFloors, screws, screwSlots, lidScrews,
+                         earWalls, earFloors, screws, screwSlots,
                          scaleRing, arcRing, led,
-                         tubeChassis, tubeFaceTop, tubeFaceEdges, tubeEarWalls, tubeEarFloors, tubeScrews, tubeScrewSlots,
+                         tubeFaceTop, tubeFaceEdges, tubeEarWalls, tubeEarFloors, tubeScrews, tubeScrewSlots,
                          seraphWalls, seraphGlass, seraphBezel,
                          tideFaceTop, lumenFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
-                         tideChassis, lumenChassis,
-                         rackRails, rackHoleWalls, rackHoleFloors, rackShell, rackEdges;
+                         enhBody, tubeBody, oneUBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
+                         caseCheeks, caseRails, caseEdges;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
-                for (auto* m : { &table, &quad, &chassis, &lidTop, &lidVentWalls, &lidVentFloors, &feet,
+                for (auto* m : { &table, &quad,
                                  &faceEdges, &faceTop, &displayWalls, &displayGlass, &displayBezel,
-                                 &earWalls, &earFloors, &screws, &screwSlots, &lidScrews,
+                                 &earWalls, &earFloors, &screws, &screwSlots,
                                  &scaleRing, &arcRing, &led,
-                                 &tubeChassis, &tubeFaceTop, &tubeFaceEdges, &tubeEarWalls, &tubeEarFloors, &tubeScrews, &tubeScrewSlots,
+                                 &tubeFaceTop, &tubeFaceEdges, &tubeEarWalls, &tubeEarFloors, &tubeScrews, &tubeScrewSlots,
                                  &seraphWalls, &seraphGlass, &seraphBezel,
                                  &tideFaceTop, &lumenFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
-                                 &tideChassis, &lumenChassis,
-                                 &rackRails, &rackHoleWalls, &rackHoleFloors, &rackShell, &rackEdges })
+                                 &enhBody, &tubeBody, &oneUBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
+                                 &caseCheeks, &caseRails, &caseEdges })
                     fn (*m);
             }
         };

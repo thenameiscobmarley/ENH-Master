@@ -109,7 +109,7 @@ namespace pad
         for (int unit = 0; unit < numUnits; ++unit)
         {
             float lx = 0.0f, lz = 0.0f;
-            if (cam.intersectPanel (ndcX, ndcY, 0.0f, lx, lz, unitCenterY (unit))
+            if (cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz)
                 && std::abs (lx) <= faceHalfW && std::abs (lz) <= unitHalfH (unit))
                 return unit;
         }
@@ -490,7 +490,7 @@ namespace pad
                 break;
 
             float lx = 0.0f, lz = 0.0f;
-            if (! cam.intersectPanel (ndcX, ndcY, 0.0f, lx, lz, unitCenterY (unit))
+            if (! cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz)
                 || std::abs (lx) > faceHalfW || std::abs (lz) > unitHalfH (unit))
                 continue;
 

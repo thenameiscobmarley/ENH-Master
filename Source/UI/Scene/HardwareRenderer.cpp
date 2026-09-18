@@ -162,13 +162,18 @@ namespace pad
             }
         }
 
-        meshes.table.upload (geo::tablePlane());
+        meshes.table.upload (geo::caseFloor());
         meshes.quad.upload (geo::unitQuad());
-        meshes.chassis.upload (geo::chassisBody());
-        meshes.lidTop.upload (geo::lidTop());
-        meshes.lidVentWalls.upload (geo::lidVentWalls());
-        meshes.lidVentFloors.upload (geo::lidVentFloors());
-        meshes.feet.upload (geo::feet());
+        meshes.enhBody.upload (geo::unitBody (faceHalfH));
+        meshes.tubeBody.upload (geo::unitBody (tubeHalfH));
+        meshes.oneUBody.upload (geo::unitBody (oneUHalfH));
+        meshes.tubeVents.upload (geo::unitVents (tubeHalfH));
+        meshes.tubeVentWalls.upload (geo::unitVentWalls (tubeHalfH));
+        meshes.tubeVentFloors.upload (geo::unitVentFloors (tubeHalfH));
+        meshes.bodyScrews.upload (geo::unitBodyScrews (tubeHalfH));
+        meshes.caseCheeks.upload (geo::caseCheeks());
+        meshes.caseRails.upload (geo::caseRails());
+        meshes.caseEdges.upload (geo::caseEdges());
         meshes.faceEdges.upload (geo::faceplateEdges());
         meshes.faceTop.upload (geo::faceplateTop());
         meshes.displayWalls.upload (geo::displayWalls());
@@ -178,10 +183,8 @@ namespace pad
         meshes.earFloors.upload (geo::earSlotFloors());
         meshes.screws.upload (geo::screwHeads());
         meshes.screwSlots.upload (geo::screwSlots());
-        meshes.lidScrews.upload (geo::lidScrews());
         meshes.scaleRing.upload (geo::knobScaleRing());
         meshes.arcRing.upload (hwk::geo::flatAnnulus (1.0f, 1.16f, 96));
-        meshes.tubeChassis.upload (geo::tubeChassisBody());
         meshes.tubeFaceTop.upload (geo::tubeFaceTop());
         meshes.tubeFaceEdges.upload (geo::tubeFaceEdges());
         meshes.tubeEarWalls.upload (geo::tubeEarSlotWalls());
@@ -199,18 +202,11 @@ namespace pad
         meshes.oneUEarFloors.upload (geo::oneUEarFloors());
         meshes.oneUScrews.upload (geo::oneUScrewHeads());
         meshes.oneUScrewSlots.upload (geo::oneUScrewSlots());
-        meshes.tideChassis.upload (geo::oneUChassis (tideCenterY, tideHalfH));
-        meshes.lumenChassis.upload (geo::oneUChassis (lumenCenterY, lumenHalfH));
-
         // VU movements, one model per size (TIDE's wide meter, LUMEN's three narrow ones)
         tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.09f, 0.26f, 0.42f }));
         lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.14f, 0.13f, 0.12f }));
 
-        meshes.rackRails.upload (geo::rackRails());
-        meshes.rackHoleWalls.upload (geo::rackHoleWalls());
-        meshes.rackHoleFloors.upload (geo::rackHoleFloors());
-        meshes.rackShell.upload (geo::rackShell());
-        meshes.rackEdges.upload (geo::rackEdges());
+
         // HardwareKit models: one GPU model per distinct (style, radius)
         knobModels.clear();
         std::vector<std::pair<int, float>> built;
@@ -995,11 +991,14 @@ namespace pad
         decal.bind (0);
         auto& plate = use (shaders::brushed);
         plate.set ("uParams", -faceHalfW, -oneUHalfH, 2.0f * faceHalfW, 2.0f * oneUHalfH);
+        plate.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) unit);      // .w seeds this unit's wear
         draw (faceTop, panel, colour);
         draw (meshes.oneUFaceEdges, panel, colour * 0.82f);
 
         use (shaders::chassis);
-        draw (tide ? meshes.tideChassis : meshes.lumenChassis, Mat4::identity(), colours::chassisBlack);
+        draw (meshes.oneUBody, panel, colours::chassisBlack);
+        use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.bodyScrews, panel, { 0.42f, 0.42f, 0.44f });
     }
 
     /** The cover glass over a unit's meters, drawn with everything else transparent. */
@@ -1038,9 +1037,9 @@ namespace pad
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel : panel;
         };
-        const Mat4 tubeLid = Mat4::translation ({ 0.0f, tubeChassisTop, 0.0f });
+
         const Mat4 I = Mat4::identity();
-        const Mat4 lid = Mat4::translation ({ 0.0f, chassisTop, 0.0f });
+
 
         glClearColor (0.03f, 0.022f, 0.026f, 1.0f);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1114,24 +1113,6 @@ namespace pad
         drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, tideLabelTex, meshes.tideFaceTop);
         drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, lumenLabelTex, meshes.lumenFaceTop);
 
-        // --- the rack case the units are bolted into ---------------------------------------------
-        {
-            use (shaders::chassis);
-            draw (meshes.rackShell, I, { 0.030f, 0.030f, 0.034f });
-
-            auto& railRecess = use (shaders::recess);
-            railRecess.set ("uParams", 0.03f, 0.0f, 0.0f, 0.0f);
-            railRecess.set ("uGlow", zero);
-            draw (meshes.rackHoleWalls, I, { 0.055f, 0.055f, 0.060f });
-            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.rackHoleFloors, I, { 0.010f, 0.010f, 0.012f });
-
-            use (shaders::chrome).set ("uParams", 0.30f, 1.0f, 0.0f, 0.0f);
-            draw (meshes.rackRails, I, { 0.42f, 0.43f, 0.45f });
-            use (shaders::chrome).set ("uParams", 0.55f, 1.0f, 0.0f, 0.0f);
-            draw (meshes.rackEdges, I, { 0.58f, 0.59f, 0.62f });
-        }
-
         // --- SERAPH: VU meters, lamp, screws, faceplate, chassis --------------------------------
         {
             seraphLabelTex.bind (0);
@@ -1170,26 +1151,28 @@ namespace pad
             tubeDecalTex.bind (0);
             auto& paint = use (shaders::paint);
             paint.set ("uParams", -faceHalfW, -tubeHalfH, 2.0f * faceHalfW, 2.0f * tubeHalfH);
+            paint.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) tubeUnit);
             draw (meshes.tubeFaceTop, tubePanel, colours::seraphPurple);
             draw (meshes.tubeFaceEdges, tubePanel, colours::seraphPurple);
 
             use (shaders::chassis);
-            draw (meshes.tubeChassis, I, colours::chassisBlack);
-            draw (meshes.lidTop, tubeLid, colours::chassisBlack);
+            draw (meshes.tubeBody, tubePanel, colours::chassisBlack);
 
-            // Tubes glowing through the lid perforation
+            // The tubes glowing out through the vents in the top of the body
             const Vec3 tubeGlow = colours::amber * (0.55f * tubeWarmth * (0.94f + 0.06f * breath));
+            const auto ventFace = tubePanel * Mat4::translation ({ 0.0f, -0.004f, -tubeHalfH });
+            draw (meshes.tubeVents, ventFace, colours::chassisBlack);
             auto& tubeVents = use (shaders::recess);
             tubeVents.set ("uParams", lidVentDepth, 0.0f, 0.0f, 0.0f);
             tubeVents.set ("uGlow", tubeGlow);
-            draw (meshes.lidVentWalls, tubeLid, { 0.05f, 0.05f, 0.055f });
+            draw (meshes.tubeVentWalls, ventFace, { 0.05f, 0.05f, 0.055f });
             auto& tubeVentFloor = use (shaders::emissive);
             tubeVentFloor.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
             tubeVentFloor.set ("uGlow", tubeGlow);
-            draw (meshes.lidVentFloors, tubeLid, { 0.006f, 0.006f, 0.007f });
+            draw (meshes.tubeVentFloors, ventFace, { 0.006f, 0.006f, 0.007f });
 
             use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.lidScrews, tubeLid, { 0.40f, 0.40f, 0.42f });
+            draw (meshes.bodyScrews, tubePanel, { 0.42f, 0.42f, 0.44f });
         }
 
         // --- LED ladders ------------------------------------------------------------------------
@@ -1210,7 +1193,7 @@ namespace pad
         // --- screws, display ----------------------------------------------------------------
         use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
         draw (meshes.screws, panel, { 0.75f, 0.74f, 0.78f });
-        draw (meshes.lidScrews, lid, { 0.40f, 0.40f, 0.42f });
+
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (meshes.screwSlots, panel, { 0.02f, 0.02f, 0.025f });
         draw (meshes.displayBezel, panel, { 0.03f, 0.031f, 0.035f });
@@ -1235,27 +1218,24 @@ namespace pad
         // --- faceplate ------------------------------------------------------------------------
         decalTex.bind (0);
         auto& face = use (shaders::faceplate);
+        face.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) enhUnit);
         face.set ("uParams", -faceHalfW, -faceHalfH, 2.0f * faceHalfW, 2.0f * faceHalfH);
         draw (meshes.faceTop, panel, zero);
         draw (meshes.faceEdges, panel, zero);
 
-        // --- chassis + lid vents, feet, table ------------------------------------------------------
+        // --- ENH Master's body, then the case it all sits in ----------------------------------
         use (shaders::chassis);
-        draw (meshes.chassis, I, colours::chassisBlack);
-        draw (meshes.lidTop, lid, colours::chassisBlack);
+        draw (meshes.enhBody, panel, colours::chassisBlack);
+        use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.bodyScrews, panel, { 0.42f, 0.42f, 0.44f });
+        (void) ventGlow;
 
-        auto& ventRecess = use (shaders::recess);
-        ventRecess.set ("uParams", lidVentDepth, 0.0f, 0.0f, 0.0f);
-        ventRecess.set ("uGlow", ventGlow);
-        draw (meshes.lidVentWalls, lid, { 0.05f, 0.05f, 0.055f });
+        use (shaders::chassis);
+        draw (meshes.caseRails, I, { 0.028f, 0.028f, 0.032f });
+        draw (meshes.caseCheeks, I, { 0.075f, 0.068f, 0.062f });
+        use (shaders::chrome).set ("uParams", 0.48f, 1.0f, 0.0f, 0.0f);
+        draw (meshes.caseEdges, I, { 0.55f, 0.56f, 0.58f });
 
-        auto& ventFloor = use (shaders::emissive);
-        ventFloor.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
-        ventFloor.set ("uGlow", ventGlow);
-        draw (meshes.lidVentFloors, lid, { 0.006f, 0.006f, 0.007f });
-
-        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.feet, I, { 0.02f, 0.02f, 0.022f });
         use (shaders::table);
         draw (meshes.table, I, zero);
 
@@ -1309,9 +1289,13 @@ namespace pad
             }
         }
 
-        const float chassisCz = chassisFrontZ - 0.5f * chassisDepth;
-        drawShadow (I, -L.x * 0.35f, 0.002f, chassisCz - L.z * 0.35f, chassisHalfW + 0.10f, 0.5f * chassisDepth + 0.12f, 0.25f, 0.40f, 0.75f);
-        drawShadow (I, 0.0f, 0.003f, frontZ - 0.02f, faceHalfW + 0.02f, 0.07f, 0.05f, 0.08f, 0.55f);
+        // Each unit lays a soft shadow on the panel of the one below it, inside the case
+        for (int u = 0; u < numUnits; ++u)
+        {
+            const auto shadowSpace = panelFor (u);
+            drawShadow (shadowSpace, -L.x * 0.06f, 0.0015f, -unitHalfH (u) - rackGap * 0.35f,
+                        faceHalfW * 0.98f, rackGap * 0.55f, 0.05f, rackGap * 0.7f, 0.55f);
+        }
 
         const float offX = -L.x, offZ = L.y;
         for (int i = 0; i < numControls; ++i)

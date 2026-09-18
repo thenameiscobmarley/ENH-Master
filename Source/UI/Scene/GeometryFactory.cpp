@@ -10,72 +10,162 @@ namespace pad::geo
     using layout::pi;
 
     //==============================================================================
-    // World-space parts
-    MeshData chassisBody()
+    // Unit body: panel-local, so it curves with its unit. The panel is at y = 0 and the
+    // body runs back toward -y; +z is down the panel.
+    MeshData unitBody (float halfH)
     {
-        constexpr float r = 0.05f;
-        const float halfD = 0.5f * chassisDepth;
+        constexpr float r = 0.045f;
+        const float d = unitBodyDepth;
         MeshData mesh;
-        // A shallow seam groove where the lid wraps over the body
-        const float seam = chassisTop - 0.16f;
-        mesh.append (sweptRoundedRect (chassisHalfW - r, halfD - r, r, 3,
-                                       { { 0.0f, chassisBottom }, { 0.0f, seam - 0.012f }, { -0.010f, seam - 0.004f },
-                                         { -0.010f, seam + 0.004f }, { 0.0f, seam + 0.012f },
-                                         { 0.0f, chassisTop - 0.03f }, { -0.03f, chassisTop } }, false),
-                     Mat4::translation ({ 0.0f, 0.0f, chassisFrontZ - halfD }));
+
+        // Swept profile: a small chamfer at the front, a seam a third of the way back, and a
+        // chamfer at the rear, so the body reads as folded metal rather than a plain box.
+        mesh.append (sweptRoundedRect (chassisHalfW - r, halfH - r, r, 3,
+                                       { { 0.0f, 0.0f }, { 0.0f, -0.012f }, { -0.012f, -0.028f },
+                                         { -0.012f, -d * 0.34f }, { -0.019f, -d * 0.36f },
+                                         { -0.019f, -d * 0.40f }, { -0.012f, -d * 0.42f },
+                                         { -0.012f, -d + 0.05f }, { -0.055f, -d } }, false));
         return mesh;
     }
 
-    static float chassisCentreZ() noexcept { return chassisFrontZ - 0.5f * chassisDepth; }
-
-    // Lid parts are built with the lid surface at y = 0 (draw translated to chassisTop)
-    MeshData lidTop()
+    /** Slots in the top face of a unit's body (panel-local; the top face is at z = -halfH). */
+    static std::vector<Rect> ventRects (float halfH)
     {
         std::vector<Rect> holes;
         for (int i = 0; i < numLidVents; ++i)
-            holes.push_back (lidVent (i));
-
-        return plateWithHoles ({ 0.0f, chassisCentreZ(), chassisHalfW - 0.03f, 0.5f * chassisDepth - 0.03f }, 0.0f, holes);
+        {
+            auto v = lidVent (i);
+            // The vent field is laid out in (x, depth); place it on the top face of this unit
+            holes.push_back ({ v.cx, v.cz, v.hw, v.hd });
+        }
+        (void) halfH;
+        return holes;
     }
 
-    MeshData lidVentWalls()
+    MeshData unitVents (float halfH)
+    {
+        return plateWithHoles ({ 0.0f, -unitBodyDepth * 0.5f - 0.02f, chassisHalfW - 0.05f, unitBodyDepth * 0.5f - 0.06f },
+                               0.0f, ventRects (halfH));
+    }
+
+    MeshData unitVentWalls (float halfH)
     {
         MeshData mesh;
-        for (int i = 0; i < numLidVents; ++i)
-            mesh.append (wellWalls (lidVent (i), 0.0f, lidVentDepth));
+        for (auto& v : ventRects (halfH))
+            mesh.append (wellWalls (v, 0.0f, lidVentDepth));
         return mesh;
     }
 
-    MeshData lidVentFloors()
+    MeshData unitVentFloors (float halfH)
     {
         MeshData mesh;
-        for (int i = 0; i < numLidVents; ++i)
-            mesh.append (horizontalQuad (lidVent (i), -lidVentDepth));
+        for (auto& v : ventRects (halfH))
+            mesh.append (horizontalQuad (v, -lidVentDepth));
         return mesh;
     }
 
-    MeshData feet()
+    MeshData unitBodyScrews (float halfH)
     {
         MeshData mesh;
-        for (float x : { -1.95f, 1.95f })
-            for (float z : { chassisFrontZ - 0.25f, chassisBackZ + 0.25f })
-                mesh.append (sweptRoundedRect (0, 0, 0.11f, 3, { { 0.0f, 0.0f }, { 0.0f, chassisBottom }, { -0.02f, chassisBottom + 0.005f } }, true),
-                             Mat4::translation ({ x, 0, z }));
+        const auto head = sweptRoundedRect (0, 0, 0.030f, 3, { { 0.0f, -0.002f }, { 0.0f, 0.004f }, { -0.011f, 0.011f } }, true);
+        for (float x : { -(chassisHalfW - 0.12f), chassisHalfW - 0.12f })
+            for (float z : { -unitBodyDepth * 0.30f, -unitBodyDepth * 0.78f })
+                mesh.append (head, Mat4::translation ({ x, 0.0f, z }));
+        (void) halfH;
         return mesh;
     }
 
-    MeshData lidScrews()
+    //==============================================================================
+    // The case: two cheeks swept along the arc the units sit on, rails behind the gaps,
+    // and the surface it all stands on.
+    namespace
+    {
+        /** Point on the arc at arc-length s from the bottom of the stack, offset `out` from
+            the panel plane (+out = toward the viewer) and `back` into the case. */
+        gfx::Vec3 arcPoint (float s, float out)
+        {
+            const float a = (s - 0.5f * totalArcLength()) / arcRadius;
+            const float r = arcRadius - out;
+            return { 0.0f, arcCentreY + r * std::sin (a), arcCentreZ - r * std::cos (a) };
+        }
+    }
+
+    MeshData caseCheeks()
     {
         MeshData mesh;
-        const auto head = sweptRoundedRect (0, 0, 0.032f, 3, { { 0.0f, -0.002f }, { 0.0f, 0.004f }, { -0.012f, 0.012f } }, true);
-        for (auto& s : layout::lidScrews)
-            mesh.append (head, Mat4::translation ({ s[0], 0.0f, s[1] }));
+        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float xIn = side * caseSideX, xOut = side * (caseSideX + caseCheekW);
+
+            for (int i = 0; i < caseArcSteps; ++i)
+            {
+                const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
+                const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
+
+                const auto fA = arcPoint (sA, 0.02f), fB = arcPoint (sB, 0.02f);          // front edge
+                const auto bA = arcPoint (sA, -caseDepth), bB = arcPoint (sB, -caseDepth); // back edge
+
+                // outer wall
+                mesh.append (quad ({ xOut, fA.y, fA.z }, { xOut, fB.y, fB.z }, { xOut, bB.y, bB.z }, { xOut, bA.y, bA.z }));
+                // inner wall
+                mesh.append (quad ({ xIn, bA.y, bA.z }, { xIn, bB.y, bB.z }, { xIn, fB.y, fB.z }, { xIn, fA.y, fA.z }));
+                // top edge of the cheek, facing the viewer
+                mesh.append (quad ({ xIn, fA.y, fA.z }, { xIn, fB.y, fB.z }, { xOut, fB.y, fB.z }, { xOut, fA.y, fA.z }));
+                mesh.append (quad ({ xOut, bA.y, bA.z }, { xOut, bB.y, bB.z }, { xIn, bB.y, bB.z }, { xIn, bA.y, bA.z }));
+            }
+        }
+
         return mesh;
     }
 
-    MeshData tablePlane()
+    MeshData caseRails()
     {
-        return horizontalQuad ({ 0.0f, 0.0f, 24.0f, 24.0f }, 0.0f);
+        MeshData mesh;
+        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+
+        // A rail running the length of the case well behind the units, so it is seen only
+        // through the gaps between them - never through a meter window.
+        for (int i = 0; i < caseArcSteps; ++i)
+        {
+            const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
+            const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
+            const auto a = arcPoint (sA, -unitBodyDepth - 0.05f), b = arcPoint (sB, -unitBodyDepth - 0.05f);
+            mesh.append (quad ({ -caseSideX, a.y, a.z }, { -caseSideX, b.y, b.z },
+                               { caseSideX, b.y, b.z }, { caseSideX, a.y, a.z }));
+        }
+
+        return mesh;
+    }
+
+    MeshData caseEdges()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float xIn = side * (caseSideX + caseCheekW * 0.18f);
+            const float xOut = side * (caseSideX + caseCheekW);
+
+            for (int i = 0; i < caseArcSteps; ++i)
+            {
+                const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
+                const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
+                const auto a = arcPoint (sA, 0.035f), b = arcPoint (sB, 0.035f);
+                const auto a2 = arcPoint (sA, 0.02f), b2 = arcPoint (sB, 0.02f);
+                mesh.append (quad ({ xIn, a.y, a.z }, { xIn, b.y, b.z }, { xOut, b2.y, b2.z }, { xOut, a2.y, a2.z }));
+            }
+        }
+
+        return mesh;
+    }
+
+    MeshData caseFloor()
+    {
+        const auto bottom = arcPoint (-caseOverhang, 0.0f);
+        return horizontalQuad ({ 0.0f, bottom.z - 6.0f, 26.0f, 26.0f }, bottom.y - 0.10f);
     }
 
     //==============================================================================
@@ -162,17 +252,6 @@ namespace pad::geo
 
     //==============================================================================
     // SERAPH tube unit
-    MeshData tubeChassisBody()
-    {
-        constexpr float r = 0.05f;
-        const float halfD = 0.5f * chassisDepth;
-        MeshData mesh;
-        mesh.append (sweptRoundedRect (chassisHalfW - r, halfD - r, r, 3,
-                                       { { 0.0f, tubeChassisBottom }, { 0.0f, tubeChassisTop - 0.03f }, { -0.03f, tubeChassisTop } }, false),
-                     Mat4::translation ({ 0.0f, 0.0f, chassisFrontZ - halfD }));
-        return mesh;
-    }
-
     MeshData tubeFaceTop()
     {
         std::vector<Rect> holes { seraphDisplayRect };
@@ -307,85 +386,4 @@ namespace pad::geo
 
 
 
-    MeshData oneUChassis (float centreY, float halfH)
-    {
-        constexpr float r = 0.04f;
-        const float halfD = 0.5f * chassisDepth;
-        MeshData mesh;
-        mesh.append (sweptRoundedRect (chassisHalfW - r, halfD - r, r, 3,
-                                       { { 0.0f, centreY - halfH + 0.01f }, { 0.0f, centreY + halfH - 0.05f }, { -0.03f, centreY + halfH - 0.01f } }, false),
-                     Mat4::translation ({ 0.0f, 0.0f, chassisFrontZ - halfD }));
-        return mesh;
-    }
-
-    //==============================================================================
-    // Rack case: two vertical rails with rack holes, a back wall, a floor and a top
-    static std::vector<Rect> rackHoles (float railCx)
-    {
-        std::vector<Rect> holes;
-        for (float y = rackFloorY + 0.09f; y < rackTopY - 0.06f; y += rackHoleStep)
-            holes.push_back ({ railCx, y, 0.026f, 0.020f });
-        return holes;
-    }
-
-    MeshData rackRails()
-    {
-        MeshData mesh;
-        // Built in the xy plane at the front of the case, so "z" of the Rect is world y
-        for (float side : { -1.0f, 1.0f })
-        {
-            const float cx = side * rackRailX;
-            auto plate = plateWithHoles ({ cx, 0.5f * (rackFloorY + rackTopY), rackRailHalfW, 0.5f * (rackTopY - rackFloorY) },
-                                         0.0f, rackHoles (cx));
-            mesh.append (plate, Mat4::translation ({ 0.0f, 0.0f, frontZ }) * Mat4::rotationX (0.5f * pi));
-        }
-        return mesh;
-    }
-
-    MeshData rackHoleWalls()
-    {
-        MeshData mesh;
-        for (float side : { -1.0f, 1.0f })
-            for (auto& h : rackHoles (side * rackRailX))
-                mesh.append (wellWalls (h, 0.0f, 0.03f), Mat4::translation ({ 0.0f, 0.0f, frontZ }) * Mat4::rotationX (0.5f * pi));
-        return mesh;
-    }
-
-    MeshData rackHoleFloors()
-    {
-        MeshData mesh;
-        for (float side : { -1.0f, 1.0f })
-            for (auto& h : rackHoles (side * rackRailX))
-                mesh.append (horizontalQuad (h, -0.03f), Mat4::translation ({ 0.0f, 0.0f, frontZ }) * Mat4::rotationX (0.5f * pi));
-        return mesh;
-    }
-
-    MeshData rackShell()
-    {
-        MeshData mesh;
-        const float outer = rackRailX + rackRailHalfW;
-        const float depth = frontZ - rackBackZ;
-
-        // Back wall (seen through the gaps between units), floor, top and two side walls
-        mesh.append (box ({ -outer, rackFloorY, rackBackZ }, { outer, rackTopY, rackBackZ + 0.05f }));
-        mesh.append (box ({ -outer, rackFloorY - 0.09f, rackBackZ }, { outer, rackFloorY, frontZ + 0.02f }));
-        mesh.append (box ({ -outer, rackTopY, rackBackZ }, { outer, rackTopY + 0.09f, frontZ + 0.02f }));
-        mesh.append (box ({ -outer - 0.06f, rackFloorY - 0.09f, rackBackZ }, { -outer, rackTopY + 0.09f, frontZ + 0.02f }));
-        mesh.append (box ({ outer, rackFloorY - 0.09f, rackBackZ }, { outer + 0.06f, rackTopY + 0.09f, frontZ + 0.02f }));
-        (void) depth;
-        return mesh;
-    }
-
-    MeshData rackEdges()
-    {
-        MeshData mesh;
-        const float outer = rackRailX + rackRailHalfW + 0.06f;
-        // A bright chamfer along the front edges of the case, where the window light catches it
-        for (float side : { -1.0f, 1.0f })
-            mesh.append (box ({ side * outer - 0.012f, rackFloorY - 0.09f, frontZ + 0.02f },
-                              { side * outer + 0.012f, rackTopY + 0.09f, frontZ + 0.035f }));
-        mesh.append (box ({ -outer, rackTopY + 0.075f, frontZ + 0.02f }, { outer, rackTopY + 0.09f, frontZ + 0.035f }));
-        mesh.append (box ({ -outer, rackFloorY - 0.09f, frontZ + 0.02f }, { outer, rackFloorY - 0.075f, frontZ + 0.035f }));
-        return mesh;
-    }
 }

@@ -27,42 +27,27 @@ namespace pad::layout
     inline constexpr float faceCenterY = 0.79f;
     inline constexpr float frontZ      = 1.00f;
 
-    inline gfx::Mat4 panelToWorld() noexcept
-    {
-        return gfx::Mat4::translation ({ 0.0f, faceCenterY, frontZ }) * gfx::Mat4::rotationX (0.5f * pi);
-    }
+    // --- Unit body, behind the faceplate (panel-local: -y runs back into the case) --------
+    inline constexpr float chassisHalfW = 2.34f;
+    inline constexpr float chassisDepth = 0.62f;
 
-    // --- Chassis behind the faceplate -----------------------------------------
-    inline constexpr float chassisHalfW = 2.20f;
-    inline constexpr float chassisBottom = 0.07f;
-    inline constexpr float chassisTop   = 1.42f;
-    inline constexpr float chassisDepth = 2.50f;
-    inline constexpr float chassisFrontZ = frontZ - faceThick;
-    inline constexpr float chassisBackZ  = chassisFrontZ - chassisDepth;
-
-    // --- Lid perforation (world space, on top of the chassis) ----------------------
-    // Two fields of short slots, left and right of centre
+    // Ventilation slots in the body's top face, where warm units breathe
     inline constexpr int   lidVentCols   = 9;
     inline constexpr int   lidVentRows   = 3;
     inline constexpr int   numLidVents   = 2 * lidVentCols * lidVentRows;
-    inline constexpr float lidVentHalfW  = 0.052f;
-    inline constexpr float lidVentHalfD  = 0.014f;
-    inline constexpr float lidVentDepth  = 0.04f;
+    inline constexpr float lidVentHalfW  = 0.050f;
+    inline constexpr float lidVentHalfD  = 0.013f;
+    inline constexpr float lidVentDepth  = 0.035f;
 
+    /** Vent slot i, in the body's top-face coordinates (x across, z back from the panel). */
     inline constexpr Rect lidVent (int i) noexcept
     {
         const int perSide = lidVentCols * lidVentRows;
         const float side = i < perSide ? -1.0f : 1.0f;
         const int k = i % perSide, col = k % lidVentCols, row = k / lidVentCols;
         const float x = side * (1.15f + ((float) col - 0.5f * (float) (lidVentCols - 1)) * 0.135f);
-        return { x, chassisFrontZ - 0.26f - (float) row * 0.07f, lidVentHalfW, lidVentHalfD };
+        return { x, -0.16f - (float) row * 0.085f, lidVentHalfW, lidVentHalfD };
     }
-
-    /** Small screws holding the lid (world x, z). */
-    inline constexpr std::array<std::array<float, 2>, 4> lidScrews {{
-        { -(chassisHalfW - 0.14f), chassisFrontZ - 0.55f }, { chassisHalfW - 0.14f, chassisFrontZ - 0.55f },
-        { -(chassisHalfW - 0.14f), chassisBackZ + 0.12f },  { chassisHalfW - 0.14f, chassisBackZ + 0.12f },
-    }};
 
     // --- Front panel (panel-local) -----------------------------------------------
     // Pro-XL style: dark faceplate, outlined sections with titles, rows of small knobs over
@@ -138,32 +123,86 @@ namespace pad::layout
     // ==============================================================================
     // SERAPH - the purple finishing processor racked above ENH Master (SILK | HALO)
     // ==============================================================================
-    // Rack: the units sit in a case with air between them, signal flowing upward
-    //   ENH MASTER (2U) -> LUMEN (1U) -> TIDE (1U) -> SERAPH (2U) -> out
-    inline constexpr float rackGap          = 0.075f;    // air between panels, rails visible through it
-    inline constexpr float oneUHalfH        = 0.295f;
+    /*  Eurorack-style curved case. The units sit on an arc centred on the viewer, so however
+        many are stacked, every panel faces the camera head on: the higher a unit sits, the
+        further it leans back and the more it is rotated toward you. Nothing is foreshortened,
+        which is what keeps the print readable as the case grows.
 
-    inline constexpr float lumenHalfH       = oneUHalfH;
-    inline constexpr float lumenCenterY     = faceCenterY + faceHalfH + rackGap + lumenHalfH;
-    inline constexpr float tideHalfH        = oneUHalfH;
-    inline constexpr float tideCenterY      = lumenCenterY + lumenHalfH + rackGap + tideHalfH;
-    inline constexpr float tubeHalfH        = 0.54f;
-    inline constexpr float tubeCenterY      = tideCenterY + tideHalfH + rackGap + tubeHalfH;
-    inline constexpr float tubeChassisBottom = chassisTop + 0.004f;
-    inline constexpr float tubeChassisTop   = tubeCenterY + tubeHalfH - 0.07f;
-    inline constexpr float tubeKnobScale    = 1.12f;
+            ENH MASTER (2U) -> LUMEN (1U) -> TIDE (1U) -> SERAPH (2U) -> out
+    */
+    inline constexpr float rackGap    = 0.105f;   // air between panels, measured along the arc
+    inline constexpr float oneUHalfH  = 0.295f;
 
-    inline constexpr float unitCenterY (int unit) noexcept
-    {
-        return unit == tubeUnit ? tubeCenterY : unit == tideUnit ? tideCenterY : unit == lumenUnit ? lumenCenterY : faceCenterY;
-    }
+    inline constexpr float lumenHalfH = oneUHalfH;
+    inline constexpr float tideHalfH  = oneUHalfH;
+    inline constexpr float tubeHalfH  = 0.54f;
+
+    inline constexpr float arcRadius  = 9.60f;    // viewer to panel
+    inline constexpr float arcCentreY = 1.62f;    // the viewer's eye height
+    inline constexpr float arcCentreZ = 10.05f;   // and where they are standing
 
     inline constexpr float unitHalfH (int unit) noexcept
     {
         return unit == tubeUnit ? tubeHalfH : unit == tideUnit ? tideHalfH : unit == lumenUnit ? lumenHalfH : faceHalfH;
     }
 
-    /** Where each unit sits in the signal chain, and what it is called on the rails. */
+    /** Units in case order, bottom to top - which is also the order the signal runs. */
+    inline constexpr std::array<int, numUnits> rackOrder { enhUnit, lumenUnit, tideUnit, tubeUnit };
+
+    /** Distance along the arc from the bottom of the stack to the centre of a unit. */
+    inline constexpr float unitArcPos (int unit) noexcept
+    {
+        float pos = 0.0f;
+        for (int u : rackOrder)
+        {
+            pos += unitHalfH (u);
+            if (u == unit)
+                return pos;
+            pos += unitHalfH (u) + rackGap;
+        }
+        return pos;
+    }
+
+    inline constexpr float totalArcLength() noexcept
+    {
+        float total = 0.0f;
+        for (int i = 0; i < numUnits; ++i)
+            total += 2.0f * unitHalfH (rackOrder[(size_t) i]) + (i + 1 < numUnits ? rackGap : 0.0f);
+        return total;
+    }
+
+    /** How far a unit is rotated toward the viewer: 0 at the middle of the case. */
+    inline float unitAngle (int unit) noexcept
+    {
+        return (unitArcPos (unit) - 0.5f * totalArcLength()) / arcRadius;
+    }
+
+    /** Centre of a unit's faceplate, in world space. */
+    inline gfx::Vec3 unitOrigin (int unit) noexcept
+    {
+        const float a = unitAngle (unit);
+        return { 0.0f, arcCentreY + arcRadius * std::sin (a), arcCentreZ - arcRadius * std::cos (a) };
+    }
+
+    /** Panel-local (x across, z down, y out of the panel) to world, on the arc. */
+    inline gfx::Mat4 panelToWorld (int unit) noexcept
+    {
+        return gfx::Mat4::translation (unitOrigin (unit)) * gfx::Mat4::rotationX (0.5f * pi + unitAngle (unit));
+    }
+
+    inline gfx::Mat4 panelToWorld() noexcept { return panelToWorld (enhUnit); }
+
+    /** Outward normal of a unit's faceplate (world). */
+    inline gfx::Vec3 unitNormal (int unit) noexcept
+    {
+        const float a = unitAngle (unit);
+        return { 0.0f, -std::sin (a), std::cos (a) };
+    }
+
+    /** Kept for the few places that still want a height: the world y of a panel's centre. */
+    inline float unitCenterY (int unit) noexcept { return unitOrigin (unit).y; }
+
+    /** Where each unit sits in the signal chain, and what it is called on the panel. */
     struct UnitInfo { const char* name; const char* role; int chainPosition; };
 
     inline constexpr std::array<UnitInfo, numUnits> unitInfo {{
@@ -173,22 +212,15 @@ namespace pad::layout
         { "LUMEN",      "SPECTRAL LEVELER",           2 },
     }};
 
-    /** Units in rack order, bottom to top. */
-    inline constexpr std::array<int, numUnits> rackOrder { enhUnit, lumenUnit, tideUnit, tubeUnit };
+    // --- the case the units are screwed into -------------------------------------------
+    inline constexpr float caseSideX     = faceHalfW + 0.115f;   // inner face of each cheek
+    inline constexpr float caseCheekW    = 0.135f;
+    inline constexpr float caseDepth     = 0.78f;                // how far the case runs back
+    inline constexpr float caseOverhang  = 0.30f;                // past the top and bottom unit
+    inline constexpr int   caseArcSteps  = 26;                   // segments along the curve
 
-    // --- rack case ---------------------------------------------------------------------
-    inline constexpr float rackRailX      = faceHalfW + 0.155f;   // centre of each vertical rail
-    inline constexpr float rackRailHalfW  = 0.145f;
-    inline constexpr float rackRailDepth  = 0.16f;
-    inline constexpr float rackFloorY     = faceCenterY - faceHalfH - 0.52f;   // empty U below the bottom unit
-    inline constexpr float rackTopY       = tubeCenterY + tubeHalfH + 0.62f;   // empty U above the top unit
-    inline constexpr float rackHoleStep   = 0.125f;
-    inline constexpr float rackBackZ      = chassisBackZ - 0.10f;
-
-    inline gfx::Mat4 panelToWorld (int unit) noexcept
-    {
-        return gfx::Mat4::translation ({ 0.0f, unitCenterY (unit), frontZ }) * gfx::Mat4::rotationX (0.5f * pi);
-    }
+    /** Panel depth of a unit's body behind its faceplate. */
+    inline constexpr float unitBodyDepth = 0.62f;
 
     inline constexpr std::array<Rect, 4> tubeEarSlots {{
         { -2.36f, -0.36f, 0.075f, 0.036f }, { -2.36f, 0.36f, 0.075f, 0.036f },
@@ -223,6 +255,7 @@ namespace pad::layout
 
     /** Knob body radius for a control (unit standard x size); styles add their own skirts / caps. */
     inline constexpr float tubeKnobBodyRadius = 0.105f;
+    inline constexpr float tubeKnobScale = tubeKnobBodyRadius / knobRadius;
 
     // --- the two 1U units ------------------------------------------------------------
     // Built like outboard gear: brushed plate, engraved print, knobs in a bordered section on

@@ -12,14 +12,18 @@ namespace pad::geo
     using hwk::geo::ProfilePoint;
     using hwk::geo::unitQuad;
 
-    // --- world space -------------------------------------------------------------
-    MeshData chassisBody();
-    MeshData lidTop();            // lid-local (surface at y = 0), with vent slots
-    MeshData lidVentWalls();
-    MeshData lidVentFloors();
-    MeshData feet();
-    MeshData lidScrews();         // lid-local
-    MeshData tablePlane();
+    // --- unit body (panel-local: the panel is at y = 0, the body runs back toward -y) ------
+    MeshData unitBody (float halfH);          // rounded box behind the faceplate
+    MeshData unitVents (float halfH);         // slots in its top face
+    MeshData unitVentWalls (float halfH);
+    MeshData unitVentFloors (float halfH);
+    MeshData unitBodyScrews (float halfH);    // screws along the body seam
+
+    // --- the curved case (world space) -----------------------------------------------------
+    MeshData caseCheeks();      // the two side walls, swept along the arc
+    MeshData caseRails();       // the rails behind the gaps between units
+    MeshData caseEdges();       // bright chamfer along the front edges of the cheeks
+    MeshData caseFloor();       // the surface the case is standing on
 
     // --- panel-local ---------------------------------------------------------------
     MeshData faceplateEdges();
@@ -36,7 +40,6 @@ namespace pad::geo
     MeshData knobScaleRing();     // fixed flat annulus printed with the scale (uv = local xz)
 
     // --- SERAPH tube unit (panel-local unless noted) -----------------------------------------
-    MeshData tubeChassisBody();   // world
     MeshData tubeFaceTop();       // with the live display window and ear slots cut out
     MeshData tubeFaceEdges();
     MeshData tubeEarSlotWalls();
@@ -54,14 +57,6 @@ namespace pad::geo
     MeshData oneUEarFloors();
     MeshData oneUScrewHeads();
     MeshData oneUScrewSlots();
-    MeshData oneUChassis (float centreY, float halfH);   // world
-
-    // --- rack case (world space) ---------------------------------------------------------
-    MeshData rackRails();          // the two vertical rails, with their rack holes cut out
-    MeshData rackHoleWalls();
-    MeshData rackHoleFloors();
-    MeshData rackShell();          // back wall, floor and top of the case
-    MeshData rackEdges();          // the bright front edges of the case, where the light catches
 
     // (knobs, buttons, toggles and lamps come from hwk::models)
 }
