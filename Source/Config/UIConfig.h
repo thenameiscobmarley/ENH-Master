@@ -13,13 +13,15 @@ namespace pad
     */
     struct UIConfig
     {
-        static constexpr int schemaVersion = 1;
+        static constexpr int schemaVersion = 2;   // 2: panel print up to 4096 px (was 2048)
 
         int   frameRate       = 60;     // active rendering rate (Hz)
         int   idleFrameRate   = 30;     // when nothing is moving and mouse is outside
         int   msaaSamples     = 4;      // 0, 2, 4, 8 (main view and loupe)
         int   anisotropy      = 4;      // 1..8
-        int   panelTextureWidth = 2048; // 1024 or 2048 (height is half)
+        int   maxDetail       = 3;      // 0..3: finest level of detail the models may use up close
+        int   panelTextureWidth = 4096; // 1024, 2048 or 4096: printed panels (mipmapped: the GPU picks the
+                                        // resolution the camera needs, so print sharpens as you walk up)
         float parallaxAmount  = 1.0f;   // 0..2
         bool  reduceMotion    = false;  // disables idle sheen + parallax
 

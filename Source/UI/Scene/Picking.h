@@ -24,8 +24,8 @@ namespace pad
             }
             else if (c.kind == ControlKind::toggle)
             {
-                if (cam.intersectUnit (c.unit, ndcX, ndcY, 0.08f, lx, lz)
-                    && Rect { c.x, c.z, 0.08f, 0.13f }.contains (lx, lz))
+                if (cam.intersectUnit (c.unit, ndcX, ndcY, 0.02f, lx, lz)
+                    && Rect { c.x, c.z, hwk::models::rockerHalfW + 0.03f, hwk::models::rockerHalfD + 0.03f }.contains (lx, lz))
                     return i;
             }
             else

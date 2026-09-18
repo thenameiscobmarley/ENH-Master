@@ -194,7 +194,7 @@ holds *that* steady, for sources that are quiet to begin with. **POWER**: OFF (t
 TONE (tone & texture only) / +SPACE (TONE + SPACE). Zero latency.
 
 One unified front (no channel split): a live display in the middle, the ten knobs in one row along the bottom,
-the six toggles (up = on) in a grid on the right, lamp and POWER on the left. The display shows, live:
+the six I / O rocker switches (I = on) in a grid on the right, lamp and POWER on the left. The display shows, live:
 
 - **left**: SMOOTH's resonance dips across 150 Hz – 16 kHz, right now;
 - **right**: a pair of L / R bars per process - SMOOTH, AIR, WARMTH, BODY, TAPE, LEVEL (auto gain, centre = 0 dB),
@@ -338,8 +338,29 @@ Knob styles in use: ENH Master's CLARITY / ADAPT / SUB are `proXl`, its masters 
 
 ## The rack
 
-The units' ears are screwed to front mounting rails (zinc-plated, square rack holes) swept along the
-same arc as the case, so the units sit in a rack rather than floating between the cheeks.
+The front mounting rails are straight segments, one per unit, as in a real curved cabinet. Each
+lies flat against the back of its unit's faceplate, meeting its neighbours in the middle of each gap.
+They are zinc-plated, with square rack holes under every ear screw. The units sit 0.03 inside the
+cheeks' arc, and a contact shadow runs where the ears clamp to the rails.
+
+## Detail and resolution
+
+- **Detail levels:** every knob, selector, push button and switch is built at four levels (32, 64,
+  128 and 256 segments round). Each frame, each control is drawn at the level its size on screen
+  calls for, including inside the zoomed loupe. So walking up to the rack, or scrolling to zoom,
+  brings in finer geometry.
+- **Carved detail** (levels 2 and 3) is real geometry, not painted on:
+  - knurled and ribbed grips and flutes;
+  - brushed inserts and trim rings;
+  - set screws;
+  - anodised cap inserts in muted unit colours: petrol (compressor), bronze (leveler), oxblood
+    (limiter).
+- **Switches:** I / O rocker switches, with the I end pressed in when on.
+- **Screws:** pan-head ear screws on washers.
+- **Printed panels:** 4096 px wide, mipmapped, so the GPU uses the resolution the camera needs and
+  the print sharpens as you get closer. Scale rings are 1024 px, meter faces up to 1536 px.
+- **Speed:** `maxDetail` (0 to 3) in `ui-config.json` caps the finest level on slow GPUs. On a J4105,
+  walked up to TONE & SPACE runs at about 38 ms a frame at level 3 and 35 ms at level 1.
 
 ## Layout: how units are placed, and LayoutViz
 

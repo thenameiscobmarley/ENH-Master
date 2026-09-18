@@ -153,10 +153,19 @@ namespace pad
                        std::initializer_list<const gfx::Texture2D*> faces, const gfx::GpuMesh& faceTop);
         void drawVuGlass (int unit, const gfx::Mat4& panel);
 
-        // Models from HardwareKit: one per distinct knob (style, radius); shared button / toggle / lamp models
+        // Models from HardwareKit, each at every level of detail: one per distinct knob (style, radius,
+        // accent); shared button and rocker models. Each frame a control is drawn at the level its size on
+        // screen calls for (detailFor), so walking up to the rack or zooming the loupe brings in finer
+        // tessellation and the carved grip detail.
+        static constexpr int numDetail = hwk::models::numDetailLevels;
         std::vector<std::unique_ptr<GpuModel>> knobModels;
-        std::array<int, layout::numControls> knobModelIndex {}, ringScale {};
-        GpuModel buttonModel, toggleBaseModel, toggleLeverModel, lampModel;
+        std::array<std::array<int, numDetail>, layout::numControls> knobModelIndex {};
+        std::array<int, layout::numControls> ringScale {};
+        std::array<GpuModel, numDetail> buttonModels, rockerModels;
+        GpuModel lampModel;
+
+        /** Level of detail for something of `radius` at panel (x, z) of `panel`, seen by `cam` in a viewport `viewportW` wide. */
+        int detailFor (const CameraRig& cam, const gfx::Mat4& panel, float x, float z, float radius, int viewportW) const noexcept;
 
         // Fisheye loupe over hovered print
         gfx::RenderTarget loupeTarget;
@@ -208,6 +217,10 @@ namespace pad
         int swapInterval = -1;
 
         const bool demoMeters = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_DEMO", {}).isNotEmpty();
+        // Finest level of detail allowed (config maxDetail; PAD_UI_TEST_MAX_DETAIL overrides it, dev only)
+        const int maxDetail = juce::jlimit (0, 3, juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_MAX_DETAIL", {}).isNotEmpty()
+                                                     ? juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_MAX_DETAIL", {}).getIntValue()
+                                                     : config.maxDetail);
         const bool statsEnabled = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STATS", {}).isNotEmpty();
         double statStart = 0.0, statSum = 0.0, statMax = 0.0, statRenderSum = 0.0;
         int statCount = 0, statLong = 0;

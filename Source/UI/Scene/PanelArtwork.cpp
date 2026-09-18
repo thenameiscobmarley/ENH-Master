@@ -267,7 +267,7 @@ namespace pad::artwork
                 text (g, m, c.label, c.x, c.z + (c.size < 0.99f ? 0.155f : knobRadius * tubeKnobScale * c.size * 1.32f + 0.052f),
                       c.size < 0.99f ? 0.022f : 0.024f, centred, true, 0.14f, 0.40f);
             else if (c.kind == ControlKind::toggle)
-                text (g, m, c.label, c.x, c.z + 0.165f, 0.020f, centred, true, 0.10f, 0.30f);
+                text (g, m, c.label, c.x, c.z + hwk::models::rockerHalfD + 0.050f, 0.020f, centred, true, 0.10f, 0.30f);
             else if (c.kind == ControlKind::button)
                 text (g, m, c.label, c.x, c.z + 0.105f, 0.022f, centred, true, 0.14f, 0.30f);
             recorder.control = -1;
@@ -332,8 +332,8 @@ namespace pad::artwork
             }
         }
 
-        // Toggle grid caption ("up = on"), above the grid - between its levers and the POWER selector
-        text (g, m, "UP = ON", 1.78f, -0.215f, 0.017f, centred, true, 0.12f, 0.4f);
+        // Switch grid caption, above the grid - between its rockers and the POWER selector
+        text (g, m, "I = ON", 1.78f, -0.215f, 0.017f, centred, true, 0.12f, 0.4f);
 
         recorder = {};
         RawTexture tex { w, h, 1, {} };

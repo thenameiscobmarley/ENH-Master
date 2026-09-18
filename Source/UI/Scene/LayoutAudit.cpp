@@ -153,9 +153,8 @@ namespace pad::audit
                 }
                 else if (c.kind == ControlKind::toggle)
                 {
-                    // Nut, plus the lever's reach across the panel in either position (0.186 long at 28 degrees)
-                    const float reach = togglePivotY * std::sin (toggleAngle) + 0.186f * std::sin (toggleAngle) + 0.019f;
-                    obs.push_back ({ Obstacle::rect, c.x, c.z, 0.042f, std::max (0.042f, reach), name });
+                    // The rocker's bezel
+                    obs.push_back ({ Obstacle::rect, c.x, c.z, hwk::models::rockerHalfW, hwk::models::rockerHalfD, name });
                 }
                 else
                 {

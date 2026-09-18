@@ -153,6 +153,7 @@ namespace pad::layout
     inline constexpr float arcRadius  = 9.60f;    // viewer to panel
     inline constexpr float arcCentreY = 1.62f;    // the viewer's eye height
     inline constexpr float arcCentreZ = 10.05f;   // and where they are standing
+    inline constexpr float unitRecess = 0.03f;    // faceplates sit this far inside the cheeks' arc, on the rails
 
     inline constexpr float unitHalfH (int unit) noexcept
     {
@@ -194,7 +195,8 @@ namespace pad::layout
     inline gfx::Vec3 unitOrigin (int unit) noexcept
     {
         const float a = unitAngle (unit);
-        return { 0.0f, arcCentreY + arcRadius * std::sin (a), arcCentreZ - arcRadius * std::cos (a) };
+        const float r = arcRadius + unitRecess;
+        return { 0.0f, arcCentreY + r * std::sin (a), arcCentreZ - r * std::cos (a) };
     }
 
     /** Panel-local (x across, z down, y out of the panel) to world, on the arc. */
@@ -233,11 +235,12 @@ namespace pad::layout
     inline constexpr float caseOverhang  = 0.30f;                // past the top and bottom unit
     inline constexpr int   caseArcSteps  = 26;                   // segments along the curve
 
-    /*  Front mounting rails, one each side, swept along the same arc just behind the faceplates:
-        the ears overlap them and the ear screws go through into them, as in a real rack. They run
-        from just inside the ear screws out to the cheeks, and show in the gaps between units. */
+    /*  Front mounting rails, one each side. In a curved cabinet they are straight segments, one per
+        unit, lying flat against the back of that unit's faceplate (the ears are clamped to them by the
+        ear screws), meeting at the middle of each gap. They run from just inside the ear screws out to
+        the cheeks, and show in the gaps between units. */
     inline constexpr float railInnerX    = 2.28f;                // ear screws sit at +-2.34
-    inline constexpr float railFront     = faceThick + 0.004f;   // behind the back of a faceplate
+    inline constexpr float railFront     = faceThick + 0.0015f;  // flush behind the faceplate (clear of the slot floors)
     inline constexpr float railThick     = 0.030f;
     inline constexpr float railHoleX     = 2.34f;                // on the ear screws' line
     inline constexpr float railHoleHalf  = 0.036f;

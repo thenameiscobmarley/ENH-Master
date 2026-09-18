@@ -17,6 +17,7 @@ namespace pad
         obj->setProperty ("idleFrameRate", idleFrameRate);
         obj->setProperty ("msaaSamples", msaaSamples);
         obj->setProperty ("anisotropy", anisotropy);
+        obj->setProperty ("maxDetail", maxDetail);
         obj->setProperty ("panelTextureWidth", panelTextureWidth);
         obj->setProperty ("parallaxAmount", parallaxAmount);
         obj->setProperty ("reduceMotion", reduceMotion);
@@ -35,14 +36,15 @@ namespace pad
         }
 
         const auto known = juce::StringArray { "schemaVersion", "frameRate", "idleFrameRate", "msaaSamples",
-                                               "anisotropy", "panelTextureWidth", "parallaxAmount", "reduceMotion" };
+                                               "anisotropy", "maxDetail", "panelTextureWidth", "parallaxAmount", "reduceMotion" };
 
         for (auto& prop : obj->getProperties())
             if (! known.contains (prop.name.toString()))
                 c.warnings.add ("Unknown key ignored: " + prop.name.toString());
 
-        if ((int) obj->getProperty ("schemaVersion") != schemaVersion)
-            c.warnings.add ("schemaVersion mismatch; unrecognised values fall back to defaults");
+        const int fileSchema = (int) obj->getProperty ("schemaVersion");
+        if (fileSchema > schemaVersion)
+            c.warnings.add ("schemaVersion is newer than this build; unrecognised values fall back to defaults");
 
         auto readInt = [&] (const char* key, int& target, int lo, int hi)
         {
@@ -66,14 +68,17 @@ namespace pad
         readInt ("idleFrameRate", c.idleFrameRate, 5, 60);
         readInt ("msaaSamples", c.msaaSamples, 0, 8);
         readInt ("anisotropy", c.anisotropy, 1, 8);
-        readInt ("panelTextureWidth", c.panelTextureWidth, 1024, 2048);
+        readInt ("maxDetail", c.maxDetail, 0, 3);
+        readInt ("panelTextureWidth", c.panelTextureWidth, 1024, 4096);
+        if (fileSchema < 2 && c.panelTextureWidth == 2048)
+            c.panelTextureWidth = 4096;   // schema 1's default was the ceiling then; move it up with the new one
 
         if (c.msaaSamples == 1 || c.msaaSamples == 3)
             c.msaaSamples = 2;
         else if (c.msaaSamples > 4 && c.msaaSamples < 8)
             c.msaaSamples = 4;
 
-        c.panelTextureWidth = c.panelTextureWidth >= 1536 ? 2048 : 1024;
+        c.panelTextureWidth = c.panelTextureWidth >= 3072 ? 4096 : c.panelTextureWidth >= 1536 ? 2048 : 1024;
         c.idleFrameRate = juce::jmin (c.idleFrameRate, c.frameRate);
 
         auto parallax = obj->getProperty ("parallaxAmount");

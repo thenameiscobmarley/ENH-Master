@@ -142,6 +142,17 @@ namespace pad
         return controlParam[i];
     }
 
+    int HardwareRenderer::detailFor (const CameraRig& cam, const Mat4& panel, float x, float z, float radius, int viewportW) const noexcept
+    {
+        // Size on screen: project the centre and a point `radius` along the camera's right
+        const auto centre = panel.transformPoint ({ x, 0.0f, z });
+        float ax = 0, ay = 0, bx = 0, by = 0;
+        if (! gfx::projectToNdc (cam.viewProj, centre, ax, ay) || ! gfx::projectToNdc (cam.viewProj, centre + cam.right * radius, bx, by))
+            return 0;
+        const float pixels = std::hypot (bx - ax, by - ay) * 0.5f * (float) viewportW;
+        return std::min (maxDetail, hwk::models::detailForPixels (pixels));
+    }
+
     HardwareRenderer::~HardwareRenderer()
     {
         jassert (! ready); // context must be detached before destruction
@@ -214,38 +225,49 @@ namespace pad
         limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.34f, 0.07f, 0.11f }));
 
 
-        // HardwareKit models: one GPU model per distinct (style, radius)
+        // HardwareKit models, every distinct (style, radius, unit accent) at every level of detail
         knobModels.clear();
-        std::vector<std::pair<int, float>> built;
+        struct Key { int style; float radius; int unit; };
+        std::vector<Key> built;
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            knobModelIndex[(size_t) i] = -1;
+            knobModelIndex[(size_t) i].fill (-1);
             if (c.kind != ControlKind::knob && c.kind != ControlKind::selector)
                 continue;
 
             const float r = knobBodyRadius (c);
-            const auto accent = c.unit == tubeUnit  ? Vec3 { 0.62f, 0.44f, 1.0f }
-                              : c.unit == tideUnit  ? Vec3 { 0.20f, 0.80f, 0.95f }
-                              : c.unit == lumenUnit ? Vec3 { 1.00f, 0.72f, 0.22f }
-                              : c.unit == limiterUnit ? Vec3 { 1.00f, 0.30f, 0.50f }
-                                                    : Vec3 { 0.55f, 0.56f, 0.60f };
-            const auto key = std::make_pair ((int) c.style, r);
-            const auto found = std::find (built.begin(), built.end(), key);
-            if (found != built.end())
+            // Soft-touch caps (TONE & SPACE masters) in violet; the 1U units' anodised caps muted -
+            // petrol, bronze and oxblood, as anodised aluminium comes
+            const auto accent = c.unit == tubeUnit    ? Vec3 { 0.62f, 0.44f, 1.0f }
+                              : c.unit == tideUnit    ? Vec3 { 0.10f, 0.29f, 0.35f }
+                              : c.unit == lumenUnit   ? Vec3 { 0.47f, 0.33f, 0.14f }
+                              : c.unit == limiterUnit ? Vec3 { 0.42f, 0.08f, 0.12f }
+                                                      : Vec3 { 0.55f, 0.56f, 0.60f };
+            int first = -1;
+            for (size_t k = 0; k < built.size(); ++k)
+                if (built[k].style == (int) c.style && built[k].radius == r && built[k].unit == c.unit)
+                    first = (int) k;
+            if (first >= 0)
             {
-                knobModelIndex[(size_t) i] = (int) (found - built.begin());
+                for (int d = 0; d < numDetail; ++d)
+                    knobModelIndex[(size_t) i][(size_t) d] = first * numDetail + d;
                 continue;
             }
-            auto model = std::make_unique<GpuModel>();
-            model->upload (hwk::models::knob (c.style, r, accent));
-            knobModelIndex[(size_t) i] = (int) knobModels.size();
-            knobModels.push_back (std::move (model));
-            built.push_back (key);
+            for (int d = 0; d < numDetail; ++d)
+            {
+                auto model = std::make_unique<GpuModel>();
+                model->upload (hwk::models::knob (c.style, r, accent, d));
+                knobModelIndex[(size_t) i][(size_t) d] = (int) knobModels.size();
+                knobModels.push_back (std::move (model));
+            }
+            built.push_back ({ (int) c.style, r, c.unit });
         }
-        buttonModel.upload (hwk::models::pushButton (buttonHalfW, buttonHalfD));
-        toggleBaseModel.upload (hwk::models::batToggleBase());
-        toggleLeverModel.upload (hwk::models::batToggleLever());
+        for (int d = 0; d < numDetail; ++d)
+        {
+            buttonModels[(size_t) d].upload (hwk::models::pushButton (buttonHalfW, buttonHalfD, d));
+            rockerModels[(size_t) d].upload (hwk::models::rockerSwitch (d));
+        }
         lampModel.upload (hwk::models::jewelLamp());
         meshes.led.upload (hwk::models::ledLens());
 
@@ -297,9 +319,8 @@ namespace pad
         for (auto& model : knobModels)
             model->release();
         knobModels.clear();
-        buttonModel.release();
-        toggleBaseModel.release();
-        toggleLeverModel.release();
+        for (auto& b : buttonModels) b.release();
+        for (auto& r : rockerModels) r.release();
         lampModel.release();
         tideVu.release();
         lumenVu.release();
@@ -630,7 +651,7 @@ namespace pad
             if (c.kind == ControlKind::toggle)
             {
                 auto& tg = toggles[(size_t) i];
-                tg.update (value > 0.5f, toggleAngle, -toggleAngle, dt);
+                tg.update (value > 0.5f, -hwk::models::rockerAngle, hwk::models::rockerAngle, dt);   // on = the I end pressed in
                 busy = busy || ! tg.isIdle();
                 continue;
             }
@@ -1170,7 +1191,8 @@ namespace pad
             if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
             {
                 const auto& k = knobs[(size_t) i];
-                const int modelIndex = knobModelIndex[(size_t) i];
+                const int detail = detailFor (cam, unitPanel, c.x, c.z, knobBodyRadius (c) * 1.3f, vw);
+                const int modelIndex = knobModelIndex[(size_t) i][(size_t) detail];
                 if (modelIndex < 0)
                     continue;
 
@@ -1184,16 +1206,19 @@ namespace pad
             }
             else if (c.kind == ControlKind::toggle)
             {
+                // I / O rocker: the paddle and its marks rock about the pivot; the bezel stays put
                 const auto& tg = toggles[(size_t) i];
-                const Vec3 lift = hovered ? Vec3 { 0.08f, 0.08f, 0.09f } : Vec3 {};
-                drawModel (toggleLeverModel, base * Mat4::translation ({ 0.0f, togglePivotY, 0.0f }) * Mat4::rotationX (tg.angle), base, lift, {});
-                drawModel (toggleBaseModel, base, base, {}, {});
+                const Vec3 lift = hovered ? Vec3 { 0.05f, 0.05f, 0.06f } : Vec3 {};
+                const int detail = detailFor (cam, unitPanel, c.x, c.z, hwk::models::rockerHalfD, vw);
+                drawModel (rockerModels[(size_t) detail], base * Mat4::translation ({ 0.0f, hwk::models::rockerPivotY, 0.0f }) * Mat4::rotationX (tg.angle),
+                           base, lift, { 0.93f, 0.93f, 0.95f });
             }
             else
             {
                 const auto& bt = buttons[(size_t) i];
                 const auto pressed = base * Mat4::translation ({ 0.0f, -buttonTravel * bt.travel(), 0.0f });
-                drawModel (buttonModel, pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
+                const int detail = detailFor (cam, unitPanel, c.x, c.z, buttonHalfW, vw);
+                drawModel (buttonModels[(size_t) detail], pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
 
                 // Each button's LED on its own unit's panel (the LIFT button's used to be drawn on the
                 // enhancer's panel, where it landed inside FOOTSTEP)
@@ -1414,7 +1439,7 @@ namespace pad
             for (int i = 0; i < numControls; ++i)
             {
                 const auto& c = controls[(size_t) i];
-                const int modelIndex = knobModelIndex[(size_t) i];
+                const int modelIndex = knobModelIndex[(size_t) i][1];
                 if (c.kind != ControlKind::knob || modelIndex < 0)
                     continue;
 
@@ -1435,6 +1460,12 @@ namespace pad
             }
         }
 
+        // Where each faceplate's ears press on the rails: a contact shadow along both edges
+        for (int u = 0; u < numUnits; ++u)
+            for (float side : { -1.0f, 1.0f })
+                drawShadow (panelFor (u), side * (faceHalfW + 0.004f) - L.x * 0.02f, -railFront + 0.0012f, 0.0f,
+                            0.012f, unitHalfH (u) - 0.01f, 0.01f, 0.03f, 0.55f);
+
         // Each unit lays a soft shadow on the panel of the one below it, inside the case
         for (int u = 0; u < numUnits; ++u)
         {
@@ -1451,7 +1482,7 @@ namespace pad
 
             if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
             {
-                const int modelIndex = knobModelIndex[(size_t) i];
+                const int modelIndex = knobModelIndex[(size_t) i][1];
                 const auto* model = modelIndex >= 0 ? knobModels[(size_t) modelIndex].get() : nullptr;
                 const float r = model != nullptr ? model->shadowRadius : knobFlange;
                 const float sx = c.x + offX * 0.05f, sz = c.z + offZ * 0.05f;
@@ -1468,7 +1499,8 @@ namespace pad
                 }
             }
             else if (c.kind == ControlKind::toggle)
-                drawShadow (unitPanel, c.x + offX * 0.02f, 0.003f, c.z + offZ * 0.02f, 0.042f, 0.042f, 0.042f, 0.02f, 0.5f);
+                drawShadow (unitPanel, c.x + offX * 0.012f, 0.003f, c.z + offZ * 0.012f, hwk::models::rockerHalfW + 0.004f,
+                            hwk::models::rockerHalfD + 0.004f, 0.014f, 0.014f, 0.45f);
             else
                 drawShadow (unitPanel, c.x + offX * 0.015f, 0.003f, c.z + offZ * 0.015f, buttonHalfW + 0.014f, buttonHalfD + 0.014f, 0.016f, 0.015f, 0.5f);
         }

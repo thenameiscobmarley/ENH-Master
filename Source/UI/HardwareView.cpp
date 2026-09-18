@@ -25,19 +25,19 @@ namespace pad
 
         artwork::TextureSet textures;
         textures.faceplateDecal = artwork::renderFaceplateDecal (config.panelTextureWidth, &textItems);
-        textures.scale10 = artwork::renderKnobScale (512, 10);
-        textures.scale30 = artwork::renderKnobScale (512, 30);
-        textures.scale3 = artwork::renderKnobScale (512, 3);
-        textures.scale5 = artwork::renderKnobScale (512, 5);
+        textures.scale10 = artwork::renderKnobScale (1024, 10);
+        textures.scale30 = artwork::renderKnobScale (1024, 30);
+        textures.scale3 = artwork::renderKnobScale (1024, 3);
+        textures.scale5 = artwork::renderKnobScale (1024, 5);
         textures.tubeDecal = artwork::renderTubeDecal (config.panelTextureWidth, &textItems);
-        textures.seraphLabels = artwork::renderSeraphDisplayLabels (1536, &textItems);
+        textures.seraphLabels = artwork::renderSeraphDisplayLabels (3072, &textItems);
         textures.tideDecal = artwork::renderOneUDecal (tideUnit, config.panelTextureWidth, &textItems);
         textures.lumenDecal = artwork::renderOneUDecal (lumenUnit, config.panelTextureWidth, &textItems);
-        textures.tideVuFace = artwork::renderVuFace (tideUnit, 768, &textItems);
-        textures.lumenVuFace = artwork::renderVuFace (lumenUnit, 512, &textItems);
+        textures.tideVuFace = artwork::renderVuFace (tideUnit, 1536, &textItems);
+        textures.lumenVuFace = artwork::renderVuFace (lumenUnit, 1024, &textItems);
         textures.limiterDecal = artwork::renderOneUDecal (limiterUnit, config.panelTextureWidth, &textItems);
-        textures.limiterVuFace[0] = artwork::renderVuFace (limiterUnit, 512, &textItems, 0);
-        textures.limiterVuFace[1] = artwork::renderVuFace (limiterUnit, 512, &textItems, 1);
+        textures.limiterVuFace[0] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 0);
+        textures.limiterVuFace[1] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 1);
         scopeAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
         artwork::collectKnobScaleText (textItems);
 

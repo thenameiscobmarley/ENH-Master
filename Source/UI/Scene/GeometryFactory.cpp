@@ -1,4 +1,5 @@
 #include "GeometryFactory.h"
+#include <algorithm>
 
 namespace pad::geo
 {
@@ -8,6 +9,18 @@ namespace pad::geo
 
     using namespace hwk::geo;
     using layout::pi;
+
+    //==============================================================================
+    /** An ear screw as it really looks: a thin washer, then a smooth pan head (the Phillips recess is
+        drawn separately, sitting on its crown). 128 segments round, so it stays round up close. */
+    static MeshData rackScrewHead()
+    {
+        MeshData mesh;
+        mesh.append (lathe (0.058f, { { 0.0f, 0.0f }, { 0.0f, 0.004f }, { -0.003f, 0.0055f } }, 128, true));
+        mesh.append (lathe (0.049f, { { 0.0f, 0.004f }, { 0.0f, 0.013f }, { -0.005f, 0.022f }, { -0.014f, 0.029f },
+                                      { -0.026f, 0.0325f }, { -0.040f, 0.0335f } }, 128, true));
+        return mesh;
+    }
 
     //==============================================================================
     // Unit body: panel-local, so it curves with its unit. The panel is at y = 0 and the
@@ -134,7 +147,7 @@ namespace pad::geo
         {
             const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
             const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
-            const auto a = arcPoint (sA, -unitBodyDepth - 0.05f), b = arcPoint (sB, -unitBodyDepth - 0.05f);
+            const auto a = arcPoint (sA, -unitBodyDepth - unitRecess - 0.05f), b = arcPoint (sB, -unitBodyDepth - unitRecess - 0.05f);
             mesh.append (quad ({ -caseSideX, a.y, a.z }, { -caseSideX, b.y, b.z },
                                { caseSideX, b.y, b.z }, { caseSideX, a.y, a.z }));
         }
@@ -142,46 +155,82 @@ namespace pad::geo
         return mesh;
     }
 
+    namespace
+    {
+        /** Where a unit's rail segment starts and ends (panel-local z, down +): the middle of the gap
+            on each side, or the case overhang at the bottom and top of the stack. */
+        std::pair<float, float> railSpan (int unit)
+        {
+            const float h = unitHalfH (unit);
+            const bool bottom = unit == rackOrder.front(), top = unit == rackOrder.back();
+            return { -h - (top ? caseOverhang : 0.5f * rackGap), h + (bottom ? caseOverhang : 0.5f * rackGap) };
+        }
+
+        /** The unit's ear-screw heights (panel-local z). */
+        std::vector<float> earScrewZ (int unit)
+        {
+            if (unit == enhUnit)  return { earSlots[0].cz, earSlots[1].cz };
+            if (unit == tubeUnit) return { tubeEarSlots[0].cz, tubeEarSlots[1].cz };
+            return { oneUEarSlots[0].cz };
+        }
+    }
+
     MeshData caseFrontRails()
     {
         MeshData mesh;
-        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
-        constexpr int steps = caseArcSteps * 3;
-
-        for (float side : { -1.0f, 1.0f })
+        for (int unit : rackOrder)
         {
-            const float xIn = side * railInnerX, xOut = side * caseSideX;
-            for (int i = 0; i < steps; ++i)
+            const auto [z0, z1] = railSpan (unit);
+            const Mat4 toWorld = panelToWorld (unit);
+            for (float side : { -1.0f, 1.0f })
             {
-                const float sA = s0 + (s1 - s0) * (float) i / (float) steps;
-                const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) steps;
-                const auto fA = arcPoint (sA, -railFront), fB = arcPoint (sB, -railFront);
-                const auto bA = arcPoint (sA, -railFront - railThick), bB = arcPoint (sB, -railFront - railThick);
-
-                // front face (toward the viewer), the inner edge, and the back face
-                mesh.append (quad ({ xIn, fA.y, fA.z }, { xIn, fB.y, fB.z }, { xOut, fB.y, fB.z }, { xOut, fA.y, fA.z }));
-                mesh.append (quad ({ xIn, bA.y, bA.z }, { xIn, bB.y, bB.z }, { xIn, fB.y, fB.z }, { xIn, fA.y, fA.z }));
-                mesh.append (quad ({ xOut, bA.y, bA.z }, { xOut, bB.y, bB.z }, { xIn, bB.y, bB.z }, { xIn, bA.y, bA.z }));
+                const float xIn = side * railInnerX, xOut = side * caseSideX;
+                const float yF = -railFront, yB = -railFront - railThick;
+                MeshData seg;
+                seg.append (quad ({ xIn, yF, z0 }, { xIn, yF, z1 }, { xOut, yF, z1 }, { xOut, yF, z0 }));   // front
+                seg.append (quad ({ xIn, yB, z0 }, { xIn, yB, z1 }, { xIn, yF, z1 }, { xIn, yF, z0 }));     // inner edge
+                seg.append (quad ({ xOut, yB, z0 }, { xOut, yB, z1 }, { xIn, yB, z1 }, { xIn, yB, z0 }));   // back
+                mesh.append (seg, toWorld);
             }
         }
-
         return mesh;
     }
 
     MeshData caseRailHoles()
     {
         MeshData mesh;
-        const float s0 = -caseOverhang + railHolePitch * 0.5f, s1 = totalArcLength() + caseOverhang - railHolePitch * 0.5f;
+        for (int unit : rackOrder)
+        {
+            const auto [z0, z1] = railSpan (unit);
+            const auto ears = earScrewZ (unit);
+            const Mat4 toWorld = panelToWorld (unit);
 
-        // Square holes, as dark quads a hair in front of the rail face
-        for (float side : { -1.0f, 1.0f })
-            for (float s = s0; s <= s1; s += railHolePitch)
+            // A hole under every ear screw, then the regular pitch outward from them, skipping any that
+            // would crowd a hole already there
+            std::vector<float> zs (ears.begin(), ears.end());
+            auto add = [&] (float z)
             {
-                const auto a = arcPoint (s - railHoleHalf, -railFront + 0.001f), b = arcPoint (s + railHoleHalf, -railFront + 0.001f);
-                const float x0 = side * (railHoleX - railHoleHalf), x1 = side * (railHoleX + railHoleHalf);
-                mesh.append (quad ({ x0, a.y, a.z }, { x0, b.y, b.z }, { x1, b.y, b.z }, { x1, a.y, a.z }));
+                if (z < z0 + railHoleHalf || z > z1 - railHoleHalf)
+                    return false;
+                for (float other : zs)
+                    if (std::abs (other - z) < 0.6f * railHolePitch)
+                        return true;   // crowded: skip it, keep walking
+                zs.push_back (z);
+                return true;
+            };
+            for (float e : ears)
+            {
+                for (float z = e - railHolePitch; add (z); z -= railHolePitch) {}
+                for (float z = e + railHolePitch; add (z); z += railHolePitch) {}
             }
 
+            for (float side : { -1.0f, 1.0f })
+                for (float z : zs)
+                {
+                    const float x0 = side * (railHoleX - railHoleHalf), x1 = side * (railHoleX + railHoleHalf), y = -railFront + 0.0008f;
+                    mesh.append (quad ({ x0, y, z - railHoleHalf }, { x0, y, z + railHoleHalf }, { x1, y, z + railHoleHalf }, { x1, y, z - railHoleHalf }), toWorld);
+                }
+        }
         return mesh;
     }
 
@@ -289,7 +338,7 @@ namespace pad::geo
     MeshData screwHeads()
     {
         MeshData mesh;
-        const auto head = sweptRoundedRect (0, 0, 0.05f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.02f, 0.03f } }, true);
+        const auto head = rackScrewHead();
         for (auto& slot : earSlots)
             mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
         return mesh;
@@ -301,8 +350,8 @@ namespace pad::geo
         for (auto& slot : earSlots)
         {
             const float x = slot.cx + (slot.cx > 0 ? -0.02f : 0.02f);
-            mesh.append (box ({ x - 0.022f, 0.026f, slot.cz - 0.0045f }, { x + 0.022f, 0.0315f, slot.cz + 0.0045f }));
-            mesh.append (box ({ x - 0.0045f, 0.026f, slot.cz - 0.022f }, { x + 0.0045f, 0.0315f, slot.cz + 0.022f }));
+            mesh.append (box ({ x - 0.021f, 0.0315f, slot.cz - 0.0042f }, { x + 0.021f, 0.0345f, slot.cz + 0.0042f }));
+            mesh.append (box ({ x - 0.0042f, 0.0315f, slot.cz - 0.021f }, { x + 0.0042f, 0.0345f, slot.cz + 0.021f }));
         }
         return mesh;
     }
@@ -351,7 +400,7 @@ namespace pad::geo
     MeshData tubeScrewHeads()
     {
         MeshData mesh;
-        const auto head = sweptRoundedRect (0, 0, 0.05f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.02f, 0.03f } }, true);
+        const auto head = rackScrewHead();
         for (auto& slot : tubeEarSlots)
             mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
         return mesh;
@@ -363,7 +412,7 @@ namespace pad::geo
         for (auto& slot : tubeEarSlots)
         {
             const float x = slot.cx + (slot.cx > 0 ? -0.02f : 0.02f);
-            mesh.append (box ({ x - 0.022f, 0.026f, slot.cz - 0.0045f }, { x + 0.022f, 0.0315f, slot.cz + 0.0045f }));
+            mesh.append (box ({ x - 0.021f, 0.0315f, slot.cz - 0.0042f }, { x + 0.021f, 0.0345f, slot.cz + 0.0042f }));
         }
         return mesh;
     }
@@ -432,7 +481,7 @@ namespace pad::geo
     MeshData oneUScrewHeads()
     {
         MeshData mesh;
-        const auto head = sweptRoundedRect (0, 0, 0.05f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.02f, 0.03f } }, true);
+        const auto head = rackScrewHead();
         for (auto& slot : oneUEarSlots)
             mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
         return mesh;
@@ -444,8 +493,8 @@ namespace pad::geo
         for (auto& slot : oneUEarSlots)
         {
             const float x = slot.cx + (slot.cx > 0 ? -0.02f : 0.02f);
-            mesh.append (box ({ x - 0.022f, 0.026f, slot.cz - 0.0045f }, { x + 0.022f, 0.0315f, slot.cz + 0.0045f }));
-            mesh.append (box ({ x - 0.0045f, 0.026f, slot.cz - 0.022f }, { x + 0.0045f, 0.0315f, slot.cz + 0.022f }));
+            mesh.append (box ({ x - 0.021f, 0.0315f, slot.cz - 0.0042f }, { x + 0.021f, 0.0345f, slot.cz + 0.0042f }));
+            mesh.append (box ({ x - 0.0042f, 0.0315f, slot.cz - 0.021f }, { x + 0.0042f, 0.0345f, slot.cz + 0.021f }));
         }
         return mesh;
     }
