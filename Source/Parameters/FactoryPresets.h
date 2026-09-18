@@ -49,14 +49,15 @@ namespace pad::presets
               {
                   { id::clarityMode, 1.0f }, { id::clarityAdd, 4.0f }, { id::adaptSpeed, 35.0f },
                   { id::sub, 45.0f }, { id::subBoost, 0.0f }, { id::footstep, 0.0f },
-                  { id::lumenTarget, -20.0f }, { id::lumenResponse, 4.0f },
+                  { id::lumenTarget, -22.0f }, { id::lumenResponse, 4.0f },               // hits don't pull the detail down
                   { id::spectralRange, 9.0f }, { id::spectralRelease, 240.0f }, { id::spectralCeiling, -2.0f },
                   { id::tideMix, 40.0f }, { id::tideResponse, 4.0f },
                   { id::seraphMode, 2.0f },
                   { id::silkSmooth, 4.0f }, { id::silkAir, 4.0f }, { id::silkWarmth, 3.0f }, { id::silkBody, 2.5f },
                   { id::haloWidth, 130.0f }, { id::haloSpace, 2.0f }, { id::haloDecay, 2.4f }, { id::haloShimmer, 1.0f },
                   { id::haloTone, 6.0f }, { id::haloDuck, 1.0f }, { id::haloBassMono, 1.0f },
-                  { id::heavenHold, 12.0f },
+                  { id::heavenHold, 12.0f }, { id::silkSub, 3.0f },
+                  { id::heavenAuto, 1.0f }, { id::heavenAutoAmount, 6.0f },          // it tunes its own space
               } },
 
             { "NIGHT MODE",
@@ -80,7 +81,7 @@ namespace pad::presets
                   { id::spectralRange, 15.0f }, { id::spectralRelease, 170.0f }, { id::spectralCeiling, -7.0f },
                   { id::tideMix, 50.0f }, { id::tideResponse, 5.0f },
                   { id::seraphMode, 2.0f },
-                  { id::silkBody, 1.0f }, { id::silkWarmth, 2.0f },
+                  { id::silkBody, 1.0f }, { id::silkWarmth, 2.0f }, { id::silkSub, 4.0f },
                   { id::haloSpace, 1.5f }, { id::haloBassMono, 1.0f }, { id::haloDuck, 1.0f },
               } },
 
@@ -124,6 +125,7 @@ namespace pad::presets
                   { id::silkSmooth, 4.0f }, { id::silkAir, 6.0f }, { id::silkWarmth, 2.0f }, { id::silkBody, 1.5f },
                   { id::haloWidth, 150.0f }, { id::haloSpace, 3.0f }, { id::haloDecay, 3.2f }, { id::haloShimmer, 2.5f },
                   { id::haloTone, 7.0f }, { id::haloMod, 1.0f }, { id::haloDuck, 1.0f }, { id::haloBassMono, 1.0f },
+                  { id::silkSub, 2.0f }, { id::heavenAuto, 1.0f }, { id::heavenAutoAmount, 7.0f },
               } },
 
             { "TRANSPARENT (ALL OUT)",

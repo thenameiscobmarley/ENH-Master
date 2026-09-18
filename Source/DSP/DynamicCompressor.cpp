@@ -13,6 +13,7 @@ namespace enh::dsp
     {
         sr = sampleRate > 0.0 ? sampleRate : 48000.0;
         channels = std::max (1, numChannels);
+        scHp = BiquadCoeffs::highPass (sr, 90.0, 0.7071);
         reset();
     }
 
@@ -26,6 +27,7 @@ namespace enh::dsp
         thresholdDb = -20.0f;
         ratio = 2.0f;
         gainDb = makeupDb = slowDb = fastDb = 0.0f;
+        for (auto& st : scState) st.reset();
         controlPhase = 0.0f;
         readout = {};
     }
@@ -130,7 +132,7 @@ namespace enh::dsp
             float mono = 0.0f, peak = 0.0f;
             for (int c = 0; c < ch; ++c)
             {
-                const float x = key != nullptr ? key[c][i] : data[c][i];
+                const float x = scState[(size_t) std::min (c, 1)].process (scHp, key != nullptr ? key[c][i] : data[c][i]);
                 mono += x;
                 peak = std::max (peak, std::abs (x));
             }

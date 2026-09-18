@@ -52,6 +52,9 @@ PluginProcessor::PluginProcessor()
     silkProtect  = state.getRawParameterValue (id::silkProtect);
     silkTape     = state.getRawParameterValue (id::silkTape);
     silkAuto     = state.getRawParameterValue (id::silkAuto);
+    silkSub      = state.getRawParameterValue (id::silkSub);
+    heavenAuto   = state.getRawParameterValue (id::heavenAuto);
+    heavenAutoAmount = state.getRawParameterValue (id::heavenAutoAmount);
     haloWidth    = state.getRawParameterValue (id::haloWidth);
     haloSpace    = state.getRawParameterValue (id::haloSpace);
     haloDecay    = state.getRawParameterValue (id::haloDecay);
@@ -120,6 +123,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.protect        = silkProtect->load() > 0.5f;
     k.tape           = silkTape->load() > 0.5f;
     k.autoGain       = silkAuto->load() > 0.5f;
+    k.silkSub        = silkSub->load();
+    k.heavenAuto     = heavenAuto->load() > 0.5f;
+    k.heavenAutoAmount = heavenAutoAmount->load();
     k.widthPercent   = haloWidth->load();
     k.space          = haloSpace->load();
     k.decayS         = haloDecay->load();

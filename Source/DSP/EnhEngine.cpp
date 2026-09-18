@@ -21,6 +21,7 @@ namespace enh::dsp
         limiter.prepare (sr, maxBlock, controlInterval);
         tide.prepare (sr, numChannels);
         seraph.prepare (sr);
+        output.prepare (sr);
         reset();
     }
 
@@ -40,7 +41,7 @@ namespace enh::dsp
 
         samplesToTick = controlInterval;
         planCountdown = 0;
-        safetyGain = 1.0f;
+        output.reset();
         transient = 0.0f;
 
         for (auto& g : meters.bandGainDb) g = 0.0f;
@@ -195,23 +196,7 @@ namespace enh::dsp
         tide.process (chunk, chans, n, p.tide, p.limiter.active ? limiter.key() : nullptr);
         seraph.process (chunk, chans, n, p.seraph);
 
-        // Safety limiter: instant gain-down, slow recovery, then a soft clip. Zero latency, so it
-        // cannot catch a single sample perfectly - the soft clip is what handles that.
-        constexpr float ceiling = 0.98f;
-        for (int i = 0; i < n; ++i)
-        {
-            float peak = 0.0f;
-            for (int c = 0; c < chans; ++c)
-                peak = std::max (peak, std::abs (chunk[c][i]));
-
-            const float needed = peak * safetyGain > ceiling ? ceiling / std::max (1.0e-6f, peak) : 1.0f;
-            safetyGain = needed < safetyGain ? needed : needed + (safetyGain - needed) * 0.9999f;
-
-            for (int c = 0; c < chans; ++c)
-            {
-                const float y = chunk[c][i] * safetyGain;
-                chunk[c][i] = std::abs (y) <= ceiling ? y : std::copysign (ceiling + (1.0f - ceiling) * std::tanh ((std::abs (y) - ceiling) / (1.0f - ceiling)), y);
-            }
-        }
+        // The output limiter: full scale is looked after here, once, cleanly
+        output.process (chunk, chans, n);
     }
 }

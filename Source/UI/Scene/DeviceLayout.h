@@ -294,7 +294,7 @@ namespace pad::layout
     // One unified front: live L/R display in the middle, one row of knobs along the bottom,
     // the toggles in a grid on the right, lamp + POWER on the left.
     // (Its bezel used to sit over the top scale numbers of WARMTH, BODY and OUTPUT below it.)
-    inline constexpr Rect  seraphDisplayRect  { -0.06f, -0.46f, 1.46f, 0.26f };
+    inline constexpr Rect  seraphDisplayRect  { -0.30f, -0.46f, 1.22f, 0.26f };   // HEAVEN + AUTO on its right
     inline constexpr float seraphDisplayDepth = 0.045f;
 
     // Two rows of knobs with room to breathe: SILK along the first, HALO along the second
@@ -389,7 +389,7 @@ namespace pad::layout
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 41> controls {{
+    inline constexpr std::array<ControlDef, 44> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT" },
@@ -408,6 +408,7 @@ namespace pad::layout
         { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow1Z, pid::silkWarmth, "WARMTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
         { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow1Z, pid::silkBody, "BODY", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
         { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow1Z, pid::silkOutput, "OUTPUT", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
+        { ControlKind::knob, seraphFirstKnobX + 5.0f * seraphKnobStep, seraphRow1Z, pid::silkSub, "SUB", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
 
         { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow2Z, pid::haloWidth, "WIDTH", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
         { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow2Z, pid::haloSpace, "REVERB", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
@@ -419,9 +420,13 @@ namespace pad::layout
         { ControlKind::knob,   0.74f, seraphRow2Z, pid::heavenHold, "LOUDNESS", pid::heavenLift, pid::heavenMode, tubeUnit, "TONE & SPACE", 1.18f, KnobStyle::marconi },
         { ControlKind::button, 1.22f, seraphRow2Z, pid::heavenMode, "LIFT", nullptr, nullptr, tubeUnit, "LOUDNESS", 1.0f, KnobStyle::proXl, SwitchStyle::rocker, ButtonStyle::chromeBezel },
 
+        // AUTO heaven: the button hands the space to the unit, HEAVEN says how far it may take it
+        { ControlKind::knob,   1.20f, -0.50f, pid::heavenAutoAmount, "HEAVEN", nullptr, nullptr, tubeUnit, "TONE & SPACE", 0.95f, KnobStyle::gunmetalCap },
+        { ControlKind::button, 1.20f, -0.215f, pid::heavenAuto, "AUTO", nullptr, nullptr, tubeUnit, "HEAVEN", 1.0f, KnobStyle::proXl, SwitchStyle::rocker, ButtonStyle::round },
+
         { ControlKind::toggle, 1.78f, seraphRow1Z - 0.10f, pid::silkProtect, "PROTECT", nullptr, nullptr, tubeUnit, "TONE" },
         { ControlKind::toggle, 2.12f, seraphRow1Z - 0.10f, pid::silkTape, "TAPE", nullptr, nullptr, tubeUnit, "TONE" },
-        { ControlKind::toggle, 1.44f, seraphRow1Z - 0.10f, pid::silkAuto, "AUTO", nullptr, nullptr, tubeUnit, "TONE" },
+        { ControlKind::toggle, 1.44f, seraphRow1Z - 0.10f, pid::silkAuto, "MATCH", nullptr, nullptr, tubeUnit, "TONE" },
         { ControlKind::toggle, 1.78f, seraphRow2Z + 0.02f, pid::haloDuck, "DUCK", nullptr, nullptr, tubeUnit, "SPACE" },
         { ControlKind::toggle, 2.12f, seraphRow2Z + 0.02f, pid::haloBassMono, "BASS MONO", nullptr, nullptr, tubeUnit, "SPACE" },
         { ControlKind::toggle, 1.44f, seraphRow2Z + 0.02f, pid::haloMod, "MOD", nullptr, nullptr, tubeUnit, "SPACE" },
@@ -450,7 +455,9 @@ namespace pad::layout
     /** Momentary buttons (PRESET PREV / NEXT) have no LED: there is no state to show. */
     inline bool hasLed (const ControlDef& c) noexcept
     {
-        return std::string_view (c.paramId) != pad::params::id::presetPrev && std::string_view (c.paramId) != pad::params::id::presetNext;
+        // ... and AUTO heaven lights its own cap instead
+        return std::string_view (c.paramId) != pad::params::id::presetPrev && std::string_view (c.paramId) != pad::params::id::presetNext
+            && std::string_view (c.paramId) != pad::params::id::heavenAuto;
     }
 
     inline int controlIndex (const char* paramId) noexcept

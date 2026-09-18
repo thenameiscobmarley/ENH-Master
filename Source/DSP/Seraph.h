@@ -43,9 +43,16 @@ namespace enh::dsp
                    1-4.5 kHz, so footsteps and attacks keep their bite.
           AIR      a smooth high shelf plus freshly generated 10-20 kHz harmonics from the 4-8 kHz
                    region. Scales with how dull the source is and backs off while SMOOTH is busy.
-          WARMTH   envelope-normalised 2nd/3rd harmonics of the low mids, plus a gentle triode curve.
+          WARMTH   envelope-normalised 2nd/3rd harmonics of the low mids, plus a gentle triode curve on
+                   everything above 120 Hz, driven at a fixed level (envelope-normalised): the same
+                   warmth whether the music is quiet or loud, and the sub-bass passes clean (it used to
+                   drive the whole signal at its own level - loud bass was crushed).
           BODY     low-mid fullness at 180 Hz, only as much as the source is thin.
           TAPE     pre-emphasised soft saturation: rounds harsh transients without dulling.
+          SUB      heaven for the low end: a clean low shelf at 80 Hz, a warm envelope-normalised 2nd
+                   harmonic of the bass (so it is felt on small speakers too), and a soft mono bloom
+                   that swells in the gaps after bass notes. All of it backs off as the bass gets loud,
+                   so a big low end is never pushed into the output limiter.
           AUTO     loudness-matched output (K-weighted), OUTPUT trims on top.
     */
     class SilkStage
@@ -54,6 +61,7 @@ namespace enh::dsp
         struct Settings
         {
             float smooth = 4.0f, air = 4.0f, warmth = 3.0f, body = 2.0f;   // 0..10 on the knobs (up to 30 with MULTIPLY)
+            float sub = 0.0f;        // SUB: heaven for the low end (0..10)
             float outputDb = 0.0f;
             bool protect = true, tape = false, autoGain = true;
             float strength = 1.0f;   // STRENGTH: 0 = no effect, 1 = as set, up to 5 = five times the effect
@@ -85,6 +93,11 @@ namespace enh::dsp
             BiquadState airShelf, bodyPeak, tapePre, tapePost;
             Exciter air, warm;
             float triodeDcX = 0.0f, triodeDcY = 0.0f;
+            SvfState triSplit;            // the triode curve acts above 120 Hz only
+            BiquadState subShelf;         // SUB
+            SvfState subLow, glowBand;
+            float glowEnv = 1.0e-4f;
+            float triEnv = 1.0e-3f;       // ... on the envelope-normalised signal
         };
 
         double sr = 48000.0;
@@ -104,7 +117,22 @@ namespace enh::dsp
 
         std::array<Channel, 2> ch {};
         BiquadCoeffs airShelf, bodyPeak, tapePre, tapePost;
-        SvfCoeffs airBand, airPost, airTop, warmBand, warmPost, warmTop;
+        SvfCoeffs airBand, airPost, airTop, warmBand, warmPost, warmTop, triSplitCoeffs;
+        float triEnvAtt = 0.0f, triEnvRel = 0.0f;
+        BiquadCoeffs detectHpCoeffs;
+        BiquadState detectHp1, detectHp2;
+
+        // SUB
+        BiquadCoeffs subShelf;
+        SvfCoeffs subLowCoeffs, glowBandCoeffs;
+        float subShelfDb = 1000.0f, glowMix = 0.0f, bloomMix = 0.0f, bassPower = 0.0f, bassFast = 0.0f, bassSlow = 0.0f;
+        float bassK = 0.0f, bassFastAtt = 0.0f, bassFastRel = 0.0f, bassSlowK = 0.0f, bloomLpK = 0.0f;
+        BiquadState bassLp1, bassLp2;
+        BiquadCoeffs bassLpCoeffs;
+        std::array<std::vector<float>, 2> bloomLine;
+        std::array<int, 2> bloomPos {}, bloomLen {};
+        std::array<float, 2> bloomLp {};
+        float bloomIn = 0.0f;
         float airShelfDb = 1000.0f, bodyDb = 1000.0f, airMix = 0.0f, warmMix = 0.0f, triodeK = 0.6f, triodeMix = 1.0f;
         float envAtt = 0.0f, envRel = 0.0f, dcCoeff = 0.999f;
 
@@ -127,10 +155,14 @@ namespace enh::dsp
                    slow line modulation with MOD, 4-stage input diffusion, 18 ms pre-delay), fed from
                    the mid above 200 Hz so it never muddies the low end.
           DECAY    tail length, 0.3 - 8 s.
-          SHIMMER  an octave-up pitch shift of the tail fed back into the network.
+          SHIMMER  pitch-shifted copies of the tail fed back into the network: an octave up, and an
+                   octave and a fifth up, quieter - the tail rises like a choir.
+          MOD      slow delay modulation for a lusher tail, and a slow drift of the whole tail around
+                   the stereo field (~20 s a cycle), so the space moves.
           TONE     dark (warm plate) .. airy (bright hall).
           DUCK     the tail sits ~10 dB lower while the programme is busy and blooms in the gaps,
-                   so dialogue, clicks and footsteps stay dry and precise.
+                   so dialogue, clicks and footsteps stay dry and precise. Keyed above 200 Hz, so
+                   bass coming and going does not pump the tail.
     */
     class HaloStage
     {
@@ -217,9 +249,11 @@ namespace enh::dsp
         float dampK = 0.0f, inHpK = 0.0f, inHpState = 0.0f, inLpK = 0.0f, inLpState = 0.0f;
         float decayDesigned = -1.0f, toneDesigned = -1.0f;
 
-        // Shimmer (two-tap delay pitch shifter, +12 st)
+        // Shimmer: two two-tap delay pitch shifters, +12 st and +19 st (an octave and a fifth above)
         Delay shimmerLine;
         float shimmerPhase = 0.0f, shimmerWindow = 2400.0f, shimmerHpK = 0.0f, shimmerHpState = 0.0f, shimmerFeed = 0.0f;
+        float fifthPhase = 0.0f, fifthWindow = 2400.0f;
+        float driftPhase = 0.0f;   // the tail's slow drift around the stereo field (MOD)
 
         // Early reflections (stereo taps before the dense tail)
         Delay early;
@@ -258,7 +292,13 @@ namespace enh::dsp
             float lift = 0.0f;       // 0..1 extra gain, LIFT + STABLE only
             bool liftMode = false;
             float strength = 1.0f;
+            bool autoHeaven = false; // AUTO: the unit tunes its own heaven to the programme
+            float autoAmount = 0.5f; // HEAVEN: how far AUTO moves the knobs toward what it chose (0..1)
         };
+
+        /** What AUTO has chosen for this programme right now (display, tests). */
+        struct AutoChoice { float space = 0, decayS = 0, shimmer = 0, tone = 0, width = 1, air = 0, sub = 0; };
+        const AutoChoice& getAutoChoice() const noexcept { return autoChoice; }
 
         struct Settings
         {
@@ -270,9 +310,14 @@ namespace enh::dsp
 
         void prepare (double sampleRate)
         {
+            sr = sampleRate > 0.0 ? sampleRate : 48000.0;
             silk.prepare (sampleRate);
             halo.prepare (sampleRate);
             limiterRelease = onePole (0.080, sampleRate);
+            // LOUDNESS measures K-weighted, like a loudness meter: bass counts for little, so a bass
+            // note coming and going does not swing the level it holds
+            kHp = BiquadCoeffs::highPass (sr, 150.0, 0.7071);   // run twice: 24 dB/oct
+            kShelf = BiquadCoeffs::highShelf (sr, 1500.0, 0.7071, 4.0);
             reset();
         }
 
@@ -281,50 +326,40 @@ namespace enh::dsp
             silk.reset();
             halo.reset();
             limiterGain = 1.0f;
-            dryLevel = wetLevel = 1.0e-4f;
+            dryLevel = wetLevel = 1.0e-8f;
+            for (auto* st : { &dryHp, &dryHp2, &dryShelf, &wetHp, &wetHp2, &wetShelf }) st->reset();
             heavenGain = 1.0f;
             heavenDb = 0.0f;
         }
 
-        void process (float* const* channels, int numChannels, int numSamples, const Settings& s) noexcept
+        void process (float* const* channels, int numChannels, int numSamples, const Settings& in) noexcept
         {
             // What came in, before SERAPH touches it: the reference the level is held against
-            measure (channels, numChannels, numSamples, dryLevel);
+            measure (channels, numChannels, numSamples, dryLevel, dryHp, dryHp2, dryShelf);
+
+            // AUTO: listen to the programme and move the knobs toward the heaven it calls for
+            analyse (channels, numChannels, numSamples);
+            Settings s = in;
+            const float a = in.heaven.autoHeaven && in.mode != off ? std::clamp (in.heaven.autoAmount, 0.0f, 1.0f) : 0.0f;
+            autoBlend += (a - autoBlend) * (1.0f - std::exp (-(float) numSamples / (0.5f * (float) sr)));
+            if (autoBlend > 1.0e-4f)
+            {
+                auto toward = [b = autoBlend] (float user, float chosen) { return user + (chosen - user) * b; };
+                s.halo.space   = toward (in.halo.space, autoChoice.space);
+                s.halo.decayS  = toward (in.halo.decayS, autoChoice.decayS);
+                s.halo.shimmer = toward (in.halo.shimmer, autoChoice.shimmer);
+                s.halo.tone    = toward (in.halo.tone, autoChoice.tone);
+                s.halo.width   = toward (in.halo.width, autoChoice.width);
+                s.silk.air     = toward (in.silk.air, autoChoice.air);
+                s.silk.sub     = toward (in.silk.sub, autoChoice.sub);
+            }
 
             silk.process (channels, numChannels, numSamples, s.silk, s.mode >= silkOnly ? 1.0f : 0.0f);
             halo.process (channels, numChannels, numSamples, s.halo, s.mode == heaven ? 1.0f : 0.0f);
             applyHeaven (channels, numChannels, numSamples, s.heaven);
 
-            if (silk.getBlend() <= 0.0f && halo.getBlend() <= 0.0f)
-            {
-                limiterGain = 1.0f;
-                return;   // OFF stays bit-exact
-            }
-
-            // Output limiter: instant gain-down on peaks above the ceiling, smooth 80 ms recovery, then a
-            // soft clip for whatever the zero-latency detector cannot catch. Heavy settings stay clean.
-            constexpr float ceiling = 0.92f;
-            const int chans = std::min (numChannels, 2);
-            for (int i = 0; i < numSamples; ++i)
-            {
-                float peak = 0.0f;
-                for (int c = 0; c < chans; ++c)
-                    peak = std::max (peak, std::abs (channels[c][i]));
-
-                const float needed = peak > ceiling ? ceiling / peak : 1.0f;
-                limiterGain = needed < limiterGain ? needed : needed + (limiterGain - needed) * limiterRelease;
-
-                for (int c = 0; c < chans; ++c)
-                {
-                    float y = channels[c][i] * limiterGain;
-                    const float a = std::abs (y);
-                    if (a > 0.97f)
-                        y = std::copysign (0.97f + 0.025f * std::tanh ((a - 0.97f) / 0.025f), y);
-                    channels[c][i] = y;
-                }
-            }
-
-            gainReductionDb = -20.0f * std::log10 (std::max (1.0e-3f, limiterGain));
+            // (No limiter here any more: the engine's output limiter, after this unit, looks after full
+            // scale with lookahead - this one grabbed every bass cycle and crushed loud bass.)
         }
 
         float getLimiterDb() const noexcept { return gainReductionDb; }
@@ -354,18 +389,73 @@ namespace enh::dsp
         }
 
     private:
-        /** Slow loudness of a block, smoothed: fast enough to follow a passage, slow enough
-            not to chase individual notes. */
-        static void measure (float* const* channels, int numChannels, int numSamples, float& level) noexcept
+        /** AUTO's ears: crest factor (percussive / sustained), stereo width, brightness and the low end,
+            each averaged over ~4 s, turned into the settings a heavenly mix of this programme wants. */
+        void analyse (float* const* ch, int numChannels, int n) noexcept
+        {
+            const int chans = std::min (numChannels, 2);
+            const float fs = (float) sr;
+            const float kFast = 1.0f - std::exp (-1.0f / (0.05f * fs)), kPeak = std::exp (-1.0f / (0.30f * fs));
+            const float kLp8 = 1.0f - std::exp (-2.0f * 3.14159265f * 8000.0f / fs), kLp4 = 1.0f - std::exp (-2.0f * 3.14159265f * 4000.0f / fs);
+            const float kLp1 = 1.0f - std::exp (-2.0f * 3.14159265f * 1200.0f / fs), kLpB = 1.0f - std::exp (-2.0f * 3.14159265f * 120.0f / fs);
+            double hf = 0, pres = 0, bass = 0, mid = 0, side = 0, mono = 0;
+            for (int i = 0; i < n; ++i)
+            {
+                const float l = ch[0][i], r = chans == 2 ? ch[1][i] : l;
+                const float m = 0.5f * (l + r), sd = 0.5f * (l - r);
+                aFast += (m * m - aFast) * kFast;
+                aPeak = std::max (std::abs (m), aPeak * kPeak);
+                lp8 += (m - lp8) * kLp8; lp4 += (m - lp4) * kLp4; lp1 += (m - lp1) * kLp1;
+                lpB1 += (m - lpB1) * kLpB; lpB2 += (lpB1 - lpB2) * kLpB;
+                const float h = m - lp8, p = lp4 - lp1, md = lp1 - lpB2;
+                hf += h * h; pres += p * p; bass += lpB2 * lpB2; mid += md * md; side += sd * sd; mono += m * m;
+                crestAcc += aPeak / std::sqrt (aFast + 1.0e-12f);
+            }
+            const float k = 1.0f - std::exp (-(float) n / (4.0f * fs));
+            auto db = [] (double p) { return (float) (10.0 * std::log10 (p + 1.0e-20)); };
+            if (mono / std::max (1, n) < 1.0e-8)   // silence teaches it nothing
+            {
+                crestAcc = 0.0f;
+                return;
+            }
+            crestDb += (20.0f * std::log10 (std::max (1.0f, crestAcc / (float) n)) - crestDb) * k;
+            crestAcc = 0.0f;
+            widthRatio += ((float) (side / (mono + 1.0e-20)) - widthRatio) * k;
+            brightDb += (db (hf) - db (pres) - brightDb) * k;
+            bassBalanceDb += (db (bass) - db (mid) - bassBalanceDb) * k;
+
+            auto sat = [] (float x) { return std::clamp (x, 0.0f, 1.0f); };
+            const float sustained = sat ((13.0f - crestDb) / 6.0f);    // pads, strings, drones
+            const float sparse = sat ((crestDb - 14.0f) / 8.0f);       // single hits with room between them
+            const float mononess = sat (1.0f - widthRatio / 0.3f);
+            const float dull = sat ((-14.0f - brightDb) / 14.0f);
+            const float thin = sat ((-2.0f - bassBalanceDb) / 10.0f);
+
+            autoChoice.space   = 0.16f + 0.22f * sustained + 0.08f * sparse;
+            autoChoice.decayS  = 1.6f + 2.8f * sustained;
+            autoChoice.shimmer = 0.04f + 0.36f * sustained;
+            autoChoice.tone    = 0.45f + 0.35f * dull;
+            autoChoice.width   = 1.1f + 0.5f * mononess;
+            autoChoice.air     = 3.0f + 4.0f * dull;
+            autoChoice.sub     = 1.0f + 5.0f * thin;
+        }
+
+        /** K-weighted mean power over ~2 s, time-based (the same whatever the host's block size):
+            it follows a passage, not a note. */
+        void measure (float* const* channels, int numChannels, int numSamples, float& level, BiquadState& hp, BiquadState& hp2, BiquadState& shelf) noexcept
         {
             const int chans = std::min (numChannels, 2);
             double sum = 0.0;
-            for (int c = 0; c < chans; ++c)
-                for (int i = 0; i < numSamples; ++i)
-                    sum += (double) channels[c][i] * channels[c][i];
-
-            const float rms = (float) std::sqrt (sum / std::max (1, chans * numSamples));
-            level += (rms - level) * 0.06f;
+            for (int i = 0; i < numSamples; ++i)
+            {
+                float m = 0.0f;
+                for (int c = 0; c < chans; ++c)
+                    m += channels[c][i];
+                const float k = shelf.process (kShelf, hp2.process (kHp, hp.process (kHp, m / (float) std::max (1, chans))));
+                sum += (double) k * k;
+            }
+            const float power = (float) (sum / std::max (1, numSamples));
+            level += (power - level) * (1.0f - std::exp (-(float) numSamples / (2.0f * (float) sr)));
         }
 
         void applyHeaven (float* const* channels, int numChannels, int numSamples, const HeavenSettings& h) noexcept
@@ -378,17 +468,20 @@ namespace enh::dsp
                 return;
             }
 
-            measure (channels, numChannels, numSamples, wetLevel);
+            measure (channels, numChannels, numSamples, wetLevel, wetHp, wetHp2, wetShelf);
 
-            // Where the output should sit: back at the input's loudness, plus the lift if asked
+            // Where the output should sit: back at the input's loudness, plus the lift if asked.
+            // (Levels are powers: the ratio's square root is the gain; the wet level is measured
+            // after this gain, so divide it back out.)
             const float liftDb = h.liftMode ? 12.0f * std::clamp (h.lift, 0.0f, 1.0f) : 0.0f;
-            const float target = std::max (1.0e-5f, dryLevel) * std::pow (10.0f, liftDb * 0.05f);
-            const float wanted = std::clamp (target / std::max (1.0e-5f, wetLevel), 0.25f, 5.6f);
+            const float target = std::sqrt (std::max (1.0e-10f, dryLevel)) * std::pow (10.0f, liftDb * 0.05f);
+            const float made = std::sqrt (std::max (1.0e-10f, wetLevel)) / std::max (1.0e-3f, heavenGain);
+            const float wanted = std::clamp (target / std::max (1.0e-5f, made), 0.25f, 5.6f);
 
-            // Hold it only as firmly as the knob asks, and move slowly: this is a level policy,
+            // Hold it only as firmly as the knob asks, and move slowly (~3 s): this is a level policy,
             // not a compressor, so it must never breathe with the music.
             const float blended = 1.0f + (wanted - 1.0f) * std::min (1.0f, amount);
-            heavenGain += (blended - heavenGain) * 0.012f;
+            heavenGain += (blended - heavenGain) * (1.0f - std::exp (-(float) numSamples / (3.0f * (float) sr)));
             heavenDb = 20.0f * std::log10 (std::max (1.0e-3f, heavenGain));
 
             const int chans = std::min (numChannels, 2);
@@ -399,7 +492,14 @@ namespace enh::dsp
 
         SilkStage silk;
         HaloStage halo;
-        float dryLevel = 1.0e-4f, wetLevel = 1.0e-4f, heavenGain = 1.0f, heavenDb = 0.0f;
+        AutoChoice autoChoice;
+        float autoBlend = 0.0f, aFast = 1.0e-8f, aPeak = 0.0f, crestAcc = 0.0f, crestDb = 12.0f, widthRatio = 0.2f;
+        float brightDb = -14.0f, bassBalanceDb = 0.0f, lp8 = 0, lp4 = 0, lp1 = 0, lpB1 = 0, lpB2 = 0;
+
+        double sr = 48000.0;
+        BiquadCoeffs kHp, kShelf;
+        BiquadState dryHp, dryHp2, dryShelf, wetHp, wetHp2, wetShelf;
+        float dryLevel = 1.0e-8f, wetLevel = 1.0e-8f, heavenGain = 1.0f, heavenDb = 0.0f;
         float limiterGain = 1.0f, limiterRelease = 0.99f, gainReductionDb = 0.0f;
     };
 }

@@ -156,8 +156,12 @@ namespace enh::dsp
         const float clarityStep = (clarityTarget - clarityMix) / (float) un;
         const bool exciting = depthTarget + depthMix + clarityTarget + clarityMix > 1.0e-5f;
 
-        constexpr float c2 = 0.05f, c3 = 0.03f;
-        constexpr float knee = 0.85f, ceiling = 0.977f;
+        // Transformer / valve colour, scaled by STRENGTH (0 = none). No ceiling here: in floating point a
+        // mid-chain clipper protects nothing, it only distorts loud bass. The final limiter at the end of
+        // the chain looks after full scale; the guard below only keeps the colour curve from folding over.
+        const float colour = std::clamp (s.strength, 0.0f, 2.0f);
+        const float c2 = 0.03f * colour, c3 = 0.015f * colour;
+        constexpr float knee = 1.8f, ceiling = 2.4f;
 
         for (int c = 0; c < chans; ++c)
         {
@@ -201,17 +205,7 @@ namespace enh::dsp
 
         oversampling->processSamplesDown (sub);
 
-        // Final base-rate safety: the down-sampling filter can overshoot the 2x-rate ceiling
-        for (int c = 0; c < chans; ++c)
-        {
-            auto* x = sub.getChannelPointer ((size_t) c);
-            for (int i = 0; i < n; ++i)
-            {
-                const float a = std::abs (x[i]);
-                if (a > 0.94f)
-                    x[i] = std::copysign (0.94f + 0.055f * std::tanh ((a - 0.94f) / 0.055f), x[i]);
-            }
-        }
+        // (No base-rate clip: full scale is the final limiter's job, at the end of the chain.)
 
         // --- output loudness + peak --------------------------------------------------------
         const float norm = 1.0f / (float) chans;

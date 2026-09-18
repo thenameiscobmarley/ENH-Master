@@ -728,6 +728,8 @@ namespace
             else if (i == id::silkTape) k.tape = on;      else if (i == id::silkAuto) k.autoGain = on;
             else if (i == id::heavenHold) k.heavenHold = v; else if (i == id::heavenLift) k.heavenLift = v;
             else if (i == id::heavenMode) k.heavenLiftMode = on;
+            else if (i == id::silkSub) k.silkSub = v;
+            else if (i == id::heavenAuto) k.heavenAuto = on; else if (i == id::heavenAutoAmount) k.heavenAutoAmount = v;
             else if (i == id::haloWidth) k.widthPercent = v; else if (i == id::haloSpace) k.space = v;
             else if (i == id::haloDecay) k.decayS = v;       else if (i == id::haloShimmer) k.shimmer = v;
             else if (i == id::haloTone) k.tone = v;          else if (i == id::haloDuck) k.duck = on;
@@ -810,6 +812,8 @@ namespace
             variant ("enhancer STRENGTH 0", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; });
             variant ("only leveler", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; p.limiter.active = false; p.tide.active = false; p.seraph.mode = enh::dsp::Seraph::off; });
             variant ("limiter OUT", [] (auto& p) { p.limiter.active = false; });
+            variant ("tone & space: SUB 0", [] (auto& p) { p.seraph.silk.sub = 0.0f; });
+            variant ("tone & space: AUTO off", [] (auto& p) { p.seraph.heaven.autoHeaven = false; });
             variant ("only limiter + compressor", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; p.lumen.active = false; p.seraph.mode = enh::dsp::Seraph::off; });
         }
 
@@ -834,12 +838,224 @@ namespace
                    "TRANSPARENT (ALL OUT): level unchanged, no unit processing");
         }
     }
+    //==========================================================================
+    /** Loud bass through the whole rack: harmonic distortion (2nd-5th) of a 45 Hz tone at -1 dBFS. */
+    float bassThdPercent (double sr, const EnhEngine::Parameters& p, float levelDb, float* peakOut = nullptr)
+    {
+        const int n = (int) (6.0 * sr);
+        Scene s;
+        s.left.assign ((size_t) n, 0.0f);
+        s.right.assign ((size_t) n, 0.0f);
+        juce::Random r (3);
+        Pink pl, pr;
+        for (int i = 0; i < n; ++i)
+        {
+            const float tone = dbfs (levelDb) * (float) std::sin (twoPi * 45.0 * i / sr);
+            s.left[(size_t) i] = tone + pl.next (r) * dbfs (-46.0f);
+            s.right[(size_t) i] = tone + pr.next (r) * dbfs (-46.0f);
+        }
+        const auto res = run (s, sr, 256, p);
+        const size_t from = (size_t) (3.0 * sr), to = (size_t) n;
+        const double f = std::pow (10.0, toneDb (res.outL, sr, 45.0, from, to) / 20.0);
+        double h = 0.0;
+        for (int k = 2; k <= 5; ++k)
+            h += std::pow (10.0, toneDb (res.outL, sr, 45.0 * k, from, to) / 10.0);
+        if (peakOut != nullptr)
+            *peakOut = res.peak;
+        return (float) (100.0 * std::sqrt (h) / std::max (1e-9, f));
+    }
+
+    /** TONE & SPACE alone: a steady 2 kHz tone, with a 60 Hz bass note switching on and off every second.
+        How far the tone's level moves between bass-on and bass-off stretches is the pumping. */
+    float seraphPumpingDb (double sr, const enh::dsp::Seraph::Settings& st)
+    {
+        using enh::dsp::Seraph;
+        Seraph unit;
+        unit.prepare (sr);
+        const int n = (int) (12.0 * sr);
+        std::vector<float> l ((size_t) n), r ((size_t) n);
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = i / sr;
+            const bool bassOn = std::fmod (t, 2.0) < 1.0;
+            const double env = std::min (1.0, std::min (std::fmod (t, 2.0), 1.0 - std::fmod (t, 2.0) + (bassOn ? 0.0 : 10.0)) / 0.02);
+            const float bass = bassOn ? dbfs (-8.0f) * (float) (std::sin (twoPi * 60.0 * t) * std::max (0.0, env)) : 0.0f;
+            const float tone = dbfs (-28.0f) * (float) std::sin (twoPi * 2000.0 * t);
+            l[(size_t) i] = r[(size_t) i] = bass + tone;
+        }
+        for (int pos = 0; pos < n; pos += 256)
+        {
+            float* c[2] { l.data() + pos, r.data() + pos };
+            unit.process (c, 2, std::min (256, n - pos), st);
+            if (std::getenv ("SMOOTH_TRACE") != nullptr && pos % (int) (0.25 * sr) < 256 && pos > (int) (8.0 * sr))
+            {
+                std::printf ("    t=%.2f bass %s dips:", pos / sr, std::fmod (pos / sr, 2.0) < 1.0 ? "on " : "off");
+                for (int k = 0; k < 28; ++k) std::printf (" %.0f", unit.getSilk().getDips()[(size_t) k]);
+                std::printf ("\n");
+            }
+        }
+        // Tone level in the middle of bass-on and bass-off stretches, over the last 8 s
+        const auto bp = BiquadCoeffs::bandPass (sr, 2000.0, 6.0);
+        BiquadState b1, b2;
+        std::vector<float> y ((size_t) n);
+        for (int i = 0; i < n; ++i) y[(size_t) i] = b1.process (bp, b2.process (bp, 0.5f * (l[(size_t) i] + r[(size_t) i])));
+        double on = 0, off = 0; int nOn = 0, nOff = 0;
+        for (int i = (int) (4.0 * sr); i < n; ++i)
+        {
+            const double ph = std::fmod (i / sr, 2.0);
+            if (ph > 0.3 && ph < 0.9) { on += (double) y[(size_t) i] * y[(size_t) i]; ++nOn; }
+            if (ph > 1.3 && ph < 1.9) { off += (double) y[(size_t) i] * y[(size_t) i]; ++nOff; }
+        }
+        return (float) (10.0 * std::log10 ((off / std::max (1, nOff)) / std::max (1e-15, on / std::max (1, nOn))));
+    }
+
+    /** The whole rack: the same 2 kHz tone with bass switching on and off every second. */
+    float rackPumpingDb (double sr, const EnhEngine::Parameters& p)
+    {
+        const int n = (int) (12.0 * sr);
+        Scene sc;
+        sc.left.assign ((size_t) n, 0.0f);
+        sc.right.assign ((size_t) n, 0.0f);
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = i / sr, ph = std::fmod (t, 2.0);
+            const bool bassOn = ph < 1.0;
+            const double env = bassOn ? std::min (1.0, std::min (ph, 1.0 - ph) / 0.02) : 0.0;
+            const float v = (float) (dbfs (-8.0f) * std::sin (twoPi * 60.0 * t) * env + dbfs (-28.0f) * std::sin (twoPi * 2000.0 * t));
+            sc.left[(size_t) i] = sc.right[(size_t) i] = v;
+        }
+        const auto res = run (sc, sr, 256, p);
+        const auto bp = BiquadCoeffs::bandPass (sr, 2000.0, 6.0);
+        BiquadState b1, b2;
+        double on = 0, off = 0; int nOn = 0, nOff = 0;
+        for (int i = 0; i < n; ++i)
+        {
+            const float y = b1.process (bp, b2.process (bp, res.outL[(size_t) i]));
+            const double ph = std::fmod (i / sr, 2.0);
+            if (i < (int) (4.0 * sr)) continue;
+            if (ph > 0.3 && ph < 0.9) { on += (double) y * y; ++nOn; }
+            if (ph > 1.3 && ph < 1.9) { off += (double) y * y; ++nOff; }
+        }
+        return (float) (10.0 * std::log10 ((off / std::max (1, nOff)) / std::max (1e-15, on / std::max (1, nOn))));
+    }
+
+    void runLoudBassTests (double sr)
+    {
+        if (std::getenv ("PUMP_DIAG") != nullptr)
+        {
+            const auto base = presetParameters (pad::presets::all().front());
+            auto show = [&] (const char* what, auto&& change)
+            {
+                auto p = base;
+                change (p);
+                std::printf ("    rack %-34s tone off-vs-on %+.2f dB\n", what, rackPumpingDb (sr, p));
+            };
+            auto iso = [&] (const char* what, auto&& change)
+            {
+                auto st = base.seraph;
+                change (st);
+                std::printf ("    T&S alone %-28s tone off-vs-on %+.2f dB\n", what, seraphPumpingDb (sr, st));
+            };
+            iso ("as is", [] (auto&) {});
+            iso ("no loudness hold", [] (auto& st) { st.heaven.amount = 0.0f; });
+            iso ("no AUTO gain", [] (auto& st) { st.silk.autoGain = false; });
+            iso ("no DUCK", [] (auto& st) { st.halo.duck = false; });
+            iso ("SPACE 0", [] (auto& st) { st.halo.space = 0.0f; });
+            iso ("TONE knobs 0", [] (auto& st) { st.silk.warmth = st.silk.air = st.silk.body = st.silk.smooth = 0.0f; });
+            iso ("SMOOTH 0", [] (auto& st) { st.silk.smooth = 0.0f; });
+            iso ("WARMTH 0", [] (auto& st) { st.silk.warmth = 0.0f; });
+            iso ("AIR 0", [] (auto& st) { st.silk.air = 0.0f; });
+            iso ("BODY 0", [] (auto& st) { st.silk.body = 0.0f; });
+            iso ("hold + auto off", [] (auto& st) { st.heaven.amount = 0.0f; st.silk.autoGain = false; });
+            show ("DEFAULT", [] (auto&) {});
+            show ("tone & space OFF", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::off; });
+            show ("tone & space: no loudness hold", [] (auto& p) { p.seraph.heaven.amount = 0.0f; });
+            show ("tone & space: no AUTO gain", [] (auto& p) { p.seraph.silk.autoGain = false; });
+            show ("tone & space: no DUCK", [] (auto& p) { p.seraph.halo.duck = false; });
+            show ("compressor OUT", [] (auto& p) { p.tide.active = false; });
+            show ("leveler OUT", [] (auto& p) { p.lumen.active = false; });
+            show ("limiter OUT", [] (auto& p) { p.limiter.active = false; });
+            show ("enhancer STRENGTH 0", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; });
+            show ("only enhancer", [] (auto& p) { p.seraph.mode = 0; p.tide.active = false; p.lumen.active = false; p.limiter.active = false; });
+        }
+
+        if (std::getenv ("THD_DIAG") != nullptr)
+        {
+            const auto base = presetParameters (pad::presets::all()[(size_t) std::atoi (std::getenv ("THD_DIAG"))]);
+            auto show = [&] (const char* what, auto&& change)
+            {
+                auto p = base;
+                change (p);
+                float peak = 0.0f;
+                const float thd = bassThdPercent (sr, p, -1.0f, &peak);
+                std::printf ("    preset %-30s THD %6.2f %%  peak %.3f\n", what, thd, peak);
+            };
+            show ("as is", [] (auto&) {});
+            show ("tone & space OFF", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::off; });
+            show ("no TAPE, WARMTH 0", [] (auto& p) { p.seraph.silk.tape = false; p.seraph.silk.warmth = 0.0f; });
+            show ("compressor OUT", [] (auto& p) { p.tide.active = false; });
+            show ("limiter OUT", [] (auto& p) { p.limiter.active = false; });
+            show ("sub 0", [] (auto& p) { p.sub = 0.0f; p.subBoost = false; });
+            show ("enhancer STRENGTH 0", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.boost = 0.0f; p.sub = 0.0f; });
+            show ("T&S: WARMTH 0", [] (auto& p) { p.seraph.silk.warmth = 0.0f; });
+            show ("T&S: AIR 0", [] (auto& p) { p.seraph.silk.air = 0.0f; });
+            show ("T&S: BODY 0", [] (auto& p) { p.seraph.silk.body = 0.0f; });
+            show ("T&S: SMOOTH 0", [] (auto& p) { p.seraph.silk.smooth = 0.0f; });
+            show ("T&S: TONE only (no SPACE)", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::silkOnly; });
+            show ("T&S: all TONE knobs 0", [] (auto& p) { p.seraph.silk.warmth = p.seraph.silk.air = p.seraph.silk.body = p.seraph.silk.smooth = 0.0f; p.seraph.silk.tape = false; });
+            show ("everything off", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.boost = 0.0f; p.sub = 0.0f; p.seraph.mode = 0; p.tide.active = false; p.lumen.active = false; p.limiter.active = false; });
+        }
+
+        std::printf ("\n== Loud bass through the whole rack: 45 Hz at -1 dBFS, harmonic distortion ==\n");
+        for (int index : { 0, 4 })
+        {
+            const auto& preset = pad::presets::all()[(size_t) index];
+            float peak = 0.0f;
+            const float thd = bassThdPercent (sr, presetParameters (preset), -1.0f, &peak);
+            std::printf ("  %-24s THD %.2f %%  (peak %.3f)\n", preset.name, thd, peak);
+            check (thd < 3.0f && peak <= 1.0f, juce::String (preset.name) + ": loud bass stays clean (THD < 3 %)");
+        }
+        {
+            auto p = presetParameters (pad::presets::all().front());
+            p.seraph.silk.sub = 10.0f;
+            float peak = 0.0f;
+            const float thd = bassThdPercent (sr, p, -1.0f, &peak);
+            std::printf ("  %-24s THD %.2f %%  (peak %.3f)\n", "DEFAULT, SUB 10", thd, peak);
+            check (thd < 4.0f && peak <= 1.0f, "SUB at full: loud bass stays clean (THD < 4 %, its glow is a 2nd harmonic)");
+        }
+
+        std::printf ("\n== TONE & SPACE: 2 kHz tone while bass switches on and off (pumping) ==\n");
+        auto st = presetParameters (pad::presets::all().front()).seraph;
+        const float pump = seraphPumpingDb (sr, st);
+        std::printf ("  tone level with bass off vs on: %+.2f dB\n", pump);
+        check (std::abs (pump) < 0.75f, "the tone does not pump with the bass (< 0.75 dB)");
+
+        auto withSub = st;
+        withSub.silk.sub = 10.0f;
+        const float pumpSub = seraphPumpingDb (sr, withSub);
+        std::printf ("  ... with SUB 10: %+.2f dB\n", pumpSub);
+        check (std::abs (pumpSub) < 0.75f, "SUB 10: the tone does not pump with the bass");
+
+        auto withAuto = st;
+        withAuto.heaven.autoHeaven = true;
+        withAuto.heaven.autoAmount = 1.0f;
+        const float pumpAuto = seraphPumpingDb (sr, withAuto);
+        std::printf ("  ... with AUTO, HEAVEN 10: %+.2f dB\n", pumpAuto);
+        check (std::abs (pumpAuto) < 0.75f, "AUTO at full: the tone does not pump with the bass");
+    }
 }
 
 int main (int argc, char** argv)
 {
     const double sr = 48000.0;
     const int block = 128;
+
+    if (argc > 1 && juce::String (argv[1]) == "--bass")
+    {
+        runLoudBassTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
 
     if (argc > 1 && juce::String (argv[1]) == "--presets")
     {
@@ -2238,6 +2454,7 @@ int main (int argc, char** argv)
 
     runLimiterTests (sr);
     runPresetTests (sr);
+    runLoudBassTests (sr);
 
     std::printf ("\n== CPU (this machine) ==\n");
     for (double rate : { 44100.0, 48000.0, 96000.0 })

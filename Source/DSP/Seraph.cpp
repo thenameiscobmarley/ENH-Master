@@ -55,6 +55,23 @@ namespace enh::dsp
         airPost  = SvfCoeffs::make (sr, 9500.0, 0.7071);
         airTop   = SvfCoeffs::make (sr, std::min (19000.0, 0.45 * sr), 0.7071);
         warmBand = SvfCoeffs::make (sr, 320.0, 0.6);
+        triSplitCoeffs = SvfCoeffs::make (sr, 120.0, 0.7071);
+        detectHpCoeffs = BiquadCoeffs::highPass (sr, 120.0, 0.7071);
+
+        // SUB
+        subLowCoeffs = SvfCoeffs::make (sr, 120.0, 0.7071);
+        glowBandCoeffs = SvfCoeffs::make (sr, 180.0, 0.8);
+        bassLpCoeffs = BiquadCoeffs::lowPass (sr, 120.0, 0.7071);
+        bassFastAtt = onePole (0.010, sr);
+        bassFastRel = onePole (0.150, sr);
+        bassSlowK = onePole (1.2, sr);
+        bassK = onePole (0.30, sr);
+        bloomLpK = (float) (1.0 - std::exp (-2.0 * pi * 140.0 / sr));
+        bloomLen = { (int) (0.071 * sr), (int) (0.097 * sr) };
+        for (size_t d = 0; d < 2; ++d)
+            bloomLine[d].assign ((size_t) bloomLen[d] + 1, 0.0f);
+        triEnvAtt = onePole (0.003, sr);
+        triEnvRel = onePole (0.120, sr);
         warmPost = SvfCoeffs::make (sr, 450.0, 0.7071);
         warmTop  = SvfCoeffs::make (sr, 3000.0, 0.7071);
         tapePre  = BiquadCoeffs::highShelf (sr, 3500.0, 0.7071, 5.0);
@@ -75,6 +92,16 @@ namespace enh::dsp
     void SilkStage::reset()
     {
         for (auto& s : detectState) s.reset();
+        detectHp1.reset();
+        detectHp2.reset();
+        bassLp1.reset();
+        bassLp2.reset();
+        bassPower = bassFast = bassSlow = bloomIn = 0.0f;
+        subShelfDb = 1000.0f;
+        glowMix = bloomMix = 0.0f;
+        for (auto& l : bloomLine) std::fill (l.begin(), l.end(), 0.0f);
+        bloomPos = {};
+        bloomLp = {};
         fast.fill (0.0f); slow.fill (0.0f); longTerm.fill (0.0f);
         cutDb.fill (0.0f); designedDb.fill (0.0f); onsetHold.fill (0);
         for (int k = 0; k < numBands; ++k)
@@ -209,6 +236,20 @@ namespace enh::dsp
         const float bodyRatio = regionDb (150.0f, 300.0f) - regionDb (500.0f, 2000.0f);
         const float thin = saturate01 ((-3.0f - bodyRatio) / 9.0f);
         const float body = std::min (18.0f, s.body * 0.6f * (0.35f + 0.65f * thin) * quietGate * strength);
+
+        // SUB: everything backs off as the bass gets loud (from -24 dBFS of bass to -12, down to 20 %)
+        {
+            const float loud = saturate01 ((powerToDb (bassPower) + 24.0f) / 12.0f);
+            const float amount = std::clamp (s.sub, 0.0f, 30.0f) * strength * (1.0f - 0.8f * loud);
+            const float shelfDb = std::min (8.0f, amount * 0.6f);
+            if (std::abs (shelfDb - subShelfDb) > 0.05f)
+            {
+                subShelf = BiquadCoeffs::lowShelf (sr, 80.0, 0.7, shelfDb);
+                subShelfDb = shelfDb;
+            }
+            glowMix = std::min (0.6f, amount * 0.03f) * (1.0f - 0.6f * loud);   // loud bass is already felt
+            bloomMix = std::min (0.5f, amount * 0.025f);
+        }
         if (std::abs (body - bodyDb) > 0.05f)
         {
             bodyPeak = BiquadCoeffs::peaking (sr, 180.0, 0.8, body);
@@ -255,7 +296,35 @@ namespace enh::dsp
                 toTick = controlInterval;
             }
 
-            const float mono = chans == 2 ? 0.5f * (data[0][i] + data[1][i]) : data[0][i];
+            // SMOOTH's detector listens above 120 Hz only (24 dB/oct): its band-pass skirts used to pick up
+            // a loud bass note, which moved every band's neighbourhood and so the dips (pumping)
+            const float rawMono = chans == 2 ? 0.5f * (data[0][i] + data[1][i]) : data[0][i];
+            const float mono = detectHp2.process (detectHpCoeffs, detectHp1.process (detectHpCoeffs, rawMono));
+
+            // The low end, for SUB: how loud the bass is, and the bloom that follows it
+            {
+                const float b = bassLp2.process (bassLpCoeffs, bassLp1.process (bassLpCoeffs, rawMono));
+                const float bp = b * b;
+                bassPower = bassK * bassPower + (1.0f - bassK) * bp;
+                bassFast = (bp > bassFast ? bassFastAtt : bassFastRel) * (bassFast - bp) + bp;
+                bassSlow = bassSlowK * bassSlow + (1.0f - bassSlowK) * bp;
+                if (bloomMix > 1.0e-4f)
+                {
+                    float out = 0.0f;
+                    for (size_t d = 0; d < 2; ++d)
+                    {
+                        auto& line = bloomLine[d];
+                        const float y = line[(size_t) bloomPos[d]];
+                        bloomLp[d] += (y - bloomLp[d]) * bloomLpK;
+                        line[(size_t) bloomPos[d]] = b + 0.55f * bloomLp[d];
+                        bloomPos[d] = (bloomPos[d] + 1) % bloomLen[d];
+                        out += y;
+                    }
+                    bloomIn = 0.5f * out;
+                }
+                else
+                    bloomIn = 0.0f;
+            }
 
             for (int k = 0; k < numBands; ++k)
             {
@@ -298,6 +367,22 @@ namespace enh::dsp
 
                 float before = w;
                 w = st.bodyPeak.process (bodyPeak, w);
+
+                // SUB: shelf, warm 2nd harmonic of the bass (envelope-normalised: same share at any
+                // level), and the mono bloom that swells in the gaps after bass notes
+                if (subShelfDb != 0.0f || glowMix > 1.0e-4f || bloomMix > 1.0e-4f)
+                {
+                    w = st.subShelf.process (subShelf, w);
+                    const float low = st.subLow.process (subLowCoeffs, w).low;
+                    const float la = std::abs (low);
+                    st.glowEnv = (la > st.glowEnv ? envAtt : envRel) * (st.glowEnv - la) + la;
+                    const float lvl = std::max (1.0e-5f, st.glowEnv);
+                    const float u = std::clamp (low / lvl, -1.5f, 1.5f);
+                    const float glow = st.glowBand.process (glowBandCoeffs, u * u).band * lvl * 0.5f;
+                    w += glow * glowMix;
+                    const float busy = saturate01 ((powerToDb (bassFast) - powerToDb (bassSlow) + 2.0f) / 6.0f);
+                    w += bloomIn * bloomMix * (1.0f - busy);
+                }
                 bodyMeter.add (c, x, w - before);
 
                 before = w;
@@ -310,9 +395,15 @@ namespace enh::dsp
                 if (warmMix > 1.0e-4f)
                     w += warmMix * excite (st.warm, warmBand, warmPost, warmTop, 0.80f, 0.30f, w, envAtt, envRel);
 
-                // Gentle triode curve (unity small-signal gain). Only the change it makes is added, scaled by
-                // STRENGTH, and that change is DC-blocked: at strength 0 the signal is untouched.
-                const float tri = (std::tanh (triodeK * w + bias) - tanhBias) / (triodeK * sech2) - w;
+                // Gentle triode curve (unity small-signal gain) on what lies above 120 Hz, driven as if that
+                // part sat at -12 dBFS whatever its real level (envelope-normalised), then scaled back. Only
+                // the change is added, scaled by STRENGTH and DC-blocked: at strength 0 nothing changes.
+                const float upper = w - st.triSplit.process (triSplitCoeffs, w).low;
+                const float ua = std::abs (upper);
+                st.triEnv = (ua > st.triEnv ? triEnvAtt : triEnvRel) * (st.triEnv - ua) + ua;
+                const float scale = 0.25f / std::max (1.0e-4f, st.triEnv);
+                const float u = std::clamp (upper * scale, -1.5f, 1.5f);
+                const float tri = ((std::tanh (triodeK * u + bias) - tanhBias) / (triodeK * sech2) - u) / scale;
                 const float dc = tri - st.triodeDcX + dcCoeff * st.triodeDcY;
                 st.triodeDcX = tri;
                 st.triodeDcY = dc;
@@ -386,7 +477,8 @@ namespace enh::dsp
         inHpK = onePoleHz (200.0, sr);
         inLpK = onePoleHz (11000.0, sr);
         shimmerWindow = ms (50.0);
-        shimmerLine.prepare ((int) shimmerWindow * 2 + 8);
+        fifthWindow = ms (62.0);
+        shimmerLine.prepare ((int) std::max (shimmerWindow, fifthWindow) * 2 + 8);
         shimmerHpK = onePoleHz (400.0, sr);
 
         fastAtt = onePole (0.010, sr);
@@ -412,7 +504,7 @@ namespace enh::dsp
         shimmerLine.clear();
         damp.fill (0.0f);
         lfoOffset.fill (0.0f);
-        shimmerPhase = 0.0f;
+        shimmerPhase = fifthPhase = driftPhase = 0.0f;
         monoPowerM = monoPowerS = 0.0f;
         dryFast = drySlow = 0.0f;
         duckGain = 1.0f;
@@ -555,13 +647,24 @@ namespace enh::dsp
             if (shimmerPhase >= 1.0f) shimmerPhase -= 1.0f;
             const float phaseB = shimmerPhase + 0.5f >= 1.0f ? shimmerPhase - 0.5f : shimmerPhase + 0.5f;
             const float gA = std::sin (3.14159265f * shimmerPhase), gB = std::sin (3.14159265f * phaseB);
-            const float shifted = shimmerLine.read (1.0f + shimmerWindow * (1.0f - shimmerPhase)) * gA * gA
-                                + shimmerLine.read (1.0f + shimmerWindow * (1.0f - phaseB)) * gB * gB;
+            float shifted = shimmerLine.read (1.0f + shimmerWindow * (1.0f - shimmerPhase)) * gA * gA
+                          + shimmerLine.read (1.0f + shimmerWindow * (1.0f - phaseB)) * gB * gB;
+
+            // ... and an octave and a fifth up (x3: the read point sweeps 2 samples a sample), quieter
+            fifthPhase += 2.0f / fifthWindow;
+            if (fifthPhase >= 1.0f) fifthPhase -= 1.0f;
+            const float fB = fifthPhase + 0.5f >= 1.0f ? fifthPhase - 0.5f : fifthPhase + 0.5f;
+            const float hA = std::sin (3.14159265f * fifthPhase), hB = std::sin (3.14159265f * fB);
+            shifted += 0.45f * (shimmerLine.read (1.0f + fifthWindow * (1.0f - fifthPhase)) * hA * hA
+                              + shimmerLine.read (1.0f + fifthWindow * (1.0f - fB)) * hB * hB);
             shimmerHpState = shimmerHpK * shimmerHpState + (1.0f - shimmerHpK) * shifted;
             shimmerFeed = std::min (0.85f, s.shimmer * 0.55f * std::clamp (s.strength, 0.0f, 5.0f)) * (shifted - shimmerHpState);
 
             // --- ducking: the tail makes room while the programme is busy ---------------------
-            const float p = M * M;
+            // Keyed on the same band the tail is made from (mid, 200 Hz up): a bass note coming and
+            // going no longer ducks the tail and lets it swell back (pumping).
+            const float keyed = M - inHpState;
+            const float p = keyed * keyed;
             dryFast = (p > dryFast ? fastAtt : fastRel) * (dryFast - p) + p;
             drySlow = slowK * (drySlow - p) + p;
             if ((i & 15) == 0)
@@ -572,7 +675,21 @@ namespace enh::dsp
             }
 
             const float level = 0.7f * spaceSmoothed * duckGain * std::clamp (s.strength, 0.0f, 5.0f);
-            const float tailL = wetL + 0.45f * earlyL, tailR = wetR + 0.45f * earlyR;
+            float tailL = wetL + 0.45f * earlyL, tailR = wetR + 0.45f * earlyR;
+
+            // MOD: the tail drifts slowly around the stereo field (energy-preserving rotation, ~20 s a cycle)
+            if (s.mod)
+            {
+                if ((i & 63) == 0)
+                {
+                    driftPhase += 64.0f * 6.2831853f * 0.05f / (float) sr;
+                    if (driftPhase > 6.2831853f) driftPhase -= 6.2831853f;
+                }
+                const float angle = 0.35f * std::sin (driftPhase), cs = std::cos (angle), sn = std::sin (angle);
+                const float rl = cs * tailL - sn * tailR, rr = sn * tailL + cs * tailR;
+                tailL = rl;
+                tailR = rr;
+            }
             outL += tailL * level;
             outR += tailR * level;
             spaceMeter.add (0, L, tailL * level);
@@ -595,7 +712,7 @@ namespace enh::dsp
             }
 
             wetPower = meterK * wetPower + (1.0f - meterK) * 0.5f * (tailL * tailL + tailR * tailR) * level * level;
-            dryPower = meterK * dryPower + (1.0f - meterK) * p;
+            dryPower = meterK * dryPower + (1.0f - meterK) * M * M;
 
             data[0][i] = L + (outL - L) * blend;
             if (chans == 2)

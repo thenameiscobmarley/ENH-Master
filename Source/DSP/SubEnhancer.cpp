@@ -10,6 +10,8 @@ namespace enh::dsp
         punchCoeffs = BiquadCoeffs::peaking (sr, 55.0, 1.2, 0.0);
         subFollower.setup (sr, 0.020, 0.250);
         fullFollower.setup (sr, 0.020, 0.250);
+        envAttack = onePole (0.004, sr);
+        envRelease = onePole (0.090, sr);
         reset();
     }
 
@@ -68,7 +70,9 @@ namespace enh::dsp
             designedBassHz = s.bassHz;
         }
 
-        harmonicTarget = std::min (3.0f, s.amount * (s.boost ? 0.9f : 0.55f) * present * strength);
+        // Harmonics are for bass that is not heard: from -24 dBFS of sub up to -12 they fade to a fifth
+        loudBackoff = 1.0f - 0.8f * saturate01 ((subDb + 24.0f) / 12.0f);
+        harmonicTarget = std::min (3.0f, s.amount * (s.boost ? 0.9f : 0.55f) * present * strength * loudBackoff);
         drive = s.boost ? 3.2f : 2.2f;
     }
 
@@ -89,11 +93,17 @@ namespace enh::dsp
             {
                 const float in = x[i];
 
-                // Harmonics from the isolated sub band
+                // Harmonics from the isolated sub band, normalised by its envelope: the same proportion of
+                // harmonics at any level
                 const float sub = ch.split2.process (harmonicLow, ch.split1.process (harmonicLow, in).low).low;
-                // Pure distortion products (odd from the tanh residual, even from the square law);
-                // the band-pass keeps the harmonic region and removes DC
-                const float shaped = (std::tanh (sub * drive) / drive - sub) * 4.0f + 0.6f * drive * sub * sub;
+                const float a = std::abs (sub);
+                ch.env = (a > ch.env ? envAttack : envRelease) * (ch.env - a) + a;
+                const float level = std::max (1.0e-5f, ch.env);
+                const float u = std::clamp (sub / level, -1.5f, 1.5f);
+                // Pure distortion products (odd from the tanh residual, even from the square law) of the
+                // unit-level signal, scaled back to the note's level; the band-pass keeps the harmonic
+                // region and removes DC
+                const float shaped = ((std::tanh (u * drive) / drive - u) * 4.0f + 0.6f * drive * u * u) * level * 0.35f;
                 const float harmonics = ch.hBand2.process (harmonicBand, ch.hBand1.process (harmonicBand, shaped).band).band;
 
                 float y = ch.shelf.process (shelfCoeffs, in);

@@ -39,11 +39,14 @@ namespace pad::params
             { id::silkOutput,  "Tone Output",     "OUTPUT",  " dB", Kind::continuous, -12.0f, 12.0f, 0.0f, 1 },
             { id::silkProtect, "Tone Protect",    "PROTECT", "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
             { id::silkTape,    "Tone Tape",       "TAPE",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0 },
-            { id::silkAuto,    "Tone Auto Gain",  "AUTO",    "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
+            { id::silkAuto,    "Tone Level Match", "MATCH",  "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
+            { id::silkSub,     "Tone Sub",        "SUB",     "",    Kind::continuous, 0.0f, 10.0f, 0.0f, 1 },
 
             { id::heavenHold, "Loudness Hold", "LOUDNESS", "",  Kind::continuous, 0.0f, 30.0f, 12.0f, 1 },
             { id::heavenLift, "Loudness Lift", "LOUDNESS", "",  Kind::continuous, 0.0f, 10.0f, 4.0f,  1 },
             { id::heavenMode, "Loudness Mode", "LIFT",   "",  Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "Hold", "Lift + Hold" } },
+            { id::heavenAuto, "Auto Heaven",   "AUTO",   "",  Kind::toggle, 0.0f, 1.0f, 0.0f, 0 },
+            { id::heavenAutoAmount, "Auto Heaven Amount", "HEAVEN", "", Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
 
             { id::haloWidth,   "Space Width",      "WIDTH",   " %",  Kind::continuous, 0.0f, 200.0f, 120.0f, 0 },
             { id::haloSpace,   "Space Reverb",    "REVERB",   "",    Kind::continuous, 0.0f, 10.0f, 2.5f, 1 },

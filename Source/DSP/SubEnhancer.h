@@ -13,6 +13,10 @@ namespace enh::dsp
         - Psychoacoustic bass: the sub band is saturated and band-passed around its own
           2nd/3rd harmonics, so the fundamental is "heard" on headsets/small drivers. The
           split and harmonic band follow the programme's bass fundamental (HarmonicPlanner).
+          The saturation works on the sub band normalised by its own envelope, so the harmonics
+          keep the same proportion to the note at any level (a square law used to make loud bass
+          ever more distorted - "crushed"), and they back off as the bass gets loud: loud bass is
+          heard anyway, the harmonics are there for bass that is not.
         - BOOST: higher lift ceiling, a tuned 55 Hz punch peak and more harmonics.
     */
     class SubEnhancer
@@ -57,12 +61,13 @@ namespace enh::dsp
         {
             BiquadState shelf, punch;
             SvfState split1, split2, hBand1, hBand2;
+            float env = 1.0e-4f;   // the sub band's envelope (for the normalised saturation)
         };
 
         std::array<Channel, maxChannels> channels {};
         PDController lift;
         float harmonicMix = 0.0f, harmonicTarget = 0.0f, harmonicStep = 0.0f;
-        float drive = 2.0f;
+        float drive = 2.0f, envAttack = 0.0f, envRelease = 0.0f, loudBackoff = 0.0f;
         float lastPunchDb = 1000.0f, lastShelfDb = 1000.0f;
     };
 }

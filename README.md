@@ -193,6 +193,14 @@ loud enough to hear and never louder than the music. In LIFT + HOLD it adds gain
 holds *that* steady, for sources that are quiet to begin with. **POWER**: OFF (true bypass) /
 TONE (tone & texture only) / +SPACE (TONE + SPACE). Zero latency.
 
+**AUTO + HEAVEN** (right of the display): press AUTO and the unit tunes its own heaven. It listens to the
+programme over a few seconds (sustained or percussive, mono or wide, dull or bright, thin or full in the
+low end) and moves REVERB, DECAY, SHIMMER, SPACE TONE, WIDTH, AIR and SUB toward what that programme
+wants: long, shimmering and wide for pads and ambient music, shorter and drier for busy percussive material,
+more air on dull sources, more SUB on thin ones. **HEAVEN** sets how far it goes, from 0 (your knobs) to
+10 (all AUTO). The move is smoothed over seconds, so the space never jumps. The knobs don't move; your
+settings come back when AUTO is off.
+
 One unified front (no channel split): a live display in the middle, the ten knobs in one row along the bottom,
 the six I / O rocker switches (I = on) in a grid on the right, lamp and POWER on the left. The display shows, live:
 
@@ -214,15 +222,18 @@ the six I / O rocker switches (I = on) in a grid on the right, lamp and POWER on
 | OUTPUT | `silkOutput` | trim, ±12 dB |
 | PROTECT | `silkProtect` | lifts a dip the moment an attack arrives and halves dips in 1–4.5 kHz (footsteps keep their bite) |
 | TAPE | `silkTape` | pre-emphasised soft saturation that rounds harsh transients |
-| AUTO | `silkAuto` | loudness-matched output |
+| SUB | `silkSub` | heaven for the low end: a clean 80 Hz shelf, a warm envelope-normalised 2nd harmonic (so the bass is felt on small speakers too) and a soft mono bloom that swells in the gaps after bass notes. All three back off as the bass gets loud, so a big low end is never pushed into the limiter. |
+| MATCH | `silkAuto` | loudness-matched output (the rocker was labelled AUTO before 1.2.0) |
 
 **LOUDNESS** is TONE & SPACE's level policy: one knob with two printed scales and a button to swap them.
 In HOLD it measures what came in and what is going out and works the output back toward the
 input, so the effect is loud enough to hear and never louder than the music. In LIFT + HOLD it
 adds gain first and then holds *that* steady, for sources that are quiet to begin with.
 
-TONE & SPACE's stages end in an output limiter (instant gain-down above -0.7 dBFS, 80 ms recovery, then a soft clip), so
-MULTIPLY 3x with STRENGTH 5 on both units still lands at 0.92 peak. SPACE also has early reflections (sparse stereo
+LOUDNESS measures K-weighted power (bass counts less, as it does for the ear) over ~2 s and moves its gain
+over ~3 s, so a bass note no longer pulls the whole mix down and lets it back up when it stops (pumping).
+The rack ends in one lookahead output limiter (1.5 ms lookahead, gain held for 25 ms, 150 ms release, ceiling
+-0.5 dBFS): its gain never moves inside a bass cycle, so loud bass is not crushed. SPACE also has early reflections (sparse stereo
 taps, 7-37 ms) ahead of the dense tail.
 
 **SPACE - space & width**
@@ -232,11 +243,11 @@ taps, 7-37 ms) ahead of the dense tail.
 | WIDTH | `haloWidth` | 0–200 %; near-mono sources get decorrelated width added to the side only, so the mono sum never changes |
 | SPACE | `haloSpace` | amount of an 8-line FDN reverb (Hadamard mixing, per-line damping, 4 diffusers, 18 ms pre-delay), fed from the mid above 200 Hz |
 | DECAY | `haloDecay` | 0.3–8 s |
-| SHIMMER | `haloShimmer` | octave-up pitch shift fed back into the tail |
+| SHIMMER | `haloShimmer` | pitch-shifted copies fed back into the tail: an octave up and, quieter, an octave and a fifth up |
 | TONE | `haloTone` | dark plate … airy hall |
 | DUCK | `haloDuck` | tail ~10 dB lower while the music is busy, blooms in the gaps |
 | BASS MONO | `haloBassMono` | Linkwitz-Riley split, side removed below 120 Hz |
-| MOD | `haloMod` | slow delay modulation for a lusher tail |
+| MOD | `haloMod` | slow delay modulation for a lusher tail, and a slow drift of the tail around the stereo field (~20 s a cycle) |
 
 ## Controls
 
@@ -399,7 +410,7 @@ In use:
 | Unit | Knobs | Switches and buttons |
 |---|---|---|
 | ADAPTIVE ENHANCER | ProXL; machined black SUB; machined silver masters | |
-| TONE & SPACE | cones on chrome skirts (TONE), Davies flutes (SPACE), a stepped Marconi knob for LOUDNESS | chrome-bezel LIFT button |
+| TONE & SPACE | cones on chrome skirts (TONE), Davies flutes (SPACE), a stepped Marconi knob for LOUDNESS, a gunmetal HEAVEN knob | chrome-bezel LIFT button, round AUTO button whose cap lights violet |
 | ADAPTIVE COMPRESSOR | machined skirts with a petrol cap | |
 | UPWARD LEVELER | instrument knobs with burnt-amber caps | |
 | SPECTRAL LIMITER | instrument knobs with oxblood caps | red I / O rocker |

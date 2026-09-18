@@ -13,6 +13,7 @@
 #include "SpectralLeveler.h"
 #include "SpectralLimiter.h"
 #include "SpectrumScope.h"
+#include "FinalLimiter.h"
 #include "EngineMeters.h"
 
 namespace enh::dsp
@@ -57,7 +58,8 @@ namespace enh::dsp
         void reset();
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
-        int getLatencySamples() const noexcept { return analog.getLatencySamples(); }
+        int getLatencySamples() const noexcept { return analog.getLatencySamples() + output.getLatencySamples(); }
+        const FinalLimiter& getOutputLimiter() const noexcept { return output; }
         const EngineMeters& getMeters() const noexcept { return meters; }
 
         /** For tests: detector events since reset. */
@@ -95,9 +97,8 @@ namespace enh::dsp
         ScopeFifo scopeIn, scopeOut;
         EngineMeters meters;
 
-        /** Final safety limiter. SERAPH has its own, but it can be switched off, and no
-            combination of settings should be able to push the plugin past full scale. */
-        float safetyGain = 1.0f;
+        /** The one output limiter: lookahead, holds through a bass cycle, never wobbles inside one. */
+        FinalLimiter output;
 
         double sampleRate = 48000.0;
         int maxBlock = 512;

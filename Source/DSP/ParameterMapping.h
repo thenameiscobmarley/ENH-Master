@@ -19,6 +19,9 @@ namespace enh::dsp
         int seraphMode = Seraph::heaven;
         float smooth = 4.0f, air = 4.0f, warmth = 3.0f, body = 2.0f, outputDb = 0.0f;   // 0..10, dB
         bool protect = true, tape = false, autoGain = true;
+        float silkSub = 0.0f;                           // 0..10
+        bool heavenAuto = false;
+        float heavenAutoAmount = 5.0f;                  // 0..10
         float widthPercent = 120.0f, space = 2.5f, decayS = 2.2f, shimmer = 1.5f, tone = 6.0f;
         bool duck = true, bassMono = true, mod = true;
         float heavenHold = 12.0f, heavenLift = 4.0f;    // 0..30 / 0..10
@@ -71,6 +74,7 @@ namespace enh::dsp
         s.silk.air      = std::clamp (k.air * sm, 0.0f, 30.0f);
         s.silk.warmth   = std::clamp (k.warmth * sm, 0.0f, 30.0f);
         s.silk.body     = std::clamp (k.body * sm, 0.0f, 30.0f);
+        s.silk.sub      = std::clamp (k.silkSub * sm, 0.0f, 30.0f);
         s.silk.outputDb = k.outputDb;                            // gain: not multiplied
         s.silk.protect  = k.protect;
         s.silk.tape     = k.tape;
@@ -92,6 +96,8 @@ namespace enh::dsp
                                              : std::clamp (k.heavenHold * sm / 30.0f, 0.0f, 3.0f);
         s.heaven.lift     = std::clamp (k.heavenLift * sm / 10.0f, 0.0f, 1.0f);
         s.heaven.strength = ss;
+        s.heaven.autoHeaven = k.heavenAuto;
+        s.heaven.autoAmount = std::clamp (k.heavenAutoAmount / 10.0f, 0.0f, 1.0f);
 
         // The 1U units have no device master, so their knobs map straight across
         p.tide.mix      = std::clamp (k.tideMixPercent / 100.0f, 0.0f, 1.0f);

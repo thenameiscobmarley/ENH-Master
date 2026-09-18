@@ -53,12 +53,15 @@ namespace pad::params
         inline constexpr const char* silkOutput   = "silkOutput";    // output trim (dB)
         inline constexpr const char* silkProtect  = "silkProtect";   // keep attacks / footstep band intact
         inline constexpr const char* silkTape     = "silkTape";      // pre-emphasised tape softening
-        inline constexpr const char* silkAuto     = "silkAuto";      // loudness-matched output
+        inline constexpr const char* silkAuto     = "silkAuto";      // MATCH: loudness-matched output
+        inline constexpr const char* silkSub      = "silkSub";       // SUB: heaven for the low end
 
         // LOUDNESS - what TONE & SPACE does with the level of the sound it makes
         inline constexpr const char* heavenHold = "heavenHold";   // HOLD: keep the level where it came in (0-30)
         inline constexpr const char* heavenLift = "heavenLift";   // LIFT + HOLD: add level, then hold it (0-10)
         inline constexpr const char* heavenMode = "heavenMode";   // off = HOLD, on = LIFT + HOLD
+        inline constexpr const char* heavenAuto = "heavenAuto";   // AUTO: the unit tunes its own heaven to the programme
+        inline constexpr const char* heavenAutoAmount = "heavenAutoAmount";   // HEAVEN: how far AUTO takes it (0-10)
 
         // SPACE section - space & width
         inline constexpr const char* haloWidth    = "haloWidth";     // stereo width (%)

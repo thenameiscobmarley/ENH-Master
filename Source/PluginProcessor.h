@@ -64,7 +64,8 @@ private:
     std::atomic<float>* spectralRange = nullptr, *spectralRelease = nullptr, *spectralCeiling = nullptr, *spectralActive = nullptr;
     std::atomic<float>* seraphMode = nullptr,
                       * silkSmooth = nullptr, *silkAir = nullptr, *silkWarmth = nullptr, *silkBody = nullptr, *silkOutput = nullptr,
-                      * silkProtect = nullptr, *silkTape = nullptr, *silkAuto = nullptr,
+                      * silkProtect = nullptr, *silkTape = nullptr, *silkAuto = nullptr, *silkSub = nullptr,
+                      * heavenAuto = nullptr, *heavenAutoAmount = nullptr,
                       * haloWidth = nullptr, *haloSpace = nullptr, *haloDecay = nullptr, *haloShimmer = nullptr, *haloTone = nullptr,
                       * haloDuck = nullptr, *haloBassMono = nullptr, *haloMod = nullptr;
     std::atomic<float>* clarityNorm = nullptr, *clarityAdd = nullptr, *clarityMode = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr;

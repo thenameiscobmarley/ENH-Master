@@ -2,6 +2,7 @@
 
 #include <array>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include "DspMath.h"
 
 namespace enh::dsp
 {
@@ -19,6 +20,10 @@ namespace enh::dsp
           - transient density: how often onsets arrive, which sets how fast release may be;
           - a running estimate of the loud part of the programme (a cheap percentile tracker),
             so the threshold sits under the music rather than under one static number.
+
+        The detector listens through a 90 Hz side-chain high-pass (12 dB/oct), as engineers set a bus
+        compressor's SC filter: steady bass no longer drives the gain reduction that pulls the
+        whole mix down and lets it swell back when the bass stops.
 
         Dual release (program-dependent, as on the classic bus compressors): a slow follower carries
         the average gain reduction the programme needs; a fast one takes only the momentary extra a
@@ -79,6 +84,8 @@ namespace enh::dsp
         float thresholdDb = -20.0f, ratio = 2.0f, kneeDb = 6.0f;
         float gainDb = 0.0f, makeupDb = 0.0f;
         float slowDb = 0.0f, fastDb = 0.0f;   // dual release: average + transient gain reduction
+        BiquadCoeffs scHp;                    // side-chain high-pass
+        std::array<BiquadState, 2> scState {};
         float attackCoeff = 0.0f, releaseCoeff = 0.0f, slowAttackCoeff = 0.0f, slowReleaseCoeff = 0.0f, fastReleaseCoeff = 0.0f;
         bool dualRelease = true;
         float controlPhase = 0.0f;

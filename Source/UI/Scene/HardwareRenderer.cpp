@@ -1268,6 +1268,8 @@ namespace pad
                 // Each button's LED on its own unit's panel (the LIFT button's used to be drawn on the
                 // enhancer's panel, where it landed inside FOOTSTEP)
                 use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                if (std::string_view (c.paramId) == pad::params::id::heavenAuto)   // the cap itself lights violet
+                    queueGlow (unitPanel, c.x, c.z, 0.16f, Vec3 { 0.62f, 0.42f, 1.0f }, bt.led * breath);
                 if (! hasLed (c))
                     continue;
                 if (i == modeControl)
