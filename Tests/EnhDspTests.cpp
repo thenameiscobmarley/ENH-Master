@@ -6,9 +6,11 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <functional>
+#include <map>
 #include <complex>
 #include "DSP/EnhEngine.h"
 #include "DSP/ParameterMapping.h"
+#include "Parameters/FactoryPresets.h"
 
 using enh::dsp::EnhEngine;
 using enh::dsp::BiquadCoeffs;
@@ -465,12 +467,331 @@ namespace
         std::printf ("  [%s] %s\n", ok ? "PASS" : "FAIL", what.toRawUTF8());
         if (! ok) ++failures;
     }
+    //==========================================================================
+    /*  SPECTRAL LIMITER ("anti-pumping"). A music-like programme - broadband bed, a kick every
+        half second (normal bass), steady 2 kHz detail standing in for footsteps - and then one
+        abnormal event. Measured at the output of the real chain (ENH at STRENGTH 0, compressor IN)
+        with the spectral limiter IN and OUT. */
+    struct LimiterRun
+    {
+        float detailDipDb = 0.0f;       // 2 kHz detail during the event vs just before it
+        float bassDuringDb = 0.0f;      // 55-140 Hz level during the event
+        float maxCutBeforeDb = 0.0f;    // deepest spectral cut while only normal material played
+        float cutDuringDb = 0.0f, cutAfterDb = 0.0f, broadbandDuringDb = 0.0f, cutHz = 0.0f;
+        float compressorGrDuringDb = 0.0f, peak = 0.0f;
+        std::array<float, 3> levelerBefore {}, levelerDuring {};   // UPWARD LEVELER lift per band
+        bool finite = true;
+    };
+
+    LimiterRun runLimiterScene (double sr, bool limiterIn, bool broadbandEvent, int blockSize, float eventDb = 0.0f, bool trebleEvent = false,
+                                const EnhEngine::Parameters* whole = nullptr)
+    {
+        const double seconds = 10.5, eventAt = 8.0, eventLen = 0.5;
+        const int n = (int) (seconds * sr);
+        std::vector<float> l ((size_t) n), r ((size_t) n);
+        juce::Random rnd (21);
+        Pink pinkL, pinkR, pinkE;
+        BiquadState dA, dB, eA, eB;
+        const auto detailBp = BiquadCoeffs::bandPass (sr, 2000.0, 3.0);
+        const auto rumbleLp = BiquadCoeffs::lowPass (sr, 110.0, 0.8);
+        const auto whistleBp = BiquadCoeffs::bandPass (sr, 5200.0, 4.0);
+
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = i / sr;
+            float bed = 0.10f * pinkL.next (rnd), bedR = 0.10f * pinkR.next (rnd);
+
+            // Kick: 58 Hz, falling pitch, -10 dBFS peak, every 0.5 s - loud, but normal for this music
+            const double kt = std::fmod (t, 0.5);
+            const float kick = dbfs (-10.0f) * (float) (std::sin (twoPi * (58.0 + 40.0 * std::exp (-kt / 0.02)) * kt) * std::exp (-kt / 0.11));
+
+            // Detail band (footsteps / voices stand-in), steady
+            const float det = dA.process (detailBp, dB.process (detailBp, rnd.nextFloat() * 2.0f - 1.0f)) * dbfs (-14.0f) * 3.0f;
+
+            float ev = 0.0f;
+            if (t >= eventAt && t < eventAt + eventLen)
+            {
+                const double et = t - eventAt;
+                const float env = (float) std::min (1.0, et / 0.010) * (float) std::min (1.0, (eventAt + eventLen - t) / 0.03);
+                if (trebleEvent)
+                    ev = dbfs (eventDb) * env * 6.0f * eA.process (whistleBp, eB.process (whistleBp, rnd.nextFloat() * 2.0f - 1.0f));   // a piercing whistle
+                else if (broadbandEvent)
+                    ev = dbfs (eventDb) * 2.2f * pinkE.next (rnd) * env;                     // everything louder
+                else
+                    ev = dbfs (eventDb) * env * (0.75f * (float) std::sin (twoPi * 72.0 * et)     // a huge bass rumble
+                                               + 1.6f * eA.process (rumbleLp, eB.process (rumbleLp, rnd.nextFloat() * 2.0f - 1.0f)));
+            }
+
+            l[(size_t) i] = bed + kick + det + ev;
+            r[(size_t) i] = bedR + kick + det * 0.95f + ev;
+        }
+
+        EnhEngine engine;
+        engine.prepare (sr, blockSize, 2);
+        EnhEngine::Parameters p;
+        p.normalize = 0.0f; p.strength = 0.0f;               // ENH does nothing: only the 1U units act
+        p.seraph.mode = enh::dsp::Seraph::off;
+        p.tide.active = true;                                // the broadband compressor that used to pump
+        p.limiter.active = limiterIn;
+        if (whole != nullptr)
+            p = *whole;   // a whole-rack setting (the factory presets)
+
+        const auto bassBp = BiquadCoeffs::bandPass (sr, 90.0, 0.9), detBp = BiquadCoeffs::bandPass (sr, 2000.0, 3.0);
+        BiquadState b1, b2, d1, d2;
+        double detBefore = 0, detDuring = 0, bassDuring = 0;
+        int nBefore = 0, nDuring = 0;
+        LimiterRun out;
+        juce::AudioBuffer<float> buf (2, blockSize);
+
+        for (int pos = 0; pos < n; pos += blockSize)
+        {
+            const int m = std::min (blockSize, n - pos);
+            buf.setSize (2, m, false, false, true);
+            for (int i = 0; i < m; ++i) { buf.setSample (0, i, l[(size_t) (pos + i)]); buf.setSample (1, i, r[(size_t) (pos + i)]); }
+            engine.process (buf, p);
+
+            const double t = (pos + m) / sr;
+            const auto& lim = engine.getLimiter();
+            if (t > 3.0 && t < eventAt - 0.02)
+                out.maxCutBeforeDb = std::max (out.maxCutBeforeDb, lim.getDeepestCutDb());
+            if (t > eventAt - 0.3 && t < eventAt - 0.02)
+                for (int b = 0; b < 3; ++b) out.levelerBefore[(size_t) b] = std::max (out.levelerBefore[(size_t) b], engine.getLeveler().getReadout().gainDb[(size_t) b]);
+            if (t > eventAt + 0.1 && t < eventAt + 0.45)
+            {
+                for (int b = 0; b < 3; ++b) out.levelerDuring[(size_t) b] = std::max (out.levelerDuring[(size_t) b], engine.getLeveler().getReadout().gainDb[(size_t) b]);
+                out.cutDuringDb = std::max (out.cutDuringDb, lim.getDeepestCutDb());
+                out.broadbandDuringDb = std::max (out.broadbandDuringDb, lim.getBroadbandDb());
+                out.compressorGrDuringDb = std::max (out.compressorGrDuringDb, engine.getCompressor().getReadout().gainReductionDb);
+                for (auto& sl : lim.getSlots())
+                    if (sl.depthDb >= out.cutDuringDb - 1.0e-3f && sl.depthDb > 0.5f)
+                        out.cutHz = sl.hz;
+            }
+            if (std::getenv ("LIMITER_TRACE") != nullptr && limiterIn && blockSize == 128 && broadbandEvent == (std::atoi (std::getenv ("LIMITER_TRACE")) == 2) && ((t > (std::getenv ("LIMITER_FROM") ? std::atof (std::getenv ("LIMITER_FROM")) : eventAt - 0.6) && t < eventAt + 0.6 && pos % (blockSize * (std::getenv ("LIMITER_FINE") ? 1 : 24)) == 0)))
+            {
+                const auto& v = lim.getBandView();
+                std::printf ("   t=%.2f cut=%.1f bb=%.1f loc=%.2f tideGR=%.1f |", t, lim.getDeepestCutDb(), lim.getBroadbandDb(), lim.getLocalisation(), engine.getCompressor().getReadout().gainReductionDb);
+                for (int k = 0; k < 12; ++k) std::printf (" %3.0f:%+.0f/%.0f", enh::dsp::BandAnalyzer::centreHz (k), v.excursionDb[(size_t) k], v.normalDb[(size_t) k]); std::printf (" | over"); for (int k = 0; k < 12; ++k) std::printf (" %+.0f", v.overDb[(size_t) k]);
+                std::printf ("\n");
+            }
+            if (t > eventAt + eventLen + 0.7 && t < eventAt + eventLen + 0.8)
+                out.cutAfterDb = std::max (out.cutAfterDb, lim.getDeepestCutDb());
+
+            for (int i = 0; i < m; ++i)
+            {
+                const float y = 0.5f * (buf.getSample (0, i) + buf.getSample (1, i));
+                const double ti = (pos + i) / sr;
+                const float bass = b1.process (bassBp, b2.process (bassBp, y));
+                const float det = d1.process (detBp, d2.process (detBp, y));
+                out.peak = std::max ({ out.peak, std::abs (buf.getSample (0, i)), std::abs (buf.getSample (1, i)) });
+                out.finite = out.finite && std::isfinite (y);
+                // Whole kick cycles either side, so the kick itself averages out
+                if (ti >= eventAt - 1.0 && ti < eventAt) { detBefore += det * det; ++nBefore; }
+                if (ti >= eventAt + 0.05 && ti < eventAt + 0.45) { detDuring += det * det; bassDuring += bass * bass; ++nDuring; }
+            }
+        }
+
+        out.detailDipDb = (float) (10.0 * std::log10 ((detDuring / std::max (1, nDuring) + 1e-15) / (detBefore / std::max (1, nBefore) + 1e-15)));
+        out.bassDuringDb = (float) (10.0 * std::log10 (bassDuring / std::max (1, nDuring) + 1e-15));
+        return out;
+    }
+
+    void runLimiterTests (double sr)
+    {
+        std::printf ("\n== SPECTRAL LIMITER (anti-pumping): huge bass hit over a mix with kicks and 2 kHz detail ==\n");
+        const auto off = runLimiterScene (sr, false, false, 128);
+        const auto on = runLimiterScene (sr, true, false, 128);
+        std::printf ("  limiter OUT: 2 kHz detail during the hit %+.1f dB, bass %.1f dB, compressor GR %.1f dB\n",
+                     off.detailDipDb, off.bassDuringDb, off.compressorGrDuringDb);
+        std::printf ("  limiter IN : 2 kHz detail during the hit %+.1f dB, bass %.1f dB, compressor GR %.1f dB\n",
+                     on.detailDipDb, on.bassDuringDb, on.compressorGrDuringDb);
+        std::printf ("  spectral cut: %.1f dB around %.0f Hz during the hit, %.2f dB on normal kicks before it, %.2f dB 0.7 s after; broadband %.2f dB\n",
+                     on.cutDuringDb, on.cutHz, on.maxCutBeforeDb, on.cutAfterDb, on.broadbandDuringDb);
+
+        check (on.maxCutBeforeDb < 1.0f, "normal bass (kicks) is left alone");
+        check (on.cutDuringDb > 4.0f && on.cutHz > 40.0f && on.cutHz < 300.0f, "the abnormal hit is cut where it is (40-300 Hz)");
+        const float balanceOff = off.bassDuringDb - off.detailDipDb, balanceOn = on.bassDuringDb - on.detailDipDb;
+        std::printf ("  bass relative to the detail during the hit: OUT %.1f dB, IN %.1f dB\n", balanceOff, balanceOn);
+        check (balanceOn < balanceOff - 3.0f, "the offending bass region comes down relative to everything else");
+        check (std::abs (on.detailDipDb) < 0.4f * std::abs (off.detailDipDb), "the 2 kHz detail ducks less than half as much (less compressor pumping)");
+        check (on.compressorGrDuringDb < off.compressorGrDuringDb - 4.0f, "the compressor is no longer driven by the bass hit");
+        check (std::abs (on.detailDipDb) < 1.0f, "the 2 kHz detail stays within 1 dB through the hit");
+        check (on.broadbandDuringDb < 0.5f, "no broadband gain reduction for a localised event");
+        check (on.cutAfterDb < 1.0f, "the cut lets go once the hit is over");
+
+        std::printf ("\n  same scene, a broadband event instead (everything +12 dB):\n");
+        const auto wide = runLimiterScene (sr, true, true, 128, -4.0f);
+        std::printf ("  spectral cut %.1f dB, broadband %.1f dB, 2 kHz detail %+.1f dB\n", wide.cutDuringDb, wide.broadbandDuringDb, wide.detailDipDb);
+        check (wide.cutDuringDb < 2.0f, "a broadband event is not carved up spectrally");
+
+        std::printf ("\n  same scene, an abnormal treble burst instead (5 kHz whistle):\n");
+        const auto treble = runLimiterScene (sr, true, false, 128, -6.0f, true);
+        std::printf ("  spectral cut %.1f dB around %.0f Hz, broadband %.2f dB\n", treble.cutDuringDb, treble.cutHz, treble.broadbandDuringDb);
+        check (treble.cutDuringDb > 3.0f && treble.cutHz > 2500.0f, "the cut follows the event to wherever it is (not a fixed bass rule)");
+
+        const auto odd = runLimiterScene (sr, true, false, 1024);
+        const auto one = runLimiterScene (sr, true, false, 7);
+        std::printf ("  block 1024: bass %.2f dB, detail %+.2f dB | block 7: bass %.2f dB, detail %+.2f dB | block 128: bass %.2f dB, detail %+.2f dB\n",
+                     odd.bassDuringDb, odd.detailDipDb, one.bassDuringDb, one.detailDipDb, on.bassDuringDb, on.detailDipDb);
+        check (std::abs (odd.detailDipDb - on.detailDipDb) < 0.1f && std::abs (one.detailDipDb - on.detailDipDb) < 0.1f
+                 && std::abs (odd.bassDuringDb - on.bassDuringDb) < 0.1f && std::abs (one.bassDuringDb - on.bassDuringDb) < 0.1f,
+               "same result whatever the host block size (decisions land where they were made)");
+        check (on.finite && wide.finite && on.peak <= 1.0f && wide.peak <= 1.0f, "stays finite and under full scale");
+
+        {
+            using enh::dsp::SpectralLimiter;
+            std::array<SpectralLimiter::Slot, SpectralLimiter::numSlots> cuts {};
+            cuts[0] = { SpectralLimiter::Shape::bell, 90.0f, 1.2f, 8.0f };
+            const float atCentre = SpectralLimiter::responseDb (cuts, 90.0f), at2k = SpectralLimiter::responseDb (cuts, 2000.0f);
+            std::printf ("  8 dB bell at 90 Hz: %.2f dB at 90 Hz, %.3f dB at 2 kHz\n", atCentre, at2k);
+            check (std::abs (atCentre + 8.0f) < 0.05f && at2k > -0.05f, "a cut stays in its region");
+        }
+    }
+    //==========================================================================
+    /** A factory preset as the engine sees it: the panel values through the same mapping the plugin uses. */
+    EnhEngine::Parameters presetParameters (const pad::presets::Preset& preset)
+    {
+        enh::dsp::KnobValues k;
+        namespace id = pad::params::id;
+        for (auto& spec : pad::params::allSpecs())
+        {
+            const float v = pad::presets::valueFor (preset, spec);
+            const auto& i = spec.id;
+            const bool on = v > 0.5f;
+            if (i == id::clarityNorm) k.clarityNorm = v;          else if (i == id::clarityAdd) k.clarityAdd = v;
+            else if (i == id::clarityMode) k.clarityAddMode = on; else if (i == id::adaptSpeed) k.adaptPercent = v;
+            else if (i == id::sub) k.subPercent = v;              else if (i == id::subBoost) k.subBoost = on;
+            else if (i == id::footstep) k.footstep = on;          else if (i == id::enhMultiply) k.enhMultiply = v;
+            else if (i == id::enhStrength) k.enhStrength = v;
+            else if (i == id::tideMix) k.tideMixPercent = v;      else if (i == id::tideResponse) k.tideResponse = v;
+            else if (i == id::tideActive) k.tideActive = on;
+            else if (i == id::lumenTarget) k.lumenTargetDb = v;   else if (i == id::lumenResponse) k.lumenResponse = v;
+            else if (i == id::lumenActive) k.lumenActive = on;
+            else if (i == id::spectralRange) k.spectralRangeDb = v;     else if (i == id::spectralRelease) k.spectralReleaseMs = v;
+            else if (i == id::spectralCeiling) k.spectralCeilingDb = v; else if (i == id::spectralActive) k.spectralActive = on;
+            else if (i == id::seraphMode) k.seraphMode = juce::roundToInt (v);
+            else if (i == id::seraphMultiply) k.seraphMultiply = v; else if (i == id::seraphStrength) k.seraphStrength = v;
+            else if (i == id::silkSmooth) k.smooth = v;   else if (i == id::silkAir) k.air = v;
+            else if (i == id::silkWarmth) k.warmth = v;   else if (i == id::silkBody) k.body = v;
+            else if (i == id::silkOutput) k.outputDb = v; else if (i == id::silkProtect) k.protect = on;
+            else if (i == id::silkTape) k.tape = on;      else if (i == id::silkAuto) k.autoGain = on;
+            else if (i == id::heavenHold) k.heavenHold = v; else if (i == id::heavenLift) k.heavenLift = v;
+            else if (i == id::heavenMode) k.heavenLiftMode = on;
+            else if (i == id::haloWidth) k.widthPercent = v; else if (i == id::haloSpace) k.space = v;
+            else if (i == id::haloDecay) k.decayS = v;       else if (i == id::haloShimmer) k.shimmer = v;
+            else if (i == id::haloTone) k.tone = v;          else if (i == id::haloDuck) k.duck = on;
+            else if (i == id::haloBassMono) k.bassMono = on; else if (i == id::haloMod) k.mod = on;
+        }
+        return enh::dsp::mapKnobs (k);
+    }
+
+    double rmsDb (const std::vector<float>& l, const std::vector<float>& r, size_t from)
+    {
+        double sum = 0.0;
+        for (size_t i = from; i < l.size(); ++i)
+            sum += 0.5 * ((double) l[i] * l[i] + (double) r[i] * r[i]);
+        return 10.0 * std::log10 (sum / (double) std::max<size_t> (1, l.size() - from) + 1e-15);
+    }
+
+    void runPresetTests (double sr)
+    {
+        std::printf ("\n== Factory presets (whole rack) on the game scene and the bass-hit mix ==\n");
+        std::printf ("  %-24s %8s %7s %6s %6s %10s %9s\n", "preset", "level", "peak", "events", "cut", "detail dip", "comp GR");
+        const auto scene = makeScene (sr, 16.0, true, true, 42);
+        const double inDb = rmsDb (scene.left, scene.right, (size_t) (4.0 * sr));
+
+        std::map<juce::String, float> dips, dipsOut;
+        int defaultSteps = 0, footstepSteps = 0;
+        for (auto& preset : pad::presets::all())
+        {
+            const auto p = presetParameters (preset);
+            int steps = 0;
+            const auto r = run (scene, sr, 256, p, [&] (const EnhEngine& e) { steps = e.getFootstepEventCount(); });
+            const double outDb = rmsDb (r.outL, r.outR, (size_t) (4.0 * sr));
+            // A bass hit peaking around full scale (a game's output), and the test's over-full-scale one
+            const auto hit = runLimiterScene (sr, true, false, 256, -6.0f, false, &p);
+            auto without = p;
+            without.limiter.active = false;
+            const auto hitOut = runLimiterScene (sr, true, false, 256, -6.0f, false, &without);
+            dips[preset.name] = hit.detailDipDb;
+            dipsOut[preset.name] = hitOut.detailDipDb;
+            std::printf ("  %-24s %+6.1f dB %7.3f %6d %5.1f %+9.1f dB %6.1f dB   (limiter OUT: %+.1f dB)\n", preset.name, outDb - inDb, r.peak, steps,
+                         hit.cutDuringDb, hit.detailDipDb, hit.compressorGrDuringDb, hitOut.detailDipDb);
+
+            check (r.finite && r.peak <= 1.0f && hit.finite && hit.peak <= 1.0f, juce::String (preset.name) + ": stable, under full scale");
+            check (std::abs (outDb - inDb) < 9.0, juce::String (preset.name) + ": level within 9 dB of the input");
+            if (juce::String (preset.name) == "DEFAULT") defaultSteps = steps;
+            if (juce::String (preset.name) == "COMPETITIVE FOOTSTEPS") footstepSteps = steps;
+        }
+
+        check (footstepSteps >= (int) scene.steps.size() * 7 / 10, "COMPETITIVE FOOTSTEPS detects most footsteps");
+        // With the whole rack running, the output limiter at the end still has the last word on a hot
+        // mix; what the spectral limiter must do is take most of the ducking away.
+        for (auto& [name, dip] : dips)
+        {
+            if (name == "TRANSPARENT (ALL OUT)")
+                continue;
+            const float bound = name == "BASS HEAVY, PROTECTED" ? 5.0f : 2.5f;
+            check (std::abs (dip) < std::abs (dipsOut[name]) - 0.15f && std::abs (dip) < bound,
+                   name + ": less ducking with the SPECTRAL LIMITER than without, and under " + juce::String (bound, 1) + " dB");
+        }
+        (void) defaultSteps;
+
+        if (std::getenv ("PRESET_DIAG") != nullptr)
+        {
+            // Which stage ducks the detail under the bass hit, with the whole rack running (DEFAULT)
+            const auto base = presetParameters (pad::presets::all()[(size_t) std::atoi (std::getenv ("PRESET_DIAG"))]);
+            auto variant = [&] (const char* what, auto&& change)
+            {
+                auto p = base;
+                change (p);
+                const float eventDb = std::getenv ("DIAG_EVENT") != nullptr ? (float) std::atof (std::getenv ("DIAG_EVENT")) : 0.0f;
+                const auto hit = runLimiterScene (sr, true, false, 256, eventDb, false, &p);
+                std::printf ("    preset %-28s detail %+5.1f dB  cut %4.1f  comp GR %4.1f  peak %.3f  leveler L/M/H before %.1f/%.1f/%.1f during %.1f/%.1f/%.1f\n",
+                             what, hit.detailDipDb, hit.cutDuringDb, hit.compressorGrDuringDb, hit.peak,
+                             hit.levelerBefore[0], hit.levelerBefore[1], hit.levelerBefore[2], hit.levelerDuring[0], hit.levelerDuring[1], hit.levelerDuring[2]);
+            };
+            variant ("as is", [] (auto&) {});
+            variant ("tone & space OFF", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::off; });
+            variant ("tone & space: no loudness hold", [] (auto& p) { p.seraph.heaven.amount = 0.0f; });
+            variant ("leveler OUT", [] (auto& p) { p.lumen.active = false; });
+            variant ("compressor OUT", [] (auto& p) { p.tide.active = false; });
+            variant ("enhancer STRENGTH 0", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; });
+            variant ("only leveler", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; p.limiter.active = false; p.tide.active = false; p.seraph.mode = enh::dsp::Seraph::off; });
+            variant ("limiter OUT", [] (auto& p) { p.limiter.active = false; });
+            variant ("only limiter + compressor", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; p.lumen.active = false; p.seraph.mode = enh::dsp::Seraph::off; });
+        }
+
+        // The reference preset: level unchanged, and nothing processing the bass hit
+        {
+            const auto p = presetParameters (pad::presets::all().back());
+            const auto r = run (scene, sr, 256, p);
+            const double outDb = rmsDb (r.outL, r.outR, (size_t) (4.0 * sr));
+            const auto hit = runLimiterScene (sr, true, false, 256, 0.0f, false, &p);
+            std::printf ("  TRANSPARENT: level %+.2f dB, limiter cut %.2f dB, compressor GR %.2f dB\n", outDb - inDb, hit.cutDuringDb, hit.compressorGrDuringDb);
+            check (std::abs (outDb - inDb) < 0.5 && hit.cutDuringDb < 0.01f && hit.compressorGrDuringDb < 0.01f,
+                   "TRANSPARENT (ALL OUT): level unchanged, no unit processing");
+        }
+    }
 }
 
 int main (int argc, char** argv)
 {
     const double sr = 48000.0;
     const int block = 128;
+
+    if (argc > 1 && juce::String (argv[1]) == "--presets")
+    {
+        runPresetTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--limiter")
+    {
+        runLimiterTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
 
     //==========================================================================
     // Real recordings: EnhDspTests --analyze capture.wav [clarity 0..1]
@@ -1760,6 +2081,9 @@ int main (int argc, char** argv)
         check (quiet.finite && loud.finite, "LUMEN stays finite");
     }
 
+    runLimiterTests (sr);
+    runPresetTests (sr);
+
     std::printf ("\n== CPU (this machine) ==\n");
     for (double rate : { 44100.0, 48000.0, 96000.0 })
     {
@@ -1768,6 +2092,7 @@ int main (int argc, char** argv)
         p.normalize = 0.7f; p.adaptSpeed = 0.5f; p.sub = 0.6f; p.subBoost = true; p.footstep = true;
         p.seraph.mode = enh::dsp::Seraph::heaven;   // every unit running, as the plugin ships
         p.lumen.active = true;
+        p.limiter.active = true;
         p.tide.active = true;
         const auto r = run (scene, rate, 256, p);
         const double realtime = 20.0 / r.seconds;

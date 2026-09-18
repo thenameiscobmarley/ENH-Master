@@ -25,11 +25,15 @@ namespace enh::dsp
         bool heavenLiftMode = false;
         float seraphMultiply = 1.0f, seraphStrength = 1.0f;
 
-        // TIDE (compressor) and LUMEN (leveler): two knobs each
+        // ADAPTIVE COMPRESSOR and UPWARD LEVELER: two knobs each
         float tideMixPercent = 60.0f, tideResponse = 5.0f;
         bool tideActive = true;
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
+
+        // SPECTRAL LIMITER: three knobs
+        float spectralRangeDb = 9.0f, spectralReleaseMs = 150.0f, spectralCeilingDb = -3.0f;
+        bool spectralActive = true;
     };
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -89,13 +93,17 @@ namespace enh::dsp
         s.heaven.lift     = std::clamp (k.heavenLift * sm / 10.0f, 0.0f, 1.0f);
         s.heaven.strength = ss;
 
-        // TIDE / LUMEN: no device master, so their knobs map straight across
+        // The 1U units have no device master, so their knobs map straight across
         p.tide.mix      = std::clamp (k.tideMixPercent / 100.0f, 0.0f, 1.0f);
         p.tide.response = std::clamp (k.tideResponse / 10.0f, 0.0f, 1.0f);
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
         p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);
         p.lumen.active   = k.lumenActive;
+        p.limiter.rangeDb   = std::clamp (k.spectralRangeDb, 0.0f, 18.0f);
+        p.limiter.releaseMs = std::clamp (k.spectralReleaseMs, 20.0f, 2000.0f);
+        p.limiter.ceilingDb = std::clamp (k.spectralCeilingDb, -24.0f, 0.0f);
+        p.limiter.active    = k.spectralActive;
         return p;
     }
 }

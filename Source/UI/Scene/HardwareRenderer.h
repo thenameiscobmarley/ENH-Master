@@ -43,9 +43,9 @@ namespace pad
                          scaleRing, arcRing, led,
                          tubeFaceTop, tubeFaceEdges, tubeEarWalls, tubeEarFloors, tubeScrews, tubeScrewSlots,
                          seraphWalls, seraphGlass, seraphBezel,
-                         tideFaceTop, lumenFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
+                         tideFaceTop, lumenFaceTop, limiterFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
                          enhBody, tubeBody, oneUBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
-                         caseCheeks, caseRails, caseEdges, flowArrow;
+                         caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges, flowArrow;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
@@ -55,9 +55,9 @@ namespace pad
                                  &scaleRing, &arcRing, &led,
                                  &tubeFaceTop, &tubeFaceEdges, &tubeEarWalls, &tubeEarFloors, &tubeScrews, &tubeScrewSlots,
                                  &seraphWalls, &seraphGlass, &seraphBezel,
-                                 &tideFaceTop, &lumenFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
+                                 &tideFaceTop, &lumenFaceTop, &limiterFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
                                  &enhBody, &tubeBody, &oneUBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
-                                 &caseCheeks, &caseRails, &caseEdges, &flowArrow })
+                                 &caseCheeks, &caseRails, &caseFrontRails, &caseRailHoles, &caseEdges, &flowArrow })
                     fn (*m);
             }
         };
@@ -131,7 +131,8 @@ namespace pad
         float vignette = 1.0f;   // 0 while rendering the zoomed loupe view
 
         gfx::Texture2D decalTex, scaleTex, scaleWideTex, scale3Tex, scale5Tex, tubeDecalTex, seraphLabelTex, overlayTex, calloutTex;
-        gfx::Texture2D tideDecalTex, lumenDecalTex, tideLabelTex, lumenLabelTex;
+        gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex;
+        std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
 
         /** A VU movement: the needle has mass, so it swings toward the reading and overshoots
             a little, the way a real moving coil does. */
@@ -141,13 +142,15 @@ namespace pad
             void update (float target, float dt) noexcept;
         };
 
-        std::array<Needle, 4> needles {};          // [0] TIDE, [1..3] LUMEN low / mid / high
-        std::array<float, 2> oneULamp {};          // backlight per unit, on with IN
+        // [0] compressor, [1..3] leveler low / mid / high, [4..5] limiter spectral / broadband (layout::firstNeedle)
+        std::array<Needle, layout::numNeedles> needles {};
+        std::array<float, 3> oneULamp {};          // backlight per 1U unit (compressor, leveler, limiter), on with IN
 
-        GpuModel tideVu, lumenVu;                  // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu;       // HardwareKit VU models, one per size
 
+        /** faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
         void drawOneU (int unit, const gfx::Mat4& panel, gfx::Vec3 colour, const gfx::Texture2D& decal,
-                       const gfx::Texture2D& faceTex, const gfx::GpuMesh& faceTop);
+                       std::initializer_list<const gfx::Texture2D*> faces, const gfx::GpuMesh& faceTop);
         void drawVuGlass (int unit, const gfx::Mat4& panel);
 
         // Models from HardwareKit: one per distinct knob (style, radius); shared button / toggle / lamp models
@@ -194,6 +197,8 @@ namespace pad
         float parallaxX = 0.0f, parallaxY = 0.0f;
         float focusAmount = 0.0f;      // animated toward shared.focusTarget
         std::array<float, enh::dsp::numBands> displayBands {};
+        std::array<float, 48> limitCurve {};       // SPECTRAL LIMITER cut on the analyser's axis (dB), smoothed
+        float limitBroadband = 0.0f;
         float stepFlash = 0.0f, activityGlow = 0.0f;
         bool pointerInside = false, pointerPolled = false, leftDown = false, lastLeftDown = false, fineDrag = false;
         float pointerNdcX = 0.0f, pointerNdcY = 0.0f, pointerX = 0.0f, pointerY = 0.0f, lastPointerX = 0.0f, lastPointerY = 0.0f;

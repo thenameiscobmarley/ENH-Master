@@ -1,6 +1,6 @@
 # ENH Master unit
 
-The lower, black unit - a Pro-XL-style rack processor. It processes first, and SERAPH finishes what
+The lower, black unit - a Pro-XL-style rack processor. It processes first, and TONE & SPACE finishes what
 it produces.
 
 ## Sections

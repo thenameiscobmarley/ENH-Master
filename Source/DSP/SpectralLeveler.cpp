@@ -102,7 +102,8 @@ namespace enh::dsp
             const float slewUp = (2.5f + 9.0f * resp) * dt;
             const float slewDown = (5.0f + 16.0f * resp) * dt;
             const float delta = wanted - st.gainDb;
-            st.gainDb += std::clamp (delta, -slewDown, slewUp);
+            if (! s.holdGains)
+                st.gainDb += std::clamp (delta, -slewDown, slewUp);
             st.gainDb = std::clamp (st.gainDb, 0.0f, maxGain[(size_t) b]);
 
             readout.gainDb[(size_t) b] = st.gainDb;

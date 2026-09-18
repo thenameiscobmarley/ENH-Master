@@ -21,22 +21,31 @@ namespace pad::params
         inline constexpr const char* enhMultiply = "enhMultiply"; // multiplies every ENH Master knob (0-3x)
         inline constexpr const char* enhStrength = "enhStrength"; // how hard ENH Master's processing hits (0-5)
 
-        // TIDE - 1U dynamic compressor: two controls, everything else derived from the audio
+        // IDs are kept from the units' earlier names (TIDE, LUMEN, SERAPH / SILK / HALO / HEAVEN) so saved
+        // sessions and automation still load; the names shown to the user are in the specs below.
+
+        // ADAPTIVE COMPRESSOR - 1U: two controls, everything else derived from the audio
         inline constexpr const char* tideMix      = "tideMix";       // wet / dry (%)
         inline constexpr const char* tideResponse = "tideResponse";  // how fast it reacts and adapts (0-10)
         inline constexpr const char* tideActive   = "tideActive";    // IN / OUT (hardware bypass)
 
-        // LUMEN - 1U spectral leveler: lifts quiet material toward a target
+        // UPWARD LEVELER - 1U, three bands: lifts quiet material toward a target
         inline constexpr const char* lumenTarget   = "lumenTarget";   // target level (dBFS)
         inline constexpr const char* lumenResponse = "lumenResponse"; // how fast it follows (0-10)
         inline constexpr const char* lumenActive   = "lumenActive";   // IN / OUT
 
-        // SERAPH (the upper, purple unit): OFF / SILK / HEAVEN
-        inline constexpr const char* seraphMode   = "seraphMode";
-        inline constexpr const char* seraphMultiply = "seraphMultiply"; // multiplies every SERAPH knob except OUTPUT (0-3x)
-        inline constexpr const char* seraphStrength = "seraphStrength"; // how hard SERAPH's processing hits (0-5)
+        // SPECTRAL LIMITER - 1U: cuts abnormal spectral excess where it is, instead of the whole mix
+        inline constexpr const char* spectralRange   = "spectralRange";   // deepest spectral cut (dB)
+        inline constexpr const char* spectralRelease = "spectralRelease"; // how fast a cut lets go (ms)
+        inline constexpr const char* spectralCeiling = "spectralCeiling"; // headroom protection threshold (dBFS)
+        inline constexpr const char* spectralActive  = "spectralActive";  // IN / OUT
 
-        // SILK - tone & texture
+        // TONE & SPACE (the upper, purple unit): OFF / TONE / TONE + SPACE
+        inline constexpr const char* seraphMode   = "seraphMode";
+        inline constexpr const char* seraphMultiply = "seraphMultiply"; // multiplies every TONE & SPACE knob except OUTPUT (0-3x)
+        inline constexpr const char* seraphStrength = "seraphStrength"; // how hard TONE & SPACE's processing hits (0-5)
+
+        // TONE section - tone & texture
         inline constexpr const char* silkSmooth   = "silkSmooth";    // adaptive resonance smoothing
         inline constexpr const char* silkAir      = "silkAir";       // adaptive air + generated highs
         inline constexpr const char* silkWarmth   = "silkWarmth";    // low-mid harmonics + triode
@@ -46,12 +55,12 @@ namespace pad::params
         inline constexpr const char* silkTape     = "silkTape";      // pre-emphasised tape softening
         inline constexpr const char* silkAuto     = "silkAuto";      // loudness-matched output
 
-        // HEAVEN - what SERAPH does with the level of the sound it makes
-        inline constexpr const char* heavenHold = "heavenHold";   // STABLE: hold the level (0-30)
-        inline constexpr const char* heavenLift = "heavenLift";   // LIFT + STABLE: add, then hold (0-10)
-        inline constexpr const char* heavenMode = "heavenMode";   // off = STABLE, on = LIFT + STABLE
+        // LOUDNESS - what TONE & SPACE does with the level of the sound it makes
+        inline constexpr const char* heavenHold = "heavenHold";   // HOLD: keep the level where it came in (0-30)
+        inline constexpr const char* heavenLift = "heavenLift";   // LIFT + HOLD: add level, then hold it (0-10)
+        inline constexpr const char* heavenMode = "heavenMode";   // off = HOLD, on = LIFT + HOLD
 
-        // HALO - space & width
+        // SPACE section - space & width
         inline constexpr const char* haloWidth    = "haloWidth";     // stereo width (%)
         inline constexpr const char* haloSpace    = "haloSpace";     // reverb amount
         inline constexpr const char* haloDecay    = "haloDecay";     // reverb decay (s)
@@ -60,6 +69,10 @@ namespace pad::params
         inline constexpr const char* haloDuck     = "haloDuck";      // tail ducks under the programme
         inline constexpr const char* haloBassMono = "haloBassMono";  // mono below 120 Hz
         inline constexpr const char* haloMod      = "haloMod";       // tail modulation
+
+        // Rack-wide: the PRESET buttons on the ADAPTIVE ENHANCER (momentary, not automatable)
+        inline constexpr const char* presetPrev   = "presetPrev";
+        inline constexpr const char* presetNext   = "presetNext";
     }
 
     enum class Kind { continuous, toggle, choice };
@@ -72,6 +85,7 @@ namespace pad::params
         int decimals = 1;
         float skewCentre = 0.0f;                 // > 0: value at the middle of the knob travel
         juce::StringArray texts {};              // toggle: { off, on }; choice: the choices
+        bool automatable = true;
     };
 
     const std::vector<Spec>& allSpecs();

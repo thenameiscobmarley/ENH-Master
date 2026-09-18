@@ -66,12 +66,15 @@ namespace pad::layout
     inline constexpr float sectionTop = 0.02f, sectionBottom = 0.84f;
     inline constexpr float sectionCz = 0.5f * (sectionTop + sectionBottom), sectionHd = 0.5f * (sectionBottom - sectionTop);
 
+    /*  Five sections with a clear gutter (>= 0.10) between each. FOOTSTEP is wide enough to hold its
+        button and the DETECT ladder side by side, well inside its own border, so the ladder no longer
+        sits on the FOOTSTEP / METER boundary next to the OUT ladder. */
     inline constexpr std::array<Section, 5> sections {{
         { { -1.94f,  sectionCz, 0.38f,  sectionHd }, "MASTER" },
         { { -0.72f,  sectionCz, 0.74f,  sectionHd }, "CLARITY" },
-        { {  0.58f,  sectionCz, 0.42f,  sectionHd }, "SUB" },
-        { {  1.36f,  sectionCz, 0.26f,  sectionHd }, "FOOTSTEP" },
-        { {  2.04f,  sectionCz, 0.30f,  sectionHd }, "METER" },
+        { {  0.51f,  sectionCz, 0.39f,  sectionHd }, "SUB" },
+        { {  1.33f,  sectionCz, 0.33f,  sectionHd }, "FOOTSTEP" },
+        { {  2.06f,  sectionCz, 0.28f,  sectionHd }, "METER" },
     }};
 
     inline constexpr float sectionTitleZ = sectionTop + 0.065f;   // title printed inside the top of a box
@@ -97,7 +100,12 @@ namespace pad::layout
     // --- Controls ---------------------------------------------------------------
     enum class ControlKind { knob, button, toggle, selector };
 
-    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, numUnits = 4 };
+    /*  Panel names (what each unit does): enhUnit = ADAPTIVE ENHANCER, tubeUnit = TONE & SPACE,
+        tideUnit = ADAPTIVE COMPRESSOR, lumenUnit = UPWARD LEVELER, limiterUnit = SPECTRAL LIMITER.
+        The identifiers keep the units' earlier names, as the parameter IDs do. */
+    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, numUnits = 5 };
+
+    inline constexpr bool isOneU (int unit) noexcept { return unit == tideUnit || unit == lumenUnit || unit == limiterUnit; }
 
     struct ControlDef
     {
@@ -108,7 +116,7 @@ namespace pad::layout
         const char* altParamId = nullptr;    // knob bound to this parameter while modeParamId is on
         const char* modeParamId = nullptr;
         int unit = enhUnit;
-        const char* group = nullptr;         // shown before the label on the display (e.g. "SILK")
+        const char* group = nullptr;         // shown before the label on the display (e.g. "TONE")
         float size = 1.0f;                   // knob size relative to the unit's standard knob
         hwk::models::KnobStyle style = hwk::models::KnobStyle::proXl;
     };
@@ -117,19 +125,23 @@ namespace pad::layout
 
     namespace pid = pad::params::id;
 
-    inline constexpr float knobZ = 0.38f;
-    inline constexpr float buttonZ = 0.46f;
-    inline constexpr float labelZ = 0.73f;      // control labels (all on one line, Pro-XL style)
+    // Knobs sit low enough that their top scale numbers clear the section title rule (0.134), and
+    // every label - knobs, buttons, the master knobs and the LED ladders - shares one line well above
+    // the bottom border (0.84).
+    inline constexpr float knobZ = 0.42f;
+    inline constexpr float buttonZ = 0.50f;
+    inline constexpr float labelZ = 0.76f;      // control labels (all on one line, Pro-XL style)
 
     // ==============================================================================
-    // SERAPH - the purple finishing processor racked above ENH Master (SILK | HALO)
+    // TONE & SPACE - the purple finishing processor at the top of the case (TONE | SPACE)
     // ==============================================================================
     /*  Eurorack-style curved case. The units sit on an arc centred on the viewer, so however
         many are stacked, every panel faces the camera head on: the higher a unit sits, the
         further it leans back and the more it is rotated toward you. Nothing is foreshortened,
         which is what keeps the print readable as the case grows.
 
-            ENH MASTER (2U) -> LUMEN (1U) -> TIDE (1U) -> SERAPH (2U) -> out
+            ADAPTIVE ENHANCER (2U) -> UPWARD LEVELER (1U) -> SPECTRAL LIMITER (1U)
+                -> ADAPTIVE COMPRESSOR (1U) -> TONE & SPACE (2U) -> out
     */
     inline constexpr float rackGap    = 0.105f;   // air between panels, measured along the arc
     inline constexpr float oneUHalfH  = 0.295f;
@@ -144,11 +156,11 @@ namespace pad::layout
 
     inline constexpr float unitHalfH (int unit) noexcept
     {
-        return unit == tubeUnit ? tubeHalfH : unit == tideUnit ? tideHalfH : unit == lumenUnit ? lumenHalfH : faceHalfH;
+        return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : faceHalfH;
     }
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
-    inline constexpr std::array<int, numUnits> rackOrder { enhUnit, lumenUnit, tideUnit, tubeUnit };
+    inline constexpr std::array<int, numUnits> rackOrder { enhUnit, lumenUnit, limiterUnit, tideUnit, tubeUnit };
 
     /** Distance along the arc from the bottom of the stack to the centre of a unit. */
     inline constexpr float unitArcPos (int unit) noexcept
@@ -207,10 +219,11 @@ namespace pad::layout
     struct UnitInfo { const char* name; const char* role; int chainPosition; };
 
     inline constexpr std::array<UnitInfo, numUnits> unitInfo {{
-        { "ENH MASTER", "ADAPTIVE CLARITY PROCESSOR", 1 },
-        { "SERAPH",     "CELESTIAL PROCESSOR",        4 },
-        { "TIDE",       "ADAPTIVE COMPRESSOR",        3 },
-        { "LUMEN",      "SPECTRAL LEVELER",           2 },
+        { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB - FOOTSTEP PRIORITY", 1 },
+        { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   5 },
+        { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       4 },
+        { "UPWARD LEVELER",      "3-BAND - LIFTS QUIET DETAIL",                              2 },
+        { "SPECTRAL LIMITER",    "ANTI-PUMP DYNAMIC EQ",                                     3 },
     }};
 
     // --- the case the units are screwed into -------------------------------------------
@@ -219,6 +232,16 @@ namespace pad::layout
     inline constexpr float caseDepth     = 0.78f;                // how far the case runs back
     inline constexpr float caseOverhang  = 0.30f;                // past the top and bottom unit
     inline constexpr int   caseArcSteps  = 26;                   // segments along the curve
+
+    /*  Front mounting rails, one each side, swept along the same arc just behind the faceplates:
+        the ears overlap them and the ear screws go through into them, as in a real rack. They run
+        from just inside the ear screws out to the cheeks, and show in the gaps between units. */
+    inline constexpr float railInnerX    = 2.28f;                // ear screws sit at +-2.34
+    inline constexpr float railFront     = faceThick + 0.004f;   // behind the back of a faceplate
+    inline constexpr float railThick     = 0.030f;
+    inline constexpr float railHoleX     = 2.34f;                // on the ear screws' line
+    inline constexpr float railHoleHalf  = 0.036f;
+    inline constexpr float railHolePitch = oneUHalfH * 2.0f / 3.0f;   // three holes per rack unit (1U = 0.59)
 
     /** Panel depth of a unit's body behind its faceplate. */
     inline constexpr float unitBodyDepth = 0.62f;
@@ -230,7 +253,8 @@ namespace pad::layout
 
     // One unified front: live L/R display in the middle, one row of knobs along the bottom,
     // the toggles in a grid on the right, lamp + POWER on the left.
-    inline constexpr Rect  seraphDisplayRect  { -0.06f, -0.435f, 1.46f, 0.275f };
+    // (Its bezel used to sit over the top scale numbers of WARMTH, BODY and OUTPUT below it.)
+    inline constexpr Rect  seraphDisplayRect  { -0.06f, -0.46f, 1.46f, 0.26f };
     inline constexpr float seraphDisplayDepth = 0.045f;
 
     // Two rows of knobs with room to breathe: SILK along the first, HALO along the second
@@ -253,29 +277,36 @@ namespace pad::layout
 
     // Device masters: MULTIPLY (0-3x every knob) and STRENGTH (0-5, how hard it hits) on each unit
     inline constexpr float masterKnobSize = 0.62f;
-    inline constexpr float masterKnobX = -1.94f;
-    inline constexpr std::array<float, 2> masterKnobZ { 0.28f, 0.62f };
-    inline constexpr std::array<float, 2> seraphMasterX { -2.10f, -1.70f };
-    inline constexpr float seraphMasterZ = -0.235f;
+    // Side by side on the knob row, labelled on the shared label line (stacked, the upper knob's
+    // label ran into the lower knob's scale and the lower label sat on the section border)
+    inline constexpr std::array<float, 2> masterKnobX2 { -2.12f, -1.76f };
+    inline constexpr std::array<float, 2> seraphMasterX { -2.12f, -1.74f };
+    inline constexpr float seraphMasterZ = -0.34f;   // clear of the knob row below (its labels used to sit on it)
 
     /** Knob body radius for a control (unit standard x size); styles add their own skirts / caps. */
     inline constexpr float tubeKnobBodyRadius = 0.105f;
     inline constexpr float tubeKnobScale = tubeKnobBodyRadius / knobRadius;
 
-    // --- the two 1U units ------------------------------------------------------------
+    // --- the three 1U units ----------------------------------------------------------
     // Built like outboard gear: brushed plate, engraved print, knobs in a bordered section on
-    // the left, moving-coil VU meters behind glass on the right.
+    // the left, moving-coil VU meters behind glass on the right. The maker block (the unit's name)
+    // sits between the left rack screw and the control section, clear of both.
     inline constexpr float oneUKnobRadius = 0.105f;
     inline constexpr float oneUKnobZ      = 0.010f;
-    inline constexpr float oneUKnobX      = -1.62f;     // first (left) knob
+    inline constexpr float oneUKnobX      = -1.37f;     // first (left) knob
     inline constexpr float oneUKnobStep   = 0.52f;
-    inline constexpr float oneUButtonX    = -0.72f;
+    inline constexpr float oneUButtonX    = -0.47f;     // IN, after two knobs
     inline constexpr float oneUButtonZ    = 0.010f;
+    inline constexpr float oneULabelDz    = 0.190f;     // knob and switch labels, below the skirt / lever
+    inline constexpr float oneUMakerX0    = -2.25f, oneUMakerX1 = -1.71f;
 
     /** Section box printed around the controls, like a hardware compressor's front panel. */
-    inline constexpr Rect  oneUSectionBox  { -1.29f, 0.0f, 0.68f, 0.225f };
+    inline constexpr Rect oneUSectionBox (int unit) noexcept
+    {
+        return unit == limiterUnit ? Rect { -0.73f, 0.0f, 0.92f, 0.245f } : Rect { -0.99f, 0.0f, 0.66f, 0.245f };
+    }
 
-    // VU meters: one wide meter for TIDE, three narrow ones for LUMEN
+    // VU meters: one wide meter for the compressor, three narrow ones for the leveler, two for the limiter
     inline constexpr float vuDepth      = 0.055f;
     inline constexpr float vuCentreZ    = -0.005f;
     inline constexpr float vuHalfH      = 0.190f;
@@ -284,15 +315,27 @@ namespace pad::layout
     inline constexpr float lumenVuHalfW = 0.335f;
     inline constexpr float lumenVuX     = 0.42f;        // first of three
     inline constexpr float lumenVuStep  = 0.735f;
+    inline constexpr float limiterVuHalfW = 0.42f;
+    inline constexpr float limiterVuX     = 0.80f;      // SPECTRAL, then BROADBAND
+    inline constexpr float limiterVuStep  = 0.96f;
 
-    inline constexpr int numVus (int unit) noexcept { return unit == tideUnit ? 1 : 3; }
+    inline constexpr int numVus (int unit) noexcept { return unit == tideUnit ? 1 : unit == limiterUnit ? 2 : 3; }
 
-    inline constexpr float vuHalfW (int unit) noexcept { return unit == tideUnit ? tideVuHalfW : lumenVuHalfW; }
+    inline constexpr float vuHalfW (int unit) noexcept
+    {
+        return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : lumenVuHalfW;
+    }
 
     inline constexpr float vuX (int unit, int index) noexcept
     {
-        return unit == tideUnit ? tideVuX : lumenVuX + (float) index * lumenVuStep;
+        return unit == tideUnit ? tideVuX
+             : unit == limiterUnit ? limiterVuX + (float) index * limiterVuStep
+                                   : lumenVuX + (float) index * lumenVuStep;
     }
+
+    /** First needle of each 1U unit in the renderer's needle array (compressor 1, leveler 3, limiter 2). */
+    inline constexpr int firstNeedle (int unit) noexcept { return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : 4; }
+    inline constexpr int numNeedles = 6;
 
     inline constexpr float oneUDisplayDepth = vuDepth;
 
@@ -300,55 +343,75 @@ namespace pad::layout
         { -2.36f, 0.0f, 0.075f, 0.036f }, { 2.36f, 0.0f, 0.075f, 0.036f },
     }};
 
+    // PRESET PREV / NEXT, in the enhancer's maker block (right of the analyser window)
+    inline constexpr std::array<float, 2> presetButtonX { 1.93f, 2.13f };
+    inline constexpr float presetButtonZ = -0.235f;
+
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 35> controls {{
+    inline constexpr std::array<ControlDef, 41> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode },
-        { ControlKind::knob,   -0.20f, knobZ,   pid::adaptSpeed,  "ADAPT" },
-        { ControlKind::knob,    0.46f, knobZ,   pid::sub,         "SUB" },
-        { ControlKind::button,  0.85f, buttonZ, pid::subBoost,    "BOOST" },
-        { ControlKind::button,  1.36f, buttonZ, pid::footstep,    "PRIORITY" },
-        { ControlKind::knob,   masterKnobX, masterKnobZ[0], pid::enhMultiply, "MULTIPLY", nullptr, nullptr, enhUnit, "ENH", masterKnobSize, KnobStyle::aluminium },
-        { ControlKind::knob,   masterKnobX, masterKnobZ[1], pid::enhStrength, "STRENGTH", nullptr, nullptr, enhUnit, "ENH", masterKnobSize, KnobStyle::aluminium },
+        { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT" },
+        { ControlKind::knob,    0.42f, knobZ,   pid::sub,         "SUB" },
+        { ControlKind::button,  0.79f, buttonZ, pid::subBoost,    "BOOST" },
+        { ControlKind::button,  1.18f, buttonZ, pid::footstep,    "PRIORITY" },
+        { ControlKind::knob,   masterKnobX2[0], knobZ, pid::enhMultiply, "MULTIPLY", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::aluminium },
+        { ControlKind::knob,   masterKnobX2[1], knobZ, pid::enhStrength, "STRENGTH", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::aluminium },
 
-        { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow1Z, pid::silkSmooth, "SMOOTH", nullptr, nullptr, tubeUnit, "SILK", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow1Z, pid::silkAir, "AIR", nullptr, nullptr, tubeUnit, "SILK", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow1Z, pid::silkWarmth, "WARMTH", nullptr, nullptr, tubeUnit, "SILK", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow1Z, pid::silkBody, "BODY", nullptr, nullptr, tubeUnit, "SILK", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow1Z, pid::silkOutput, "OUTPUT", nullptr, nullptr, tubeUnit, "SILK", 1.0f, KnobStyle::fluted },
+        // Rack-wide PRESET buttons in the maker block (momentary; the name shows on the analyser)
+        { ControlKind::button, presetButtonX[0], presetButtonZ, pid::presetPrev, "PREV", nullptr, nullptr, enhUnit, "PRESET" },
+        { ControlKind::button, presetButtonX[1], presetButtonZ, pid::presetNext, "NEXT", nullptr, nullptr, enhUnit, "PRESET" },
 
-        { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow2Z, pid::haloWidth, "WIDTH", nullptr, nullptr, tubeUnit, "HALO", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow2Z, pid::haloSpace, "SPACE", nullptr, nullptr, tubeUnit, "HALO", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow2Z, pid::haloDecay, "DECAY", nullptr, nullptr, tubeUnit, "HALO", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow2Z, pid::haloShimmer, "SHIMMER", nullptr, nullptr, tubeUnit, "HALO", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow2Z, pid::haloTone, "TONE", nullptr, nullptr, tubeUnit, "HALO", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow1Z, pid::silkSmooth, "SMOOTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow1Z, pid::silkAir, "AIR", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow1Z, pid::silkWarmth, "WARMTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow1Z, pid::silkBody, "BODY", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow1Z, pid::silkOutput, "OUTPUT", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
 
-        // HEAVEN: one knob, two printed scales, a button to swap between them
-        { ControlKind::knob,   0.74f, seraphRow2Z, pid::heavenHold, "HEAVEN", pid::heavenLift, pid::heavenMode, tubeUnit, "HEAVEN", 1.18f, KnobStyle::fluted },
-        { ControlKind::button, 1.28f, seraphRow2Z, pid::heavenMode, "MODE", nullptr, nullptr, tubeUnit, "HEAVEN" },
+        { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow2Z, pid::haloWidth, "WIDTH", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow2Z, pid::haloSpace, "REVERB", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow2Z, pid::haloDecay, "DECAY", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow2Z, pid::haloShimmer, "SHIMMER", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow2Z, pid::haloTone, "TONE", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
 
-        { ControlKind::toggle, 1.78f, seraphRow1Z - 0.10f, pid::silkProtect, "PROTECT", nullptr, nullptr, tubeUnit, "SILK" },
-        { ControlKind::toggle, 2.12f, seraphRow1Z - 0.10f, pid::silkTape, "TAPE", nullptr, nullptr, tubeUnit, "SILK" },
-        { ControlKind::toggle, 1.44f, seraphRow1Z - 0.10f, pid::silkAuto, "AUTO", nullptr, nullptr, tubeUnit, "SILK" },
-        { ControlKind::toggle, 1.78f, seraphRow2Z + 0.02f, pid::haloDuck, "DUCK", nullptr, nullptr, tubeUnit, "HALO" },
-        { ControlKind::toggle, 2.12f, seraphRow2Z + 0.02f, pid::haloBassMono, "BASS MONO", nullptr, nullptr, tubeUnit, "HALO" },
-        { ControlKind::toggle, 1.44f, seraphRow2Z + 0.02f, pid::haloMod, "MOD", nullptr, nullptr, tubeUnit, "HALO" },
+        // LOUDNESS: one knob, two printed scales (HOLD / LIFT + HOLD), a button to swap between them
+        { ControlKind::knob,   0.74f, seraphRow2Z, pid::heavenHold, "LOUDNESS", pid::heavenLift, pid::heavenMode, tubeUnit, "TONE & SPACE", 1.18f, KnobStyle::fluted },
+        { ControlKind::button, 1.28f, seraphRow2Z, pid::heavenMode, "LIFT", nullptr, nullptr, tubeUnit, "LOUDNESS" },
 
-        { ControlKind::selector, 1.62f, -0.44f, pid::seraphMode, "POWER", nullptr, nullptr, tubeUnit, "SERAPH", 1.15f, KnobStyle::chickenHead },
-        { ControlKind::knob, seraphMasterX[0], seraphMasterZ, pid::seraphMultiply, "MULTIPLY", nullptr, nullptr, tubeUnit, "SERAPH", masterKnobSize, KnobStyle::softTouch },
-        { ControlKind::knob, seraphMasterX[1], seraphMasterZ, pid::seraphStrength, "STRENGTH", nullptr, nullptr, tubeUnit, "SERAPH", masterKnobSize, KnobStyle::softTouch },
+        { ControlKind::toggle, 1.78f, seraphRow1Z - 0.10f, pid::silkProtect, "PROTECT", nullptr, nullptr, tubeUnit, "TONE" },
+        { ControlKind::toggle, 2.12f, seraphRow1Z - 0.10f, pid::silkTape, "TAPE", nullptr, nullptr, tubeUnit, "TONE" },
+        { ControlKind::toggle, 1.44f, seraphRow1Z - 0.10f, pid::silkAuto, "AUTO", nullptr, nullptr, tubeUnit, "TONE" },
+        { ControlKind::toggle, 1.78f, seraphRow2Z + 0.02f, pid::haloDuck, "DUCK", nullptr, nullptr, tubeUnit, "SPACE" },
+        { ControlKind::toggle, 2.12f, seraphRow2Z + 0.02f, pid::haloBassMono, "BASS MONO", nullptr, nullptr, tubeUnit, "SPACE" },
+        { ControlKind::toggle, 1.44f, seraphRow2Z + 0.02f, pid::haloMod, "MOD", nullptr, nullptr, tubeUnit, "SPACE" },
 
-        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::tideMix, "MIX", nullptr, nullptr, tideUnit, "TIDE", 1.0f, KnobStyle::skirted },
-        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::tideResponse, "RESPONSE", nullptr, nullptr, tideUnit, "TIDE", 1.0f, KnobStyle::skirted },
-        { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::tideActive, "IN", nullptr, nullptr, tideUnit, "TIDE" },
+        { ControlKind::selector, 1.80f, -0.44f, pid::seraphMode, "POWER", nullptr, nullptr, tubeUnit, "TONE & SPACE", 1.15f, KnobStyle::chickenHead },
+        { ControlKind::knob, seraphMasterX[0], seraphMasterZ, pid::seraphMultiply, "MULTIPLY", nullptr, nullptr, tubeUnit, "TONE & SPACE", masterKnobSize, KnobStyle::softTouch },
+        { ControlKind::knob, seraphMasterX[1], seraphMasterZ, pid::seraphStrength, "STRENGTH", nullptr, nullptr, tubeUnit, "TONE & SPACE", masterKnobSize, KnobStyle::softTouch },
 
-        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::lumenTarget, "TARGET", nullptr, nullptr, lumenUnit, "LUMEN", 1.0f, KnobStyle::skirted },
-        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::lumenResponse, "RESPONSE", nullptr, nullptr, lumenUnit, "LUMEN", 1.0f, KnobStyle::skirted },
-        { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::lumenActive, "IN", nullptr, nullptr, lumenUnit, "LUMEN" },
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::tideMix, "MIX", nullptr, nullptr, tideUnit, "COMPRESSOR", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::tideResponse, "RESPONSE", nullptr, nullptr, tideUnit, "COMPRESSOR", 1.0f, KnobStyle::skirted },
+        { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::tideActive, "IN", nullptr, nullptr, tideUnit, "COMPRESSOR" },
+
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::lumenTarget, "TARGET", nullptr, nullptr, lumenUnit, "LEVELER", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::lumenResponse, "RESPONSE", nullptr, nullptr, lumenUnit, "LEVELER", 1.0f, KnobStyle::skirted },
+        { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::lumenActive, "IN", nullptr, nullptr, lumenUnit, "LEVELER" },
+
+        // SPECTRAL LIMITER: three knobs, then IN
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::spectralRange, "RANGE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::spectralRelease, "RELEASE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 2.0f * oneUKnobStep, oneUKnobZ, pid::spectralCeiling, "CEILING", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::skirted },
+        { ControlKind::toggle, oneUKnobX + 2.0f * oneUKnobStep + 0.38f, oneUButtonZ, pid::spectralActive, "IN", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER" },
     }};
 
     inline constexpr int numControls = (int) controls.size();
+
+    /** Momentary buttons (PRESET PREV / NEXT) have no LED: there is no state to show. */
+    inline bool hasLed (const ControlDef& c) noexcept
+    {
+        return std::string_view (c.paramId) != pad::params::id::presetPrev && std::string_view (c.paramId) != pad::params::id::presetNext;
+    }
 
     inline int controlIndex (const char* paramId) noexcept
     {
@@ -363,12 +426,12 @@ namespace pad::layout
 
     // --- LED ladders (bottom to top) -----------------------------------------------------
     inline constexpr int   ladderSegments = 12;
-    inline constexpr float ladderBottomZ  = 0.76f;
-    inline constexpr float ladderStep     = 0.052f;
+    inline constexpr float ladderBottomZ  = 0.685f;   // bottom LED clear of the label line (0.76)
+    inline constexpr float ladderStep     = 0.046f;   // top LED clear of the section title rule
 
     struct Ladder { float x; int segments; const char* label; };
 
-    inline constexpr Ladder detectLadder { 1.60f, 6, "DETECT" };
+    inline constexpr Ladder detectLadder { 1.50f, 6, "DETECT" };   // inside FOOTSTEP, beside PRIORITY
     inline constexpr Ladder outLadder    { 1.93f, 12, "OUT" };
     inline constexpr Ladder enhLadder    { 2.14f, 12, "ENH" };
 
@@ -377,14 +440,17 @@ namespace pad::layout
     /** dB printed beside the OUT ladder, one per segment (bottom to top). */
     inline constexpr std::array<int, ladderSegments> outLadderDb {{ -30, -24, -18, -15, -12, -9, -6, -4, -3, -2, -1, 0 }};
 
-    inline constexpr float powerLedX = -1.34f, powerLedZ = -0.775f;
+    // Maker block to the right of the analyser window (the name used to be printed under the
+    // window's cut-out), with the power LED above it rather than on the analyser glass
+    inline constexpr float makerX = 2.03f, makerHalfW = 0.21f;
+    inline constexpr float powerLedX = makerX, powerLedZ = -0.765f;
 
     /** Body radius of a knob control as drawn. */
     inline float knobBodyRadius (const ControlDef& c) noexcept
     {
         if (c.unit == tubeUnit)
             return (c.kind == ControlKind::selector ? 0.10f : tubeKnobBodyRadius) * c.size;
-        if (c.unit == tideUnit || c.unit == lumenUnit)
+        if (isOneU (c.unit))
             return oneUKnobRadius * c.size;
         return knobRadius * c.size;
     }

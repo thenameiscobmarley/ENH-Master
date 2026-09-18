@@ -64,12 +64,14 @@ namespace pad
 
         readInt ("frameRate", c.frameRate, 15, 144);
         readInt ("idleFrameRate", c.idleFrameRate, 5, 60);
-        readInt ("msaaSamples", c.msaaSamples, 0, 4);
+        readInt ("msaaSamples", c.msaaSamples, 0, 8);
         readInt ("anisotropy", c.anisotropy, 1, 8);
         readInt ("panelTextureWidth", c.panelTextureWidth, 1024, 2048);
 
         if (c.msaaSamples == 1 || c.msaaSamples == 3)
             c.msaaSamples = 2;
+        else if (c.msaaSamples > 4 && c.msaaSamples < 8)
+            c.msaaSamples = 4;
 
         c.panelTextureWidth = c.panelTextureWidth >= 1536 ? 2048 : 1024;
         c.idleFrameRate = juce::jmin (c.idleFrameRate, c.frameRate);

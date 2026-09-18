@@ -1,4 +1,4 @@
-# SERAPH unit
+# TONE & SPACE unit
 
 The purple unit on top - a "celestial processor", not a compressor. It takes ENH Master's output and
 makes it sound finished. Zero latency.
@@ -9,7 +9,7 @@ One unified front rather than a channel-split strip: the display in the middle, 
 along the bottom, six bat toggles in a grid on the right, the jewel lamp and the chicken-head POWER
 selector on the left, MULTIPLY and STRENGTH masters at far left.
 
-**POWER**: OFF (true bypass) / SILK / HEAVEN.
+**POWER**: OFF (true bypass) / TONE / LOUDNESS.
 
 ## Display
 
@@ -20,7 +20,7 @@ processor normally hides.
 
 ## Stages
 
-SILK (tone and texture) then HALO (width and space). Both are described in [[Seraph stages]].
+TONE (tone and texture) then SPACE (width and space). Both are described in [[Seraph stages]].
 
 ## Headroom
 

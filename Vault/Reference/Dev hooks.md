@@ -26,7 +26,7 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --analyze file.wav
 | `PAD_UI_TEST_STATS=1` | frame timing on stderr every 5 s, and logs when rendering pauses/resumes |
 | `PAD_UI_TEST_MINIMISE="7,17"` | minimise at 7 s, restore at 17 s |
 | `PAD_UI_TEST_HOVER="x,y"` | shows the hover loupe at that point (anchored, for reproducible screenshots) |
-| `PAD_UI_TEST_DEMO=1` | animates SERAPH's live display without audio |
+| `PAD_UI_TEST_DEMO=1` | animates TONE & SPACE's live display without audio |
 
 ## Screenshots
 

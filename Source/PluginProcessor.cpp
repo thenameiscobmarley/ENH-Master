@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Parameters/ParameterSpecs.h"
+#include "Parameters/FactoryPresets.h"
 
 namespace
 {
@@ -33,6 +34,10 @@ PluginProcessor::PluginProcessor()
     lumenTarget   = state.getRawParameterValue (id::lumenTarget);
     lumenResponse = state.getRawParameterValue (id::lumenResponse);
     lumenActive   = state.getRawParameterValue (id::lumenActive);
+    spectralRange   = state.getRawParameterValue (id::spectralRange);
+    spectralRelease = state.getRawParameterValue (id::spectralRelease);
+    spectralCeiling = state.getRawParameterValue (id::spectralCeiling);
+    spectralActive  = state.getRawParameterValue (id::spectralActive);
 
     seraphMode   = state.getRawParameterValue (id::seraphMode);
     enhMultiply    = state.getRawParameterValue (id::enhMultiply);
@@ -101,6 +106,10 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
     k.lumenActive    = lumenActive->load() > 0.5f;
+    k.spectralRangeDb   = spectralRange->load();
+    k.spectralReleaseMs = spectralRelease->load();
+    k.spectralCeilingDb = spectralCeiling->load();
+    k.spectralActive    = spectralActive->load() > 0.5f;
 
     k.seraphMode     = juce::roundToInt (seraphMode->load());
     k.smooth         = silkSmooth->load();
@@ -126,6 +135,48 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     engine.process (buffer, p);
 }
 
+int PluginProcessor::getNumPrograms()
+{
+    return (int) pad::presets::all().size();
+}
+
+const juce::String PluginProcessor::getProgramName (int index)
+{
+    const auto& list = pad::presets::all();
+    return juce::isPositiveAndBelow (index, (int) list.size()) ? juce::String (list[(size_t) index].name) : juce::String();
+}
+
+void PluginProcessor::setCurrentProgram (int index)
+{
+    const auto& list = pad::presets::all();
+    if (! juce::isPositiveAndBelow (index, (int) list.size()))
+        return;
+
+    // Every parameter goes to the preset's value or its default, as a host-visible change
+    const auto& preset = list[(size_t) index];
+    for (auto& spec : pad::params::allSpecs())
+    {
+        if (! spec.automatable)
+            continue;
+        if (auto* param = state.getParameter (spec.id))
+        {
+            param->beginChangeGesture();
+            param->setValueNotifyingHost (param->convertTo0to1 (pad::presets::valueFor (preset, spec)));
+            param->endChangeGesture();
+        }
+    }
+
+    currentPreset = index;
+    state.state.setProperty ("preset", index, nullptr);
+    ++presetLoads;
+}
+
+void PluginProcessor::stepPreset (int delta)
+{
+    const int n = getNumPrograms();
+    setCurrentProgram (((currentPreset.load() + delta) % n + n) % n);
+}
+
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
 {
     return new PluginEditor (*this);
@@ -141,7 +192,10 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (state.state.getType()))
+        {
             state.replaceState (juce::ValueTree::fromXml (*xml));
+            currentPreset = juce::jlimit (0, getNumPrograms() - 1, (int) state.state.getProperty ("preset", 0));
+        }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -1,6 +1,7 @@
 #include "HardwareRenderer.h"
 #include "GeometryFactory.h"
 #include "Picking.h"
+#include "LimiterDemo.h"
 
 using namespace juce::gl;
 
@@ -173,6 +174,8 @@ namespace pad
         meshes.bodyScrews.upload (geo::unitBodyScrews (tubeHalfH));
         meshes.caseCheeks.upload (geo::caseCheeks());
         meshes.caseRails.upload (geo::caseRails());
+        meshes.caseFrontRails.upload (geo::caseFrontRails());
+        meshes.caseRailHoles.upload (geo::caseRailHoles());
         meshes.caseEdges.upload (geo::caseEdges());
         meshes.flowArrow.upload (geo::flowArrow());
         meshes.faceEdges.upload (geo::faceplateEdges());
@@ -198,14 +201,17 @@ namespace pad
 
         meshes.tideFaceTop.upload (geo::oneUFaceTop (tideUnit));
         meshes.lumenFaceTop.upload (geo::oneUFaceTop (lumenUnit));
+        meshes.limiterFaceTop.upload (geo::oneUFaceTop (limiterUnit));
         meshes.oneUFaceEdges.upload (geo::oneUFaceEdges());
         meshes.oneUEarWalls.upload (geo::oneUEarWalls());
         meshes.oneUEarFloors.upload (geo::oneUEarFloors());
         meshes.oneUScrews.upload (geo::oneUScrewHeads());
         meshes.oneUScrewSlots.upload (geo::oneUScrewSlots());
-        // VU movements, one model per size (TIDE's wide meter, LUMEN's three narrow ones)
+        // VU movements, one model per size (the compressor's wide meter, the leveler's three narrow
+        // ones, the limiter's two)
         tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.09f, 0.26f, 0.42f }));
         lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.14f, 0.13f, 0.12f }));
+        limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.34f, 0.07f, 0.11f }));
 
 
         // HardwareKit models: one GPU model per distinct (style, radius)
@@ -222,6 +228,7 @@ namespace pad
             const auto accent = c.unit == tubeUnit  ? Vec3 { 0.62f, 0.44f, 1.0f }
                               : c.unit == tideUnit  ? Vec3 { 0.20f, 0.80f, 0.95f }
                               : c.unit == lumenUnit ? Vec3 { 1.00f, 0.72f, 0.22f }
+                              : c.unit == limiterUnit ? Vec3 { 1.00f, 0.30f, 0.50f }
                                                     : Vec3 { 0.55f, 0.56f, 0.60f };
             const auto key = std::make_pair ((int) c.style, r);
             const auto found = std::find (built.begin(), built.end(), key);
@@ -257,10 +264,21 @@ namespace pad
         upload (lumenDecalTex, textureData.lumenDecal);
         upload (tideLabelTex, textureData.tideVuFace);
         upload (lumenLabelTex, textureData.lumenVuFace);
+        upload (limiterDecalTex, textureData.limiterDecal);
+        upload (limiterLabelTex[0], textureData.limiterVuFace[0]);
+        upload (limiterLabelTex[1], textureData.limiterVuFace[1]);
 
         const std::vector<juce::uint8> blank ((size_t) (artwork::displayOverlayWidth * artwork::displayOverlayHeight), 0);
         overlayTex.upload (blank.data(), artwork::displayOverlayWidth, artwork::displayOverlayHeight, 1, true, 1);
         uploadedOverlayVersion = 0;
+
+        if (statsEnabled)
+        {
+            GLint samples = 0, buffers = 0;
+            glGetIntegerv (GL_SAMPLES, &samples);
+            glGetIntegerv (GL_SAMPLE_BUFFERS, &buffers);
+            std::fprintf (stderr, "[enh-stats] framebuffer: %d sample buffer(s), %d samples (config msaa %d)\n", buffers, samples, config.msaaSamples);
+        }
 
         swapInterval = -1;
         lastFrameMs = 0.0;
@@ -285,6 +303,7 @@ namespace pad
         lampModel.release();
         tideVu.release();
         lumenVu.release();
+        limiterVu.release();
         loupeTarget.release();
         loupeReady = false;
         seraphLabelTex.release();
@@ -404,7 +423,8 @@ namespace pad
 
         // Fixed target size (only the window size changes it), so opening the loupe never reallocates
         const int size = juce::jmax (8, juce::roundToInt (2.0f * maxRadius));
-        if (! loupeTarget.ensureSize (size, size))
+        // Multisampled like the main view, so the magnified scene is anti-aliased too
+        if (! loupeTarget.ensureSize (size, size, config.msaaSamples))
             return;
 
         // Re-render the scene zoomed in around the anchor: real detail, not stretched pixels
@@ -415,6 +435,7 @@ namespace pad
         vignette = 0.0f;
         drawScene (zoomed, size, size);
         vignette = 1.0f;
+        loupeTarget.resolve();
         gfx::RenderTarget::unbind();
         glViewport (0, 0, vw, vh);
         loupeReady = true;
@@ -683,22 +704,56 @@ namespace pad
             busy = busy || std::abs (tubePower - (on ? 1.0f : 0.0f)) > 1.0e-3f;
         }
 
-        // TIDE and LUMEN: the meter movements, and the backlight behind their dials
+        // The 1U units: the meter movements, and the backlight behind their dials
         {
             const bool tideOn = bridge.getNormalised (bridge.indexOf (params::id::tideActive)) > 0.5f;
             const bool lumenOn = bridge.getNormalised (bridge.indexOf (params::id::lumenActive)) > 0.5f;
+            const bool limiterOn = bridge.getNormalised (bridge.indexOf (params::id::spectralActive)) > 0.5f;
             oneULamp[0] = anim::approach (oneULamp[0], tideOn ? 1.0f : 0.15f, 4.0f, dt);
             oneULamp[1] = anim::approach (oneULamp[1], lumenOn ? 1.0f : 0.15f, 4.0f, dt);
+            oneULamp[2] = anim::approach (oneULamp[2], limiterOn ? 1.0f : 0.15f, 4.0f, dt);
 
-            // TIDE reads gain reduction (0..12 dB), LUMEN reads the lift in each band (0..18 dB)
-            const float readings[4] {
+            // SPECTRAL LIMITER: the moving cuts as the audio thread published them (or the demo)
+            std::array<enh::dsp::SpectralLimiter::Slot, enh::dsp::SpectralLimiter::numSlots> cuts {};
+            float broadband = 0.0f;
+            if (demoMeters && limiterOn)
+                cuts = demoLimiterSlots (timeSeconds);
+            else
+            {
+                for (size_t s = 0; s < cuts.size(); ++s)
+                    cuts[s] = { (enh::dsp::SpectralLimiter::Shape) meters.limitShape[s].load (std::memory_order_relaxed),
+                                meters.limitHz[s].load (std::memory_order_relaxed), meters.limitOctaves[s].load (std::memory_order_relaxed),
+                                limiterOn ? meters.limitDepthDb[s].load (std::memory_order_relaxed) : 0.0f };
+                broadband = limiterOn ? meters.limitBroadbandDb.load (std::memory_order_relaxed) : 0.0f;
+            }
+            float deepest = 0.0f;
+            for (auto& c : cuts)
+                deepest = std::max (deepest, c.depthDb);
+
+            // On the analyser: the cut at 48 points of its log axis (20 Hz - 20 kHz), instant on, ~80 ms off
+            const float fall = 1.0f - std::exp (-dt / 0.08f);
+            for (size_t i = 0; i < limitCurve.size(); ++i)
+            {
+                const float hz = 20.0f * std::pow (1000.0f, (float) i / (float) (limitCurve.size() - 1));
+                const float cut = -enh::dsp::SpectralLimiter::responseDb (cuts, hz);
+                const float before = limitCurve[i];
+                limitCurve[i] = cut > limitCurve[i] ? cut : limitCurve[i] + (cut - limitCurve[i]) * fall;
+                busy = busy || std::abs (limitCurve[i] - before) > 0.01f;
+            }
+            limitBroadband = broadband > limitBroadband ? broadband : limitBroadband + (broadband - limitBroadband) * fall;
+
+            // The compressor reads gain reduction (0..12 dB), the leveler the lift in each band (0..18 dB),
+            // the limiter its deepest spectral cut (0..18 dB) and its broadband protection (0..12 dB)
+            const float readings[numNeedles] {
                 saturateUi (meters.tideGrDb.load() / 12.0f),
                 saturateUi (meters.lumenGainDb[0].load() / 18.0f),
                 saturateUi (meters.lumenGainDb[1].load() / 18.0f),
                 saturateUi (meters.lumenGainDb[2].load() / 18.0f),
+                saturateUi (deepest / 18.0f),
+                saturateUi (broadband / 12.0f),
             };
 
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < numNeedles; ++i)
             {
                 auto& n = needles[(size_t) i];
                 const float before = n.angle;
@@ -953,16 +1008,15 @@ namespace pad
     }
 
     /** One of the 1U units: brushed plate, engraved print, knobs in a bordered section, and
-        moving-coil meters behind glass. Both units are the same build, different print. */
+        moving-coil meters behind glass. All three are the same build, different print. */
     void HardwareRenderer::drawOneU (int unit, const Mat4& panel, Vec3 colour, const gfx::Texture2D& decal,
-                                     const gfx::Texture2D& faceTex, const gfx::GpuMesh& faceTop)
+                                     std::initializer_list<const gfx::Texture2D*> faces, const gfx::GpuMesh& faceTop)
     {
-        const bool tide = unit == tideUnit;
-        const float lamp = oneULamp[(size_t) (tide ? 0 : 1)];
-        auto& model = tide ? tideVu : lumenVu;
+        const float lamp = oneULamp[(size_t) (unit == tideUnit ? 0 : unit == lumenUnit ? 1 : 2)];
+        auto& model = unit == tideUnit ? tideVu : unit == lumenUnit ? lumenVu : limiterVu;
 
         /*  The meters, grouped by material rather than by meter: every program switch costs a
-            uniform upload, and LUMEN has three of these side by side. */
+            uniform upload, and the leveler has three of these side by side. */
         using hwk::models::Role;
 
         auto matrixFor = [&] (int i, bool moving)
@@ -972,7 +1026,7 @@ namespace pad
                 return at;
 
             // The movement is hinged below the window: turn about that hinge, not the centre
-            const auto& needle = needles[(size_t) (tide ? 0 : 1 + i)];
+            const auto& needle = needles[(size_t) (firstNeedle (unit) + i)];
             return at * Mat4::translation ({ 0.0f, 0.0f, model.pivotOffset })
                       * Mat4::rotationY (-needle.angle)
                       * Mat4::translation ({ 0.0f, 0.0f, -model.pivotOffset });
@@ -993,9 +1047,25 @@ namespace pad
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         drawRole (Role::body);
 
-        faceTex.bind (0);
+        // Dial faces: one print shared by every meter, or one each
         use (shaders::vuFace).set ("uParams", 0.0f, lamp, 0.0f, 0.0f);
-        drawRole (Role::screen);
+        if (faces.size() == 1)
+        {
+            (*faces.begin())->bind (0);
+            drawRole (Role::screen);
+        }
+        else
+        {
+            int i = 0;
+            for (auto* face : faces)
+            {
+                face->bind (0);
+                for (auto& part : model.parts)
+                    if (part->role == Role::screen && i < numVus (unit))
+                        draw (part->mesh, matrixFor (i, part->rotates), part->colour);
+                ++i;
+            }
+        }
 
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         drawRole (Role::pointer);
@@ -1028,13 +1098,13 @@ namespace pad
         use (shaders::chassis);
         draw (meshes.oneUBody, panel, colours::chassisBlack);
         use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.bodyScrews, panel, { 0.42f, 0.42f, 0.44f });
+        draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - oneUHalfH }), { 0.42f, 0.42f, 0.44f });
     }
 
     /** The cover glass over a unit's meters, drawn with everything else transparent. */
     void HardwareRenderer::drawVuGlass (int unit, const Mat4& panel)
     {
-        auto& model = unit == tideUnit ? tideVu : lumenVu;
+        auto& model = unit == tideUnit ? tideVu : unit == lumenUnit ? lumenVu : limiterVu;
         use (shaders::vuGlass);
 
         for (auto& part : model.parts)
@@ -1062,9 +1132,11 @@ namespace pad
         const Mat4 tubePanel = panelToWorld (tubeUnit);
         const Mat4 tidePanel = panelToWorld (tideUnit);
         const Mat4 lumenPanel = panelToWorld (lumenUnit);
+        const Mat4 limiterPanel = panelToWorld (limiterUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
-            return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel : panel;
+            return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
+                 : unit == limiterUnit ? limiterPanel : panel;
         };
 
         const Mat4 I = Mat4::identity();
@@ -1123,26 +1195,32 @@ namespace pad
                 const auto pressed = base * Mat4::translation ({ 0.0f, -buttonTravel * bt.travel(), 0.0f });
                 drawModel (buttonModel, pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
 
+                // Each button's LED on its own unit's panel (the LIFT button's used to be drawn on the
+                // enhancer's panel, where it landed inside FOOTSTEP)
                 use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                if (! hasLed (c))
+                    continue;
                 if (i == modeControl)
                 {
-                    drawLed (panel, c.x - modeLedDx, c.z + buttonLedDz, colours::ledGreen, 1.0f - bt.led);
-                    drawLed (panel, c.x + modeLedDx, c.z + buttonLedDz, colours::ledYellow, bt.led);
+                    drawLed (unitPanel, c.x - modeLedDx, c.z + buttonLedDz, colours::ledGreen, 1.0f - bt.led);
+                    drawLed (unitPanel, c.x + modeLedDx, c.z + buttonLedDz, colours::ledYellow, bt.led);
                 }
                 else
                 {
                     const bool isFootstep = i == footstepControl;
                     const float on = isFootstep ? bt.led * (0.75f + 0.25f * stepFlash) : bt.led;
-                    drawLed (panel, c.x, c.z + buttonLedDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
+                    drawLed (unitPanel, c.x, c.z + buttonLedDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
                 }
             }
         }
 
-        // --- TIDE and LUMEN: the two 1U units ---------------------------------------------------
-        drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, tideLabelTex, meshes.tideFaceTop);
-        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, lumenLabelTex, meshes.lumenFaceTop);
+        // --- the 1U units: compressor and leveler in natural aluminium, the limiter anodised steel-blue
+        drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, { &tideLabelTex }, meshes.tideFaceTop);
+        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, { &lumenLabelTex }, meshes.lumenFaceTop);
+        drawOneU (limiterUnit, limiterPanel, Vec3 { 0.46f, 0.52f, 0.60f }, limiterDecalTex,
+                  { &limiterLabelTex[0], &limiterLabelTex[1] }, meshes.limiterFaceTop);
 
-        // --- SERAPH: VU meters, lamp, screws, faceplate, chassis --------------------------------
+        // --- TONE & SPACE: display, lamp, screws, faceplate, chassis ----------------------------
         {
             seraphLabelTex.bind (0);
             auto& live = use (shaders::seraphDisplay);
@@ -1201,7 +1279,7 @@ namespace pad
             draw (meshes.tubeVentFloors, ventFace, { 0.006f, 0.006f, 0.007f });
 
             use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.bodyScrews, tubePanel, { 0.42f, 0.42f, 0.44f });
+            draw (meshes.bodyScrews, tubePanel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - tubeHalfH }), { 0.42f, 0.42f, 0.44f });
         }
 
         // --- LED ladders ------------------------------------------------------------------------
@@ -1233,7 +1311,8 @@ namespace pad
         overlayTex.bind (1);
         auto& display = use (shaders::display);
         display.set ("uTex2", 1);
-        display.set ("uParams", 0.0f, 1.0f, displayRect.hw / displayRect.hd, footOn * stepFlash);
+        display.set ("uParams", 0.0f, 1.0f, limitBroadband, footOn * stepFlash);
+        display.setArray ("uLimit", limitCurve.data(), (int) limitCurve.size());
         // Show the top 78 dB of the strip's range, and +/- 12 dB of EQ against it
         display.set ("uParams2", 0.135f, 1.0f, 24.0f, 1.0f);
         display.setArray ("uBands", displayBands.data(), enh::dsp::numBands);
@@ -1262,12 +1341,17 @@ namespace pad
         use (shaders::chassis);
         draw (meshes.enhBody, panel, colours::chassisBlack);
         use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.bodyScrews, panel, { 0.42f, 0.42f, 0.44f });
+        draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - faceHalfH }), { 0.42f, 0.42f, 0.44f });
         (void) ventGlow;
 
         use (shaders::chassis);
         draw (meshes.caseRails, I, { 0.028f, 0.028f, 0.032f });
         draw (meshes.caseCheeks, I, { 0.075f, 0.068f, 0.062f });
+        use (shaders::chrome).set ("uParams", 0.22f, 0.0f, 0.0f, 0.0f);   // zinc-plated steel, satin
+        draw (meshes.caseFrontRails, I, { 0.52f, 0.53f, 0.55f });
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.caseRailHoles, I, { 0.010f, 0.010f, 0.012f });
+        use (shaders::chassis);
         use (shaders::chrome).set ("uParams", 0.48f, 1.0f, 0.0f, 0.0f);
         draw (meshes.caseEdges, I, { 0.55f, 0.56f, 0.58f });
 
@@ -1344,6 +1428,7 @@ namespace pad
                 const Vec3 arcColour = c.unit == tubeUnit  ? Vec3 { 0.86f, 0.74f, 1.00f }
                                      : c.unit == tideUnit  ? Vec3 { 0.40f, 0.88f, 1.00f }
                                      : c.unit == lumenUnit ? Vec3 { 1.00f, 0.80f, 0.35f }
+                                     : c.unit == limiterUnit ? Vec3 { 1.00f, 0.45f, 0.62f }
                                                            : Vec3 { 1.00f, 0.76f, 0.32f };
                 arc.set ("uParams", knobAngleForValue (0.0f), k.angle, 0.9f * show, 0.22f);
                 draw (meshes.arcRing, unitPanel * Mat4::translation ({ c.x, 0.0025f, c.z }) * Mat4::scale (r, 1.0f, r), arcColour);
@@ -1395,6 +1480,7 @@ namespace pad
             glDepthMask (GL_FALSE);
             drawVuGlass (tideUnit, tidePanel);
             drawVuGlass (lumenUnit, lumenPanel);
+            drawVuGlass (limiterUnit, limiterPanel);
             glDepthMask (GL_TRUE);
         }
 

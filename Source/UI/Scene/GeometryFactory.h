@@ -22,6 +22,8 @@ namespace pad::geo
     // --- the curved case (world space) -----------------------------------------------------
     MeshData caseCheeks();      // the two side walls, swept along the arc
     MeshData caseRails();       // the rails behind the gaps between units
+    MeshData caseFrontRails();  // the front mounting rails the units' ears are screwed to
+    MeshData caseRailHoles();   // the square rack holes punched down those rails
     MeshData caseEdges();       // bright chamfer along the front edges of the cheeks
     MeshData caseFloor();       // the surface the case is standing on
     MeshData flowArrow();       // small chevron marking the signal path between two units

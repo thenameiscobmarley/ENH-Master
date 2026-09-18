@@ -3,12 +3,12 @@
 [[SERAPH unit]] is the purple unit on top. **POWER** is a three-way selector:
 
 - **OFF** - true bypass
-- **SILK** - tone and texture only (no space)
-- **HEAVEN** - SILK plus HALO, the spatial half
+- **TONE** - tone and texture only (no space)
+- **LOUDNESS** - TONE plus SPACE, the spatial half
 
 Zero latency in every mode, so it is safe for playing games and for live monitoring.
 
-## SILK: texture
+## TONE: texture
 
 | Knob | What it does |
 |---|---|
@@ -21,7 +21,7 @@ Zero latency in every mode, so it is safe for playing games and for live monitor
 | TAPE | tape-style saturation, applied as a scaled difference so it adds rather than swamps |
 | AUTO | auto gain so changes do not just get louder |
 
-## HALO: space
+## SPACE: space
 
 | Knob | What it does |
 |---|---|
@@ -36,11 +36,11 @@ Zero latency in every mode, so it is safe for playing games and for live monitor
 
 ## How to use it for games
 
-Start at HEAVEN with the defaults, then set **SPACE** by ear with the game running: enough that the
+Start at LOUDNESS with the defaults, then set **SPACE** by ear with the game running: enough that the
 world feels open, little enough that you can still place a footstep. If the tail smears the direction
 of sounds, raise **DUCK** before lowering SPACE. Keep **WIDTH** at or below 140 % - beyond that, side
 content starts to fight positional audio.
 
-For music or mixing, SILK alone on a bus is the safer setting; HEAVEN on a send.
+For music or mixing, TONE alone on a bus is the safer setting; LOUDNESS on a send.
 
 How it works inside: [[Seraph stages]]. Next: [[05 Reading the panel]]

@@ -16,7 +16,7 @@ From `Source/Parameters/ParameterSpecs.cpp`. Every one is host-automatable.
 | `enhMultiply` | MULTIPLY | 0 - 3 x | 1 |
 | `enhStrength` | STRENGTH | 0 - 5 | 1 |
 
-## SERAPH
+## TONE & SPACE
 
 | id | Panel | Range | Default |
 |---|---|---|---|

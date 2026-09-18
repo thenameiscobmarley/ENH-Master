@@ -27,7 +27,7 @@ whether it rotates, colour, ridge count, polish. A model also carries `footprint
 separately, `shadowRadius` plus an optional `beakLength` - so a chicken-head knob casts a small round
 shadow for its body **and** a pointer shadow that turns with it, instead of one big disc.
 
-In ENH Master: CLARITY / ADAPT / SUB are `proXl`, the ENH masters `aluminium`, SERAPH's row `fluted`,
+In ENH Master: CLARITY / ADAPT / SUB are `proXl`, the ENH masters `aluminium`, TONE & SPACE's row `fluted`,
 its masters `softTouch` with violet caps, POWER a `chickenHead` selector.
 
 ## What stays in the plugin

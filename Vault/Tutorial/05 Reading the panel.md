@@ -22,7 +22,7 @@ More: [[The loupe]].
 **ENH Master** (lower): a live curve of what the [[Adaptive EQ]] is doing across 24 bands, with the
 current CLARITY / ADAPT / SUB values printed underneath.
 
-**SERAPH** (upper): one unified front, not a channel strip pair.
+**TONE & SPACE** (upper): one unified front, not a channel strip pair.
 - left half - the resonance dips SMOOTH is applying right now, 150 Hz to 16 kHz;
 - right half - a pair of L/R bars per process (SMOOTH, AIR, WARMTH, BODY, TAPE, LEVEL, WIDTH, SPACE,
   SHIMMER), so you can see what the unit is doing *to each channel* rather than guessing.

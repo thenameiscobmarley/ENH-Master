@@ -31,6 +31,7 @@ namespace enh::dsp
             float footstep = 0.0f;       // detector confidence (only when the mode is on)
             HarmonicPlanner::Band depth, clarityBand;
             float strength = 1.0f;       // device STRENGTH (0..5)
+            bool holdLevel = false;      // SPECTRAL LIMITER is handling a localised event: auto gain holds
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);

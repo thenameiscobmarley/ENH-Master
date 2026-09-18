@@ -11,6 +11,7 @@
 #include "Seraph.h"
 #include "DynamicCompressor.h"
 #include "SpectralLeveler.h"
+#include "SpectralLimiter.h"
 #include "SpectrumScope.h"
 #include "EngineMeters.h"
 
@@ -21,10 +22,14 @@ namespace enh::dsp
         input ─► analysis: 24 bands + long-term spectrum, FFT tonality,      [feed-forward]
           │                 footstep classifier, harmonic planner, sub follower
           │
-          └─► source-dependent EQ (+ footstep lift) ─► sub enhancer ─► analog stage ─► LUMEN ─► TIDE ─► SERAPH ─► out
-                                                                       (auto gain, 2x adaptive   (SILK tone &
-                                                                        depth/clarity exciters,   texture, HALO
-                                                                        colour, ceiling)          space & width)
+          └─► source-dependent EQ (+ footstep lift) ─► sub enhancer ─► analog stage ─► UPWARD LEVELER
+                                                                       (auto gain, 2x adaptive
+                                                                        depth/clarity exciters,
+                                                                        colour, ceiling)
+              ─► SPECTRAL LIMITER ─► ADAPTIVE COMPRESSOR ─► TONE & SPACE ─► out
+                 (abnormal spectral   (broadband, keyed on   (tone & texture,
+                  excess, from the     what is left)          space & width,
+                  shared analysis)                            loudness hold)
 
         Control updates run at ~1.5 kHz; audio runs through IIR filters only, so the added
         latency is just the oversampling filters (reported to the host).
@@ -42,8 +47,9 @@ namespace enh::dsp
             bool subBoost = false;
             bool footstep = false;
             float strength = 1.0f;    // ENH STRENGTH: 0 = no effect .. 5 = five times the effect
-            SpectralLeveler::Settings lumen {};   // LUMEN: lifts quiet material
-            DynamicCompressor::Settings tide {};  // TIDE: adaptive-threshold compressor
+            SpectralLeveler::Settings lumen {};   // UPWARD LEVELER: lifts quiet material
+            SpectralLimiter::Settings limiter {}; // SPECTRAL LIMITER: cuts abnormal spectral excess
+            DynamicCompressor::Settings tide {};  // ADAPTIVE COMPRESSOR: adaptive-threshold compressor
             Seraph::Settings seraph {};
         };
 
@@ -64,6 +70,7 @@ namespace enh::dsp
         const Seraph& getSeraph() const noexcept { return seraph; }
         const DynamicCompressor& getCompressor() const noexcept { return tide; }
         const SpectralLeveler& getLeveler() const noexcept { return lumen; }
+        const SpectralLimiter& getLimiter() const noexcept { return limiter; }
 
         /** Analyser taps: the audio thread only copies samples in, the editor does the FFT. */
         const ScopeFifo& getInputScope() const noexcept { return scopeIn; }
@@ -81,6 +88,7 @@ namespace enh::dsp
         SubEnhancer sub;
         AnalogStage analog;
         SpectralLeveler lumen;
+        SpectralLimiter limiter;
         DynamicCompressor tide;
         Seraph seraph;
         ScopeFifo scopeIn, scopeOut;

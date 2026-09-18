@@ -75,7 +75,8 @@ namespace pad
         float dragValue = 0.0f;
         juce::Point<float> lastDragPos;
         juce::uint32 openedAtMs = 0;
-        double lastStepSeenMs = -10000.0;
+        double lastStepSeenMs = -10000.0, presetShownMs = -10000.0;
+        juce::uint32 lastPresetLoads = 0;
         bool testParamsApplied = false;
         artwork::DisplayText lastText;
 

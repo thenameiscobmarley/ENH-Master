@@ -19,15 +19,19 @@ namespace pad::shaders
 
         uTex  = the analyser strip (R = input, G = output, B = peak), one texel per point
         uTex2 = the printed graticule (Hz and dB marks, band names)
-        uParams  = (_, brightness, _, footstep confidence)
+        uParams  = (_, brightness, SPECTRAL LIMITER broadband protection dB, footstep confidence)
         uParams2 = (spectrum floor dB, spectrum top dB, EQ range dB, scope 1 = have data)
         uBands   = the 24 adaptive EQ gains in dB
+        uLimit   = the SPECTRAL LIMITER's cut (dB >= 0) at 48 points, 20 Hz - 20 kHz on the graticule's
+                   log axis: drawn hanging from the top of the plot, where and as deep as it is cutting
+
+        The plot rectangle (0.055 .. 0.975 across, 0.20 .. 0.84 down) must match renderDisplayOverlay.
     */
     inline const hwk::shaders::Material enhDisplay { "enhDisplay", R"GLSL(
     vec2 uv = vUV;
     col = vec3 (0.008, 0.017, 0.020);
 
-    const float plotL = 0.055, plotR = 0.975, plotT = 0.14, plotB = 0.90;
+    const float plotL = 0.055, plotR = 0.975, plotT = 0.20, plotB = 0.84;
     float px = fwidth (uv.y), pxx = fwidth (uv.x);
     float inPlot = step (plotL, uv.x) * step (uv.x, plotR) * step (plotT, uv.y) * step (uv.y, plotB);
 
@@ -87,6 +91,19 @@ namespace pad::shaders
     float eqFill = step (min (eqV, eqMid), v) * step (v, max (eqV, eqMid)) * 0.13;
     col += vec3 (1.00, 0.76, 0.28) * (eqLine + eqFill) * inPlot * uParams.y;
 
+    // --- SPECTRAL LIMITER: where it is cutting, hanging from the top like gain reduction ----
+    float lt = u * 47.0;
+    int li = int (floor (lt));
+    float cut = mix (uLimit[li], uLimit[min (li + 1, 47)], lt - float (li));
+    float bb = uParams.z;
+    float cutV = clamp ((cut + bb) / 18.0, 0.0, 1.0) * 0.60;     // 18 dB reaches 60 % down the plot
+    float bbV = clamp (bb / 18.0, 0.0, 1.0) * 0.60;
+    float inCut = step (v, cutV) * smoothstep (0.2, 0.8, cut + bb);
+    float cutEdge = (1.0 - smoothstep (px * 0.8, px * 2.4, abs (v - cutV) * (plotB - plotT))) * smoothstep (0.4, 1.2, cut + bb);
+    float shade = 0.10 + 0.22 * (1.0 - v / max (cutV, 0.001));
+    vec3 cutCol = mix (vec3 (1.00, 0.22, 0.55), vec3 (1.00, 0.62, 0.18), step (v, bbV));   // magenta: spectral, amber: broadband
+    col += cutCol * (inCut * shade + cutEdge * 0.85) * inPlot * uParams.y;
+
     // --- print, scanlines, glass ---------------------------------------------------------
     float text = texture (uTex2, uv).r;
     col += vec3 (0.55, 0.95, 1.00) * text * uParams.y * 0.85;
@@ -101,7 +118,7 @@ namespace pad::shaders
 
     col += envColor (R) * (0.03 + 0.25 * pow (facing, 4.0));
     col += vec3 (0.9, 0.95, 1.0) * exp (-pow ((uv.x + uv.y * 0.6 - 0.35) * 6.0, 2.0)) * 0.035;
-)GLSL", "uniform float uBands[24];   // adaptive EQ gains, dB\n" };
+)GLSL", "uniform float uBands[24];   // adaptive EQ gains, dB\nuniform float uLimit[48];   // SPECTRAL LIMITER cut, dB\n" };
 
     inline const hwk::shaders::Material seraphLive { "seraphLive", R"GLSL(
     vec2 uv = vUV;
@@ -113,25 +130,25 @@ namespace pad::shaders
 
     // --- resonance dips curve --------------------------------------------------------------
     float du0 = uParams.y, du1 = uParams.z;
-    if (uv.x > du0 && uv.x < du1 && uv.y > 0.18 && uv.y < 0.86)
+    if (uv.x > du0 && uv.x < du1 && uv.y > 0.17 && uv.y < 0.76)
     {
         float t = (uv.x - du0) / (du1 - du0) * 27.0;
         int k = int (floor (t));
         float f = t - float (k);
         float p0 = uDips[max (k - 1, 0)], p1 = uDips[min (k, 27)], p2 = uDips[min (k + 1, 27)], p3 = uDips[min (k + 2, 27)];
         float dip = 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f);
-        float baseY = 0.30, curveY = baseY + clamp (-dip / 12.0, 0.0, 1.1) * 0.50;
+        float baseY = 0.30, curveY = baseY + clamp (-dip / 12.0, 0.0, 1.08) * 0.42;   // -12 dB at 0.72
         float d = abs (uv.y - curveY);
         float line = (1.0 - smoothstep (px * 0.8, px * 2.4, d)) + exp (-d / 0.03) * 0.25;
         float fill = step (baseY, uv.y) * step (uv.y, curveY) * (0.25 + 0.35 * (uv.y - baseY) / max (0.001, curveY - baseY));
         float grid = (1.0 - smoothstep (0.0, px * 1.5, abs (uv.y - baseY))) * step (0.5, fract (uv.x * 120.0)) * 0.25
-                   + (1.0 - smoothstep (0.0, px * 1.5, abs (uv.y - 0.80))) * step (0.5, fract (uv.x * 120.0)) * 0.10;
+                   + (1.0 - smoothstep (0.0, px * 1.5, abs (uv.y - 0.72))) * step (0.5, fract (uv.x * 120.0)) * 0.10;
         light += mix (gold, violet, clamp ((curveY - baseY) * 2.0, 0.0, 1.0)) * (line + fill) + violet * grid;
     }
 
     // --- per-channel activity columns ------------------------------------------------------
     float cu0 = uParams.w, cu1 = uParams2.x;
-    if (uv.x > cu0 && uv.x < cu1 && uv.y > 0.15 && uv.y < 0.80)
+    if (uv.x > cu0 && uv.x < cu1 && uv.y > 0.17 && uv.y < 0.73)
     {
         float cu = (uv.x - cu0) / (cu1 - cu0) * 9.0;
         int column = min (int (floor (cu)), 8);
@@ -139,7 +156,7 @@ namespace pad::shaders
         int side = fu < 0.5 ? 0 : 1;
         float inBar = side == 0 ? step (0.14, fu) * step (fu, 0.44) : step (0.56, fu) * step (fu, 0.86);
         float value = uActivity[column * 2 + side];
-        float level = (0.78 - uv.y) / 0.60;                     // 0 at the bottom of a bar, 1 at the top
+        float level = (0.72 - uv.y) / 0.54;                     // 0 at the bottom of a bar (0.72), 1 at the top (0.18)
         float segment = step (fract (level * 14.0), 0.72);        // 14 segments with gaps
 
         float lit;

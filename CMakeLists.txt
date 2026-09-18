@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 1.0.0 LANGUAGES C CXX)
+project(EnhMaster VERSION 1.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,6 +14,7 @@ endif()
 set(JUCE_PATH "$ENV{HOME}/JUCE" CACHE PATH "Path to the JUCE source tree")
 option(ENH_BUILD_STANDALONE "Also build a Standalone app" ON)
 option(ENH_BUILD_TESTS "Build the offline DSP test/benchmark tool" ON)
+option(ENH_BUILD_TOOLS "Build LayoutViz (layout analysis / visualisation, no effect on the plugin)" ON)
 
 add_subdirectory(${JUCE_PATH} JUCE EXCLUDE_FROM_ALL)
 
@@ -38,6 +39,7 @@ set(ENH_DSP_SOURCES
     Source/DSP/Seraph.cpp
     Source/DSP/DynamicCompressor.cpp
     Source/DSP/SpectralLeveler.cpp
+    Source/DSP/SpectralLimiter.cpp
     Source/DSP/SpectrumScope.cpp
     Source/DSP/EnhEngine.cpp)
 
@@ -70,6 +72,7 @@ target_sources(EnhMaster PRIVATE
     Source/UI/HardwareView.cpp
     Source/UI/Scene/GeometryFactory.cpp
     Source/UI/Scene/PanelArtwork.cpp
+    Source/UI/Scene/LayoutAudit.cpp
     Source/UI/Scene/HardwareRenderer.cpp)
 
 target_include_directories(EnhMaster PRIVATE Source)
@@ -95,7 +98,7 @@ target_link_libraries(EnhMaster
 if(ENH_BUILD_TESTS)
     juce_add_console_app(EnhDspTests PRODUCT_NAME "EnhDspTests")
 
-    target_sources(EnhDspTests PRIVATE Tests/EnhDspTests.cpp ${ENH_DSP_SOURCES})
+    target_sources(EnhDspTests PRIVATE Tests/EnhDspTests.cpp Source/Parameters/ParameterSpecs.cpp ${ENH_DSP_SOURCES})
     target_include_directories(EnhDspTests PRIVATE Source)
     target_compile_definitions(EnhDspTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(EnhDspTests
@@ -103,7 +106,24 @@ if(ENH_BUILD_TESTS)
             juce::juce_dsp
             juce::juce_audio_basics
             juce::juce_audio_formats
+            juce::juce_audio_processors   # the parameter specs, for the factory-preset tests
         PUBLIC
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
+endif()
+
+# ------------------------------------------------------------------------------
+# LayoutViz: reads the real layout (DeviceLayout.h) and camera (CameraRig.h) and draws them as an SVG
+# for a chosen editor size. Analysis only - it does not touch the plugin. See Tools/LayoutViz.cpp.
+if(ENH_BUILD_TOOLS)
+    juce_add_console_app(LayoutViz PRODUCT_NAME "LayoutViz")
+    target_sources(LayoutViz PRIVATE Tools/LayoutViz.cpp Source/Parameters/ParameterSpecs.cpp)
+    target_include_directories(LayoutViz PRIVATE Source)
+    target_compile_definitions(LayoutViz PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(LayoutViz
+        PRIVATE
+            hardwarekit
+            juce::juce_audio_processors
+        PUBLIC
+            juce::juce_recommended_config_flags)
 endif()

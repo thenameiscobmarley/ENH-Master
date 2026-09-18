@@ -68,9 +68,12 @@ namespace pad::geo
     {
         MeshData mesh;
         const auto head = sweptRoundedRect (0, 0, 0.030f, 3, { { 0.0f, -0.002f }, { 0.0f, 0.004f }, { -0.011f, 0.011f } }, true);
+        // On the body's top face (z = 0 here; drawn offset by the unit's half height), at depths into
+        // the case. (They used to be placed with those depths along z - down the faceplate - so every
+        // unit showed two stray screw heads on its front.)
         for (float x : { -(chassisHalfW - 0.12f), chassisHalfW - 0.12f })
-            for (float z : { -unitBodyDepth * 0.30f, -unitBodyDepth * 0.78f })
-                mesh.append (head, Mat4::translation ({ x, 0.0f, z }));
+            for (float depth : { -unitBodyDepth * 0.30f, -unitBodyDepth * 0.78f })
+                mesh.append (head, Mat4::translation ({ x, depth, 0.0f }) * Mat4::rotationX (-0.5f * pi));
         (void) halfH;
         return mesh;
     }
@@ -135,6 +138,49 @@ namespace pad::geo
             mesh.append (quad ({ -caseSideX, a.y, a.z }, { -caseSideX, b.y, b.z },
                                { caseSideX, b.y, b.z }, { caseSideX, a.y, a.z }));
         }
+
+        return mesh;
+    }
+
+    MeshData caseFrontRails()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+        constexpr int steps = caseArcSteps * 3;
+
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float xIn = side * railInnerX, xOut = side * caseSideX;
+            for (int i = 0; i < steps; ++i)
+            {
+                const float sA = s0 + (s1 - s0) * (float) i / (float) steps;
+                const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) steps;
+                const auto fA = arcPoint (sA, -railFront), fB = arcPoint (sB, -railFront);
+                const auto bA = arcPoint (sA, -railFront - railThick), bB = arcPoint (sB, -railFront - railThick);
+
+                // front face (toward the viewer), the inner edge, and the back face
+                mesh.append (quad ({ xIn, fA.y, fA.z }, { xIn, fB.y, fB.z }, { xOut, fB.y, fB.z }, { xOut, fA.y, fA.z }));
+                mesh.append (quad ({ xIn, bA.y, bA.z }, { xIn, bB.y, bB.z }, { xIn, fB.y, fB.z }, { xIn, fA.y, fA.z }));
+                mesh.append (quad ({ xOut, bA.y, bA.z }, { xOut, bB.y, bB.z }, { xIn, bB.y, bB.z }, { xIn, bA.y, bA.z }));
+            }
+        }
+
+        return mesh;
+    }
+
+    MeshData caseRailHoles()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang + railHolePitch * 0.5f, s1 = totalArcLength() + caseOverhang - railHolePitch * 0.5f;
+
+        // Square holes, as dark quads a hair in front of the rail face
+        for (float side : { -1.0f, 1.0f })
+            for (float s = s0; s <= s1; s += railHolePitch)
+            {
+                const auto a = arcPoint (s - railHoleHalf, -railFront + 0.001f), b = arcPoint (s + railHoleHalf, -railFront + 0.001f);
+                const float x0 = side * (railHoleX - railHoleHalf), x1 = side * (railHoleX + railHoleHalf);
+                mesh.append (quad ({ x0, a.y, a.z }, { x0, b.y, b.z }, { x1, b.y, b.z }, { x1, a.y, a.z }));
+            }
 
         return mesh;
     }

@@ -23,6 +23,11 @@ namespace enh::dsp
         passage, which is what stops pumping and breathing. Loud material is left alone: the
         gain curve is one-sided.
 
+        While the SPECTRAL LIMITER after it is handling a localised abnormal event (a bass hit), the
+        band gains hold still: its complementary crossover lets a big bass hit read as a louder
+        midrange and top, and the lift on footsteps and detail used to be pulled back every time -
+        the leveler "ducked". The spike is the limiter's to deal with.
+
         Real-time safe: fixed state, no allocation, no locking.
     */
     class SpectralLeveler
@@ -34,6 +39,7 @@ namespace enh::dsp
         {
             float targetDb = -18.0f;
             float response = 0.5f;   // 0..1
+            bool holdGains = false;  // SPECTRAL LIMITER is handling a localised spike: band gains stay put
             bool active = false;     // the plugin's parameter default is In; raw settings stay inert
         };
 

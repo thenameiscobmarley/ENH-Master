@@ -36,7 +36,7 @@ They stack, so `MULTIPLY 2x` with `STRENGTH 2` is a lot. Details in [[Parameter 
 
 ## Signal safety
 
-SERAPH ends in a limiter, so even MULTIPLY 3x with STRENGTH 5 on both units cannot clip the output.
+TONE & SPACE ends in a limiter, so even MULTIPLY 3x with STRENGTH 5 on both units cannot clip the output.
 It will sound wrong long before it clips - that is on you, not the plugin.
 
 Next: [[03 Tuning for footsteps]]

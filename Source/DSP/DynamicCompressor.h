@@ -48,8 +48,10 @@ namespace enh::dsp
 
         void prepare (double sampleRate, int numChannels);
         void reset();
-        /** channels: pointers to the first sample of each channel in this chunk. */
-        void process (float* const* channels, int numChannels, int numSamples, const Settings&) noexcept;
+        /** channels: pointers to the first sample of each channel in this chunk. key: what the detector
+            listens to instead of the audio (same layout), or nullptr to key on the audio itself. */
+        void process (float* const* channels, int numChannels, int numSamples, const Settings&,
+                      const float* const* key = nullptr) noexcept;
 
         const Readout& getReadout() const noexcept { return readout; }
 

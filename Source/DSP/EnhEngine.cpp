@@ -18,6 +18,7 @@ namespace enh::dsp
         sub.prepare (sr, controlRate);
         analog.prepare (sr, maxBlock, numChannels);
         lumen.prepare (sr, numChannels);
+        limiter.prepare (sr, maxBlock, controlInterval);
         tide.prepare (sr, numChannels);
         seraph.prepare (sr);
         reset();
@@ -33,6 +34,7 @@ namespace enh::dsp
         sub.reset();
         analog.reset();
         lumen.reset();
+        limiter.reset();
         tide.reset();
         seraph.reset();
 
@@ -110,6 +112,17 @@ namespace enh::dsp
         meters.lumenTotalDb.store (lev.totalGainDb, std::memory_order_relaxed);
         meters.lumenActivity.store (lev.activity, std::memory_order_relaxed);
 
+        const auto cuts = limiter.getSlots();
+        for (size_t s = 0; s < cuts.size(); ++s)
+        {
+            meters.limitHz[s].store (cuts[s].hz, std::memory_order_relaxed);
+            meters.limitOctaves[s].store (cuts[s].octaves, std::memory_order_relaxed);
+            meters.limitDepthDb[s].store (cuts[s].depthDb, std::memory_order_relaxed);
+            meters.limitShape[s].store ((int) cuts[s].shape, std::memory_order_relaxed);
+        }
+        meters.limitDeepestDb.store (limiter.getDeepestCutDb(), std::memory_order_relaxed);
+        meters.limitBroadbandDb.store (limiter.getBroadbandDb(), std::memory_order_relaxed);
+
         meters.autoGainDb.store (analog.getAutoGainDb(), std::memory_order_relaxed);
         meters.outputPeakDb.store (analog.getPeakDb(), std::memory_order_relaxed);
 
@@ -136,6 +149,7 @@ namespace enh::dsp
         auto* const* write = buffer.getArrayOfWritePointers();
         const float* offsetPtrs[2] { write[0] + start, write[chans - 1] + start };
         analog.measureInput (offsetPtrs, chans, n);
+        limiter.beginChunk();
 
         int pos = 0;
         while (pos < n)
@@ -156,6 +170,7 @@ namespace enh::dsp
             if (samplesToTick == 0)
             {
                 controlTick (p);
+                limiter.analyse (analyzer, controlDt, pos + seg);   // decision lands where it was made
                 samplesToTick = controlInterval;
             }
 
@@ -166,13 +181,18 @@ namespace enh::dsp
         }
 
         juce::dsp::AudioBlock<float> block (write, (size_t) chans, (size_t) start, (size_t) n);
-        analog.process (block, { boost, transient, p.footstep ? steps.getConfidence() : 0.0f, planner.depth, planner.clarity, strength });
+        analog.process (block, { boost, transient, p.footstep ? steps.getConfidence() : 0.0f, planner.depth, planner.clarity, strength,
+                                 p.limiter.active && limiter.isHandlingLocalisedEvent() });
 
         float* chunk[2] { write[0] + start, write[chans - 1] + start };
 
-        // LUMEN lifts what is too quiet, TIDE holds down what is too loud, SERAPH finishes.
-        lumen.process (chunk, chans, n, p.lumen);
-        tide.process (chunk, chans, n, p.tide);
+        // The leveler lifts what is too quiet; the spectral limiter takes out abnormal excess where it
+        // is, so the compressor after it only reacts to what is loud across the whole programme.
+        auto lumenSettings = p.lumen;
+        lumenSettings.holdGains = p.limiter.active && limiter.isHandlingLocalisedEvent();
+        lumen.process (chunk, chans, n, lumenSettings);
+        limiter.process (chunk, chans, n, p.limiter);
+        tide.process (chunk, chans, n, p.tide, p.limiter.active ? limiter.key() : nullptr);
         seraph.process (chunk, chans, n, p.seraph);
 
         // Safety limiter: instant gain-down, slow recovery, then a soft clip. Zero latency, so it

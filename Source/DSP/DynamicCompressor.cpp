@@ -101,7 +101,8 @@ namespace enh::dsp
         (void) slowDb;
     }
 
-    void DynamicCompressor::process (float* const* data, int numChannels, int numSamples, const Settings& s) noexcept
+    void DynamicCompressor::process (float* const* data, int numChannels, int numSamples, const Settings& s,
+                                     const float* const* key) noexcept
     {
         const int n = numSamples;
         const int ch = std::min (channels, numChannels);
@@ -126,7 +127,7 @@ namespace enh::dsp
             float mono = 0.0f, peak = 0.0f;
             for (int c = 0; c < ch; ++c)
             {
-                const float x = data[c][i];
+                const float x = key != nullptr ? key[c][i] : data[c][i];
                 mono += x;
                 peak = std::max (peak, std::abs (x));
             }

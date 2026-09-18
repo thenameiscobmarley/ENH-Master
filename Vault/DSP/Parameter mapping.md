@@ -15,7 +15,7 @@ const auto p = enh::dsp::mapKnobs (k);
 Scales the **knob positions** on that device before the DSP sees them: at 1.5x, CLARITY 20 behaves as
 30. Deliberately allowed to run past a knob's printed end - the clamp that follows is the real limit.
 
-Not multiplied: **SERAPH OUTPUT** (a gain; multiplying it would just be a volume surprise). ENH Master
+Not multiplied: **TONE & SPACE OUTPUT** (a gain; multiplying it would just be a volume surprise). ENH Master
 has no gain knob, so nothing is excluded there.
 
 ## STRENGTH (0-5)

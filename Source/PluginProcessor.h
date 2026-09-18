@@ -27,11 +27,17 @@ public:
     bool isMidiEffect() const override                       { return false; }
     double getTailLengthSeconds() const override             { return 0.1; }
 
-    int getNumPrograms() override                            { return 1; }
-    int getCurrentProgram() override                         { return 0; }
-    void setCurrentProgram (int) override                    {}
-    const juce::String getProgramName (int) override         { return {}; }
+    // Factory presets (Source/Parameters/FactoryPresets.h) as host programs
+    int getNumPrograms() override;
+    int getCurrentProgram() override                         { return currentPreset.load(); }
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
+
+    /** Loads the next / previous factory preset (message thread); the PRESET buttons call this. */
+    void stepPreset (int delta);
+    /** Bumped on every preset load, so the editor can show the name. */
+    juce::uint32 getPresetLoadCount() const noexcept         { return presetLoads.load(); }
 
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
@@ -48,11 +54,14 @@ private:
     juce::AudioProcessorValueTreeState state;
     pad::ParameterBridge bridge;
     enh::dsp::EnhEngine engine;
+    std::atomic<int> currentPreset { 0 };
+    std::atomic<juce::uint32> presetLoads { 0 };
 
     std::atomic<float>* enhMultiply = nullptr, *enhStrength = nullptr, *seraphMultiply = nullptr, *seraphStrength = nullptr;
     std::atomic<float>* heavenHold = nullptr, *heavenLift = nullptr, *heavenMode = nullptr;
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
+    std::atomic<float>* spectralRange = nullptr, *spectralRelease = nullptr, *spectralCeiling = nullptr, *spectralActive = nullptr;
     std::atomic<float>* seraphMode = nullptr,
                       * silkSmooth = nullptr, *silkAir = nullptr, *silkWarmth = nullptr, *silkBody = nullptr, *silkOutput = nullptr,
                       * silkProtect = nullptr, *silkTape = nullptr, *silkAuto = nullptr,

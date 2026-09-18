@@ -8,7 +8,7 @@
     - Faceplate decal (RGBA): R = white silkscreen, G = grey section outlines,
                               B = section fields (slightly lighter panel), A = unused
     - Knob scale (R8): fixed printed scale ring around a knob (0-10, or 0-30 for NORM)
-    - SERAPH decal (R8) and live display labels (R8)
+    - TONE & SPACE decal (R8) and live display labels (R8)
     - Display overlay (R8): phosphor text, re-rendered only when the text changes
 */
 namespace pad::artwork
@@ -23,8 +23,8 @@ namespace pad::artwork
     struct TextureSet
     {
         RawTexture faceplateDecal, scale10, scale30, scale3, scale5, tubeDecal, seraphLabels;
-        RawTexture tideDecal, lumenDecal;          // the two 1U panels
-        RawTexture tideVuFace, lumenVuFace;        // the printed faces of their VU meters
+        RawTexture tideDecal, lumenDecal, limiterDecal;              // the three 1U panels
+        RawTexture tideVuFace, lumenVuFace, limiterVuFace[2];        // the printed faces of their VU meters
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */
@@ -42,15 +42,16 @@ namespace pad::artwork
     RawTexture renderFaceplateDecal (int textureWidth, TextRegistry* registry = nullptr);
     RawTexture renderKnobScale (int size, int maxValue = 10);
 
-    /** SERAPH faceplate print (R8 white silkscreen) and the live display's labels (R8). */
+    /** TONE & SPACE faceplate print (R8 white silkscreen) and the live display's labels (R8). */
     RawTexture renderTubeDecal (int textureWidth, TextRegistry* registry = nullptr);
     RawTexture renderSeraphDisplayLabels (int width, TextRegistry* registry = nullptr);
 
-    /** One of the 1U panels (TIDE or LUMEN): print, scales with numbers, and its place in the chain. */
+    /** One of the 1U panels (compressor, leveler, spectral limiter): print, scales with numbers, and its place in the chain. */
     RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
 
-    /** A VU dial face: arc, ticks, numbers, red zone (green channel) and caption. */
-    RawTexture renderVuFace (int unit, int width, TextRegistry* registry = nullptr);
+    /** A VU dial face: arc, ticks, numbers, red zone (green channel) and caption. `meter` picks the
+        face where a unit's meters read different things (the limiter: 0 = spectral cut, 1 = broadband). */
+    RawTexture renderVuFace (int unit, int width, TextRegistry* registry = nullptr, int meter = 0);
 
     /** Numbers of the printed scale rings around ENH Master's knobs (they are drawn per knob at render time). */
     void collectKnobScaleText (TextRegistry&);
@@ -61,10 +62,11 @@ namespace pad::artwork
     struct DisplayText
     {
         juce::String title, tag, lineLeft, focusLine;
+        juce::String limitLine;   // what the SPECTRAL LIMITER is cutting, while it is
 
         bool operator== (const DisplayText& o) const
         {
-            return title == o.title && tag == o.tag && lineLeft == o.lineLeft && focusLine == o.focusLine;
+            return title == o.title && tag == o.tag && lineLeft == o.lineLeft && focusLine == o.focusLine && limitLine == o.limitLine;
         }
     };
 

@@ -3,6 +3,8 @@
 #include "Scene/CameraRig.h"
 #include "Scene/DeviceLayout.h"
 #include "Scene/Picking.h"
+#include "Scene/LayoutAudit.h"
+#include "Scene/LimiterDemo.h"
 #include "Controls/ControlBinding.h"
 #include "../PluginProcessor.h"
 
@@ -33,9 +35,18 @@ namespace pad
         textures.lumenDecal = artwork::renderOneUDecal (lumenUnit, config.panelTextureWidth, &textItems);
         textures.tideVuFace = artwork::renderVuFace (tideUnit, 768, &textItems);
         textures.lumenVuFace = artwork::renderVuFace (lumenUnit, 512, &textItems);
+        textures.limiterDecal = artwork::renderOneUDecal (limiterUnit, config.panelTextureWidth, &textItems);
+        textures.limiterVuFace[0] = artwork::renderVuFace (limiterUnit, 512, &textItems, 0);
+        textures.limiterVuFace[1] = artwork::renderVuFace (limiterUnit, 512, &textItems, 1);
         scopeAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
-        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures), scopeCurve);
         artwork::collectKnobScaleText (textItems);
+
+        // Dev-only: PAD_UI_DUMP_ARTWORK=<dir> writes the printed panels with measured clearances
+        const auto dumpDir = juce::SystemStats::getEnvironmentVariable ("PAD_UI_DUMP_ARTWORK", {});
+        if (dumpDir.isNotEmpty())
+            audit::writeLayoutAudit (textures, textItems, juce::File (dumpDir));
+
+        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures), scopeCurve);
 
         juce::OpenGLPixelFormat format;
         format.depthBufferBits = 24;
@@ -47,6 +58,11 @@ namespace pad
         glContext.setRenderer (renderer.get());
         glContext.setContinuousRepainting (true); // paced on the render thread, locked to vsync
         glContext.attachTo (*this);
+
+        // Dev-only: PAD_UI_TEST_FOCUS=<unit index> starts walked up to that unit (close-up screenshots)
+        const auto focusTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_FOCUS", {});
+        if (focusTest.isNotEmpty())
+            setFocus (juce::jlimit (0, numUnits - 1, focusTest.getIntValue()), 1.0f);
 
         openedAtMs = juce::Time::getMillisecondCounter();
         refreshOverlay();
@@ -361,13 +377,57 @@ namespace pad
         if (meters.footstepConfidence.load (std::memory_order_relaxed) > 0.5f)
             lastStepSeenMs = now;
 
-        const int shown = dragControl >= 0 ? dragControl : shared.hoveredControl.load();
+        int shown = dragControl >= 0 ? dragControl : shared.hoveredControl.load();
 
         artwork::DisplayText text;
         text.title = addMode ? "ADD + NORM" : "NORMALIZE";
         text.tag = now - lastStepSeenMs < 350.0 ? "STEP" : "";
         text.lineLeft = "CLR " + dial (pad::params::id::clarityNorm) + " ADP " + dial (pad::params::id::adaptSpeed)
                       + " SUB " + dial (pad::params::id::sub);
+
+        // SPECTRAL LIMITER: what it is cutting, and where, while it is (whole dB, two significant
+        // figures of Hz, so the header is re-rendered only when that changes)
+        {
+            const bool limiterIn = bridge.getNormalised (bridge.indexOf (pad::params::id::spectralActive)) > 0.5f;
+            float depth = 0.0f, hz = 0.0f;
+            const auto demo = demoLimiterSlots (juce::Time::getMillisecondCounterHiRes() * 0.001 - openedAtMs * 0.001);
+            for (size_t s = 0; s < demo.size(); ++s)
+            {
+                const float d = demoScope ? demo[s].depthDb : meters.limitDepthDb[s].load (std::memory_order_relaxed);
+                if (d > depth)
+                {
+                    depth = d;
+                    hz = demoScope ? demo[s].hz : meters.limitHz[s].load (std::memory_order_relaxed);
+                }
+            }
+            const float broadband = demoScope ? 0.0f : meters.limitBroadbandDb.load (std::memory_order_relaxed);
+            if (limiterIn && depth > 0.5f)
+            {
+                const double p = std::pow (10.0, std::floor (std::log10 (std::max (1.0f, hz))) - 1.0);
+                const int shownHz = (int) (std::round (hz / p) * p);
+                text.limitLine = "LIMIT -" + juce::String (juce::roundToInt (depth)) + " dB @ "
+                               + (shownHz >= 1000 ? juce::String (shownHz / 1000.0, 1) + "k" : juce::String (shownHz)) + " Hz";
+                if (broadband > 0.5f)
+                    text.limitLine << "  BB -" << juce::roundToInt (broadband);
+            }
+        }
+
+        // The preset just loaded, for a few seconds (or while a PRESET button is hovered)
+        {
+            if (processor.getPresetLoadCount() != lastPresetLoads)
+            {
+                lastPresetLoads = processor.getPresetLoadCount();
+                presetShownMs = now;
+            }
+            const bool hoveringPreset = shown >= 0 && ! hasLed (controls[(size_t) shown]);
+            if (hoveringPreset || now - presetShownMs < 4000.0)
+            {
+                const int p = processor.getCurrentProgram();
+                text.focusLine = "PRESET " + juce::String (p + 1) + "/" + juce::String (processor.getNumPrograms())
+                               + "  " + processor.getProgramName (p);
+                shown = -1;
+            }
+        }
 
         if (shown >= 0)
         {
@@ -473,6 +533,17 @@ namespace pad
                     peer->setMinimised (wantMinimised);
             }
 
+        // PRESET PREV / NEXT: momentary - a press loads the preset here (message thread) and springs back
+        for (auto [pid, delta] : { std::pair { pad::params::id::presetPrev, -1 }, std::pair { pad::params::id::presetNext, 1 } })
+        {
+            const int index = bridge.indexOf (pid);
+            if (index >= 0 && bridge.getNormalised (index) > 0.5f)
+            {
+                processor.stepPreset (delta);
+                bridge.setValueWithSource (index, 0.0f, ControlSource::user);
+            }
+        }
+
         publishWindowGeometry();
         if (! updateRenderingState())
             return;   // paused: no GL frames, no overlay or callout work
@@ -525,7 +596,7 @@ namespace pad
         const artwork::TextItem* best = nullptr;
         float bestArea = 1.0e9f;
 
-        for (int unit : { (int) enhUnit, (int) tubeUnit, (int) tideUnit, (int) lumenUnit })
+        for (int unit = 0; unit < numUnits; ++unit)
         {
             if (adjusting >= 0)
                 break;

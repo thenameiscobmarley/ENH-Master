@@ -3,14 +3,20 @@
 Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
-Four processors in one plugin, in signal order: **ENH MASTER** (adaptive EQ, generated harmonics,
-footstep priority), **LUMEN** (three-band leveler that lifts quiet material), **TIDE** (compressor
-whose threshold follows the programme) and **SERAPH** (tone, space and level).
+Five processors in one plugin, in signal order: the **ADAPTIVE ENHANCER** (adaptive EQ, generated
+harmonics, sub, footstep priority), the **UPWARD LEVELER** (three-band, lifts quiet material), the
+**SPECTRAL LIMITER** (cuts abnormal spectral excess where it is, so a bass hit does not duck the whole
+mix), the **ADAPTIVE COMPRESSOR** (threshold follows the programme) and **TONE & SPACE** (tone, space
+and loudness hold).
+
+Unit names describe what each unit does. Until September 2026 they were called ENH MASTER, LUMEN,
+TIDE and SERAPH (SILK / HALO / HEAVEN). Parameter IDs keep those old names, so saved sessions and
+automation still load; only the names the host and the panels show have changed.
 
 ![ENH Master](docs/screenshot.png)
 
-*Four units in a curved case: ENH MASTER (clarity, sub, footsteps, and the analyser), LUMEN
-(spectral leveler), TIDE (adaptive compressor) and SERAPH (silk, halo and heaven).*
+*Five units in a curved case, bottom to top in signal order: ADAPTIVE ENHANCER (clarity, sub,
+footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, ADAPTIVE COMPRESSOR, TONE & SPACE.*
 
 ## Build
 
@@ -45,7 +51,101 @@ It magnifies about the cursor - what is under the pointer stays under the pointe
 locks onto a control while you drag it. Controls also show a small name + value pill under the lens, and their
 value arc lights up around the knob.
 
-## TIDE - adaptive compressor (1U)
+## Presets
+
+Nine factory presets set the whole rack at once. They appear in the host's program list, and on the
+rack itself: PRESET PREV / NEXT in the ADAPTIVE ENHANCER's maker block. The name shows on the
+analyser for a few seconds (and while a PRESET button is hovered). Every preset is a complete
+state: anything it does not list goes back to its default. The table is in
+`Source/Parameters/FactoryPresets.h`.
+
+| Preset | For |
+|---|---|
+| DEFAULT | every unit at its default |
+| COMPETITIVE FOOTSTEPS | PvP: footstep priority, quiet detail lifted, explosions cut where they are, TONE only (no reverb smearing position), stereo width untouched |
+| IMMERSIVE GAMES | single-player / cinematic: sub lift, space and width, hits still controlled |
+| NIGHT MODE | quiet listening: small level range, sudden loud events held down hard |
+| BASS HEAVY, PROTECTED | big low end (SUB + BOOST) without pumping: deep spectral limiting, bass mono |
+| VOICE & STREAMING | speech first: intelligibility, even level, no tail |
+| MUSIC: WARM MASTER | tape warmth, a touch of room, leveler OUT so music keeps its dynamics |
+| MUSIC: WIDE & AIRY | open top, wide image, a lush modulated hall |
+| TRANSPARENT (ALL OUT) | reference: everything bypassed (the enhancer's subsonic filter and the output safety limiter stay) |
+
+`EnhDspTests --presets` runs every preset through the engine on the synthetic game scene and a bass
+hit, IN and OUT of the SPECTRAL LIMITER. Every preset is stable and under full scale, and in every
+one the limiter reduces how much the 2 kHz detail ducks under the hit. Numbers from the last run
+(dip of the detail, limiter IN / OUT):
+
+| Preset | IN | OUT |
+|---|---|---|
+| DEFAULT | -1.2 dB | -1.7 dB |
+| COMPETITIVE FOOTSTEPS | -2.1 dB | -2.3 dB |
+| NIGHT MODE | -1.3 dB | -2.1 dB |
+| BASS HEAVY, PROTECTED | -4.5 dB | -5.4 dB |
+| VOICE & STREAMING | -1.2 dB | -1.7 dB |
+| MUSIC: WARM MASTER | -0.9 dB | -1.2 dB |
+
+With the whole rack running, what is left is TONE & SPACE's output limiter catching a hot mix. The
+spectral limiter alone takes the dip from -1.8 to -0.3 dB.
+
+Two level-matching loops now hold still while the SPECTRAL LIMITER is handling a localised spike:
+
+- **UPWARD LEVELER band gains.** Its complementary crossover lets a big bass hit read as a louder
+  mid and top band, so it used to pull the lift on footsteps and detail back on every hit.
+- **The enhancer's auto gain.** It used to chase the sub-enhanced spike.
+
+## SPECTRAL LIMITER - anti-pumping dynamic EQ (1U)
+
+Sits between the leveler and the compressor. The compressor's detector is broadband, so a sudden
+bass hit used to pull everything down with it, footsteps and detail included. This unit handles the
+hit where it is, in this order:
+
+1. **Localised excess:** up to three moving cuts follow the offending region. Each is a bell, or a
+   shelf when the excess runs off the bottom or top of the spectrum. Nothing else moves.
+2. **Headroom threatened** (stage peak above CEILING): the same region is cut deeper, by as much as
+   that region's share of the energy says is needed.
+3. **Broadband:** gain reduction only when the abnormal energy covers most of the spectrum *and*
+   headroom is threatened.
+
+The compressor is keyed through the same cuts, made deeper: while a localised event is being handled
+here, the compressor does not duck the whole mix for it as well. That's an adaptive version of the
+side-chain high-pass on a bus compressor. With nothing flagged, the key is the audio itself.
+
+Detection reuses the ADAPTIVE ENHANCER's 24-band analyser, adding no second analyser. Per band it adds:
+
+- a rolling baseline that barely moves while the band is flagged;
+- what is *normal* for that band: the 97th percentile of its excursions over the last 10 s, not
+  counting the newest 1.5 s;
+- leakage rejection, so a 70 Hz hit does not also count as 400 Hz.
+
+A kick drum teaches it that its hits are normal, so normal bass is left alone. Nothing is hard-coded
+to a frequency: a 5 kHz whistle is cut at 5 kHz.
+
+| Control | What it does |
+|---|---|
+| RANGE | deepest spectral cut, 0-18 dB |
+| RELEASE | how fast a cut lets go, 30-600 ms (attack follows it, 1.5-8 ms) |
+| CEILING | headroom protection threshold at this stage, -12..0 dBFS |
+| IN | hardware bypass |
+
+The meters read the deepest spectral cut (0-18 dB) and the broadband protection (0-12 dB). The
+analyser on the ADAPTIVE ENHANCER shows where it is cutting: a magenta curtain hanging from the top of
+the plot at the real frequency and depth (amber for broadband), and a `LIMIT -9 dB @ 68 Hz` readout.
+
+Measured (`EnhDspTests --limiter`), with a huge bass hit over a mix with kicks and a 2 kHz detail band:
+
+| | 2 kHz detail during the hit | compressor gain reduction |
+|---|---|---|
+| limiter OUT | -1.8 dB | 14.6 dB |
+| limiter IN | -0.3 dB | 10.4 dB |
+
+- The hit gets an 8-9 dB cut around 68 Hz; the kicks get 0.00 dB.
+- The cut releases within 0.7 s.
+- A broadband event gets no spectral cut (0.1 dB), only 2.9 dB of broadband protection.
+- The result is identical at block sizes 7, 128 and 1024.
+- Cost: about 1.1 % of one J4105 core at 48 kHz.
+
+## ADAPTIVE COMPRESSOR (1U)
 
 Two controls, no threshold knob. The threshold, ratio, knee and ballistics all follow the
 programme: loudness now and over the last seconds, crest factor, spectral tilt, transient density
@@ -60,7 +160,7 @@ a gentler ratio so transients survive; dense material is held down.
 
 The VU reads gain reduction, 0-12 dB.
 
-## LUMEN - spectral leveler (1U)
+## UPWARD LEVELER - three-band (1U)
 
 Lifts quiet material toward a target, per band, because "quiet" is rarely true of a whole signal at
 once. LR4 splits (which sum back to the input exactly), a per-band estimate of what is loud here
@@ -81,17 +181,17 @@ Each unit has two small master knobs:
 
 | Control | Parameter | What it does |
 |---|---|---|
-| MULTIPLY | `enhMultiply` / `seraphMultiply` | 0-3x. Multiplies every knob on that device before the DSP sees it (1.5x makes CLARITY 20 behave as 30). SERAPH's OUTPUT gain is not multiplied; ENH Master has no gain knob. Values may pass a knob's printed end and are clamped to what the processing can take. |
+| MULTIPLY | `enhMultiply` / `seraphMultiply` (TONE & SPACE) | 0-3x. Multiplies every knob on that device before the DSP sees it (1.5x makes CLARITY 20 behave as 30). TONE & SPACE's OUTPUT gain is not multiplied; ENH Master has no gain knob. Values may pass a knob's printed end and are clamped to what the processing can take. |
 | STRENGTH | `enhStrength` / `seraphStrength` | 0-5. How hard that device's processing hits: EQ moves, generated harmonics, sub lift, resonance dips, air, body, width, tail level and shimmer. 0 = the device does nothing; time settings (DECAY, TONE, ADAPT) are not scaled. |
 
-## SERAPH (top unit)
+## TONE & SPACE (top unit)
 
-A purple finishing processor at the top of the case, processing everything below it. **HEAVEN** is
-its level policy: one knob with two printed scales and a button to swap them. In STABLE it measures
+A purple finishing processor at the top of the case, processing everything below it. **LOUDNESS** is
+its level policy: one knob with two printed scales and a button to swap them. In HOLD it measures
 what came in and what is going out and works the output back toward the input, so the effect is
-loud enough to hear and never louder than the music. In LIFT + STABLE it adds gain first and then
+loud enough to hear and never louder than the music. In LIFT + HOLD it adds gain first and then
 holds *that* steady, for sources that are quiet to begin with. **POWER**: OFF (true bypass) /
-SILK (tone & texture only) / HEAVEN (SILK + HALO). Zero latency.
+TONE (tone & texture only) / +SPACE (TONE + SPACE). Zero latency.
 
 One unified front (no channel split): a live display in the middle, the ten knobs in one row along the bottom,
 the six toggles (up = on) in a grid on the right, lamp and POWER on the left. The display shows, live:
@@ -103,7 +203,7 @@ the six toggles (up = on) in a grid on the right, lamp and POWER on the left. Th
 
 `PAD_UI_TEST_DEMO=1` animates the display without audio (dev only).
 
-**SILK - tone & texture**
+**TONE - tone & texture**
 
 | Control | Parameter | What it does |
 |---|---|---|
@@ -116,16 +216,16 @@ the six toggles (up = on) in a grid on the right, lamp and POWER on the left. Th
 | TAPE | `silkTape` | pre-emphasised soft saturation that rounds harsh transients |
 | AUTO | `silkAuto` | loudness-matched output |
 
-**HEAVEN** is SERAPH's level policy: one knob with two printed scales and a button to swap them.
-In STABLE it measures what came in and what is going out and works the output back toward the
-input, so the effect is loud enough to hear and never louder than the music. In LIFT + STABLE it
+**LOUDNESS** is TONE & SPACE's level policy: one knob with two printed scales and a button to swap them.
+In HOLD it measures what came in and what is going out and works the output back toward the
+input, so the effect is loud enough to hear and never louder than the music. In LIFT + HOLD it
 adds gain first and then holds *that* steady, for sources that are quiet to begin with.
 
-SERAPH's stages end in an output limiter (instant gain-down above -0.7 dBFS, 80 ms recovery, then a soft clip), so
-MULTIPLY 3x with STRENGTH 5 on both units still lands at 0.92 peak. HALO also has early reflections (sparse stereo
+TONE & SPACE's stages end in an output limiter (instant gain-down above -0.7 dBFS, 80 ms recovery, then a soft clip), so
+MULTIPLY 3x with STRENGTH 5 on both units still lands at 0.92 peak. SPACE also has early reflections (sparse stereo
 taps, 7-37 ms) ahead of the dense tail.
 
-**HALO - space & width**
+**SPACE - space & width**
 
 | Control | Parameter | What it does |
 |---|---|---|
@@ -224,8 +324,45 @@ geometry primitives, hardware models (knob styles, push buttons, bat toggles, je
 chassis), materials, control animation, X11 pointer / visibility helpers and the fisheye loupe. ENH Master keeps only
 what is specific to it: its layout, its printed panels and the two display shaders. See `HardwareKit/README.md`.
 
-Knob styles in use: ENH Master's CLARITY / ADAPT / SUB are `proXl`, its masters `aluminium`; SERAPH's row is
+Knob styles in use: ENH Master's CLARITY / ADAPT / SUB are `proXl`, its masters `aluminium`; TONE & SPACE's row is
 `fluted` (Davies type), its masters `softTouch` with violet caps, and POWER is a `chickenHead` selector.
+
+## Anti-aliasing
+
+- **Main view:** 4x MSAA by default. `msaaSamples` in `~/.config/ENHMaster/ui-config.json` takes
+  0 / 2 / 4 / 8. On an Intel UHD 600, 8x costs noticeably more late frames, so 4x stays the default.
+- **Loupe:** now rendered multisampled too (it used to be aliased).
+- **Procedural textures** (HardwareKit): brushed and powder-coat noise, lacquer flake and knob grip
+  ridges are band-limited by pixel footprint. Where a pixel covers many cells they fade to their
+  average instead of crawling or forming moire as the camera moves.
+
+## The rack
+
+The units' ears are screwed to front mounting rails (zinc-plated, square rack holes) swept along the
+same arc as the case, so the units sit in a rack rather than floating between the cheeks.
+
+## Layout: how units are placed, and LayoutViz
+
+Everything in the scene is in world units, not pixels, and nothing in it depends on the window:
+
+- **Units:** placed on a vertical arc from constants in `Source/UI/Scene/DeviceLayout.h`
+  (`unitArcPos` / `unitAngle` / `unitOrigin` / `panelToWorld`).
+- **Controls:** panel-local constants (x across, z down the faceplate). Some are calculated as first
+  position + step x index. Knob sizes are a fixed base radius times a fixed size multiplier.
+- **The window:** only reaches the camera (`CameraRig::build`), which moves back until the whole
+  case fits. So on screen everything scales together with the editor size.
+
+`LayoutViz` (built with the plugin, `ENH_BUILD_TOOLS`) uses that same code to draw the layout for any
+editor size. It writes an SVG with the window boundary, a pixel grid and rulers, every unit's
+projected faceplate, centre and size, and every control's footprint (hover for its panel values). It
+also prints the underlying values, each marked FIXED, MULTIPLIER or CALCULATED:
+
+```sh
+WIDTH=1200 HEIGHT=700 OUT=layout.svg build/LayoutViz_artefacts/Release/LayoutViz
+FOCUS=4 WIDTH=1340 HEIGHT=720 OUT=limiter.svg build/LayoutViz_artefacts/Release/LayoutViz   # walked up to unit 4
+```
+
+It is analysis only; it does not change the plugin.
 
 ## UI performance
 
@@ -249,7 +386,10 @@ host delivers mouse events late. Config: `~/.config/ENHMaster/ui-config.json`.
 - `PAD_UI_TEST_STATS=1` – frame-timing statistics on stderr every 5 s (also logs when rendering pauses / resumes)
 - `PAD_UI_TEST_MINIMISE="7,17"` – minimises the window at 7 s and restores it at 17 s
 - `PAD_UI_TEST_HOVER="x,y"` – shows the hover loupe at that point
-- `PAD_UI_TEST_DEMO=1` – animates SERAPH's live display without audio
+- `PAD_UI_TEST_DEMO=1` – animates TONE & SPACE's live display and the SPECTRAL LIMITER's meters and analyser curtain without audio
+- `PAD_UI_TEST_STATS=1` also logs the framebuffer's actual MSAA sample count
+- `PAD_UI_TEST_FOCUS=<unit>` – starts walked up to one unit (0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter)
+- `PAD_UI_DUMP_ARTWORK=<dir>` – writes every printed panel with its text boxes and the hardware footprints from the layout code, plus `clearances.txt` listing any print that overlaps or crowds hardware, borders or other print
 
 ## Backups
 

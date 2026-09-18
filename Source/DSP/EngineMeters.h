@@ -29,6 +29,12 @@ namespace enh::dsp
         std::array<std::atomic<float>, 3> lumenLevelDb {};
         std::atomic<float> lumenTotalDb { 0.0f }, lumenActivity { 0.0f };
 
+        // SPECTRAL LIMITER: the moving cuts as applied (shape 0 bell / 1 low shelf / 2 high shelf),
+        // the deepest of them, and broadband protection (all dB of attenuation, >= 0)
+        std::array<std::atomic<float>, 3> limitHz {}, limitOctaves {}, limitDepthDb {};
+        std::array<std::atomic<int>, 3> limitShape {};
+        std::atomic<float> limitDeepestDb { 0.0f }, limitBroadbandDb { 0.0f };
+
         // SERAPH
         std::atomic<float> silkSmoothingDb { 0.0f };   // deepest resonance dip right now
         std::atomic<float> haloDb { -60.0f };          // tail level relative to the dry programme

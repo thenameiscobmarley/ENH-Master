@@ -101,7 +101,9 @@ namespace enh::dsp
 
         // Auto gain: slow loop driving output loudness toward input loudness
         const float inDb = powerToDb (inputK.meanSquare), outDb = powerToDb (outputK.meanSquare);
-        if (inDb > -60.0f)
+        // While the SPECTRAL LIMITER is handling a localised spike, loudness matching does not chase it:
+        // it used to turn the whole mix down every time the sub enhancer lifted a bass hit.
+        if (inDb > -60.0f && ! s.holdLevel)
         {
             const float k = 1.0f - std::exp (-(float) n / (float) sr / 1.5f);
             // Match loudness (NORM); in ADD mode let full enhancement sit ~2 dB up so it is heard

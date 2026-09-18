@@ -1,8 +1,8 @@
-# Seraph stages
+# Tone & Space stages
 
 `Source/DSP/Seraph.{h,cpp}` - `SilkStage`, `HaloStage` and the `Seraph` wrapper.
 
-## SILK
+## TONE
 
 - **SMOOTH** - opto-style detection finds resonances that are ringing *now* and dips them with TPT/SVF
   filters at those frequencies. The dips are what the left half of the display draws.
@@ -15,7 +15,7 @@
   -3.5 dB test threshold - a zero-latency design cannot do better without look-ahead.
 - **AUTO** trims the output so tone changes are not just level changes.
 
-## HALO
+## SPACE
 
 - **Early reflections** - sparse stereo taps between 7 and 37 ms (`Delay early` + 8 taps) in front of
   the tail. This is what makes it sound like a room instead of a wash.
