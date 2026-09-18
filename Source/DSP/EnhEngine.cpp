@@ -136,6 +136,14 @@ namespace enh::dsp
             for (int c = 0; c < 2; ++c)
                 meters.seraphActivityDb[(size_t) (a * 2 + c)].store (seraph.getActivityDb (a, c), std::memory_order_relaxed);
         meters.seraphLevelDb.store (seraph.getSilk().getBlend() > 0.01f ? seraph.getSilk().getLevelDb() : 0.0f, std::memory_order_relaxed);
+        meters.heavenAutoBlend.store (seraph.getAutoBlend(), std::memory_order_relaxed);
+        {
+            const auto& a = seraph.getAutoChoice();
+            const float chosen[7] { a.space, a.decayS, a.shimmer, a.tone, a.width, a.air, a.sub };
+            for (size_t k = 0; k < 7; ++k)
+                meters.heavenAutoChoice[k].store (chosen[k], std::memory_order_relaxed);
+        }
+        meters.silkMatchDb.store (seraph.getSilk().getBlend() > 0.01f ? seraph.getSilk().getMatchDb() : 0.0f, std::memory_order_relaxed);
         const auto& dips = seraph.getSilk().getDips();
         for (size_t k = 0; k < dips.size(); ++k)
             meters.silkDipDb[k].store (dips[k], std::memory_order_relaxed);

@@ -74,6 +74,7 @@ namespace enh::dsp
         float getSmoothingDb() const noexcept { return smoothingDb; }
         float getBlend() const noexcept       { return blend; }
         float getLevelDb() const noexcept     { return 20.0f * std::log10 (std::max (1.0e-4f, outGain)); }
+        float getMatchDb() const noexcept     { return autoDb; }   // MATCH: the loudness-match gain it is applying
 
         /** Current dip per detection band (dB, <= 0) and the bands' centre frequencies. */
         const std::array<float, 28>& getDips() const noexcept   { return cutDb; }
@@ -330,6 +331,12 @@ namespace enh::dsp
             for (auto* st : { &dryHp, &dryHp2, &dryShelf, &wetHp, &wetHp2, &wetShelf }) st->reset();
             heavenGain = 1.0f;
             heavenDb = 0.0f;
+
+            // AUTO starts from a neutral programme, not from nothing
+            autoBlend = 0.0f;
+            crestDb = 12.0f; widthRatio = 0.2f; brightDb = -14.0f; bassBalanceDb = 0.0f;
+            aFast = 1.0e-8f; aPeak = crestAcc = lp8 = lp4 = lp1 = lpB1 = lpB2 = 0.0f;
+            choose();
         }
 
         void process (float* const* channels, int numChannels, int numSamples, const Settings& in) noexcept
@@ -366,6 +373,7 @@ namespace enh::dsp
         float getHeavenDb() const noexcept { return heavenDb; }
 
         const SilkStage& getSilk() const noexcept { return silk; }
+        float getAutoBlend() const noexcept { return autoBlend; }   // how far AUTO has taken the knobs (0..1)
         const HaloStage& getHalo() const noexcept { return halo; }
 
         /** Live per-channel activity, in display order. */
@@ -423,7 +431,12 @@ namespace enh::dsp
             widthRatio += ((float) (side / (mono + 1.0e-20)) - widthRatio) * k;
             brightDb += (db (hf) - db (pres) - brightDb) * k;
             bassBalanceDb += (db (bass) - db (mid) - bassBalanceDb) * k;
+            choose();
+        }
 
+        /** AUTO's choice from what it has heard so far (before anything: a neutral, typical programme). */
+        void choose() noexcept
+        {
             auto sat = [] (float x) { return std::clamp (x, 0.0f, 1.0f); };
             const float sustained = sat ((13.0f - crestDb) / 6.0f);    // pads, strings, drones
             const float sparse = sat ((crestDb - 14.0f) / 8.0f);       // single hits with room between them
@@ -492,7 +505,7 @@ namespace enh::dsp
 
         SilkStage silk;
         HaloStage halo;
-        AutoChoice autoChoice;
+        AutoChoice autoChoice { 0.197f, 2.07f, 0.10f, 0.45f, 1.27f, 3.0f, 1.0f };   // = choose() on a neutral programme
         float autoBlend = 0.0f, aFast = 1.0e-8f, aPeak = 0.0f, crestAcc = 0.0f, crestDb = 12.0f, widthRatio = 0.2f;
         float brightDb = -14.0f, bassBalanceDb = 0.0f, lp8 = 0, lp4 = 0, lp1 = 0, lpB1 = 0, lpB2 = 0;
 

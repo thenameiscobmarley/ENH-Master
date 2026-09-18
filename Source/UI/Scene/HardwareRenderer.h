@@ -83,6 +83,8 @@ namespace pad
 
         /** moving = matrix for parts that turn / press; fixed = for the rest. accentGain scales accent colours.
             litPointer: the pointer part glows (lamps, jewels); otherwise it is paint, lit like the knob. */
+        float autoTurnedValue (const layout::ControlDef&, float value) const;
+
         void drawModel (const GpuModel&, const gfx::Mat4& moving, const gfx::Mat4& fixed, gfx::Vec3 hoverLift,
                         gfx::Vec3 pointerColour, float accentGain = 1.0f, bool litPointer = true);
 

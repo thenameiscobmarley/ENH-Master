@@ -15,7 +15,9 @@ Right of the display (1.2.0): **AUTO** (a round button with its own LED, like ev
 the unit, and the **HEAVEN** knob sets how far it may take it (0 = your knobs, 10 = all AUTO). AUTO
 listens over ~4 s: crest factor (sustained or percussive), side/mid ratio (mono or wide), 8 kHz+ vs
 presence (dull or bright), sub-120 Hz vs mids (thin or full). From those it picks REVERB, DECAY,
-SHIMMER, SPACE TONE, WIDTH, AIR and SUB, and blends toward them over ~0.5 s. It learns nothing from silence.
+SHIMMER, SPACE TONE, WIDTH, AIR and SUB, and blends toward them over ~0.5 s. It learns nothing from silence,
+and starts from a neutral programme's choice. The panel turns those knobs to the values in use
+(`HardwareRenderer::autoTurnedValue`, display only). MATCH turns OUTPUT by its gain the same way.
 
 **SUB** (the sixth TONE knob): an 80 Hz shelf, an envelope-normalised 2nd harmonic of the bass, and a
 mono bloom (two damped 71 / 97 ms delay lines) that is let through only when the bass is not busy, so

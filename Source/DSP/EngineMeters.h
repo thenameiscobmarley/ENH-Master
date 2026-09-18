@@ -44,6 +44,12 @@ namespace enh::dsp
         // and SMOOTH's current dip per detection band (dB, <= 0)
         std::array<std::atomic<float>, 16> seraphActivityDb {};
         std::atomic<float> seraphLevelDb { 0.0f };
+
+        // What the auto modes are doing to the knobs, so the panel can turn them: AUTO heaven's blend and
+        // what it chose (DSP units: space, decay s, shimmer, tone, width, air, sub), and MATCH's gain (dB)
+        std::atomic<float> heavenAutoBlend { 0.0f };
+        std::array<std::atomic<float>, 7> heavenAutoChoice {};
+        std::atomic<float> silkMatchDb { 0.0f };
         std::array<std::atomic<float>, 28> silkDipDb {};
     };
 }

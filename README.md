@@ -198,8 +198,10 @@ programme over a few seconds (sustained or percussive, mono or wide, dull or bri
 low end) and moves REVERB, DECAY, SHIMMER, SPACE TONE, WIDTH, AIR and SUB toward what that programme
 wants: long, shimmering and wide for pads and ambient music, shorter and drier for busy percussive material,
 more air on dull sources, more SUB on thin ones. **HEAVEN** sets how far it goes, from 0 (your knobs) to
-10 (all AUTO). The move is smoothed over seconds, so the space never jumps. The knobs don't move; your
-settings come back when AUTO is off.
+10 (all AUTO). The move is smoothed over seconds, so the space never jumps. You can watch it work: the
+knobs turn themselves to what AUTO is applying, and turn back to your settings when AUTO is off. Your
+saved settings never change, and a knob you are holding shows your own value. **MATCH** does the same
+with OUTPUT: the knob shows the level-match gain it is adding.
 
 One unified front (no channel split): a live display in the middle, the ten knobs in one row along the bottom,
 the six I / O rocker switches (I = on) in a grid on the right, lamp and POWER on the left. The display shows, live:
@@ -369,8 +371,8 @@ geometry primitives, hardware models (knob styles, push buttons, bat toggles, je
 chassis), materials, control animation, X11 pointer / visibility helpers and the fisheye loupe. ENH Master keeps only
 what is specific to it: its layout, its printed panels and the two display shaders. See `HardwareKit/README.md`.
 
-Knob styles in use: ENH Master's CLARITY / ADAPT / SUB are `proXl`, its masters `aluminium`; TONE & SPACE's row is
-`fluted` (Davies type), its masters `softTouch` with violet caps, and POWER is a `chickenHead` selector.
+Knob styles in use: every knob is `chickenHeadKnob` (black bakelite, beak ending at the ticks); POWER is a
+`chickenHead` selector (the long-beak version).
 
 ## Anti-aliasing
 
@@ -390,7 +392,7 @@ cheeks' arc, and a contact shadow runs where the ears clamp to the rails.
 
 ## Hardware styles
 
-HardwareKit now has 52 knob styles, 5 switch styles and 5 button styles. Most knob styles are
+HardwareKit now has 50 knob styles, 5 switch styles and 5 button styles. Most knob styles are
 recipes (skirt, body shape, grip carving, cap, pointer, materials) built by one generator at every
 level of detail:
 
@@ -400,27 +402,25 @@ level of detail:
 - instrument collets and Eurorack knobs;
 - rubber knobs and pointer bars;
 - hi-fi discs;
-- guitar top-hats and speed knobs;
-- Neve 1073-type Marconi knobs in grey, blue and red.
+- guitar top-hats and speed knobs.
 
 Switches: I / O rocker (standard, red, wide), bat toggle, paddle toggle. Buttons: square, round,
 wide, chrome bezel, soft dome. `PAD_UI_TEST_GALLERY=1` lays every style out on the enhancer (dev only).
 
-The knobs imitate real studio hardware: Neve 1073 Marconi knobs, Davies 1900 flutes, Rogan and
-instrument skirts. Plastics are satin rather than glossy, and caps are small, muted inserts. Metal is
-satin aluminium, not mirror chrome. Pointer lines are painted or inlaid, lit by the room, and they don't
-glow. The panels follow the same idea: a model number instead of feature lists, plain black meter
+Every knob on the rack is a black bakelite chicken head: a round back end that tapers to a
+pointed beak, with a painted white line along it. The knobs' beaks stop at their printed ticks, and the
+POWER selector's reaches out over its positions. Plastics are satin and the pointer lines are paint, not
+glowing. The panels follow the same idea: a model number instead of feature lists, plain black meter
 bezels, single-colour displays, and no animated signal-flow arrows.
 
 In use:
 
 | Unit | Knobs | Switches and buttons |
 |---|---|---|
-| ADAPTIVE ENHANCER | ProXL; machined black SUB; machined silver masters | |
-| TONE & SPACE | grey Neve-1073-type Marconi knobs (TONE, masters), Davies flutes (SPACE), a black Marconi for LOUDNESS, a blue Marconi for HEAVEN | chrome-bezel LIFT button, round AUTO button with its own LED |
-| ADAPTIVE COMPRESSOR | machined skirts with a petrol cap | |
-| UPWARD LEVELER | instrument knobs with small burnt-amber cap inserts | |
-| SPECTRAL LIMITER | instrument knobs with small oxblood cap inserts | red I / O rocker |
+| every unit | black chicken heads (POWER: the long-beak selector version) | |
+| ADAPTIVE ENHANCER | | square buttons |
+| TONE & SPACE | | chrome-bezel LIFT button, round AUTO button with its own LED |
+| SPECTRAL LIMITER | | red I / O rocker |
 
 The rockers are 30 % larger than in 1.1.
 

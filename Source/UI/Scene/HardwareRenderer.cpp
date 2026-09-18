@@ -635,6 +635,64 @@ namespace pad
         }
     }
 
+    /** A parameter's value in its own units, and back (the spec's range and skew). */
+    static juce::NormalisableRange<float> rangeOf (const pad::params::Spec& s)
+    {
+        juce::NormalisableRange<float> r (s.minValue, s.maxValue);
+        if (s.skewCentre > 0.0f)
+            r.setSkewForCentre (s.skewCentre);
+        return r;
+    }
+
+    /** Where a knob should stand when an auto mode is turning it (normalised), or `value` when none is.
+        AUTO heaven moves REVERB, DECAY, SHIMMER, SPACE TONE, WIDTH, AIR and SUB toward what it chose, as far
+        as it has blended in; MATCH turns OUTPUT by the level-match gain it is applying. Display only: the
+        parameters keep the user's settings, which come back as the auto mode lets go. */
+    float HardwareRenderer::autoTurnedValue (const ControlDef& c, float value) const
+    {
+        namespace id = pad::params::id;
+        const std::string_view pid (c.paramId);
+        int chosenIndex = -1;
+        float fromDsp = 1.0f;   // knob units per DSP unit, before MULTIPLY
+        if      (pid == id::haloSpace)   { chosenIndex = 0; fromDsp = 10.0f; }
+        else if (pid == id::haloDecay)   { chosenIndex = 1; }
+        else if (pid == id::haloShimmer) { chosenIndex = 2; fromDsp = 10.0f; }
+        else if (pid == id::haloTone)    { chosenIndex = 3; fromDsp = 10.0f; }
+        else if (pid == id::haloWidth)   { chosenIndex = 4; fromDsp = 100.0f; }
+        else if (pid == id::silkAir)     { chosenIndex = 5; }
+        else if (pid == id::silkSub)     { chosenIndex = 6; }
+        else if (pid != id::silkOutput)
+            return value;
+
+        const auto* spec = pad::params::findSpec (c.paramId);
+        if (spec == nullptr)
+            return value;
+        const auto range = rangeOf (*spec);
+        const float user = range.convertFrom0to1 (value);
+        auto realOf = [this] (const char* paramId)
+        {
+            const auto* s = pad::params::findSpec (paramId);
+            return s != nullptr ? rangeOf (*s).convertFrom0to1 (bridge.getNormalised (bridge.indexOf (paramId))) : 0.0f;
+        };
+
+        float shown = user;
+        if (chosenIndex < 0)
+        {
+            if (realOf (id::silkAuto) > 0.5f)
+                shown = user + meters.silkMatchDb.load (std::memory_order_relaxed);
+        }
+        else
+        {
+            const float blend = meters.heavenAutoBlend.load (std::memory_order_relaxed);
+            const float multiply = realOf (id::seraphMultiply);
+            if (blend < 1.0e-3f || multiply < 0.05f)
+                return value;
+            const float chosen = meters.heavenAutoChoice[(size_t) chosenIndex].load (std::memory_order_relaxed) * fromDsp / multiply;
+            shown = user + (chosen - user) * blend;
+        }
+        return range.convertTo0to1 (std::clamp (shown, spec->minValue, spec->maxValue));
+    }
+
     void HardwareRenderer::updateAnimation (float dt)
     {
         const int hovered = shared.hoveredControl.load();
@@ -680,7 +738,9 @@ namespace pad
                 changed = true;
             }
 
-            const float target = c.kind == ControlKind::selector ? selectorAngleForValue (value) : knobAngleForValue (value);
+            // An auto mode turns the knob itself (not while you are holding it)
+            const float shownValue = active == i ? value : autoTurnedValue (c, value);
+            const float target = c.kind == ControlKind::selector ? selectorAngleForValue (shownValue) : knobAngleForValue (shownValue);
             const bool isHovered = (hovered == i || active == i);
             k.update (target, changed, (int) bridge.getLastSource (p), isHovered, dt);
             busy = busy || ! k.isIdle (target, isHovered);
