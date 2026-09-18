@@ -187,4 +187,62 @@ namespace enh::dsp
 
         float db() const noexcept { return powerToDb (env); }
     };
+
+    /** N biquads fed the same input, stored band by band in plain arrays so the compiler runs several
+        bands per instruction. Same arithmetic in the same order as BiquadState::process, so the
+        results are bit-identical - it is only faster. */
+    template <int N>
+    struct BiquadBank
+    {
+        alignas (16) std::array<float, N> b0 {}, b1 {}, b2 {}, a1 {}, a2 {}, z1 {}, z2 {};
+
+        void set (int k, const BiquadCoeffs& c) noexcept
+        {
+            const auto i = (size_t) k;
+            b0[i] = c.b0; b1[i] = c.b1; b2[i] = c.b2; a1[i] = c.a1; a2[i] = c.a2;
+        }
+
+        void reset() noexcept { z1.fill (0.0f); z2.fill (0.0f); }
+
+        /** y[k] = band k's output for input x, for the first `count` bands. */
+        inline void process (float x, float* __restrict y, int count) noexcept
+        {
+            float* __restrict s1 = z1.data();
+            float* __restrict s2 = z2.data();
+            for (int k = 0; k < count; ++k)
+            {
+                const float o = b0[(size_t) k] * x + s1[k];
+                s1[k] = b1[(size_t) k] * x - a1[(size_t) k] * o + s2[k];
+                s2[k] = b2[(size_t) k] * x - a2[(size_t) k] * o;
+                y[k] = o;
+            }
+        }
+    };
+
+    /** N PowerFollowers in plain arrays (vectorisable; same arithmetic as PowerFollower::push). */
+    template <int N>
+    struct FollowerBank
+    {
+        alignas (16) std::array<float, N> attack {}, release {}, env {};
+
+        void setup (int k, double rate, double attackSeconds, double releaseSeconds) noexcept
+        {
+            attack[(size_t) k] = onePole (attackSeconds, rate);
+            release[(size_t) k] = onePole (releaseSeconds, rate);
+        }
+
+        void reset() noexcept { env.fill (0.0f); }
+
+        inline void push (const float* __restrict power, int count) noexcept
+        {
+            float* __restrict e = env.data();
+            for (int k = 0; k < count; ++k)
+            {
+                const float kk = power[k] > e[k] ? attack[(size_t) k] : release[(size_t) k];
+                e[k] = kk * e[k] + (1.0f - kk) * power[k];
+            }
+        }
+
+        float db (int k) const noexcept { return powerToDb (env[(size_t) k]); }
+    };
 }

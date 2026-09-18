@@ -40,6 +40,7 @@ namespace enh::dsp
             float targetDb = -18.0f;
             float response = 0.5f;   // 0..1
             bool holdGains = false;  // SPECTRAL LIMITER is handling a localised spike: band gains stay put
+            float levelDb = 0.0f;    // the rack's LEVEL: levels are read as if it were 0 dB, so nothing here fights it
             bool active = false;     // the plugin's parameter default is In; raw settings stay inert
         };
 

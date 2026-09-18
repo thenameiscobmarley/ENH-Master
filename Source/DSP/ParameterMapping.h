@@ -35,8 +35,13 @@ namespace enh::dsp
         bool lumenActive = true;
 
         // SPECTRAL LIMITER: three knobs
-        float spectralRangeDb = 9.0f, spectralReleaseMs = 150.0f, spectralCeilingDb = -3.0f;
+        float spectralRangeDb = 9.0f, spectralReleaseMs = 150.0f, spectralCeilingDb = 0.0f;
         bool spectralActive = true;
+
+        // LEVEL, MIX BALANCER
+        float levelDb = 0.0f;
+        float balAmount = 5.0f, balSpeed = 5.0f, balTilt = 0.0f, balRangeDb = 6.0f;
+        bool balActive = true;
     };
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -109,6 +114,13 @@ namespace enh::dsp
         p.limiter.rangeDb   = std::clamp (k.spectralRangeDb, 0.0f, 18.0f);
         p.limiter.releaseMs = std::clamp (k.spectralReleaseMs, 20.0f, 2000.0f);
         p.limiter.ceilingDb = std::clamp (k.spectralCeilingDb, -24.0f, 0.0f);
+
+        p.levelDb = std::clamp (k.levelDb, -24.0f, 12.0f);
+        p.balancer.amount  = std::clamp (k.balAmount / 10.0f, 0.0f, 1.0f);
+        p.balancer.speed   = std::clamp (k.balSpeed / 10.0f, 0.0f, 1.0f);
+        p.balancer.tilt    = std::clamp (k.balTilt / 5.0f, -1.0f, 1.0f);
+        p.balancer.rangeDb = std::clamp (k.balRangeDb, 0.0f, 12.0f);
+        p.balancer.active  = k.balActive;
         p.limiter.active    = k.spectralActive;
         return p;
     }

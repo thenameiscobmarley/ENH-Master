@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string_view>
+#include <vector>
 #include <utility>
 #include <algorithm>
 #include <cmath>
@@ -120,11 +121,16 @@ namespace pad::layout
     enum class ControlKind { knob, button, toggle, selector };
 
     /*  Panel names (what each unit does): enhUnit = ADAPTIVE ENHANCER, tubeUnit = TONE & SPACE,
-        tideUnit = ADAPTIVE COMPRESSOR, lumenUnit = UPWARD LEVELER, limiterUnit = SPECTRAL LIMITER.
+        tideUnit = ADAPTIVE COMPRESSOR, lumenUnit = UPWARD LEVELER, limiterUnit = SPECTRAL LIMITER,
+        levelUnit = LEVEL & LOUDNESS (2U), balancerUnit = MIX BALANCER (4U).
         The identifiers keep the units' earlier names, as the parameter IDs do. */
-    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, numUnits = 5 };
+    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, levelUnit = 5, balancerUnit = 6, numUnits = 7 };
 
     inline constexpr bool isOneU (int unit) noexcept { return unit == tideUnit || unit == lumenUnit || unit == limiterUnit; }
+
+    /** The outboard family: brushed plate, engraved print, knobs in a bordered section, meters or a
+        display behind glass. The three 1U units, LEVEL & LOUDNESS (2U) and MIX BALANCER (4U). */
+    inline constexpr bool isOutboard (int unit) noexcept { return isOneU (unit) || unit == levelUnit || unit == balancerUnit; }
 
     struct ControlDef
     {
@@ -178,8 +184,8 @@ namespace pad::layout
         further it leans back and the more it is rotated toward you. Nothing is foreshortened,
         which is what keeps the print readable as the case grows.
 
-            ADAPTIVE ENHANCER (2U) -> UPWARD LEVELER (1U) -> SPECTRAL LIMITER (1U)
-                -> ADAPTIVE COMPRESSOR (1U) -> TONE & SPACE (2U) -> out
+            LEVEL & LOUDNESS (2U) -> ADAPTIVE ENHANCER (3U) -> UPWARD LEVELER (1U) -> SPECTRAL LIMITER (1U)
+                -> MIX BALANCER (4U) -> ADAPTIVE COMPRESSOR (1U) -> TONE & SPACE (3U) -> out
     */
     inline constexpr float rackGap    = 0.105f;   // air between panels, measured along the arc
     inline constexpr float oneUHalfH  = 0.295f;
@@ -187,6 +193,8 @@ namespace pad::layout
     inline constexpr float lumenHalfH = oneUHalfH;
     inline constexpr float tideHalfH  = oneUHalfH;
     inline constexpr float tubeHalfH  = 0.82f;
+    inline constexpr float levelHalfH    = 2.0f * oneUHalfH;   // 2U
+    inline constexpr float balancerHalfH = 4.0f * oneUHalfH;   // 4U
 
     inline constexpr float arcRadius  = 9.60f;    // viewer to panel
     inline constexpr float arcCentreY = 1.62f;    // the viewer's eye height
@@ -195,11 +203,12 @@ namespace pad::layout
 
     inline constexpr float unitHalfH (int unit) noexcept
     {
-        return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : faceHalfH;
+        return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : unit == levelUnit ? levelHalfH
+             : unit == balancerUnit ? balancerHalfH : faceHalfH;
     }
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
-    inline constexpr std::array<int, numUnits> rackOrder { enhUnit, lumenUnit, limiterUnit, tideUnit, tubeUnit };
+    inline constexpr std::array<int, numUnits> rackOrder { levelUnit, enhUnit, lumenUnit, limiterUnit, balancerUnit, tideUnit, tubeUnit };
 
     /** Distance along the arc from the bottom of the stack to the centre of a unit. */
     inline constexpr float unitArcPos (int unit) noexcept
@@ -259,11 +268,13 @@ namespace pad::layout
     struct UnitInfo { const char* name; const char* role; int chainPosition; };
 
     inline constexpr std::array<UnitInfo, numUnits> unitInfo {{
-        { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB - FOOTSTEP PRIORITY", 1 },
-        { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   5 },
-        { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       4 },
-        { "UPWARD LEVELER",      "3-BAND - LIFTS QUIET DETAIL",                              2 },
-        { "SPECTRAL LIMITER",    "ANTI-PUMP DYNAMIC EQ",                                     3 },
+        { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB - FOOTSTEP PRIORITY", 2 },
+        { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   7 },
+        { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       6 },
+        { "UPWARD LEVELER",      "3-BAND - LIFTS QUIET DETAIL",                              3 },
+        { "SPECTRAL LIMITER",    "ANTI-PUMP DYNAMIC EQ",                                     4 },
+        { "LEVEL & LOUDNESS",    "WORKING LEVEL - LUFS METER - WAVEFORM",                    1 },
+        { "MIX BALANCER",        "SIX-BAND DYNAMIC BALANCE",                                 5 },
     }};
 
     // --- the case the units are screwed into -------------------------------------------
@@ -344,7 +355,26 @@ namespace pad::layout
     /** Section box printed around the controls, like a hardware compressor's front panel. */
     inline constexpr Rect oneUSectionBox (int unit) noexcept
     {
-        return unit == limiterUnit ? Rect { -0.73f, 0.0f, 0.92f, 0.245f } : Rect { -0.99f, 0.0f, 0.66f, 0.245f };
+        return unit == limiterUnit ? Rect { -0.73f, 0.0f, 0.92f, 0.245f }
+             : unit == levelUnit ? Rect { -0.99f, 0.0f, 0.62f, 0.47f }
+             : unit == balancerUnit ? Rect { 1.80f, 0.0f, 0.44f, 1.06f }
+                                    : Rect { -0.99f, 0.0f, 0.66f, 0.245f };
+    }
+
+    /** Where an outboard unit's maker block (its name) starts, down the panel. */
+    inline constexpr float makerTopZ (int unit) noexcept { return isOneU (unit) ? -0.176f : -unitHalfH (unit) + 0.20f; }
+
+    // LEVEL & LOUDNESS: the waveform screen, cream like the meter faces; MIX BALANCER: its display
+    inline constexpr Rect  levelScopeRect      { 0.52f, -0.02f, 0.74f, 0.42f };
+    inline constexpr Rect  balancerDisplayRect { -0.16f, -0.02f, 1.47f, 1.02f };
+    inline constexpr float windowDepth         = 0.045f;
+
+    /** The windows cut into an outboard unit's plate besides its meters. */
+    inline std::vector<Rect> outboardWindows (int unit)
+    {
+        if (unit == levelUnit) return { levelScopeRect };
+        if (unit == balancerUnit) return { balancerDisplayRect };
+        return {};
     }
 
     // VU meters: one wide meter for the compressor, three narrow ones for the leveler, two for the limiter
@@ -360,23 +390,36 @@ namespace pad::layout
     inline constexpr float limiterVuX     = 0.80f;      // SPECTRAL, then BROADBAND
     inline constexpr float limiterVuStep  = 0.96f;
 
-    inline constexpr int numVus (int unit) noexcept { return unit == tideUnit ? 1 : unit == limiterUnit ? 2 : 3; }
+    inline constexpr float levelVuHalfW = 0.36f;
+    inline constexpr float levelVuX     = 1.83f;        // MOMENTARY above SHORT-TERM
+    inline constexpr std::array<float, 2> levelVuZ { -0.25f, 0.25f };
+
+    inline constexpr int numVus (int unit) noexcept
+    {
+        return unit == tideUnit ? 1 : unit == limiterUnit || unit == levelUnit ? 2 : unit == lumenUnit ? 3 : 0;
+    }
 
     inline constexpr float vuHalfW (int unit) noexcept
     {
-        return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : lumenVuHalfW;
+        return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : unit == levelUnit ? levelVuHalfW : lumenVuHalfW;
     }
 
     inline constexpr float vuX (int unit, int index) noexcept
     {
         return unit == tideUnit ? tideVuX
              : unit == limiterUnit ? limiterVuX + (float) index * limiterVuStep
-                                   : lumenVuX + (float) index * lumenVuStep;
+             : unit == levelUnit ? levelVuX
+                                 : lumenVuX + (float) index * lumenVuStep;
     }
 
-    /** First needle of each 1U unit in the renderer's needle array (compressor 1, leveler 3, limiter 2). */
-    inline constexpr int firstNeedle (int unit) noexcept { return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : 4; }
-    inline constexpr int numNeedles = 6;
+    inline constexpr float vuZ (int unit, int index) noexcept
+    {
+        return unit == levelUnit ? levelVuZ[(size_t) std::clamp (index, 0, 1)] : vuCentreZ;
+    }
+
+    /** First needle of each metered unit in the renderer's needle array (compressor 1, leveler 3, limiter 2, loudness 2). */
+    inline constexpr int firstNeedle (int unit) noexcept { return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : unit == levelUnit ? 6 : 4; }
+    inline constexpr int numNeedles = 8;
 
     inline constexpr float oneUDisplayDepth = vuDepth;
 
@@ -384,13 +427,22 @@ namespace pad::layout
         { -2.36f, 0.0f, 0.075f, 0.036f }, { 2.36f, 0.0f, 0.075f, 0.036f },
     }};
 
+    /** An outboard unit's ear slots: one each side on a 1U, two each side on the taller ones. */
+    inline std::vector<Rect> outboardEarSlots (int unit)
+    {
+        if (isOneU (unit))
+            return { oneUEarSlots.begin(), oneUEarSlots.end() };
+        const float z = unit == levelUnit ? oneUHalfH : 3.0f * oneUHalfH;
+        return { { -2.36f, -z, 0.075f, 0.036f }, { -2.36f, z, 0.075f, 0.036f }, { 2.36f, -z, 0.075f, 0.036f }, { 2.36f, z, 0.075f, 0.036f } };
+    }
+
     // PRESET PREV / NEXT, in the enhancer's maker block (right of the analyser window)
     inline constexpr std::array<float, 2> presetButtonX { 1.93f, 2.13f };
     inline constexpr float presetButtonZ = -0.235f;
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 44> controls {{
+    inline constexpr std::array<ControlDef, 51> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
@@ -449,14 +501,26 @@ namespace pad::layout
         { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::spectralRelease, "RELEASE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   oneUKnobX + 2.0f * oneUKnobStep, oneUKnobZ, pid::spectralCeiling, "CEILING", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::toggle, oneUKnobX + 2.0f * oneUKnobStep + 0.38f, oneUButtonZ, pid::spectralActive, "IN", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+
+        // LEVEL & LOUDNESS: the working level, and RESET for the integrated loudness / true-peak hold
+        { ControlKind::knob,   -1.22f, -0.02f, pid::levelGain, "LEVEL", nullptr, nullptr, levelUnit, "LEVEL", 1.45f, KnobStyle::chickenHeadKnob },
+        { ControlKind::button, -0.56f, 0.13f, pid::loudnessReset, "RESET", nullptr, nullptr, levelUnit, "LOUDNESS" },
+
+        // MIX BALANCER: four knobs down the right, IN under the name
+        { ControlKind::knob,   1.80f, -0.72f, pid::balAmount, "BALANCE", nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,   1.80f, -0.25f, pid::balSpeed,  "SPEED",   nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,   1.80f,  0.22f, pid::balTilt,   "TILT",    nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,   1.80f,  0.69f, pid::balRange,  "RANGE",   nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::toggle, -1.98f, 0.30f, pid::balActive, "IN",      nullptr, nullptr, balancerUnit, "MIX BALANCER" },
     }};
 
     inline constexpr int numControls = (int) controls.size();
 
-    /** Momentary buttons (PRESET PREV / NEXT) have no LED: there is no state to show. */
+    /** Momentary buttons (PRESET PREV / NEXT, loudness RESET) have no LED: there is no state to show. */
     inline bool hasLed (const ControlDef& c) noexcept
     {
-        return std::string_view (c.paramId) != pad::params::id::presetPrev && std::string_view (c.paramId) != pad::params::id::presetNext;
+        return std::string_view (c.paramId) != pad::params::id::presetPrev && std::string_view (c.paramId) != pad::params::id::presetNext
+            && std::string_view (c.paramId) != pad::params::id::loudnessReset;
     }
 
     /** Where a button's LED sits relative to the button: above it, except AUTO heaven's, which goes to
@@ -505,7 +569,7 @@ namespace pad::layout
     {
         if (c.unit == tubeUnit)
             return (c.kind == ControlKind::selector ? 0.10f : tubeKnobBodyRadius) * c.size;
-        if (isOneU (c.unit))
+        if (isOutboard (c.unit))
             return oneUKnobRadius * c.size;
         return knobRadius * c.size;
     }

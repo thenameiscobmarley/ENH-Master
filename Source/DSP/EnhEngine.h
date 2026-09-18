@@ -14,12 +14,15 @@
 #include "SpectralLimiter.h"
 #include "SpectrumScope.h"
 #include "FinalLimiter.h"
+#include "LoudnessMeter.h"
+#include "MixBalancer.h"
 #include "EngineMeters.h"
 
 namespace enh::dsp
 {
     /** ENH Master signal chain.
 
+        LEVEL (the rack's working level: everything after it hears it, the leveler's target moves with it)
         input ─► analysis: 24 bands + long-term spectrum, FFT tonality,      [feed-forward]
           │                 footstep classifier, harmonic planner, sub follower
           │
@@ -27,7 +30,8 @@ namespace enh::dsp
                                                                        (auto gain, 2x adaptive
                                                                         depth/clarity exciters,
                                                                         colour, ceiling)
-              ─► SPECTRAL LIMITER ─► ADAPTIVE COMPRESSOR ─► TONE & SPACE ─► out
+              ─► SPECTRAL LIMITER ─► MIX BALANCER ─► ADAPTIVE COMPRESSOR ─► TONE & SPACE ─► output limiter ─► out
+                                                                                             (loudness meter)
                  (abnormal spectral   (broadband, keyed on   (tone & texture,
                   excess, from the     what is left)          space & width,
                   shared analysis)                            loudness hold)
@@ -52,6 +56,8 @@ namespace enh::dsp
             SpectralLimiter::Settings limiter {}; // SPECTRAL LIMITER: cuts abnormal spectral excess
             DynamicCompressor::Settings tide {};  // ADAPTIVE COMPRESSOR: adaptive-threshold compressor
             Seraph::Settings seraph {};
+            float levelDb = 0.0f;                 // LEVEL: the rack's working level (-24 .. +12 dB), first in the chain
+            MixBalancer::Settings balancer {};    // MIX BALANCER: rides six band faders for the balance
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -59,6 +65,13 @@ namespace enh::dsp
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
         int getLatencySamples() const noexcept { return analog.getLatencySamples() + output.getLatencySamples(); }
+
+        /** The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again. */
+        void resetLoudness() noexcept { loudnessResetPending.store (true, std::memory_order_relaxed); }
+        const MixBalancer& getBalancer() const noexcept { return balancer; }
+        const LoudnessMeter& getLoudness() const noexcept { return loudness; }
+        const ScopeFifo& getBalancerInputScope() const noexcept { return scopeBalIn; }
+        const ScopeFifo& getBalancerOutputScope() const noexcept { return scopeBalOut; }
         const FinalLimiter& getOutputLimiter() const noexcept { return output; }
         const EngineMeters& getMeters() const noexcept { return meters; }
 
@@ -94,7 +107,11 @@ namespace enh::dsp
         SpectralLimiter limiter;
         DynamicCompressor tide;
         Seraph seraph;
-        ScopeFifo scopeIn, scopeOut;
+        ScopeFifo scopeIn, scopeOut, scopeBalIn, scopeBalOut;
+        MixBalancer balancer;
+        LoudnessMeter loudness;
+        std::atomic<bool> loudnessResetPending { false };
+        float levelGain = 1.0f, levelDbNow = 0.0f;
         EngineMeters meters;
 
         /** The one output limiter: lookahead, holds through a bass cycle, never wobbles inside one. */

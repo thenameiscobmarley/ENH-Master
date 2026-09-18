@@ -3,6 +3,7 @@
 #include <juce_opengl/juce_opengl.h>
 #include "SharedUIState.h"
 #include "../DSP/SpectrumScope.h"
+#include "DisplayHistory.h"
 #include "../Config/UIConfig.h"
 #include "../DSP/EngineMeters.h"
 #include "HardwareKit.h"
@@ -47,6 +48,16 @@ namespace pad
         // publishes is uploaded by the renderer once a frame.
         enh::dsp::ScopeAnalyser scopeAnalyser;
         enh::dsp::ScopeCurve scopeCurve;
+
+        // MIX BALANCER display (its own input / output spectrum) and the scrolling histories of the
+        // LEVEL & LOUDNESS waveform and the balancer's levels
+        enh::dsp::ScopeAnalyser balancerAnalyser;
+        enh::dsp::ScopeCurve balancerCurve;
+        DisplayHistory displayHistory;
+        WaveformReader waveReader;
+        juce::String levelReadout;
+        double lastReadoutMs = 0.0;
+        void updateDisplayHistories (float dt);
         double lastScopeMs = 0.0;
         const bool demoScope = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_DEMO", {}).isNotEmpty();
         void fillDemoScope (float seconds);

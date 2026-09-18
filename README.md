@@ -3,11 +3,15 @@
 Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
-Five processors in one plugin, in signal order: the **ADAPTIVE ENHANCER** (adaptive EQ, generated
-harmonics, sub, footstep priority), the **UPWARD LEVELER** (three-band, lifts quiet material), the
-**SPECTRAL LIMITER** (cuts abnormal spectral excess where it is, so a bass hit does not duck the whole
-mix), the **ADAPTIVE COMPRESSOR** (threshold follows the programme) and **TONE & SPACE** (tone, space
-and loudness hold).
+Seven processors in one plugin, in signal order:
+- **LEVEL & LOUDNESS**: the rack's working level, a BS.1770 loudness meter and the output waveform.
+- **ADAPTIVE ENHANCER**: adaptive EQ, generated harmonics, sub and footstep priority.
+- **UPWARD LEVELER**: three bands, lifts quiet material.
+- **SPECTRAL LIMITER**: cuts a region that jumps out of balance, or goes over 0 dBFS, where it is, so a
+  bass hit doesn't duck the whole mix.
+- **MIX BALANCER**: rides six band faders to keep the mix balanced moment to moment.
+- **ADAPTIVE COMPRESSOR**: its threshold follows the programme.
+- **TONE & SPACE**: tone, space and loudness hold.
 
 Unit names describe what each unit does. Until September 2026 they were called ENH MASTER, LUMEN,
 TIDE and SERAPH (SILK / HALO / HEAVEN). Parameter IDs keep those old names, so saved sessions and
@@ -17,8 +21,9 @@ automation still load; only the names the host and the panels show have changed.
 
 ![Hovering a label: the loupe and the value callout](docs/screenshot-hover.png)
 
-*Five units in a curved case, bottom to top in signal order: ADAPTIVE ENHANCER (clarity, sub,
-footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, ADAPTIVE COMPRESSOR, TONE & SPACE.*
+*Seven units in a curved case, bottom to top in signal order: LEVEL & LOUDNESS, ADAPTIVE ENHANCER
+(clarity, sub, footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, MIX BALANCER, ADAPTIVE
+COMPRESSOR, TONE & SPACE.*
 
 ## Build
 
@@ -62,12 +67,12 @@ install to tuning, plus notes on the DSP and the renderer. Start at `Vault/00 St
 
 ## Reading the panels
 
-The four units sit on an arc centred on the viewer, so however many are stacked, every panel faces
+The units sit on an arc centred on the viewer, so however many are stacked, every panel faces
 the camera head on and nothing is foreshortened. Scroll or click a panel to walk up to a unit;
 click the case to step back to the whole rack.
 
 Hover anything - printed text, a knob, a button - and a **fisheye loupe** appears over it: the scene is re-rendered
-zoomed in (about 2.2x) behind a glass lens, so the magnified print is genuinely sharp rather than stretched pixels.
+zoomed in (about 1.8x) behind a glass lens (a 78 px lens, 1.25x the size it was), so the magnified print is genuinely sharp rather than stretched pixels.
 It magnifies about the cursor - what is under the pointer stays under the pointer - is slightly transparent, and
 locks onto a control while you drag it. Controls also show a small name + value pill under the lens, and their
 value arc lights up around the knob.
@@ -110,7 +115,7 @@ or by an AI) without rebuilding:
 | VOICE & STREAMING | speech first: intelligibility, even level, no tail |
 | MUSIC: WARM MASTER | tape warmth, a touch of room, leveler OUT so music keeps its dynamics |
 | MUSIC: WIDE & AIRY | open top, wide image, a lush modulated hall |
-| TRANSPARENT (ALL OUT) | reference: everything bypassed (the enhancer's subsonic filter and the output safety limiter stay) |
+| TRANSPARENT (ALL OUT) | reference: everything bypassed, MIX BALANCER out too (the enhancer's subsonic filter and the output limiter stay) |
 
 `EnhDspTests --presets` runs every preset through the engine on the synthetic game scene and a bass
 hit, IN and OUT of the SPECTRAL LIMITER. Every preset is stable and under full scale, and in every
@@ -119,14 +124,14 @@ one the limiter reduces how much the 2 kHz detail ducks under the hit. Numbers f
 
 | Preset | IN | OUT |
 |---|---|---|
-| DEFAULT | -1.1 dB | -1.4 dB |
-| COMPETITIVE FOOTSTEPS | -1.8 dB | -2.0 dB |
-| IMMERSIVE GAMES | -0.4 dB | -1.0 dB |
-| NIGHT MODE | -0.8 dB | -1.7 dB |
-| BASS HEAVY, PROTECTED | -4.4 dB | -5.4 dB |
-| VOICE & STREAMING | -1.1 dB | -1.3 dB |
-| MUSIC: WARM MASTER | -0.8 dB | -1.3 dB |
-| MUSIC: WIDE & AIRY | -0.4 dB | -0.7 dB |
+| DEFAULT | -0.5 dB | -1.3 dB |
+| COMPETITIVE FOOTSTEPS | -0.6 dB | -1.9 dB |
+| IMMERSIVE GAMES | -0.5 dB | -0.8 dB |
+| NIGHT MODE | -0.8 dB | -1.3 dB |
+| BASS HEAVY, PROTECTED | -0.2 dB | -4.3 dB |
+| VOICE & STREAMING | -0.6 dB | -1.2 dB |
+| MUSIC: WARM MASTER | -0.7 dB | -1.0 dB |
+| MUSIC: WIDE & AIRY | -0.4 dB | -0.6 dB |
 
 With the whole rack running, what is left is the rack's output limiter catching a hot mix. The
 spectral limiter alone takes the dip from -1.8 to -0.3 dB.
@@ -137,18 +142,90 @@ Two level-matching loops now hold still while the SPECTRAL LIMITER is handling a
   mid and top band, so it used to pull the lift on footsteps and detail back on every hit.
 - **The enhancer's auto gain.** It used to chase the sub-enhanced spike.
 
+## LEVEL & LOUDNESS (2U, first in the chain)
+
+**LEVEL** (−24 … +12 dB) sets how loud the whole rack runs. It comes first, so every unit after it
+hears the level it sets:
+- Turn it down and the limiters have less to catch, so they stop ducking.
+- Turn it up and they protect harder.
+- The UPWARD LEVELER reads levels as if LEVEL were at 0 dB, so it never lifts the rack back up
+  against the knob. Tested: the same lift within 0.1 dB at −12 dB.
+
+The meters read what leaves the rack, to ITU-R BS.1770 / EBU R128:
+- **MOMENTARY** (400 ms) and **SHORT-TERM** (3 s) LUFS on two moving-coil dials (−40 … 0 LUFS);
+- **INTEGRATED** loudness (gated, since RESET) and **TRUE PEAK** (4x oversampled) printed under the
+  waveform;
+- **RESET** starts the integrated reading and the true-peak hold again.
+
+Checked against the EBU Tech 3341 cases: a −23 dBFS stereo 1 kHz sine reads −23.0 LUFS.
+
+**OUTPUT WAVEFORM**: the rack's output scrolling right to left as a black band on a cream card, lit
+like the meter faces, in linear amplitude with −3, −6 and −12 dB marks. When something loud goes
+past, a faded afterimage of it stays on the card and slowly fades, the way a phosphor holds a trace.
+
+## MIX BALANCER (4U)
+
+Rides six band faders the way a mix engineer would. It compares how far each of six regions has
+moved from its usual level with how far the mix as a whole has moved (the median of the six), in
+these regions: low, 200 Hz, 500 Hz, 1.3 kHz, 3.5 kHz and air. A region that suddenly crowds the mix
+is taken down; a region that drops out is lifted, gently.
+
+- **It corrects balance, not loudness.** When everything gets louder together, nothing moves.
+  Tested: −0.2 dB at most for a +10 dB jump.
+- **Attacks go through.** A band in a fresh transient isn't cut yet, so footsteps and gunshots keep
+  their front edge.
+- **It ignores what isn't there.** Bands carrying almost nothing of the mix are left alone.
+- **Zero latency.**
+- **Controls:** BALANCE (how much of each jump it corrects), SPEED, TILT (steer darker or brighter),
+  RANGE (the most any band moves; lifts are held to half of it) and IN.
+
+The display is FabFilter-style:
+- the spectrum going in (filled) and coming out (line);
+- the six faders drawn as the curve they make, with a handle on each band;
+- the last ten seconds scrolling underneath, Pro-C style: level in, level out, and the cut hanging
+  from the top in red.
+
+## Limiting: only real overs, always where they are
+
+There are two reasons anything on the rack ducks, and both use the same spectral cut, confined to the
+region responsible:
+- **Tone.** The SPECTRAL LIMITER cuts a region that jumps out of balance with the rest of the
+  spectrum. A louder mix overall isn't a reason.
+- **Clipping.** Only when something would go over **0 dBFS**. The SPECTRAL LIMITER's CEILING is now
+  0 dBFS in every preset.
+
+The output limiter at the very end is spectral too:
+- It looks 1.5 ms ahead. When a peak would go over, it works out exactly how much of the region
+  pushing hardest in that direction to take out. It uses the same filters it cuts with, so the answer
+  is exact.
+- A broadband stage then catches only what's left.
+- Nothing under 0 dBFS is touched (tested: bit-exact at −1 dBFS).
+- A clipping bass hit takes its own low end down while a 2 kHz tone above it moves 0.1 dB.
+- Latency: 3 ms, reported to the host.
+
+A bug fix makes a big difference here. The UPWARD LEVELER was meant to hold its lift while the
+SPECTRAL LIMITER handles a localised hit, but the hold was never switched on. With it working, the
+detail dip under a bass hit is much smaller:
+
+| Preset | Before | Now |
+|---|---|---|
+| DEFAULT | −1.2 dB | −0.5 dB |
+| COMPETITIVE FOOTSTEPS | −1.9 dB | −0.6 dB |
+| BASS HEAVY | −4.3 dB | −0.4 dB |
+
 ## SPECTRAL LIMITER - anti-pumping dynamic EQ (1U)
 
 Sits between the leveler and the compressor. The compressor's detector is broadband, so a sudden
 bass hit used to pull everything down with it, footsteps and detail included. This unit handles the
 hit where it is, in this order:
 
-1. **Localised excess:** up to three moving cuts follow the offending region. Each is a bell, or a
-   shelf when the excess runs off the bottom or top of the spectrum. Nothing else moves.
-2. **Headroom threatened** (stage peak above CEILING): the same region is cut deeper, by as much as
-   that region's share of the energy says is needed.
-3. **Broadband:** gain reduction only when the abnormal energy covers most of the spectrum *and*
-   headroom is threatened.
+1. **Tone - a region jumps out of balance:** up to three moving cuts follow the offending region. Each
+   is a bell, or a shelf when the excess runs off the bottom or top of the spectrum. Nothing else
+   moves. How loud the programme is doesn't enter into it.
+2. **Clipping - the stage would go over CEILING (0 dBFS):** the same region is cut deeper, by as much
+   as that region's share of the energy says is needed.
+3. **Broadband:** gain reduction only when the abnormal energy covers most of the spectrum *and* the
+   stage would clip.
 
 The compressor is keyed through the same cuts, made deeper: while a localised event is being handled
 here, the compressor does not duck the whole mix for it as well. That's an adaptive version of the
@@ -382,7 +459,10 @@ input ─► analysis: BandAnalyzer (24 log bands + long-term spectrum), Spectra
   preference for where to lift, not a requirement for detection.
 - **PD control:** every adaptive gain follows its target with value' = (Kp·e + Kd·target') / (1 + Kd).
 - **Latency:** IIR only; the reported latency is the oversampling filters' (a couple of samples).
-- **CPU (J4105, 48 kHz stereo):** ~10–11 % of one core.
+- **CPU (J4105, 48 kHz stereo):** 19 % of one core for the whole seven-unit rack. The five-unit rack
+  used 30 %, and the same five units now use 16.6 %, with output identical to the last bit (a golden
+  output check proves it). The savings come from the band analyser, TONE & SPACE's 28-band detector
+  and the enhancer's EQ running four bands (or both channels) per instruction.
 
 ## Test results (`EnhDspTests`, synthetic scenes)
 
@@ -519,6 +599,17 @@ JUCE's peer state and the X server, so a minimised plugin host is noticed too); 
 Measured on the standalone with all four units running and the analyser live: 23 % of one core
 visible, 8 % minimised (audio only), rendering resumes on restore. The DSP itself is 16.8 % of that
 at 48 kHz; the rest is the renderer, which is draw-call bound rather than fill bound.
+
+Per-frame work was trimmed without touching what is drawn:
+- the analyser is uploaded once a frame, not once per view (the loupe draws the scene twice);
+- the MIX BALANCER's curve and grid are worked out per column on the CPU, so its display is a few
+  texture reads per pixel;
+- the panels' wear scratches are set up once per panel, not once per pixel;
+- the auto-turning knobs' parameter lookups are resolved once, not every frame.
+
+On the J4105's UHD 600 the whole rack runs at 60 fps. Close-ups are limited by pixel fill (at a
+quarter of the pixels they run at 60): the panels' materials and 4x MSAA cost what they cost. Set
+`msaaSamples` lower in the config if you prefer frame rate to edge smoothness.
 
 Continuous repainting locked to vsync, paced on the render thread (60 fps active / 30 fps idle).
 The pointer is polled from X11 each frame on the render thread, so parallax stays smooth even when the

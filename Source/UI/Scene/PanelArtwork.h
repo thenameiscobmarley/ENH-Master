@@ -25,6 +25,8 @@ namespace pad::artwork
         RawTexture faceplateDecal, scale10, scale30, scale3, scale5, tubeDecal, seraphLabels;
         RawTexture tideDecal, lumenDecal, limiterDecal;              // the three 1U panels
         RawTexture tideVuFace, lumenVuFace, limiterVuFace[2];        // the printed faces of their VU meters
+        RawTexture levelDecal, balancerDecal, levelVuFace[2];         // LEVEL & LOUDNESS (2U), MIX BALANCER (4U)
+        RawTexture levelScopeLabels, balancerLabels;                  // print inside their displays
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */
@@ -48,6 +50,9 @@ namespace pad::artwork
 
     /** One of the 1U panels (compressor, leveler, spectral limiter): print, scales with numbers, and its place in the chain. */
     RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
+
+    /** Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window). */
+    RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry = nullptr, const juce::String& readout = {});
 
     /** A VU dial face: arc, ticks, numbers, red zone (green channel) and caption. `meter` picks the
         face where a unit's meters read different things (the limiter: 0 = spectral cut, 1 = broadband). */

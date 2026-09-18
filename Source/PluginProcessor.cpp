@@ -40,6 +40,12 @@ PluginProcessor::PluginProcessor()
     spectralRelease = state.getRawParameterValue (id::spectralRelease);
     spectralCeiling = state.getRawParameterValue (id::spectralCeiling);
     spectralActive  = state.getRawParameterValue (id::spectralActive);
+    levelGain       = state.getRawParameterValue (id::levelGain);
+    balAmount       = state.getRawParameterValue (id::balAmount);
+    balSpeed        = state.getRawParameterValue (id::balSpeed);
+    balTilt         = state.getRawParameterValue (id::balTilt);
+    balRange        = state.getRawParameterValue (id::balRange);
+    balActive       = state.getRawParameterValue (id::balActive);
 
     seraphMode   = state.getRawParameterValue (id::seraphMode);
     enhMultiply    = state.getRawParameterValue (id::enhMultiply);
@@ -115,6 +121,12 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.spectralReleaseMs = spectralRelease->load();
     k.spectralCeilingDb = spectralCeiling->load();
     k.spectralActive    = spectralActive->load() > 0.5f;
+    k.levelDb           = levelGain->load();
+    k.balAmount         = balAmount->load();
+    k.balSpeed          = balSpeed->load();
+    k.balTilt           = balTilt->load();
+    k.balRangeDb        = balRange->load();
+    k.balActive         = balActive->load() > 0.5f;
 
     k.seraphMode     = juce::roundToInt (seraphMode->load());
     k.smooth         = silkSmooth->load();

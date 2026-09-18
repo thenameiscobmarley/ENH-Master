@@ -10,6 +10,7 @@ namespace pad::shaders
     {
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
         paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
+        waveScreen, balancerDisplay,
         numMaterials
     };
 
@@ -178,6 +179,138 @@ namespace pad::shaders
 
 )GLSL", "uniform float uDips[28];      // SMOOTH dip per band (dB, <= 0)\nuniform float uActivity[18];  // per column [col * 2 + ch], 0..1 (LEVEL: -1..1)\n" };
 
+
+    /*  LEVEL & LOUDNESS: the waveform screen, printed and lit like the meter faces - cream card,
+        black ink. The rack's output scrolls right to left as a black band either side of the centre
+        line (linear amplitude, full scale at 90 % of the card; the live readout sits in the strip below); where something loud went past, a faded afterimage of it
+        stays on the card and slowly fades, the way a phosphor holds a trace.
+
+        uTex  = wave strip (R = the band now, G = its afterimage), one texel per column, screen order
+        uTex2 = the print on the card (dBFS marks, the readout line)
+        uParams = (backlight 0..1, -, -, -)
+    */
+    inline const hwk::shaders::Material waveScreenMaterial { "waveScreen", R"GLSL(
+    vec2 uv = vUV;
+    float px = fwidth (uv.y);
+    float lamp = uParams.x;
+    vec3 ink  = vec3 (0.075, 0.065, 0.055);
+
+    // The same card as the meter faces: warm, slightly uneven, darker toward its corners
+    float grain = valueNoise (uv * vec2 (180.0, 90.0)) * 0.5 + valueNoise (uv * vec2 (480.0, 240.0)) * 0.5;
+    vec3 card = vec3 (0.94, 0.90, 0.78) * (0.94 + 0.10 * grain);
+    card *= 1.0 - 0.20 * smoothstep (0.45, 1.05, length ((uv - 0.5) * vec2 (1.2, 1.7)));
+    col = card;
+
+    // Scale: the centre line and the dB lines, printed faintly
+    float h = abs (uv.y - 0.5) / 0.40;                       // 0 at the centre line, 1 at 0 dBFS
+    float grid = (1.0 - smoothstep (0.0, px * 1.2, abs (uv.y - 0.5))) * 0.55;
+    for (int k = 0; k < 4; ++k)
+    {
+        float lineH = k == 0 ? 1.0 : k == 1 ? 0.7079 : k == 2 ? 0.5012 : 0.2512;   // 0, -3, -6, -12 dB (linear)
+        float d = abs (h - lineH) * 0.40;
+        grid += (1.0 - smoothstep (0.0, px * 1.1, d)) * step (0.5, fract (uv.x * 70.0)) * 0.22;
+    }
+
+    // The waveform now, and its afterimage
+    vec2 w = texture (uTex, vec2 (uv.x, 0.5)).rg;
+    float edge = px * 1.6 / 0.40;
+    float now = 1.0 - smoothstep (w.r - edge, w.r, h);
+    float ghost = 1.0 - smoothstep (w.g - edge, w.g, h);
+
+    col = mix (col, ink, grid * 0.35);
+    col = mix (col, mix (col, ink, 0.32), ghost);
+    col = mix (col, ink, now * 0.94);
+    col = mix (col, ink, texture (uTex2, uv).r * 0.88);
+
+    // Lit from behind like the meters, brightest near the top, and by the room
+    vec3 lit = col * (0.30 + 0.95 * lamp * (0.72 + 0.28 * (1.0 - uv.y)));
+    lit += vec3 (1.0, 0.92, 0.72) * lamp * 0.08 * (1.0 - smoothstep (0.0, 0.9, length (uv - vec2 (0.5, 0.15))));
+    col = lit * (amb * 0.30 + wrap * lightCol * 0.55 + 0.35 + fill);
+    col += envColor (R) * (0.02 + 0.14 * pow (facing, 4.0));
+)GLSL" };
+
+    /*  MIX BALANCER: a FabFilter-style dynamics display.
+
+        Top (to 64 %): the spectrum going in (a soft filled area) and coming out (a bright line), and on
+        the same axes the balancer's six moving faders as the curve they make (gold), filled toward 0 dB
+        in each band's colour, with a handle on each band. Bottom (from 72 %): the last ten seconds
+        scrolling right to left, Pro-C style - the level going in (grey), coming out (white) and the
+        deepest cut hanging from the top (red).
+
+        uTex  = data, four rows (one texel per column, worked out on the CPU so a pixel only looks up):
+                grid (R decade line, G octave line), spectrum (R in, G out, 0..1 over -90..0 dB),
+                history (R in, G out over -60..0 dB, B cut over 0..12 dB),
+                the faders' curve (R = dB, 0.5 = 0 dB, +-12 at the ends; GBA = the band's colour)
+        uTex2 = the print (frequency and dB axes)
+        uParams = (power 0..1, -, -, -);  uBands = the six faders (dB)
+    */
+    inline const hwk::shaders::Material balancerMaterial { "balancerDisplay", R"GLSL(
+    vec2 uv = vUV;
+    float px = fwidth (uv.y), pxu = fwidth (uv.x);
+    float power = uParams.x;
+
+    vec3 bgTop = vec3 (0.105, 0.118, 0.145), bgBottom = vec3 (0.040, 0.045, 0.058);
+    col = mix (bgTop, bgBottom, smoothstep (0.0, 1.0, uv.y));
+
+    const float plotL = 0.02, plotR = 0.98, plotB = 0.64;
+    float u = clamp ((uv.x - plotL) / (plotR - plotL), 0.0, 1.0);
+    float inPlot = step (plotL, uv.x) * step (uv.x, plotR) * step (uv.y, plotB);
+
+    // Per column, worked out on the CPU (row 3): the faders' curve (R, dB) and the band colour (GBA),
+    // and whether a grid line runs down this column (row 2's A)
+    vec4 curveRow = texture (uTex, vec2 (u, 0.875));
+    vec4 histRow  = texture (uTex, vec2 (u, 0.625));
+    vec4 specRow  = texture (uTex, vec2 (u, 0.375));
+    vec4 gridRow  = texture (uTex, vec2 (u, 0.125));
+
+    // Grid: frequency lines (from the grid row) and dB lines every 6
+    float grid = gridRow.r * 0.16 + gridRow.g * 0.07;
+    for (int k = -2; k <= 2; ++k)
+    {
+        float gy = 0.34 - float (k) * 0.14;
+        grid += (1.0 - smoothstep (0.0, px * 1.2, abs (uv.y - gy))) * (k == 0 ? 0.20 : 0.08);
+    }
+    col += vec3 (0.55, 0.62, 0.75) * grid * inPlot;
+
+    // Spectrum in (filled) and out (line)
+    float v = uv.y / plotB;
+    float inV = 1.0 - specRow.r, outV = 1.0 - specRow.g;
+    col += vec3 (0.20, 0.30, 0.46) * step (inV, v) * (0.30 + 0.25 * (1.0 - v)) * inPlot * power;
+    float dOut = abs (v - outV) * plotB;
+    col += vec3 (0.78, 0.86, 1.00) * (1.0 - smoothstep (px * 0.7, px * 1.9, dOut)) * inPlot * power * 0.85;
+
+    // The faders' curve, filled toward 0 dB in the band's colour
+    float gainDb = (curveRow.r - 0.5) * 24.0;
+    float zeroY = 0.34;
+    float curveY = zeroY - clamp (gainDb / 12.0, -1.0, 1.0) * 0.28;
+    float between = step (min (curveY, zeroY), uv.y) * step (uv.y, max (curveY, zeroY));
+    col += curveRow.gba * between * 0.30 * inPlot * power;
+    col += vec3 (1.00, 0.80, 0.35) * (1.0 - smoothstep (px * 0.8, px * 2.2, abs (uv.y - curveY))) * inPlot * power;
+
+    // A handle on each band, where its fader stands (positions from uniforms)
+    for (int k = 0; k < 6; ++k)
+    {
+        float hy = zeroY - clamp (uBands[k] / 12.0, -1.0, 1.0) * 0.28;
+        vec2 dd = vec2 ((uv.x - uHandleU[k]) / pxu, (uv.y - hy) / px);
+        float r = length (dd);
+        col += vec3 (1.0, 0.92, 0.75) * (1.0 - smoothstep (4.0, 5.5, r)) * power;
+        col += vec3 (0.9, 0.7, 0.3) * (1.0 - smoothstep (7.0, 9.0, r)) * smoothstep (5.5, 7.0, r) * 0.6 * power;
+    }
+
+    // History strip: in (grey fill), out (white line), cut hanging from the top (red)
+    const float histT = 0.72, histB = 0.985;
+    float inHist = step (histT, uv.y) * step (uv.y, histB) * step (plotL, uv.x) * step (uv.x, plotR);
+    float hv = (uv.y - histT) / (histB - histT);
+    col += vec3 (0.30, 0.34, 0.40) * step (1.0 - histRow.r, hv) * 0.55 * inHist * power;
+    float dLine = abs (hv - (1.0 - histRow.g)) * (histB - histT);
+    col += vec3 (0.92, 0.95, 1.00) * (1.0 - smoothstep (px * 0.7, px * 1.8, dLine)) * inHist * power * 0.9;
+    col += vec3 (0.95, 0.25, 0.22) * step (hv, histRow.b) * 0.65 * inHist * power;
+    col += vec3 (0.55, 0.62, 0.75) * (1.0 - smoothstep (0.0, px * 1.2, abs (uv.y - histT))) * 0.25;
+
+    col += vec3 (0.80, 0.85, 0.95) * texture (uTex2, uv).r * 0.70;
+    col += envColor (R) * (0.03 + 0.22 * pow (facing, 4.0));
+)GLSL", "uniform float uBands[6];   // MIX BALANCER faders, dB\nuniform float uHandleU[6]; // where each band's handle sits across the display\n" };
+
     inline const hwk::shaders::Material& materialFor (int m)
     {
         namespace lib = hwk::shaders::library;
@@ -195,6 +328,8 @@ namespace pad::shaders
             case shadow:        return lib::softShadow;
             case paint:         return lib::lacquerPanel;
             case seraphDisplay: return seraphLive;
+            case waveScreen:    return waveScreenMaterial;
+            case balancerDisplay: return balancerMaterial;
             case brushed:       return lib::brushedFace;
             case vuFace:        return lib::meterFace;
             case vuGlass:       return lib::coverGlass;

@@ -188,10 +188,16 @@ namespace pad::audit
             }
             else
             {
-                addScrews (obs, oneUEarSlots.data(), oneUEarSlots.size());
+                const auto ears = outboardEarSlots (unit);
+                addScrews (obs, ears.data(), ears.size());
                 addBorder (obs, oneUSectionBox (unit), "control section");
                 for (int i = 0; i < numVus (unit); ++i)
-                    obs.push_back ({ Obstacle::hole, vuX (unit, i), vuCentreZ, vuHalfW (unit) + 0.03f, vuHalfH + 0.03f, "VU bezel" });
+                    obs.push_back ({ Obstacle::hole, vuX (unit, i), vuZ (unit, i), vuHalfW (unit) + 0.03f, vuHalfH + 0.03f, "VU bezel" });
+                for (auto& w : outboardWindows (unit))
+                {
+                    obs.push_back ({ Obstacle::hole, w.cx, w.cz, w.hw + 0.034f, w.hd + 0.034f, "display bezel" });
+                    obs.push_back ({ Obstacle::hole, w.cx, w.cz, w.hw, w.hd, "display window" });
+                }
             }
 
             // The panel's own edge
@@ -224,7 +230,8 @@ namespace pad::audit
         struct Panel { int unit; const artwork::RawTexture* tex; const char* file; };
         std::vector<Panel> panels { { enhUnit, &textures.faceplateDecal, "enh.png" }, { tubeUnit, &textures.tubeDecal, "tube.png" },
                                     { tideUnit, &textures.tideDecal, "tide.png" }, { lumenUnit, &textures.lumenDecal, "lumen.png" },
-                                    { limiterUnit, &textures.limiterDecal, "limiter.png" } };
+                                    { limiterUnit, &textures.limiterDecal, "limiter.png" }, { levelUnit, &textures.levelDecal, "level.png" },
+                                    { balancerUnit, &textures.balancerDecal, "balancer.png" } };
 
         for (auto& panel : panels)
         {
@@ -268,7 +275,7 @@ namespace pad::audit
                 for (auto& o : obs)
                 {
                     // An engraved section title breaks the border it sits on, by design
-                    if (isOneU (unit) && o.name.endsWith ("border (top)") && std::abs (t->z - (oneUSectionBox (unit).minZ() + 0.004f)) < 1.0e-3f)
+                    if (isOutboard (unit) && o.name.endsWith ("border (top)") && std::abs (t->z - (oneUSectionBox (unit).minZ() + 0.004f)) < 1.0e-3f)
                         continue;
 
                     const float c = clearance (b, o);

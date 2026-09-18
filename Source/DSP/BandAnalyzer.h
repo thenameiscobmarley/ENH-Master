@@ -19,18 +19,18 @@ namespace enh::dsp
 
         inline void push (float mono) noexcept
         {
+            // All bands at once (vectorised banks; the same arithmetic as band by band)
+            alignas (16) float y[numBands], p[numBands];
+            filters.process (mono, y, activeCount);
             for (int k = 0; k < activeCount; ++k)
-            {
-                const float y = state[(size_t) k].process (coeffs[(size_t) k], mono);
-                const float p = y * y;
-                transient[(size_t) k].push (p);
-                shortTerm[(size_t) k].push (p);
-                medium[(size_t) k].push (p);
-            }
+                p[k] = y[k] * y[k];
+            transient.push (p, activeCount);
+            shortTerm.push (p, activeCount);
+            medium.push (p, activeCount);
 
-            const float p = mono * mono;
-            fullTransient.push (p);
-            fullShort.push (p);
+            const float full = mono * mono;
+            fullTransient.push (full);
+            fullShort.push (full);
         }
 
         /** Control-rate update of dB values and rolling statistics.
@@ -45,16 +45,15 @@ namespace enh::dsp
 
         int getActiveCount() const noexcept { return activeCount; }
 
-        // Raw followers for group measurements
-        std::array<PowerFollower, numBands> transient {}, shortTerm {}, medium {};
+        // Raw followers for group measurements (power: .env[k])
+        FollowerBank<numBands> transient {}, shortTerm {}, medium {};
         PowerFollower fullTransient, fullShort;
 
         float fullShortDb = -120.0f, fullTransientDb = -120.0f;
         float programMaxDb = -120.0f;   // decaying peak of the short-term program level
 
     private:
-        std::array<BiquadCoeffs, numBands> coeffs {};
-        std::array<BiquadState, numBands> state {};
+        BiquadBank<numBands> filters {};
         std::array<bool, numBands> active {};
         std::array<float, numBands> meanDb {}, varDb {}, ltasPower {};
         int activeCount = 0;

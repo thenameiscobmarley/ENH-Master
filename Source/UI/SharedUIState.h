@@ -42,6 +42,11 @@ namespace pad
         artwork::RawTexture   overlayPending;     // guarded by overlayLock
         juce::uint32          overlayVersion = 0; // guarded by overlayLock
 
+        // LEVEL & LOUDNESS screen print (its readout line changes) hand-off
+        juce::SpinLock        levelLabelsLock;
+        artwork::RawTexture   levelLabelsPending; // guarded by levelLabelsLock
+        juce::uint32          levelLabelsVersion = 0;
+
         // hover callout (zoomed text box + leader line) hand-off
         juce::SpinLock        calloutLock;
         artwork::RawTexture   calloutPending;     // guarded by calloutLock

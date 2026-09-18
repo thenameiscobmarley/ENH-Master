@@ -127,7 +127,7 @@ namespace pad::artwork
                 };
                 line ("ADAPTIVE", -0.655f, 0.052f, 0.16f);
                 line ("ENHANCER", -0.585f, 0.052f, 0.16f);
-                line ("MODEL EM-1", -0.505f, 0.020f, 0.14f);   // a model number, as real units carry
+                line (juce::String ("MODEL EM-") + juce::String (unitInfo[(size_t) enhUnit].chainPosition), -0.505f, 0.020f, 0.14f);   // a model number, as real units carry
                 line ("PRESET", -0.325f, 0.022f, 0.30f);   // over the PREV / NEXT buttons
             }
 
@@ -235,7 +235,7 @@ namespace pad::artwork
                 text (g, m, s, x0, z, fitHeight (m, s, h, width, true, tracking), left, true, tracking, width);
             };
             line ("TONE & SPACE", -0.745f, 0.050f, 0.16f);
-            line ("MODEL EM-5", -0.675f, 0.020f, 0.12f);
+            line (juce::String ("MODEL EM-") + juce::String (unitInfo[(size_t) tubeUnit].chainPosition), -0.675f, 0.020f, 0.12f);
         }
 
         // Row headings, so it is obvious which knobs belong to which section
@@ -344,8 +344,9 @@ namespace pad::artwork
     {
         recorder = { registry, unit, -1, -1 };
         const int w = textureWidth;
-        const int h = juce::roundToInt ((float) textureWidth * oneUHalfH / faceHalfW);
-        const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * oneUHalfH), oneUHalfH };
+        const float halfH = unitHalfH (unit);
+        const int h = juce::roundToInt ((float) textureWidth * halfH / faceHalfW);
+        const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * halfH), halfH };
 
         juce::Image ink (juce::Image::SingleChannel, w, h, true);
         juce::Graphics g (ink);
@@ -364,9 +365,10 @@ namespace pad::artwork
                 text (g, m, s, oneUMakerX0, z, fitHeight (m, s, hgt, width, true, tracking), left, true, tracking, width);
             };
             const juce::String name (info.name);
-            line (name.upToFirstOccurrenceOf (" ", false, false), -0.176f, 0.050f, 0.16f);
-            line (name.fromFirstOccurrenceOf (" ", false, false), -0.104f, 0.050f, 0.16f);
-            line (juce::String ("MODEL EM-") + juce::String (info.chainPosition), -0.038f, 0.019f, 0.10f);
+            const float top = makerTopZ (unit);
+            line (name.upToFirstOccurrenceOf (" ", false, false), top, 0.050f, 0.16f);
+            line (name.fromFirstOccurrenceOf (" ", false, false), top + 0.072f, 0.050f, 0.16f);
+            line (juce::String ("MODEL EM-") + juce::String (info.chainPosition), top + 0.138f, 0.019f, 0.10f);
         }
 
         // Bordered control section, as on a hardware compressor
@@ -375,6 +377,7 @@ namespace pad::artwork
             g.drawRoundedRectangle (m.rect (box.minX(), box.minZ(), box.maxX(), box.maxZ()), m.len (0.022f), m.len (0.006f));
 
             const auto title = unit == tideUnit ? juce::String ("COMPRESSOR") : unit == lumenUnit ? juce::String ("LEVELER")
+                             : unit == levelUnit ? juce::String ("LEVEL") : unit == balancerUnit ? juce::String ("BALANCE")
                                                                                                    : juce::String ("DYNAMIC EQ");
             const auto font = makeFont (m.len (0.024f), true, 0.30f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, title);
@@ -401,7 +404,10 @@ namespace pad::artwork
 
             // Labels one line below the skirt and the lever's reach, above the section border
             recorder.control = (int) (&c - controls.data());
-            text (g, m, c.label, c.x, c.z + oneULabelDz, 0.026f, centred, true, 0.16f, 0.40f);
+            const float labelDz = c.kind == ControlKind::knob
+                                ? std::max (oneULabelDz, hwk::models::knob (c.style, knobBodyRadius (c), {}, 0).footprintRadius + 0.050f)
+                                : oneULabelDz;   // a bigger knob's label moves down with its skirt
+            text (g, m, c.label, c.x, c.z + labelDz, 0.026f, centred, true, 0.16f, 0.40f);
             recorder.control = -1;
 
             if (c.kind != ControlKind::knob)
@@ -441,10 +447,16 @@ namespace pad::artwork
         {
             const char* bands[3] { "LOW", "MID", "HIGH" };
             const char* limits[2] { "SPECTRAL", "BROADBAND" };
+            const char* loudness[2] { "MOMENTARY", "SHORT-TERM" };
             const auto label = unit == tideUnit ? juce::String ("GAIN REDUCTION")
-                             : unit == limiterUnit ? juce::String (limits[i]) : juce::String (bands[i]);
-            text (g, m, label, vuX (unit, i), vuCentreZ + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
+                             : unit == limiterUnit ? juce::String (limits[i])
+                             : unit == levelUnit ? juce::String (loudness[i]) : juce::String (bands[i]);
+            text (g, m, label, vuX (unit, i), vuZ (unit, i) + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
         }
+
+        // Under the displays: what they show
+        if (unit == levelUnit)
+            text (g, m, "OUTPUT WAVEFORM", levelScopeRect.cx, levelScopeRect.maxZ() + 0.070f, 0.021f, centred, true, 0.20f, 0.6f);
 
         recorder = {};
         RawTexture tex { w, h, 1, {} };
@@ -466,6 +478,7 @@ namespace pad::artwork
         // Full scale: the compressor's GR 0-12, the leveler's lift 0-18, the limiter's spectral cut 0-18
         // (RANGE + headroom protection) and its broadband protection 0-12
         const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1);
+        const bool lufs = unit == levelUnit;   // -40 .. 0 LUFS
         const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
         const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
         const float arcR = vuHalfH * hwk::models::vuArcRadius * scale;
@@ -493,7 +506,7 @@ namespace pad::artwork
         {
             juce::Graphics g (red);
             g.setColour (juce::Colours::white);
-            band (g, twelve ? 0.70f : 0.75f, 1.0f, 0.955f, 1.015f);   // red zone over the top of the scale
+            band (g, lufs ? 0.775f : twelve ? 0.70f : 0.75f, 1.0f, 0.955f, 1.015f);   // red zone over the top of the scale (LUFS: above -9)
         }
 
         juce::Graphics g (ink);
@@ -509,7 +522,7 @@ namespace pad::artwork
         }
 
         // Ticks, longer where a number is printed
-        const int majors = twelve ? 4 : 3;
+        const int majors = lufs || twelve ? 4 : 3;
         for (int i = 0; i <= majors * 2; ++i)
         {
             const float t = (float) i / (float) (majors * 2);
@@ -523,8 +536,10 @@ namespace pad::artwork
         g.setFont (font);
         for (int i = 0; i <= majors; ++i)
         {
+            if (lufs && (i % 2) != 0)
+                continue;   // a narrow dial: -40, -20 and 0 only
             const float t = (float) i / (float) majors;
-            const auto label = juce::String (juce::roundToInt (t * (twelve ? 12.0f : 18.0f)));
+            const auto label = juce::String (juce::roundToInt (lufs ? -40.0f + 40.0f * t : t * (twelve ? 12.0f : 18.0f)));
             const auto at = pointAt (t, 0.845f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, label);
             g.drawText (label, juce::Rectangle<float> (at.x - 0.5f * tw - 2.0f, at.y - font.getHeight() * 0.5f,
@@ -534,7 +549,8 @@ namespace pad::artwork
 
         // Caption low on the card, where the needle never covers it
         const auto caption = unit == tideUnit ? juce::String ("GAIN REDUCTION   dB")
-                           : unit == limiterUnit ? juce::String (meter == 0 ? "CUT   dB" : "BROADBAND   dB") : juce::String ("LIFT   dB");
+                           : unit == limiterUnit ? juce::String (meter == 0 ? "CUT   dB" : "BROADBAND   dB")
+                           : unit == levelUnit ? juce::String ("LUFS") : juce::String ("LIFT   dB");
         const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
         g.setFont (capFont);
         g.drawText (caption, juce::Rectangle<float> (0.0f, (float) h * 0.66f, (float) w, (float) h * 0.24f),
@@ -542,14 +558,80 @@ namespace pad::artwork
 
         if (registry != nullptr)
             for (int i = 0; i < numVus (unit); ++i)
-                if (unit != limiterUnit || i == meter)   // the limiter's two meters have faces of their own
-                    registry->push_back ({ unit, vuX (unit, i), vuCentreZ + vuHalfH * 0.52f,
+                if ((unit != limiterUnit && unit != levelUnit) || i == meter)   // meters with faces of their own
+                    registry->push_back ({ unit, vuX (unit, i), vuZ (unit, i) + vuHalfH * 0.52f,
                                            vuHalfW (unit) * 0.6f, vuHalfH * 0.14f, caption, -1, -1 });
 
         RawTexture tex { w, h, 4, {} };
         tex.pixels.assign ((size_t) (w * h * 4), 0);
         copyChannel (ink, tex, 0);
         copyChannel (red, tex, 1);
+        return tex;
+    }
+
+    /** Print inside the two new displays (R8, uv 0..1 across the window):
+        LEVEL & LOUDNESS - dBFS marks up the side of the waveform screen;
+        MIX BALANCER     - the frequency axis, the dB axis and the band names, FabFilter-style. */
+    RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry, const juce::String& readout)
+    {
+        const auto& d = unit == levelUnit ? levelScopeRect : balancerDisplayRect;
+        const int w = width, h = juce::roundToInt ((float) width * d.hd / d.hw);
+        juce::Image img (juce::Image::SingleChannel, w, h, true);
+        juce::Graphics g (img);
+        g.setColour (juce::Colours::white);
+        const float px = (float) w / (2.0f * d.hw);   // pixels per panel unit
+
+        auto label = [&] (const juce::String& s, float u, float v, float heightPanel, juce::Justification just)
+        {
+            const auto font = makeFont (heightPanel * px, true, 0.08f);
+            g.setFont (font);
+            const float tw = juce::GlyphArrangement::getStringWidth (font, s) + 4.0f;
+            float x = u * (float) w;
+            if (just.testFlags (juce::Justification::horizontallyCentred)) x -= 0.5f * tw;
+            else if (just.testFlags (juce::Justification::right)) x -= tw;
+            g.drawText (s, juce::Rectangle<float> (x, v * (float) h - 0.6f * font.getHeight(), tw, 1.2f * font.getHeight()),
+                        juce::Justification::centred, false);
+            if (registry != nullptr)
+                registry->push_back ({ unit, d.minX() + (x + 0.5f * tw) / px, d.minZ() + v * 2.0f * d.hd,
+                                       0.5f * tw / px, 0.6f * heightPanel, s, -1, -1 });
+        };
+
+        if (unit == levelUnit)
+        {
+            // dBFS marks: the waveform is drawn in linear amplitude either side of the centre line
+            for (int db : { 0, -3, -6, -12 })
+            {
+                const float a = std::pow (10.0f, (float) db / 20.0f);
+                label (juce::String (db), 0.985f, 0.5f - 0.40f * a, 0.030f, juce::Justification::right);
+            }
+            label ("dBFS", 0.015f, 0.05f, 0.028f, juce::Justification::left);
+            if (readout.isNotEmpty())
+            {
+                // The live readout along the bottom of the card (not a hover target: it changes)
+                auto* keep = registry;
+                registry = nullptr;
+                label (readout, 0.5f, 0.952f, 0.032f, juce::Justification::horizontallyCentred);
+                registry = keep;
+            }
+        }
+        else
+        {
+            // Frequency axis along the bottom, dB up the right, as a FabFilter display prints them
+            for (auto [hz, name] : { std::pair { 50.0f, "50" }, std::pair { 100.0f, "100" }, std::pair { 200.0f, "200" }, std::pair { 500.0f, "500" },
+                                     std::pair { 1000.0f, "1k" }, std::pair { 2000.0f, "2k" }, std::pair { 5000.0f, "5k" }, std::pair { 10000.0f, "10k" } })
+            {
+                const float u = std::log (hz / 20.0f) / std::log (20000.0f / 20.0f);
+                label (name, 0.02f + 0.96f * u, 0.675f, 0.032f, juce::Justification::horizontallyCentred);
+            }
+            for (int db : { 12, 6, 0, -6, -12 })
+                label ((db > 0 ? "+" : "") + juce::String (db), 0.992f, 0.34f - (float) db / 12.0f * 0.28f, 0.030f, juce::Justification::right);
+            label ("IN", 0.012f, 0.745f, 0.028f, juce::Justification::left);
+            label ("OUT", 0.012f, 0.965f, 0.028f, juce::Justification::left);
+        }
+
+        RawTexture tex { w, h, 1, {} };
+        tex.pixels.assign ((size_t) (w * h), 0);
+        copyChannel (img, tex, 0);
         return tex;
     }
 

@@ -40,7 +40,7 @@ namespace enh::dsp
         {
             const auto i = (size_t) k;
             bandHz[i] = (float) (150.0 * std::pow (16000.0 / 150.0, k / (double) (numBands - 1)));
-            detect[i] = BiquadCoeffs::bandPass (sr, bandHz[i], 4.0);
+            detect.set (k, BiquadCoeffs::bandPass (sr, bandHz[i], 4.0));
             designers[i].setup (sr, bandHz[i], 4.0);
         }
 
@@ -91,7 +91,7 @@ namespace enh::dsp
 
     void SilkStage::reset()
     {
-        for (auto& s : detectState) s.reset();
+        detect.reset();
         detectHp1.reset();
         detectHp2.reset();
         bassLp1.reset();
@@ -104,6 +104,7 @@ namespace enh::dsp
         bloomLp = {};
         fast.fill (0.0f); slow.fill (0.0f); longTerm.fill (0.0f);
         cutDb.fill (0.0f); designedDb.fill (0.0f); onsetHold.fill (0);
+        dipsDesigned = 0;
         for (int k = 0; k < numBands; ++k)
             dipCoeffs[(size_t) k] = designers[(size_t) k].make (0.0f);
 
@@ -206,6 +207,7 @@ namespace enh::dsp
             deepest = std::min (deepest, cutDb[i]);
         }
         smoothingDb = -deepest;
+        dipsDesigned = (int) std::count_if (designedDb.begin(), designedDb.end(), [] (float d) { return d != 0.0f; });
 
         // Long-term balance of the source: how dull (air) and how thin (body) it is
         auto regionDb = [this] (float lo, float hi)
@@ -326,16 +328,26 @@ namespace enh::dsp
                     bloomIn = 0.0f;
             }
 
-            for (int k = 0; k < numBands; ++k)
+            // All detection bands at once (vectorised; the same arithmetic as band by band)
+            {
+                alignas (16) float y[numBands];
+                detect.process (mono, y, numBands);
+                float* __restrict f = fast.data();
+                float* __restrict sl = slow.data();
+                for (int k = 0; k < numBands; ++k)
+                {
+                    const float p = y[k] * y[k];
+                    f[k] = (p > f[k] ? fastAtt : fastRel) * (f[k] - p) + p;
+                    sl[k] = slowK * (sl[k] - p) + p;
+                }
+            }
+
+            for (int k = 0; s.protect && dipsDesigned > 0 && k < numBands; ++k)
             {
                 const auto b = (size_t) k;
-                const float y = detectState[b].process (detect[b], mono);
-                const float p = y * y;
-                fast[b] = (p > fast[b] ? fastAtt : fastRel) * (fast[b] - p) + p;
-                slow[b] = slowK * (slow[b] - p) + p;
 
                 // PROTECT, sample-accurate: a dip in the way of a fresh attack is lifted immediately
-                if (s.protect && designedDb[b] != 0.0f && fast[b] > 3.2f * slow[b] && onsetHold[b] == 0)
+                if (designedDb[b] != 0.0f && fast[b] > 3.2f * slow[b] && onsetHold[b] == 0)
                 {
                     onsetHold[b] = std::max (1, (int) std::lround (0.015 * sr / controlInterval));
                     for (int j = std::max (0, k - 1); j <= std::min (numBands - 1, k + 1); ++j)
@@ -343,6 +355,7 @@ namespace enh::dsp
                         cutDb[(size_t) j] = designedDb[(size_t) j] = 0.0f;
                         dipCoeffs[(size_t) j] = designers[(size_t) j].make (0.0f);
                     }
+                    dipsDesigned = (int) std::count_if (designedDb.begin(), designedDb.end(), [] (float d) { return d != 0.0f; });
                 }
             }
 

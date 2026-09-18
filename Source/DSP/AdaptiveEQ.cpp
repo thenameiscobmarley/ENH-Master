@@ -303,6 +303,31 @@ namespace enh::dsp
     {
         const int chans = std::min (numChannels, maxChannels);
 
+        if (chans == 2)
+        {
+            // Left and right side by side, band by band: the compiler pairs the two channels'
+            // arithmetic (identical results to one channel after the other)
+            float* __restrict l = channels[0] + start;
+            float* __restrict r = channels[1] + start;
+            for (int k = 0; k < activeCount; ++k)
+            {
+                const auto& co = coeffs[(size_t) k];
+                auto& sl = states[0][(size_t) k];
+                auto& sr2 = states[1][(size_t) k];
+                float l1 = sl.z1, l2 = sl.z2, r1 = sr2.z1, r2 = sr2.z2;
+                for (int i = 0; i < n; ++i)
+                {
+                    const float xl = l[i], xr = r[i];
+                    const float yl = co.b0 * xl + l1, yr = co.b0 * xr + r1;
+                    l1 = co.b1 * xl - co.a1 * yl + l2;  r1 = co.b1 * xr - co.a1 * yr + r2;
+                    l2 = co.b2 * xl - co.a2 * yl;       r2 = co.b2 * xr - co.a2 * yr;
+                    l[i] = yl; r[i] = yr;
+                }
+                sl.z1 = l1; sl.z2 = l2; sr2.z1 = r1; sr2.z2 = r2;
+            }
+            return;
+        }
+
         for (int c = 0; c < chans; ++c)
         {
             auto* data = channels[c] + start;

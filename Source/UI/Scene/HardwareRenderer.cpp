@@ -29,10 +29,32 @@ namespace pad
 
     //==============================================================================
     HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const enh::dsp::EngineMeters& m,
-                                        const UIConfig& c, artwork::TextureSet textures, const enh::dsp::ScopeCurve& sc)
-        : bridge (b), shared (s), meters (m), scope (sc), config (c), textureData (std::move (textures))
+                                        const UIConfig& c, artwork::TextureSet textures, const enh::dsp::ScopeCurve& sc,
+                                        const enh::dsp::ScopeCurve& bsc, const DisplayHistory& dh)
+        : bridge (b), shared (s), meters (m), scope (sc), balancerScope (bsc), history (dh), config (c), textureData (std::move (textures))
     {
         seraphModeParam = bridge.indexOf (params::id::seraphMode);
+
+        // Which knobs an auto mode turns (AUTO heaven: REVERB .. SUB; MATCH: OUTPUT), resolved once
+        {
+            namespace id = params::id;
+            const char* chosen[7] { id::haloSpace, id::haloDecay, id::haloShimmer, id::haloTone, id::haloWidth, id::silkAir, id::silkSub };
+            for (int i = 0; i < numControls; ++i)
+            {
+                const std::string_view pid (controls[(size_t) i].paramId);
+                autoRole[(size_t) i] = -1;
+                for (int k = 0; k < 7; ++k)
+                    if (pid == chosen[k])
+                        autoRole[(size_t) i] = k;
+                if (pid == id::silkOutput)
+                    autoRole[(size_t) i] = autoOutputRole;
+                autoSpec[(size_t) i] = autoRole[(size_t) i] >= 0 ? params::findSpec (controls[(size_t) i].paramId) : nullptr;
+            }
+            silkAutoParam = bridge.indexOf (id::silkAuto);
+            silkAutoSpec = params::findSpec (id::silkAuto);
+            seraphMultiplyParam = bridge.indexOf (id::seraphMultiply);
+            seraphMultiplySpec = params::findSpec (id::seraphMultiply);
+        }
 
         for (int i = 0; i < numControls; ++i)
         {
@@ -168,7 +190,6 @@ namespace pad
         meshes.quad.upload (geo::unitQuad());
         meshes.enhBody.upload (geo::unitBody (faceHalfH));
         meshes.tubeBody.upload (geo::unitBody (tubeHalfH));
-        meshes.oneUBody.upload (geo::unitBody (oneUHalfH));
         meshes.tubeVents.upload (geo::unitVents (tubeHalfH));
         meshes.tubeVentWalls.upload (geo::unitVentWalls (tubeHalfH));
         meshes.tubeVentFloors.upload (geo::unitVentFloors (tubeHalfH));
@@ -199,19 +220,31 @@ namespace pad
         meshes.seraphGlass.upload (geo::seraphDisplayGlass());
         meshes.seraphBezel.upload (geo::seraphDisplayBezel());
 
-        meshes.tideFaceTop.upload (geo::oneUFaceTop (tideUnit));
-        meshes.lumenFaceTop.upload (geo::oneUFaceTop (lumenUnit));
-        meshes.limiterFaceTop.upload (geo::oneUFaceTop (limiterUnit));
-        meshes.oneUFaceEdges.upload (geo::oneUFaceEdges());
-        meshes.oneUEarWalls.upload (geo::oneUEarWalls());
-        meshes.oneUEarFloors.upload (geo::oneUEarFloors());
-        meshes.oneUScrews.upload (geo::oneUScrewHeads());
-        meshes.oneUScrewSlots.upload (geo::oneUScrewSlots());
+        for (int unit = 0; unit < numUnits; ++unit)
+        {
+            if (! isOutboard (unit))
+                continue;
+            auto& o = outboard[(size_t) unit];
+            o.faceTop.upload (geo::oneUFaceTop (unit));
+            o.faceEdges.upload (geo::oneUFaceEdges (unit));
+            o.earWalls.upload (geo::oneUEarWalls (unit));
+            o.earFloors.upload (geo::oneUEarFloors (unit));
+            o.screws.upload (geo::oneUScrewHeads (unit));
+            o.screwSlots.upload (geo::oneUScrewSlots (unit));
+            o.body.upload (geo::unitBody (unitHalfH (unit)));
+        }
+        meshes.levelScopeWalls.upload (geo::windowWalls (levelScopeRect));
+        meshes.levelScopeGlass.upload (geo::windowGlass (levelScopeRect));
+        meshes.levelScopeBezel.upload (geo::windowBezel (levelScopeRect));
+        meshes.balancerWalls.upload (geo::windowWalls (balancerDisplayRect));
+        meshes.balancerGlass.upload (geo::windowGlass (balancerDisplayRect));
+        meshes.balancerBezel.upload (geo::windowBezel (balancerDisplayRect));
         // VU movements, one model per size (the compressor's wide meter, the leveler's three narrow
         // ones, the limiter's two)
         tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
+        levelVu.upload (hwk::models::vuMeter (levelVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
 
 
         // HardwareKit models, every distinct (style, radius, unit accent) at every level of detail
@@ -294,6 +327,13 @@ namespace pad
         upload (limiterDecalTex, textureData.limiterDecal);
         upload (limiterLabelTex[0], textureData.limiterVuFace[0]);
         upload (limiterLabelTex[1], textureData.limiterVuFace[1]);
+        upload (levelDecalTex, textureData.levelDecal);
+        upload (balancerDecalTex, textureData.balancerDecal);
+        upload (levelFaceTex[0], textureData.levelVuFace[0]);
+        upload (levelFaceTex[1], textureData.levelVuFace[1]);
+        upload (levelLabelTex, textureData.levelScopeLabels);
+        upload (balancerLabelTex, textureData.balancerLabels);
+        uploadedLevelLabelsVersion = 0;
 
         const std::vector<juce::uint8> blank ((size_t) (artwork::displayOverlayWidth * artwork::displayOverlayHeight), 0);
         overlayTex.upload (blank.data(), artwork::displayOverlayWidth, artwork::displayOverlayHeight, 1, true, 1);
@@ -332,6 +372,13 @@ namespace pad
         tideVu.release();
         lumenVu.release();
         limiterVu.release();
+        levelVu.release();
+        for (auto& o : outboard)
+            o.forEach ([] (gfx::GpuMesh& m) { m.release(); });
+        for (auto* tex : { &levelDecalTex, &balancerDecalTex, &levelLabelTex, &balancerLabelTex, &levelFaceTex[0], &levelFaceTex[1],
+                           &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
+                           &limiterLabelTex[0], &limiterLabelTex[1] })
+            tex->release();
         loupeTarget.release();
         loupeReady = false;
         seraphLabelTex.release();
@@ -371,6 +418,213 @@ namespace pad
         }
 
         scopeTex.upload (scopeScratch.data(), n, 1, 4, false, 1);
+    }
+
+    //==============================================================================
+    /** The two new displays' data, rebuilt once a frame from the histories the editor fills. */
+    void HardwareRenderer::uploadDisplays (float dt)
+    {
+        // --- LEVEL & LOUDNESS: the waveform (newest at the right) and its afterimage -------------------
+        {
+            constexpr int n = DisplayHistory::waveColumns;
+            waveScratch.resize ((size_t) n * 4);
+            const int head = history.waveHead.load (std::memory_order_acquire);
+            const float fade = std::exp (-dt / 1.4f);   // the afterimage fades over a second or two
+
+            for (int x = 0; x < n; ++x)
+            {
+                float v = 0.0f;
+                if (demoMeters)
+                {
+                    // A plausible programme for screenshots: a bed with hits every 0.7 s
+                    const double t = timeSeconds - (double) (n - 1 - x) * 0.010;
+                    const double hit = std::fmod (t, 0.7);
+                    const float noise = 0.5f + 0.5f * (float) std::sin (t * 91.0 + std::sin (t * 13.0) * 3.0);
+                    v = 0.22f + 0.08f * noise + (hit < 0.25 ? 0.62f * (float) std::exp (-hit * 12.0) : 0.0f);
+                }
+                else
+                {
+                    const int index = head - n + x;
+                    if (index >= 0)
+                    {
+                        const float peak = history.wavePeak[(size_t) (index % n)].load (std::memory_order_relaxed);
+                        v = std::clamp (peak, 0.0f, 1.0f);   // linear amplitude, as a waveform is drawn
+                    }
+                }
+                auto& g = waveGhost[(size_t) x];
+                g = std::max (g * fade, v);
+                auto* px = waveScratch.data() + (size_t) x * 4;
+                px[0] = (juce::uint8) juce::roundToInt (v * 255.0f);
+                px[1] = (juce::uint8) juce::roundToInt (g * 255.0f);
+                px[2] = 0;
+                px[3] = 255;
+            }
+            waveTex.upload (waveScratch.data(), n, 1, 4, false, 1);
+        }
+
+        // --- MIX BALANCER: spectrum row and history row, and the six faders ------------------------------
+        {
+            constexpr int w = DisplayHistory::balColumns;
+            balancerScratch.assign ((size_t) w * 4 * 4, 0);
+            constexpr int points = enh::dsp::ScopeCurve::numPoints;
+            auto encodeSpectrum = [] (float db)
+            {
+                return (juce::uint8) juce::roundToInt (255.0f * std::clamp ((db - enh::dsp::ScopeCurve::minDb)
+                                                                           / (enh::dsp::ScopeCurve::maxDb - enh::dsp::ScopeCurve::minDb), 0.0f, 1.0f));
+            };
+            auto row = [&] (int r, int x) { return balancerScratch.data() + ((size_t) r * w + (size_t) x) * 4; };
+            for (int x = 0; x < w; ++x)
+            {
+                const float pos = (float) x / (float) (w - 1) * (float) (points - 1);
+                const int i0 = std::min (points - 2, (int) pos);
+                const float f = pos - (float) i0;
+                auto at = [&] (const std::array<std::atomic<float>, points>& a)
+                {
+                    return a[(size_t) i0].load (std::memory_order_relaxed) * (1.0f - f) + a[(size_t) i0 + 1].load (std::memory_order_relaxed) * f;
+                };
+                auto* px = row (1, x);
+                px[0] = encodeSpectrum (at (balancerScope.inputDb));
+                px[1] = encodeSpectrum (at (balancerScope.outputDb));
+                px[3] = 255;
+            }
+
+            // Grid row: the columns a decade (100 Hz, 1 kHz, 10 kHz) or an octave line runs down, anti-aliased over a column
+            for (int x = 0; x < w; ++x)
+            {
+                auto* px = row (0, x);
+                px[3] = 255;
+                auto mark = [&] (float hz, int channel)
+                {
+                    const float c = std::log (hz / 20.0f) / std::log (1000.0f) * (float) (w - 1);
+                    const float d = std::abs ((float) x - c);
+                    if (d < 1.0f)
+                        px[channel] = (juce::uint8) std::max ((int) px[channel], juce::roundToInt ((1.0f - d) * 255.0f));
+                };
+                for (float hz : { 100.0f, 1000.0f, 10000.0f }) mark (hz, 0);
+                for (float hz : { 50.0f, 200.0f, 400.0f, 800.0f, 1600.0f, 3200.0f, 6400.0f }) mark (hz, 1);
+            }
+
+            const int head = history.balHead.load (std::memory_order_acquire);
+            for (int x = 0; x < w; ++x)
+            {
+                float in = 0.0f, out = 0.0f, cut = 0.0f;
+                if (demoMeters)
+                {
+                    const double t = timeSeconds - (double) (w - 1 - x) * 0.033;
+                    in = 0.62f + 0.12f * (float) std::sin (t * 2.3) + 0.08f * (float) std::sin (t * 7.1);
+                    const float jump = std::fmod ((float) t, 3.0f) < 0.6f ? 0.18f : 0.0f;
+                    in += jump;
+                    out = in - jump * 0.7f;
+                    cut = jump * 0.9f;
+                }
+                else
+                {
+                    const int index = head - w + x;
+                    if (index >= 0)
+                    {
+                        const auto k = (size_t) (index % w);
+                        in = std::clamp ((history.balInDb[k].load (std::memory_order_relaxed) + 60.0f) / 60.0f, 0.0f, 1.0f);
+                        out = std::clamp ((history.balOutDb[k].load (std::memory_order_relaxed) + 60.0f) / 60.0f, 0.0f, 1.0f);
+                        cut = std::clamp (-history.balCutDb[k].load (std::memory_order_relaxed) / 12.0f, 0.0f, 1.0f);
+                    }
+                }
+                auto* px = row (2, x);
+                px[0] = (juce::uint8) juce::roundToInt (in * 255.0f);
+                px[1] = (juce::uint8) juce::roundToInt (out * 255.0f);
+                px[2] = (juce::uint8) juce::roundToInt (cut * 255.0f);
+                px[3] = 255;
+            }
+            const float k = 1.0f - std::exp (-dt / 0.06f);
+            for (int b = 0; b < 6; ++b)
+            {
+                const float target = demoMeters ? 3.5f * (float) std::sin (timeSeconds * (0.7 + 0.23 * b) + b)
+                                                : meters.balanceGainDb[(size_t) b].load (std::memory_order_relaxed);
+                balancerBands[(size_t) b] += (target - balancerBands[(size_t) b]) * k;
+            }
+
+            // The faders as one curve (bells in the middle, shelves at the ends) and each column's band colour
+            static constexpr std::array<float, 6> centre { 70.0f, 200.0f, 500.0f, 1300.0f, 3500.0f, 9000.0f };
+            static constexpr std::array<std::array<float, 3>, 6> colour {{ { 0.95f, 0.45f, 0.30f }, { 0.95f, 0.70f, 0.25f }, { 0.55f, 0.85f, 0.35f },
+                                                                           { 0.30f, 0.80f, 0.85f }, { 0.45f, 0.55f, 1.00f }, { 0.80f, 0.45f, 0.95f } }};
+            auto smooth = [] (float a, float b, float x) { const float t = std::clamp ((x - a) / (b - a), 0.0f, 1.0f); return t * t * (3.0f - 2.0f * t); };
+            for (int x = 0; x < w; ++x)
+            {
+                const float hz = 20.0f * std::pow (1000.0f, (float) x / (float) (w - 1));
+                float gainDb = 0.0f, weight = 0.0f;
+                std::array<float, 3> mixed {};
+                for (int b = 0; b < 6; ++b)
+                {
+                    const float d = std::log2 (hz / centre[(size_t) b]);
+                    const float shape = b == 0 ? 1.0f - smooth (-0.4f, 0.9f, d) : b == 5 ? smooth (-0.9f, 0.4f, d) : std::exp (-0.5f * d * d / 0.42f);
+                    gainDb += balancerBands[(size_t) b] * shape;
+                    for (int c = 0; c < 3; ++c) mixed[(size_t) c] += colour[(size_t) b][(size_t) c] * shape;
+                    weight += shape;
+                }
+                auto* px = row (3, x);
+                px[0] = (juce::uint8) juce::roundToInt (255.0f * std::clamp (0.5f + gainDb / 24.0f, 0.0f, 1.0f));
+                for (int c = 0; c < 3; ++c)
+                    px[1 + c] = (juce::uint8) juce::roundToInt (255.0f * std::clamp (mixed[(size_t) c] / std::max (weight, 1.0e-3f), 0.0f, 1.0f));
+            }
+            balancerDataTex.upload (balancerScratch.data(), w, 4, 4, false, 1);
+        }
+    }
+
+    void HardwareRenderer::uploadLevelLabelsIfChanged()
+    {
+        std::vector<juce::uint8> pixels;
+        int w = 0, h = 0;
+        {
+            const juce::SpinLock::ScopedLockType lock (shared.levelLabelsLock);
+            if (shared.levelLabelsVersion == uploadedLevelLabelsVersion || shared.levelLabelsPending.pixels.empty())
+                return;
+            std::swap (pixels, shared.levelLabelsPending.pixels);
+            w = shared.levelLabelsPending.width;
+            h = shared.levelLabelsPending.height;
+            uploadedLevelLabelsVersion = shared.levelLabelsVersion;
+        }
+        if (w > 0 && h > 0 && pixels.size() == (size_t) (w * h))
+            levelLabelTex.upload (pixels.data(), w, h, 1, true, config.anisotropy);
+    }
+
+    /** The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window. */
+    void HardwareRenderer::drawWindows (const Mat4& levelPanel, const Mat4& balancerPanel)
+    {
+        const float levelLamp = unitLamp[(size_t) levelUnit], balancerPower = unitLamp[(size_t) balancerUnit];
+
+        waveTex.bind (0);
+        levelLabelTex.bind (1);
+        auto& wave = use (shaders::waveScreen);
+        wave.set ("uTex2", 1);
+        wave.set ("uParams", levelLamp, 0.0f, 0.0f, 0.0f);
+        draw (meshes.levelScopeGlass, levelPanel, {});
+
+        balancerDataTex.bind (0);
+        balancerLabelTex.bind (1);
+        auto& bal = use (shaders::balancerDisplay);
+        bal.set ("uTex2", 1);
+        bal.set ("uParams", 0.35f + 0.65f * balancerPower, 0.0f, 0.0f, 0.0f);
+        bal.setArray ("uBands", balancerBands.data(), (int) balancerBands.size());
+        static const std::array<float, 6> handleU = []
+        {
+            std::array<float, 6> u {};
+            const float centre[6] { 70.0f, 200.0f, 500.0f, 1300.0f, 3500.0f, 9000.0f };
+            for (size_t k = 0; k < 6; ++k)
+                u[k] = 0.02f + 0.96f * std::log (centre[k] / 20.0f) / std::log (1000.0f);
+            return u;
+        }();
+        bal.setArray ("uHandleU", handleU.data(), 6);
+        draw (meshes.balancerGlass, balancerPanel, {});
+
+        auto& walls = use (shaders::recess);
+        walls.set ("uParams", windowDepth, 0.0f, 0.0f, 0.0f);
+        walls.set ("uGlow", Vec3 { 0.05f, 0.045f, 0.03f } * levelLamp);
+        draw (meshes.levelScopeWalls, levelPanel, { 0.08f, 0.075f, 0.07f });
+        walls.set ("uGlow", Vec3 { 0.02f, 0.025f, 0.035f } * balancerPower);
+        draw (meshes.balancerWalls, balancerPanel, { 0.05f, 0.055f, 0.06f });
+
+        use (shaders::chrome).set ("uParams", 0.45f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.levelScopeBezel, levelPanel, { 0.09f, 0.09f, 0.10f });
+        draw (meshes.balancerBezel, balancerPanel, { 0.09f, 0.09f, 0.10f });
     }
 
     void HardwareRenderer::uploadOverlayIfChanged()
@@ -443,7 +697,7 @@ namespace pad
         }
 
         const float px = (float) vw / (float) juce::jmax (1, shared.viewWidth.load());
-        const float maxRadius = 62.0f * px;
+        const float maxRadius = 77.5f * px;   // 1.25x the original 62 px lens
         loupeRadius = maxRadius * (0.55f + 0.45f * loupeAlpha);   // grows out of the panel, shrinks back into it
         const float margin = loupeRadius + 6.0f * px;
         loupeCx = juce::jlimit (margin, std::max (margin, (float) vw - margin), (ax + 1.0f) * 0.5f * (float) vw);
@@ -648,46 +902,34 @@ namespace pad
         AUTO heaven moves REVERB, DECAY, SHIMMER, SPACE TONE, WIDTH, AIR and SUB toward what it chose, as far
         as it has blended in; MATCH turns OUTPUT by the level-match gain it is applying. Display only: the
         parameters keep the user's settings, which come back as the auto mode lets go. */
-    float HardwareRenderer::autoTurnedValue (const ControlDef& c, float value) const
+    float HardwareRenderer::autoTurnedValue (int control, float value) const
     {
-        namespace id = pad::params::id;
-        const std::string_view pid (c.paramId);
-        int chosenIndex = -1;
-        float fromDsp = 1.0f;   // knob units per DSP unit, before MULTIPLY
-        if      (pid == id::haloSpace)   { chosenIndex = 0; fromDsp = 10.0f; }
-        else if (pid == id::haloDecay)   { chosenIndex = 1; }
-        else if (pid == id::haloShimmer) { chosenIndex = 2; fromDsp = 10.0f; }
-        else if (pid == id::haloTone)    { chosenIndex = 3; fromDsp = 10.0f; }
-        else if (pid == id::haloWidth)   { chosenIndex = 4; fromDsp = 100.0f; }
-        else if (pid == id::silkAir)     { chosenIndex = 5; }
-        else if (pid == id::silkSub)     { chosenIndex = 6; }
-        else if (pid != id::silkOutput)
+        const int role = autoRole[(size_t) control];   // resolved once in the constructor
+        const auto* spec = autoSpec[(size_t) control];
+        if (role < 0 || spec == nullptr)
             return value;
 
-        const auto* spec = pad::params::findSpec (c.paramId);
-        if (spec == nullptr)
-            return value;
         const auto range = rangeOf (*spec);
         const float user = range.convertFrom0to1 (value);
-        auto realOf = [this] (const char* paramId)
+        auto realOf = [this] (int index, const pad::params::Spec* s)
         {
-            const auto* s = pad::params::findSpec (paramId);
-            return s != nullptr ? rangeOf (*s).convertFrom0to1 (bridge.getNormalised (bridge.indexOf (paramId))) : 0.0f;
+            return s != nullptr && index >= 0 ? rangeOf (*s).convertFrom0to1 (bridge.getNormalised (index)) : 0.0f;
         };
 
         float shown = user;
-        if (chosenIndex < 0)
+        if (role == autoOutputRole)
         {
-            if (realOf (id::silkAuto) > 0.5f)
+            if (realOf (silkAutoParam, silkAutoSpec) > 0.5f)
                 shown = user + meters.silkMatchDb.load (std::memory_order_relaxed);
         }
         else
         {
+            static constexpr float fromDsp[7] { 10.0f, 1.0f, 10.0f, 10.0f, 100.0f, 1.0f, 1.0f };   // knob units per DSP unit
             const float blend = meters.heavenAutoBlend.load (std::memory_order_relaxed);
-            const float multiply = realOf (id::seraphMultiply);
+            const float multiply = realOf (seraphMultiplyParam, seraphMultiplySpec);
             if (blend < 1.0e-3f || multiply < 0.05f)
                 return value;
-            const float chosen = meters.heavenAutoChoice[(size_t) chosenIndex].load (std::memory_order_relaxed) * fromDsp / multiply;
+            const float chosen = meters.heavenAutoChoice[(size_t) role].load (std::memory_order_relaxed) * fromDsp[role] / multiply;
             shown = user + (chosen - user) * blend;
         }
         return range.convertTo0to1 (std::clamp (shown, spec->minValue, spec->maxValue));
@@ -739,7 +981,7 @@ namespace pad
             }
 
             // An auto mode turns the knob itself (not while you are holding it)
-            const float shownValue = active == i ? value : autoTurnedValue (c, value);
+            const float shownValue = active == i ? value : autoTurnedValue (i, value);
             const float target = c.kind == ControlKind::selector ? selectorAngleForValue (shownValue) : knobAngleForValue (shownValue);
             const bool isHovered = (hovered == i || active == i);
             k.update (target, changed, (int) bridge.getLastSource (p), isHovered, dt);
@@ -798,9 +1040,12 @@ namespace pad
             const bool tideOn = bridge.getNormalised (bridge.indexOf (params::id::tideActive)) > 0.5f;
             const bool lumenOn = bridge.getNormalised (bridge.indexOf (params::id::lumenActive)) > 0.5f;
             const bool limiterOn = bridge.getNormalised (bridge.indexOf (params::id::spectralActive)) > 0.5f;
-            oneULamp[0] = anim::approach (oneULamp[0], tideOn ? 1.0f : 0.15f, 4.0f, dt);
-            oneULamp[1] = anim::approach (oneULamp[1], lumenOn ? 1.0f : 0.15f, 4.0f, dt);
-            oneULamp[2] = anim::approach (oneULamp[2], limiterOn ? 1.0f : 0.15f, 4.0f, dt);
+            const bool balancerOn = bridge.getNormalised (bridge.indexOf (params::id::balActive)) > 0.5f;
+            unitLamp[(size_t) tideUnit] = anim::approach (unitLamp[(size_t) tideUnit], tideOn ? 1.0f : 0.15f, 4.0f, dt);
+            unitLamp[(size_t) lumenUnit] = anim::approach (unitLamp[(size_t) lumenUnit], lumenOn ? 1.0f : 0.15f, 4.0f, dt);
+            unitLamp[(size_t) limiterUnit] = anim::approach (unitLamp[(size_t) limiterUnit], limiterOn ? 1.0f : 0.15f, 4.0f, dt);
+            unitLamp[(size_t) levelUnit] = anim::approach (unitLamp[(size_t) levelUnit], 1.0f, 4.0f, dt);   // a meter: always lit
+            unitLamp[(size_t) balancerUnit] = anim::approach (unitLamp[(size_t) balancerUnit], balancerOn ? 1.0f : 0.25f, 4.0f, dt);
 
             // SPECTRAL LIMITER: the moving cuts as the audio thread published them (or the demo)
             std::array<enh::dsp::SpectralLimiter::Slot, enh::dsp::SpectralLimiter::numSlots> cuts {};
@@ -840,6 +1085,9 @@ namespace pad
                 saturateUi (meters.lumenGainDb[2].load() / 18.0f),
                 saturateUi (deepest / 18.0f),
                 saturateUi (broadband / 12.0f),
+                // Loudness: -40 .. 0 LUFS across the dial (the demo swings them through the middle)
+                saturateUi ((demoMeters ? -18.0f + 7.0f * std::sin ((float) timeSeconds * 1.7f) : meters.momentaryLufs.load()) / 40.0f + 1.0f),
+                saturateUi ((demoMeters ? -20.0f + 2.0f * std::sin ((float) timeSeconds * 0.4f) : meters.shortTermLufs.load()) / 40.0f + 1.0f),
             };
 
             for (int i = 0; i < numNeedles; ++i)
@@ -1005,6 +1253,9 @@ namespace pad
         updateAnimation (dt);
         uploadOverlayIfChanged();
         uploadCalloutIfChanged();
+        uploadLevelLabelsIfChanged();
+        uploadScope();          // once a frame, however many views are drawn (the loupe draws the scene twice)
+        uploadDisplays (dt);
 
         const auto camera = CameraRig::build ((float) logicalW / (float) logicalH, parallaxX, parallaxY,
                                              { shared.focusUnit.load(), focusAmount });
@@ -1020,7 +1271,7 @@ namespace pad
         // Opening: zoom and fade together. Closing: the glass zooms back out first (fast), the
         // fade trails it (slow), so it reads as zooming out and then being gone.
         loupeAlpha = anim::approach (loupeAlpha, loupeWanted ? 1.0f : 0.0f, loupeWanted ? 17.0f : 6.5f, dt);
-        loupeZoom = anim::approach (loupeZoom, loupeWanted ? 2.2f : 1.0f, loupeWanted ? 10.0f : 15.0f, dt);
+        loupeZoom = anim::approach (loupeZoom, loupeWanted ? 1.8f : 1.0f, loupeWanted ? 10.0f : 15.0f, dt);   // gentler than 2.2x
         if (loupeAlpha > 0.01f)
             renderLoupeView (camera, w, h);
 
@@ -1098,10 +1349,12 @@ namespace pad
     /** One of the 1U units: brushed plate, engraved print, knobs in a bordered section, and
         moving-coil meters behind glass. All three are the same build, different print. */
     void HardwareRenderer::drawOneU (int unit, const Mat4& panel, Vec3 colour, const gfx::Texture2D& decal,
-                                     std::initializer_list<const gfx::Texture2D*> faces, const gfx::GpuMesh& faceTop)
+                                     std::initializer_list<const gfx::Texture2D*> faces)
     {
-        const float lamp = oneULamp[(size_t) (unit == tideUnit ? 0 : unit == lumenUnit ? 1 : 2)];
-        auto& model = unit == tideUnit ? tideVu : unit == lumenUnit ? lumenVu : limiterVu;
+        const float lamp = unitLamp[(size_t) unit];
+        auto& model = vuModelFor (unit);
+        auto& shell = outboard[(size_t) unit];
+        const float halfH = unitHalfH (unit);
 
         /*  The meters, grouped by material rather than by meter: every program switch costs a
             uniform upload, and the leveler has three of these side by side. */
@@ -1109,7 +1362,7 @@ namespace pad
 
         auto matrixFor = [&] (int i, bool moving)
         {
-            const auto at = panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ });
+            const auto at = panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuZ (unit, i) });
             if (! moving)
                 return at;
 
@@ -1164,35 +1417,36 @@ namespace pad
         auto& recessed = use (shaders::recess);
         recessed.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
         recessed.set ("uGlow", Vec3 {});
-        draw (meshes.oneUEarWalls, panel, { 0.09f, 0.09f, 0.10f });
+        draw (shell.earWalls, panel, { 0.09f, 0.09f, 0.10f });
 
         use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.oneUScrews, panel, { 0.75f, 0.74f, 0.78f });
+        draw (shell.screws, panel, { 0.75f, 0.74f, 0.78f });
 
         use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.oneUEarFloors, panel, { 0.012f, 0.012f, 0.014f });
+        draw (shell.earFloors, panel, { 0.012f, 0.012f, 0.014f });
 
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.oneUScrewSlots, panel, { 0.02f, 0.02f, 0.025f });
+        draw (shell.screwSlots, panel, { 0.02f, 0.02f, 0.025f });
 
         // Brushed faceplate with the print engraved into it
         decal.bind (0);
         auto& plate = use (shaders::brushed);
-        plate.set ("uParams", -faceHalfW, -oneUHalfH, 2.0f * faceHalfW, 2.0f * oneUHalfH);
+        plate.set ("uParams", -faceHalfW, -halfH, 2.0f * faceHalfW, 2.0f * halfH);
         plate.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) unit);      // .w seeds this unit's wear
-        draw (faceTop, panel, colour);
-        draw (meshes.oneUFaceEdges, panel, colour * 0.82f);
+        plate.setArray ("uWear", hwk::shaders::wearUniforms ((float) unit + 7.0f).data(), 15);
+        draw (shell.faceTop, panel, colour);
+        draw (shell.faceEdges, panel, colour * 0.82f);
 
         use (shaders::chassis);
-        draw (meshes.oneUBody, panel, colours::chassisBlack);
+        draw (shell.body, panel, colours::chassisBlack);
         use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - oneUHalfH }), { 0.42f, 0.42f, 0.44f });
+        draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - halfH }), { 0.42f, 0.42f, 0.44f });
     }
 
     /** The cover glass over a unit's meters, drawn with everything else transparent. */
     void HardwareRenderer::drawVuGlass (int unit, const Mat4& panel)
     {
-        auto& model = unit == tideUnit ? tideVu : unit == lumenUnit ? lumenVu : limiterVu;
+        auto& model = vuModelFor (unit);
         use (shaders::vuGlass);
 
         for (auto& part : model.parts)
@@ -1201,7 +1455,7 @@ namespace pad
                 continue;
 
             for (int i = 0; i < numVus (unit); ++i)
-                draw (part->mesh, panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ }), part->colour);
+                draw (part->mesh, panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuZ (unit, i) }), part->colour);
         }
     }
 
@@ -1221,10 +1475,12 @@ namespace pad
         const Mat4 tidePanel = panelToWorld (tideUnit);
         const Mat4 lumenPanel = panelToWorld (lumenUnit);
         const Mat4 limiterPanel = panelToWorld (limiterUnit);
+        const Mat4 levelPanel = panelToWorld (levelUnit);
+        const Mat4 balancerPanel = panelToWorld (balancerUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
-                 : unit == limiterUnit ? limiterPanel : panel;
+                 : unit == limiterUnit ? limiterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel : panel;
         };
 
         const Mat4 I = Mat4::identity();
@@ -1334,10 +1590,15 @@ namespace pad
         }
 
         // --- the 1U units: compressor and leveler in natural aluminium, the limiter anodised steel-blue
-        drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, { &tideLabelTex }, meshes.tideFaceTop);
-        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, { &lumenLabelTex }, meshes.lumenFaceTop);
+        drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, { &tideLabelTex });
+        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, { &lumenLabelTex });
         drawOneU (limiterUnit, limiterPanel, Vec3 { 0.46f, 0.52f, 0.60f }, limiterDecalTex,
-                  { &limiterLabelTex[0], &limiterLabelTex[1] }, meshes.limiterFaceTop);
+                  { &limiterLabelTex[0], &limiterLabelTex[1] });
+
+        // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
+        drawOneU (levelUnit, levelPanel, Vec3 { 0.64f, 0.645f, 0.66f }, levelDecalTex, { &levelFaceTex[0], &levelFaceTex[1] });
+        drawOneU (balancerUnit, balancerPanel, Vec3 { 0.25f, 0.26f, 0.285f }, balancerDecalTex, {});
+        drawWindows (levelPanel, balancerPanel);
 
         // --- TONE & SPACE: display, lamp, screws, faceplate, chassis ----------------------------
         {
@@ -1378,6 +1639,7 @@ namespace pad
             auto& paint = use (shaders::paint);
             paint.set ("uParams", -faceHalfW, -tubeHalfH, 2.0f * faceHalfW, 2.0f * tubeHalfH);
             paint.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) tubeUnit);
+            paint.setArray ("uWear", hwk::shaders::wearUniforms ((float) tubeUnit + 3.0f).data(), 15);
             draw (meshes.tubeFaceTop, tubePanel, colours::seraphPurple);
             draw (meshes.tubeFaceEdges, tubePanel, colours::seraphPurple);
 
@@ -1425,7 +1687,6 @@ namespace pad
         draw (meshes.displayBezel, panel, { 0.03f, 0.031f, 0.035f });
 
         // Analyser: the spectrum strip on unit 0, the printed graticule on unit 1
-        uploadScope();
         scopeTex.bind (0);
         overlayTex.bind (1);
         auto& display = use (shaders::display);
@@ -1452,6 +1713,7 @@ namespace pad
         decalTex.bind (0);
         auto& face = use (shaders::faceplate);
         face.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) enhUnit);
+        face.setArray ("uWear", hwk::shaders::wearUniforms ((float) enhUnit).data(), 15);
         face.set ("uParams", -faceHalfW, -faceHalfH, 2.0f * faceHalfW, 2.0f * faceHalfH);
         draw (meshes.faceTop, panel, zero);
         draw (meshes.faceEdges, panel, zero);
@@ -1577,6 +1839,7 @@ namespace pad
             drawVuGlass (tideUnit, tidePanel);
             drawVuGlass (lumenUnit, lumenPanel);
             drawVuGlass (limiterUnit, limiterPanel);
+            drawVuGlass (levelUnit, levelPanel);
             glDepthMask (GL_TRUE);
         }
 

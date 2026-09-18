@@ -21,7 +21,9 @@ namespace enh::dsp
         limiter.prepare (sr, maxBlock, controlInterval);
         tide.prepare (sr, numChannels);
         seraph.prepare (sr);
+        balancer.prepare (sr, numChannels);
         output.prepare (sr);
+        loudness.prepare (sr);
         reset();
     }
 
@@ -38,6 +40,8 @@ namespace enh::dsp
         limiter.reset();
         tide.reset();
         seraph.reset();
+        balancer.reset();
+        loudness.reset();
 
         samplesToTick = controlInterval;
         planCountdown = 0;
@@ -87,7 +91,24 @@ namespace enh::dsp
     {
         juce::ScopedNoDenormals noDenormals;
 
-        // Analyser tap, before anything: the audio thread only copies samples.
+        // LEVEL, first: every unit after it hears the level it sets (smoothed over ~20 ms)
+        {
+            const float target = std::pow (10.0f, std::clamp (p.levelDb, -24.0f, 12.0f) / 20.0f);
+            const float k = 1.0f - std::exp (-1.0f / (0.020f * (float) sampleRate));
+            const int chans = std::min (2, buffer.getNumChannels());
+            auto* const* w = buffer.getArrayOfWritePointers();
+            if (std::abs (levelGain - target) > 1.0e-6f || std::abs (levelGain - 1.0f) > 1.0e-6f)
+                for (int i = 0; i < buffer.getNumSamples(); ++i)
+                {
+                    levelGain += (target - levelGain) * k;
+                    for (int c = 0; c < chans; ++c)
+                        w[c][i] *= levelGain;
+                }
+            levelDbNow = 20.0f * std::log10 (std::max (1.0e-6f, levelGain));
+            meters.levelDb.store (levelDbNow, std::memory_order_relaxed);
+        }
+
+        // Analyser tap, before anything else: the audio thread only copies samples.
         scopeIn.push (buffer.getArrayOfReadPointers(), std::min (2, buffer.getNumChannels()), buffer.getNumSamples());
 
         // Hosts may exceed the prepared block size: process in chunks the oversampler accepts.
@@ -95,6 +116,24 @@ namespace enh::dsp
             processChunk (buffer, start, std::min (maxBlock, buffer.getNumSamples() - start), p);
 
         scopeOut.push (buffer.getArrayOfReadPointers(), std::min (2, buffer.getNumChannels()), buffer.getNumSamples());
+
+        // Loudness of what leaves the rack
+        if (loudnessResetPending.exchange (false, std::memory_order_relaxed))
+            loudness.resetIntegrated();
+        loudness.process (buffer.getArrayOfReadPointers(), buffer.getNumChannels(), buffer.getNumSamples());
+        meters.momentaryLufs.store (loudness.getMomentaryLufs(), std::memory_order_relaxed);
+        meters.shortTermLufs.store (loudness.getShortTermLufs(), std::memory_order_relaxed);
+        meters.integratedLufs.store (loudness.getIntegratedLufs(), std::memory_order_relaxed);
+        meters.truePeakDb.store (loudness.getTruePeakDb(), std::memory_order_relaxed);
+
+        for (int b = 0; b < MixBalancer::numBands; ++b)
+        {
+            meters.balanceGainDb[(size_t) b].store (balancer.getGainDb (b), std::memory_order_relaxed);
+            meters.balanceLevelDb[(size_t) b].store (balancer.getLevelDb (b), std::memory_order_relaxed);
+        }
+        for (int r = 0; r < FinalLimiter::numRegions; ++r)
+            meters.outputRegionCutDb[(size_t) r].store (output.getRegionCutDb()[(size_t) r], std::memory_order_relaxed);
+        meters.outputLimitDb.store (output.getReductionDb(), std::memory_order_relaxed);
 
         const auto& comp = tide.getReadout();
         meters.tideGrDb.store (comp.gainReductionDb, std::memory_order_relaxed);
@@ -199,8 +238,15 @@ namespace enh::dsp
         // is, so the compressor after it only reacts to what is loud across the whole programme.
         auto lumenSettings = p.lumen;
         lumenSettings.holdGains = p.limiter.active && limiter.isHandlingLocalisedEvent();
+        lumenSettings.levelDb = levelDbNow;   // LEVEL moves the whole rack; the leveler reads levels relative to it
         lumen.process (chunk, chans, n, lumenSettings);
         limiter.process (chunk, chans, n, p.limiter);
+
+        // MIX BALANCER, with taps either side of it for its display
+        scopeBalIn.push (chunk, chans, n);
+        balancer.process (chunk, chans, n, p.balancer);
+        scopeBalOut.push (chunk, chans, n);
+
         tide.process (chunk, chans, n, p.tide, p.limiter.active ? limiter.key() : nullptr);
         seraph.process (chunk, chans, n, p.seraph);
 

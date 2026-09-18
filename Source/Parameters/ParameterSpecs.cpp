@@ -23,7 +23,7 @@ namespace pad::params
             { id::lumenResponse, "Leveler Response", "RESPONSE", "",    Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
             { id::spectralRange,   "Spectral Limiter Range",   "RANGE",   " dB", Kind::continuous, 0.0f, 18.0f, 9.0f, 1 },
             { id::spectralRelease, "Spectral Limiter Release", "RELEASE", " ms", Kind::continuous, 30.0f, 600.0f, 150.0f, 0, 150.0f },
-            { id::spectralCeiling, "Spectral Limiter Ceiling", "CEILING", " dB", Kind::continuous, -12.0f, 0.0f, -3.0f, 1 },
+            { id::spectralCeiling, "Spectral Limiter Ceiling", "CEILING", " dB", Kind::continuous, -12.0f, 0.0f, 0.0f, 1 },
             { id::spectralActive,  "Spectral Limiter In",      "IN",      "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
 
             { id::lumenActive,   "Leveler In", "IN",       "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
@@ -56,6 +56,15 @@ namespace pad::params
             { id::haloDuck,    "Space Duck",       "DUCK",    "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
             { id::haloBassMono,"Space Bass Mono",  "BASS MONO","",   Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
             { id::haloMod,     "Space Mod",        "MOD",     "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
+
+            { id::levelGain,     "Level",           "LEVEL",   " dB", Kind::continuous, -24.0f, 12.0f, 0.0f, 1 },
+            { id::loudnessReset, "Loudness Reset",  "RESET",   "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },
+
+            { id::balAmount, "Balancer Balance", "BALANCE", "",    Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
+            { id::balSpeed,  "Balancer Speed",   "SPEED",   "",    Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
+            { id::balTilt,   "Balancer Tilt",    "TILT",    "",    Kind::continuous, -5.0f, 5.0f, 0.0f, 1 },
+            { id::balRange,  "Balancer Range",   "RANGE",   " dB", Kind::continuous, 0.0f, 12.0f, 6.0f, 1 },
+            { id::balActive, "Balancer In",      "IN",      "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
 
             { id::presetPrev,  "Preset Previous",  "PREV",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },
             { id::presetNext,  "Preset Next",      "NEXT",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },

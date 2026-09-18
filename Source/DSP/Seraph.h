@@ -105,9 +105,10 @@ namespace enh::dsp
         int controlInterval = 32, toTick = 0;
 
         // Detection (mono)
-        std::array<BiquadCoeffs, numBands> detect {};
-        std::array<BiquadState, numBands> detectState {};
-        std::array<float, numBands> fast {}, slow {}, cutDb {}, bandHz {};
+        BiquadBank<numBands> detect {};                  // SMOOTH's detection bands, all at once
+        alignas (16) std::array<float, numBands> fast {}, slow {};
+        std::array<float, numBands> cutDb {}, bandHz {};
+        int dipsDesigned = 0;                            // bands with a dip in the signal path (PROTECT only checks then)
         std::array<int, numBands> onsetHold {};
         std::array<PeakingDesigner, numBands> designers {};
         std::array<BiquadCoeffs, numBands> dipCoeffs {};

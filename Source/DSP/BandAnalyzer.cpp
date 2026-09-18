@@ -14,10 +14,10 @@ namespace enh::dsp
             if (active[(size_t) k])
                 activeCount = k + 1;
 
-            coeffs[(size_t) k] = BiquadCoeffs::bandPass (sr, hz, 2.5);
-            transient[(size_t) k].setup (sr, 0.0008, 0.015);   // ~290 dB/s release
-            shortTerm[(size_t) k].setup (sr, 0.008, 0.045);    // ~95 dB/s release
-            medium[(size_t) k].setup (sr, 0.150, 0.450);
+            filters.set (k, BiquadCoeffs::bandPass (sr, hz, 2.5));
+            transient.setup (k, sr, 0.0008, 0.015);   // ~290 dB/s release
+            shortTerm.setup (k, sr, 0.008, 0.045);    // ~95 dB/s release
+            medium.setup (k, sr, 0.150, 0.450);
         }
 
         fullTransient.setup (sr, 0.0008, 0.015);
@@ -27,10 +27,12 @@ namespace enh::dsp
 
     void BandAnalyzer::reset()
     {
+        filters.reset();
+        transient.reset();
+        shortTerm.reset();
+        medium.reset();
         for (int k = 0; k < numBands; ++k)
         {
-            state[(size_t) k].reset();
-            transient[(size_t) k].env = shortTerm[(size_t) k].env = medium[(size_t) k].env = 0.0f;
             transientDb[(size_t) k] = shortDb[(size_t) k] = mediumDb[(size_t) k] = meanDb[(size_t) k] = ltasDb[(size_t) k] = -120.0f;
             ltasPower[(size_t) k] = 0.0f;
             floorDb[(size_t) k] = -90.0f;
@@ -62,11 +64,11 @@ namespace enh::dsp
         for (int k = 0; k < activeCount; ++k)
         {
             const auto i = (size_t) k;
-            transientDb[i] = transient[i].db();
-            shortDb[i] = shortTerm[i].db();
-            mediumDb[i] = medium[i].db();
+            transientDb[i] = transient.db ((int) i);
+            shortDb[i] = shortTerm.db ((int) i);
+            mediumDb[i] = medium.db ((int) i);
 
-            ltasPower[i] += (shortTerm[i].env - ltasPower[i]) * ltasK;
+            ltasPower[i] += (shortTerm.env[i] - ltasPower[i]) * ltasK;
             ltasDb[i] = powerToDb (ltasPower[i]);
 
             // Rolling mean / variance of the short-term level (self-tuning statistics)

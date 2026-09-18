@@ -73,6 +73,17 @@ namespace pad::params
         inline constexpr const char* haloBassMono = "haloBassMono";  // mono below 120 Hz
         inline constexpr const char* haloMod      = "haloMod";       // tail modulation
 
+        // LEVEL & LOUDNESS (first in the chain)
+        inline constexpr const char* levelGain     = "levelGain";      // LEVEL: the rack's working level (dB)
+        inline constexpr const char* loudnessReset = "loudnessReset";  // RESET: integrated loudness + true-peak hold (momentary)
+
+        // MIX BALANCER (4U)
+        inline constexpr const char* balAmount = "balAmount";   // BALANCE: how much of each jump it corrects
+        inline constexpr const char* balSpeed  = "balSpeed";    // SPEED: how quickly it rides
+        inline constexpr const char* balTilt   = "balTilt";     // TILT: darker .. brighter target
+        inline constexpr const char* balRange  = "balRange";    // RANGE: most any band moves (dB)
+        inline constexpr const char* balActive = "balActive";   // IN
+
         // Rack-wide: the PRESET buttons on the ADAPTIVE ENHANCER (momentary, not automatable)
         inline constexpr const char* presetPrev   = "presetPrev";
         inline constexpr const char* presetNext   = "presetNext";

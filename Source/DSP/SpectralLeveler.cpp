@@ -53,7 +53,7 @@ namespace enh::dsp
         for (int b = 0; b < numBands; ++b)
         {
             auto& st = bands[(size_t) b];
-            const float levelDb = levelToDb (st.rms);
+            const float levelDb = levelToDb (st.rms) - s.levelDb;   // as if LEVEL were 0 dB
 
             // What counts as loud in this band, right now: quick to rise, slow to fall.
             const float up = 1.0f - std::exp (-dt / (0.10f + 0.20f * (1.0f - resp)));

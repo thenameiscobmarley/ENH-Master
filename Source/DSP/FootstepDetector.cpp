@@ -310,8 +310,8 @@ namespace enh::dsp
             float tSum = 0.0f, sSum = 0.0f;
             for (int j = lo; j <= hi; ++j)
             {
-                tSum += a.transient[(size_t) j].env;
-                sSum += a.shortTerm[(size_t) j].env;
+                tSum += a.transient.env[(size_t) j];
+                sSum += a.shortTerm.env[(size_t) j];
             }
 
             const float flux = std::max (0.0f, powerToDb (tSum) - powerToDb (sSum));
@@ -319,7 +319,7 @@ namespace enh::dsp
             onsetBand[i] = saturate01 ((flux - 2.5f) / 6.0f) * saturate01 ((prominence - 4.0f) / 9.0f);
             strengthSum += onsetBand[i];
 
-            const double t = a.transient[i].env, sh = a.shortTerm[i].env;
+            const double t = a.transient.env[i], sh = a.shortTerm.env[i];
             if (lowBand[i])   { lowT += t; lowS += sh; }
             if (highBand[i])  { highT += t; highS += sh; }
             if (voiceBand[i]) { voiceT += t; voiceS += sh; }
@@ -388,7 +388,7 @@ namespace enh::dsp
                 for (int k = 0; k < activeCount; ++k)
                 {
                     peakDb[(size_t) k] = std::max (peakDb[(size_t) k], a.transientDb[(size_t) k]);
-                    energy += a.transient[(size_t) k].env;
+                    energy += a.transient.env[(size_t) k];
                 }
                 if (energy > eventPeakEnergy)
                 {

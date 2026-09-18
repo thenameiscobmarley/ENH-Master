@@ -171,7 +171,11 @@ namespace pad::geo
         {
             if (unit == enhUnit)  return { earSlots[0].cz, earSlots[1].cz };
             if (unit == tubeUnit) return { tubeEarSlots[0].cz, tubeEarSlots[1].cz };
-            return { oneUEarSlots[0].cz };
+            std::vector<float> zs;
+            for (auto& slot : outboardEarSlots (unit))
+                if (slot.cx < 0.0f)
+                    zs.push_back (slot.cz);
+            return zs;
         }
     }
 
@@ -425,52 +429,56 @@ namespace pad::geo
 
 
     //==============================================================================
-    // The two 1U units: same shell, different print
+    // The outboard units (the three 1U units, LEVEL & LOUDNESS, MIX BALANCER): same build, their own
+    // height, meters, windows and print
     MeshData oneUFaceTop (int unit)
     {
         std::vector<Rect> holes;
         for (int i = 0; i < numVus (unit); ++i)
-            holes.push_back ({ vuX (unit, i), vuCentreZ, vuHalfW (unit), vuHalfH });
-        holes.insert (holes.end(), oneUEarSlots.begin(), oneUEarSlots.end());
-        return plateWithHoles ({ 0.0f, 0.0f, faceHalfW - 0.016f, oneUHalfH - 0.016f }, 0.0f, holes);
+            holes.push_back ({ vuX (unit, i), vuZ (unit, i), vuHalfW (unit), vuHalfH });
+        for (auto& w : outboardWindows (unit))
+            holes.push_back (w);
+        for (auto& slot : outboardEarSlots (unit))
+            holes.push_back (slot);
+        return plateWithHoles ({ 0.0f, 0.0f, faceHalfW - 0.016f, unitHalfH (unit) - 0.016f }, 0.0f, holes);
     }
 
-    MeshData oneUFaceEdges()
+    MeshData oneUFaceEdges (int unit)
     {
         constexpr float r = 0.020f;
-        return sweptRoundedRect (faceHalfW - r, oneUHalfH - r, r, 2,
+        return sweptRoundedRect (faceHalfW - r, unitHalfH (unit) - r, r, 2,
                                  { { 0.0f, -faceThick }, { 0.0f, -0.014f }, { -0.014f, 0.0f } }, false);
     }
 
-    MeshData oneUEarWalls()
+    MeshData oneUEarWalls (int unit)
     {
         MeshData mesh;
-        for (auto& slot : oneUEarSlots)
+        for (auto& slot : outboardEarSlots (unit))
             mesh.append (wellWalls (slot, 0.0f, faceThick));
         return mesh;
     }
 
-    MeshData oneUEarFloors()
+    MeshData oneUEarFloors (int unit)
     {
         MeshData mesh;
-        for (auto& slot : oneUEarSlots)
+        for (auto& slot : outboardEarSlots (unit))
             mesh.append (horizontalQuad (slot, -faceThick));
         return mesh;
     }
 
-    MeshData oneUScrewHeads()
+    MeshData oneUScrewHeads (int unit)
     {
         MeshData mesh;
         const auto head = rackScrewHead();
-        for (auto& slot : oneUEarSlots)
+        for (auto& slot : outboardEarSlots (unit))
             mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
         return mesh;
     }
 
-    MeshData oneUScrewSlots()
+    MeshData oneUScrewSlots (int unit)
     {
         MeshData mesh;
-        for (auto& slot : oneUEarSlots)
+        for (auto& slot : outboardEarSlots (unit))
         {
             const float x = slot.cx + (slot.cx > 0 ? -0.02f : 0.02f);
             mesh.append (box ({ x - 0.021f, 0.0315f, slot.cz - 0.0042f }, { x + 0.021f, 0.0345f, slot.cz + 0.0042f }));
@@ -479,6 +487,17 @@ namespace pad::geo
         return mesh;
     }
 
+    // A display window: its well, the glass at the bottom of it (uv 0..1 across), and a bezel round it
+    MeshData windowWalls (const Rect& r)  { return wellWalls (r, 0.0f, windowDepth); }
+    MeshData windowGlass (const Rect& r)  { return horizontalQuad (r, -windowDepth); }
 
-
+    MeshData windowBezel (const Rect& v)
+    {
+        constexpr float r = 0.022f;
+        MeshData mesh;
+        mesh.append (sweptRoundedRect (v.hw - r, v.hd - r, r, 4,
+                                       { { 0.034f, 0.0f }, { 0.034f, 0.009f }, { 0.021f, 0.018f }, { 0.004f, 0.018f }, { 0.0f, 0.006f }, { 0.0f, 0.0f } }, false),
+                     Mat4::translation ({ v.cx, 0.0f, v.cz }));
+        return mesh;
+    }
 }

@@ -617,10 +617,11 @@ namespace
                     if (sl.depthDb >= out.cutDuringDb - 1.0e-3f && sl.depthDb > 0.5f)
                         out.cutHz = sl.hz;
             }
-            if (std::getenv ("LIMITER_TRACE") != nullptr && limiterIn && blockSize == 128 && broadbandEvent == (std::atoi (std::getenv ("LIMITER_TRACE")) == 2) && ((t > (std::getenv ("LIMITER_FROM") ? std::atof (std::getenv ("LIMITER_FROM")) : eventAt - 0.6) && t < eventAt + 0.6 && pos % (blockSize * (std::getenv ("LIMITER_FINE") ? 1 : 24)) == 0)))
+            if (std::getenv ("LIMITER_TRACE") != nullptr && limiterIn && (blockSize == 128 || std::getenv ("PRESET_DIAG")) && broadbandEvent == (std::atoi (std::getenv ("LIMITER_TRACE")) == 2) && ((t > (std::getenv ("LIMITER_FROM") ? std::atof (std::getenv ("LIMITER_FROM")) : eventAt - 0.6) && t < eventAt + 0.6 && pos % (blockSize * (std::getenv ("LIMITER_FINE") ? 1 : 24)) == 0)))
             {
                 const auto& v = lim.getBandView();
-                std::printf ("   t=%.2f cut=%.1f bb=%.1f loc=%.2f tideGR=%.1f |", t, lim.getDeepestCutDb(), lim.getBroadbandDb(), lim.getLocalisation(), engine.getCompressor().getReadout().gainReductionDb);
+                std::printf ("   t=%.2f cut=%.1f bb=%.1f loc=%.2f tideGR=%.1f levH=%.1f hold=%d |", t, lim.getDeepestCutDb(), lim.getBroadbandDb(), lim.getLocalisation(), engine.getCompressor().getReadout().gainReductionDb,
+                             engine.getLeveler().getReadout().gainDb[2], lim.isHandlingLocalisedEvent() ? 1 : 0);
                 for (int k = 0; k < 12; ++k) std::printf (" %3.0f:%+.0f/%.0f", enh::dsp::BandAnalyzer::centreHz (k), v.excursionDb[(size_t) k], v.normalDb[(size_t) k]); std::printf (" | over"); for (int k = 0; k < 12; ++k) std::printf (" %+.0f", v.overDb[(size_t) k]);
                 std::printf ("\n");
             }
@@ -740,6 +741,10 @@ namespace
             else if (i == id::lumenActive) k.lumenActive = on;
             else if (i == id::spectralRange) k.spectralRangeDb = v;     else if (i == id::spectralRelease) k.spectralReleaseMs = v;
             else if (i == id::spectralCeiling) k.spectralCeilingDb = v; else if (i == id::spectralActive) k.spectralActive = on;
+            else if (i == id::levelGain) k.levelDb = v;
+            else if (i == id::balAmount) k.balAmount = v;   else if (i == id::balSpeed) k.balSpeed = v;
+            else if (i == id::balTilt) k.balTilt = v;       else if (i == id::balRange) k.balRangeDb = v;
+            else if (i == id::balActive) k.balActive = on;
             else if (i == id::seraphMode) k.seraphMode = juce::roundToInt (v);
             else if (i == id::seraphMultiply) k.seraphMultiply = v; else if (i == id::seraphStrength) k.seraphStrength = v;
             else if (i == id::silkSmooth) k.smooth = v;   else if (i == id::silkAir) k.air = v;
@@ -1122,6 +1127,300 @@ namespace
     }
 }
 
+namespace
+{
+    /** Golden output: the whole rack's exact output for fixed scenes, saved once and compared after an
+        optimisation. An optimisation that changes nothing audible stays within float rounding
+        (-120 dB); anything above that is a real change to the sound.
+          --golden write <file>   save      --golden check <file>   compare */
+    /** The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER. */
+    void runNewUnitTests (double sr)
+    {
+        using enh::dsp::LoudnessMeter;
+        using enh::dsp::FinalLimiter;
+        using enh::dsp::MixBalancer;
+        const double twoPi = 6.283185307179586;
+
+        std::printf ("\n== LOUDNESS METER (EBU Tech 3341 cases) ==\n");
+        {
+            LoudnessMeter m;
+            m.prepare (sr);
+            const float amp = std::pow (10.0f, -23.0f / 20.0f);
+            std::vector<float> l ((size_t) (20.0 * sr)), r;
+            for (size_t i = 0; i < l.size(); ++i)
+                l[i] = amp * (float) std::sin (twoPi * 1000.0 * (double) i / sr);
+            r = l;
+            const float* ch[2] { l.data(), r.data() };
+            m.process (ch, 2, (int) l.size());
+            std::printf ("  stereo 1 kHz sine at -23 dBFS: M %.2f  S %.2f  I %.2f LUFS\n", m.getMomentaryLufs(), m.getShortTermLufs(), m.getIntegratedLufs());
+            check (std::abs (m.getMomentaryLufs() + 23.0f) < 0.1f && std::abs (m.getShortTermLufs() + 23.0f) < 0.1f
+                   && std::abs (m.getIntegratedLufs() + 23.0f) < 0.1f, "-23 dBFS stereo 1 kHz reads -23.0 LUFS (M, S, I within 0.1)");
+
+            // Then 20 s of silence: gated out of the integrated reading
+            std::vector<float> z ((size_t) (20.0 * sr), 0.0f);
+            const float* zc[2] { z.data(), z.data() };
+            m.process (zc, 2, (int) z.size());
+            check (std::abs (m.getIntegratedLufs() + 23.0f) < 0.1f, "silence is gated out of the integrated loudness");
+            m.resetIntegrated();
+            check (m.getIntegratedLufs() <= -69.9f, "RESET clears the integrated loudness");
+        }
+        {
+            // True peak: fs/4 at 45 degrees - every sample sits at 0.707 of the real peak
+            LoudnessMeter m;
+            m.prepare (48000.0);
+            std::vector<float> l (48000);
+            for (size_t i = 0; i < l.size(); ++i)
+                l[i] = 0.5f * (float) std::sin (twoPi * 12000.0 * (double) i / 48000.0 + 0.25 * 3.14159265);
+            const float* ch[2] { l.data(), l.data() };
+            m.process (ch, 2, (int) l.size());
+            std::printf ("  12 kHz at -6.02 dBFS true peak, samples at -9.03: true peak %.2f dBTP\n", m.getTruePeakDb());
+            check (std::abs (m.getTruePeakDb() + 6.02f) < 0.5f, "true peak finds the peak between the samples (within 0.5 dB)");
+        }
+
+        std::printf ("\n== LEVEL ==\n");
+        {
+            const auto scene = makeScene (sr, 8.0, true, false, 5);
+            // Both under full scale, so the output limiter (0 dBFS) is out of the picture
+            auto flat = presetParameters (presetNamed ("TRANSPARENT (ALL OUT)"));
+            flat.levelDb = -6.0f;
+            auto down = flat;
+            down.levelDb = -18.0f;
+            const auto a = run (scene, sr, 256, flat), b = run (scene, sr, 256, down);
+            const double da = rmsDb (a.outL, a.outR, (size_t) (2.0 * sr)), db = rmsDb (b.outL, b.outR, (size_t) (2.0 * sr));
+            std::printf ("  TRANSPARENT, LEVEL -6 -> -18 dB: output %+.2f dB\n", db - da);
+            check (std::abs ((db - da) + 12.0) < 0.1, "LEVEL -12 dB takes the rack's output down 12 dB");
+
+            // The leveler's target moves with LEVEL: it does not lift the rack back up
+            auto p0 = presetParameters (presetNamed ("DEFAULT")), p1 = p0;
+            p1.levelDb = -12.0f;
+            float lift0 = 0.0f, lift1 = 0.0f;
+            run (scene, sr, 256, p0, [&] (const EnhEngine& e) { lift0 = e.getLeveler().getReadout().totalGainDb; });
+            run (scene, sr, 256, p1, [&] (const EnhEngine& e) { lift1 = e.getLeveler().getReadout().totalGainDb; });
+            std::printf ("  DEFAULT: leveler lift at LEVEL 0 dB %.2f dB, at -12 dB %.2f dB\n", lift0, lift1);
+            check (std::abs (lift1 - lift0) < 1.0f, "the leveler does not fight LEVEL (same lift within 1 dB)");
+        }
+
+        std::printf ("\n== OUTPUT LIMITER: only real overs, and the region causing them ==\n");
+        {
+            FinalLimiter lim;
+            lim.prepare (sr);
+            const int n = (int) (2.0 * sr), lat = lim.getLatencySamples();
+            std::vector<float> in ((size_t) n), l, r;
+            for (int i = 0; i < n; ++i)
+                in[(size_t) i] = 0.89f * (float) std::sin (twoPi * 60.0 * i / sr);   // -1 dBFS
+            l = r = in;
+            float* ch[2] { l.data(), r.data() };
+            lim.process (ch, 2, n);
+            double maxDiff = 0.0;
+            for (int i = lat; i < n; ++i)
+                maxDiff = std::max (maxDiff, (double) std::abs (l[(size_t) i] - in[(size_t) (i - lat)]));
+            std::printf ("  -1 dBFS through it: largest change %.2g\n", maxDiff);
+            check (maxDiff < 1.0e-5, "under 0 dBFS nothing is touched");
+        }
+        {
+            // A clipping bass hit under a steady 2 kHz tone: the bass comes down, the tone stays
+            FinalLimiter lim;
+            lim.prepare (sr);
+            const int n = (int) (3.0 * sr);
+            std::vector<float> l ((size_t) n), bassOnly ((size_t) n), tone ((size_t) n);
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = i / sr;
+                const float bass = t > 1.0 && t < 2.0 ? 1.6f * (float) std::sin (twoPi * 55.0 * t) : 0.0f;
+                tone[(size_t) i] = 0.1f * (float) std::sin (twoPi * 2000.0 * t);
+                l[(size_t) i] = bass + tone[(size_t) i];
+            }
+            auto r = l;
+            float* ch[2] { l.data(), r.data() };
+            lim.process (ch, 2, n);
+            enh::dsp::BiquadCoeffs bp = enh::dsp::BiquadCoeffs::bandPass (sr, 2000.0, 4.0);
+            enh::dsp::BiquadState s1, s2;
+            double before = 0.0, during = 0.0, peak = 0.0;
+            int nb = 0, nd = 0;
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = i / sr;
+                const float d = s2.process (bp, s1.process (bp, l[(size_t) i]));
+                peak = std::max (peak, (double) std::abs (l[(size_t) i]));
+                if (t > 0.5 && t < 0.95) { before += d * d; ++nb; }
+                if (t > 1.2 && t < 1.9) { during += d * d; ++nd; }
+            }
+            const double dip = 10.0 * std::log10 ((during / nd) / (before / nb));
+            std::printf ("  +4 dB bass over a 2 kHz tone: low region cut %.1f dB, tone %+.2f dB, peak %.3f\n",
+                         lim.getRegionCutDb()[0], dip, peak);
+            check (peak <= 1.0 && dip > -1.0, "a clipping bass hit is cut in the bass: the 2 kHz tone stays within 1 dB, output under 0 dBFS");
+        }
+
+        std::printf ("\n== MIX BALANCER ==\n");
+        {
+            auto balance = [&] (bool loudAll, bool burst, int& cutBand, float& cutDb, float& otherMax)
+            {
+                MixBalancer b;
+                b.prepare (sr, 2);
+                MixBalancer::Settings s;
+                s.active = true; s.amount = 0.6f; s.speed = 0.5f; s.rangeDb = 8.0f;
+                const int n = (int) (8.0 * sr);
+                std::vector<float> l ((size_t) n);
+                juce::Random rnd (3);
+                enh::dsp::BiquadCoeffs pink = enh::dsp::BiquadCoeffs::lowPass (sr, 3000.0, 0.5);
+                enh::dsp::BiquadState ps;
+                for (int i = 0; i < n; ++i)
+                {
+                    const double t = i / sr;
+                    float x = ps.process (pink, rnd.nextFloat() * 2.0f - 1.0f) * 0.2f;
+                    if (loudAll && t > 5.0) x *= 3.16f;                                   // everything +10 dB
+                    if (burst && t > 5.0) x += 0.25f * (float) std::sin (twoPi * 500.0 * t);  // one region jumps
+                    l[(size_t) i] = x;
+                }
+                auto r = l;
+                // In blocks, noting each band's largest move over the second after the change
+                std::array<float, MixBalancer::numBands> most {};
+                for (int pos = 0; pos < n; pos += 256)
+                {
+                    const int m = std::min (256, n - pos);
+                    float* ch[2] { l.data() + pos, r.data() + pos };
+                    b.process (ch, 2, m, s);
+                    const double t = pos / sr;
+                    if (t > 5.1 && t < 6.2)
+                        for (int k = 0; k < MixBalancer::numBands; ++k)
+                            if (std::abs (b.getGainDb (k)) > std::abs (most[(size_t) k]))
+                                most[(size_t) k] = b.getGainDb (k);
+                }
+                if (std::getenv ("BAL_DIAG") != nullptr)
+                {
+                    std::printf ("   bands:");
+                    for (int k = 0; k < MixBalancer::numBands; ++k) std::printf (" %.0f:%+.2f", MixBalancer::centreHz[(size_t) k], most[(size_t) k]);
+                    std::printf ("\n");
+                }
+                cutBand = 0; cutDb = 0.0f; otherMax = 0.0f;
+                for (int k = 0; k < MixBalancer::numBands; ++k)
+                    if (most[(size_t) k] < cutDb) { cutDb = most[(size_t) k]; cutBand = k; }
+                for (int k = 0; k < MixBalancer::numBands; ++k)
+                    if (k != cutBand) otherMax = std::max (otherMax, std::abs (most[(size_t) k]));
+            };
+            int band = 0; float cut = 0.0f, other = 0.0f;
+            balance (false, true, band, cut, other);
+            std::printf ("  a 500 Hz region jumps out: band %.0f Hz cut %.1f dB, the others within %.1f dB\n", MixBalancer::centreHz[(size_t) band], cut, other);
+            check (band == 2 && cut < -2.0f && other < std::abs (cut), "the region that jumps out is the one taken down, and the most");
+            balance (true, false, band, cut, other);
+            std::printf ("  everything +10 dB together: deepest move %.2f dB\n", std::min (cut, -other));
+            check (cut > -0.5f && other < 0.5f, "a louder mix overall is not a reason to move (balance, not loudness)");
+        }
+    }
+
+    int runNewUnitsMode (double sr)
+    {
+        runNewUnitTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    int runGolden (const juce::String& mode, const juce::File& file)
+    {
+        std::vector<float> out;
+        auto add = [&] (const EnhEngine::Parameters& p, int blockSize)
+        {
+            const auto scene = makeScene (48000.0, 6.0, true, true, 7);
+            const auto r = run (scene, 48000.0, blockSize, p);
+            out.insert (out.end(), r.outL.begin(), r.outL.end());
+            out.insert (out.end(), r.outR.begin(), r.outR.end());
+        };
+        {
+            auto p = presetParameters (presetNamed ("DEFAULT"));
+            add (p, 256);
+        }
+        {
+            auto p = presetParameters (presetNamed ("IMMERSIVE GAMES"));   // AUTO heaven, SUB, space
+            p.seraph.silk.tape = true;
+            p.footstep = true;
+            add (p, 100);
+        }
+        {
+            auto p = presetParameters (presetNamed ("BASS HEAVY, PROTECTED"));
+            add (p, 512);
+        }
+
+        if (mode == "write")
+        {
+            file.replaceWithData (out.data(), out.size() * sizeof (float));
+            std::printf ("golden: wrote %d samples to %s\n", (int) out.size(), file.getFullPathName().toRawUTF8());
+            return 0;
+        }
+
+        juce::MemoryBlock mb;
+        if (! file.loadFileAsData (mb) || mb.getSize() != out.size() * sizeof (float))
+        {
+            std::printf ("golden: no matching file at %s\n", file.getFullPathName().toRawUTF8());
+            return 1;
+        }
+        const auto* ref = static_cast<const float*> (mb.getData());
+        double maxDiff = 0.0, maxRef = 0.0;
+        for (size_t i = 0; i < out.size(); ++i)
+        {
+            maxDiff = std::max (maxDiff, (double) std::abs (out[i] - ref[i]));
+            maxRef = std::max (maxRef, (double) std::abs (ref[i]));
+        }
+        const double db = 20.0 * std::log10 (std::max (1.0e-12, maxDiff));
+        std::printf ("golden: largest difference %.3g (%.1f dBFS) over %d samples\n", maxDiff, db, (int) out.size());
+        check (db < -120.0, "output unchanged (within float rounding, -120 dBFS)");
+        return failures == 0 ? 0 : 1;
+    }
+
+    void runCpuBenchmark()
+    {
+        std::printf ("\n== CPU (this machine) ==\n");
+        for (double rate : { 44100.0, 48000.0, 96000.0 })
+        {
+            const auto scene = makeScene (rate, 20.0, true, true, 42);
+            EnhEngine::Parameters p;
+            p.normalize = 0.7f; p.adaptSpeed = 0.5f; p.sub = 0.6f; p.subBoost = true; p.footstep = true;
+            p.seraph.mode = enh::dsp::Seraph::heaven;   // every unit running, as the plugin ships
+            p.lumen.active = true;
+            p.limiter.active = true;
+            p.tide.active = true;
+            const auto r = run (scene, rate, 256, p);
+            const double realtime = 20.0 / r.seconds;
+            std::printf ("  %6.0f Hz stereo : %.1fx realtime  (%.2f%% of one core)\n", rate, realtime, 100.0 / realtime);
+            check (r.finite && r.peak <= 1.0f, "stable at " + juce::String ((int) rate) + " Hz");
+        }
+
+        if (std::getenv ("CPU_BREAKDOWN") != nullptr)
+        {
+            // What each unit costs: the whole rack, then with one unit taken out at a time (48 kHz)
+            const auto scene = makeScene (48000.0, 20.0, true, true, 42);
+            auto full = EnhEngine::Parameters {};
+            full.normalize = 0.7f; full.adaptSpeed = 0.5f; full.sub = 0.6f; full.subBoost = true; full.footstep = true;
+            full.seraph.mode = enh::dsp::Seraph::heaven; full.lumen.active = true; full.limiter.active = true; full.tide.active = true;
+            auto pct = [&] (const EnhEngine::Parameters& p)   // best of 3: this CPU's clock wanders
+            {
+                double best = 1.0e9;
+                for (int k = 0; k < 3; ++k)
+                    best = std::min (best, 100.0 * run (scene, 48000.0, 256, p).seconds / 20.0);
+                return best;
+            };
+            const double all = pct (full);
+            std::printf ("  whole rack %.2f %%\n", all);
+            auto without = [&] (const char* what, auto&& change)
+            {
+                auto p = full;
+                change (p);
+                std::printf ("  %-28s saves %5.2f %%\n", what, all - pct (p));
+            };
+            without ("TONE & SPACE SPACE (tone only)", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::silkOnly; });
+            without ("TONE & SPACE off", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::off; });
+            without ("compressor", [] (auto& p) { p.tide.active = false; });
+            without ("spectral limiter", [] (auto& p) { p.limiter.active = false; });
+            without ("leveler", [] (auto& p) { p.lumen.active = false; });
+            without ("sub", [] (auto& p) { p.sub = 0.0f; p.subBoost = false; });
+            without ("footstep", [] (auto& p) { p.footstep = false; });
+            without ("enhancer strength 0", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.boost = 0.0f; });
+            without ("everything off", [] (auto& p) { p.seraph.mode = 0; p.tide.active = false; p.limiter.active = false; p.lumen.active = false;
+                                                      p.sub = 0.0f; p.subBoost = false; p.footstep = false; p.strength = 0.0f; p.normalize = 0.0f; p.boost = 0.0f; });
+        }
+    }
+
+}
+
 int main (int argc, char** argv)
 {
     const double sr = 48000.0;
@@ -1131,6 +1430,18 @@ int main (int argc, char** argv)
     {
         runLoudBassTests (sr);
         std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (argc > 3 && juce::String (argv[1]) == "--golden")
+        return runGolden (argv[2], juce::File (juce::File::getCurrentWorkingDirectory().getChildFile (argv[3])));
+
+    if (argc > 1 && juce::String (argv[1]) == "--units")
+        return runNewUnitsMode (sr);
+
+    if (argc > 1 && juce::String (argv[1]) == "--cpu")
+    {
+        runCpuBenchmark();
         return failures == 0 ? 0 : 1;
     }
 
@@ -2532,22 +2843,9 @@ int main (int argc, char** argv)
     runLimiterTests (sr);
     runPresetTests (sr);
     runLoudBassTests (sr);
+    runNewUnitTests (sr);
 
-    std::printf ("\n== CPU (this machine) ==\n");
-    for (double rate : { 44100.0, 48000.0, 96000.0 })
-    {
-        const auto scene = makeScene (rate, 20.0, true, true, 42);
-        EnhEngine::Parameters p;
-        p.normalize = 0.7f; p.adaptSpeed = 0.5f; p.sub = 0.6f; p.subBoost = true; p.footstep = true;
-        p.seraph.mode = enh::dsp::Seraph::heaven;   // every unit running, as the plugin ships
-        p.lumen.active = true;
-        p.limiter.active = true;
-        p.tide.active = true;
-        const auto r = run (scene, rate, 256, p);
-        const double realtime = 20.0 / r.seconds;
-        std::printf ("  %6.0f Hz stereo : %.1fx realtime  (%.2f%% of one core)\n", rate, realtime, 100.0 / realtime);
-        check (r.finite && r.peak <= 1.0f, "stable at " + juce::String ((int) rate) + " Hz");
-    }
+    runCpuBenchmark();
 
     //==========================================================================
     std::printf ("\n== Odd block sizes ==\n");

@@ -50,6 +50,17 @@ namespace enh::dsp
         std::atomic<float> heavenAutoBlend { 0.0f };
         std::array<std::atomic<float>, 7> heavenAutoChoice {};
         std::atomic<float> silkMatchDb { 0.0f };
+
+        // LEVEL & LOUDNESS: the rack's output loudness (LUFS, BS.1770) and true peak (dBTP)
+        std::atomic<float> momentaryLufs { -120.0f }, shortTermLufs { -120.0f }, integratedLufs { -70.0f }, truePeakDb { -120.0f };
+        std::atomic<float> levelDb { 0.0f };   // the LEVEL knob as applied (smoothed)
+
+        // MIX BALANCER: what each band's fader is doing (dB) and its level now (dB)
+        std::array<std::atomic<float>, 6> balanceGainDb {}, balanceLevelDb {};
+
+        // Output limiter: spectral cut per region (low, low-mid, mid, high) and broadband (dB)
+        std::array<std::atomic<float>, 4> outputRegionCutDb {};
+        std::atomic<float> outputLimitDb { 0.0f };
         std::array<std::atomic<float>, 28> silkDipDb {};
     };
 }

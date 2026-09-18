@@ -34,6 +34,9 @@ public:
     const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
 
+    /** The loudness meter's RESET button (any thread). */
+    void resetLoudness() noexcept { engine.resetLoudness(); }
+
     /** Loads the next / previous preset (message thread); the PRESET buttons call this. */
     void stepPreset (int delta);
     /** Bumped on every preset load, so the editor can show the name. */
@@ -49,6 +52,8 @@ public:
     /** Analyser taps. The audio thread only copies samples into these; the editor runs the FFT. */
     const enh::dsp::ScopeFifo& getInputScope() const noexcept { return engine.getInputScope(); }
     const enh::dsp::ScopeFifo& getOutputScope() const noexcept { return engine.getOutputScope(); }
+    const enh::dsp::ScopeFifo& getBalancerInputScope() const noexcept  { return engine.getBalancerInputScope(); }
+    const enh::dsp::ScopeFifo& getBalancerOutputScope() const noexcept { return engine.getBalancerOutputScope(); }
 
 private:
     juce::AudioProcessorValueTreeState state;
@@ -62,6 +67,7 @@ private:
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
     std::atomic<float>* spectralRange = nullptr, *spectralRelease = nullptr, *spectralCeiling = nullptr, *spectralActive = nullptr;
+    std::atomic<float>* levelGain = nullptr, *balAmount = nullptr, *balSpeed = nullptr, *balTilt = nullptr, *balRange = nullptr, *balActive = nullptr;
     std::atomic<float>* seraphMode = nullptr,
                       * silkSmooth = nullptr, *silkAir = nullptr, *silkWarmth = nullptr, *silkBody = nullptr, *silkOutput = nullptr,
                       * silkProtect = nullptr, *silkTape = nullptr, *silkAuto = nullptr, *silkSub = nullptr,

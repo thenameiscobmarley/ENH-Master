@@ -14,6 +14,26 @@ namespace pad::presets
         juce::String source = "built-in factory presets";
 
         double tidy (float v) { return std::round ((double) v * 10000.0) / 10000.0; }
+
+        /** Whether a preset file's "parameters" reference lists exactly this build's parameters. */
+        bool referenceIsCurrent (const juce::String& text)
+        {
+            juce::var root;
+            if (juce::JSON::parse (text, root).failed())
+                return true;   // not ours to rewrite
+            const auto* reference = root.getProperty ("parameters", {}).getDynamicObject();
+            if (reference == nullptr)
+                return false;
+            int expected = 0;
+            for (auto& s : params::allSpecs())
+                if (s.automatable)
+                {
+                    ++expected;
+                    if (! reference->hasProperty (s.id))
+                        return false;
+                }
+            return reference->getProperties().size() == expected;
+        }
     }
 
     juce::File presetFile()
@@ -146,14 +166,21 @@ namespace pad::presets
 
         if (file.existsAsFile())
         {
-            const auto modTime = file.getLastModificationTime();
+            auto modTime = file.getLastModificationTime();
             if (cached == nullptr || modTime != loadedModTime)
             {
                 juce::String error;
-                auto list = fromJson (file.loadFileAsString(), error);
-                loadedModTime = modTime;
+                const auto text = file.loadFileAsString();
+                auto list = fromJson (text, error);
                 if (! list.empty())
                 {
+                    // Keep the file's parameter reference current: a newer build may have parameters the
+                    // file's reference block does not list yet (the presets themselves are left as they are)
+                    if (seedIfMissing && ! referenceIsCurrent (text))
+                    {
+                        file.replaceWithText (toJson (list));
+                        modTime = file.getLastModificationTime();
+                    }
                     cached = std::make_shared<const std::vector<Preset>> (std::move (list));
                     source = file.getFullPathName();
                 }
@@ -166,6 +193,7 @@ namespace pad::presets
                         source = "built-in factory presets (" + file.getFullPathName() + ": " + error + ")";
                     }
                 }
+                loadedModTime = modTime;
             }
             return cached;
         }

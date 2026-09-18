@@ -52,13 +52,18 @@ namespace pad::geo
     MeshData seraphDisplayGlass();   // uv 0..1 across the window
     MeshData seraphDisplayBezel();
 
-    // --- the two 1U units (panel-local; both are the same shape) ------------------------
-    MeshData oneUFaceTop (int unit);   // holes cut for that unit's VU meters
-    MeshData oneUFaceEdges();
-    MeshData oneUEarWalls();
-    MeshData oneUEarFloors();
-    MeshData oneUScrewHeads();
-    MeshData oneUScrewSlots();
+    // --- the outboard units (panel-local): the three 1U units, LEVEL & LOUDNESS, MIX BALANCER ---
+    MeshData oneUFaceTop (int unit);     // holes cut for that unit's meters, windows and ear slots
+    MeshData oneUFaceEdges (int unit);
+    MeshData oneUEarWalls (int unit);
+    MeshData oneUEarFloors (int unit);
+    MeshData oneUScrewHeads (int unit);
+    MeshData oneUScrewSlots (int unit);
+
+    // --- a display window (panel-local): well walls, glass (uv 0..1 across), bezel ------------
+    MeshData windowWalls (const layout::Rect&);
+    MeshData windowGlass (const layout::Rect&);
+    MeshData windowBezel (const layout::Rect&);
 
     // (knobs, buttons, toggles and lamps come from hwk::models)
 }

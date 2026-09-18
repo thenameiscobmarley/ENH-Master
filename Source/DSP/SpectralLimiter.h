@@ -25,14 +25,19 @@ namespace enh::dsp
             leakage from bands an octave or more away (the filters' own response, precomputed).
         Only the part of a band that exceeds its own normal is "excess".
 
-        Hierarchy, lightest first:
-          1. localised excess -> up to three moving cuts (bell, or a shelf when the excess runs off
-             the bottom or top of the spectrum) that follow the offending region; nothing else moves;
-          2. the event also threatens headroom (stage peak above CEILING) -> that same region is cut
-             deeper, by the amount that region's share of the energy says is needed;
-          3. only when the abnormal energy covers most of the spectrum, and headroom is threatened,
-             is broadband gain reduction used - what the programme genuinely needs, no more.
-        Normal material, however loud, is left to the compressor after it.
+        Two reasons to cut, both handled the same way - by moving cuts confined to the offending
+        region, never by turning the whole mix down first:
+          1. TONE: a region jumps out of balance with the rest of the spectrum (its excess beyond its
+             own normal, and not shared by the other regions - a louder mix overall is not a reason).
+             Up to three moving cuts (bell, or a shelf when the excess runs off the bottom or top of
+             the spectrum) follow it, up to RANGE; nothing else moves. This is tonal correction, not
+             loudness control: how loud the programme is does not enter into it.
+          2. CLIPPING: the event would take this stage over the CEILING (0 dBFS by default) -> that
+             same region is cut deeper, by what its share of the energy says is needed to get back
+             under; only when the abnormal energy covers most of the spectrum is broadband gain used,
+             for what is left.
+        Normal material, however loud, is left to the compressor and the output limiter (which also
+        cuts the region responsible for an over before it touches the whole mix).
 
         The compressor is also keyed through this unit: key() is the output with the flagged regions
         taken down to their baseline (the same moving filters, deeper). While a localised event is
@@ -54,7 +59,7 @@ namespace enh::dsp
         {
             float rangeDb = 9.0f;        // deepest spectral cut (0..18 dB)
             float releaseMs = 150.0f;    // how quickly a cut lets go (attack follows it)
-            float ceilingDb = -3.0f;     // headroom protection threshold at this stage (dBFS)
+            float ceilingDb = 0.0f;      // it acts only on peaks over this (dBFS); 0 dBFS: only real overs
             bool active = false;         // the plugin's parameter default is In; raw settings stay inert
         };
 

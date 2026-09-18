@@ -12,6 +12,7 @@
 #include "CameraRig.h"
 #include "../../DSP/EngineMeters.h"
 #include "../../DSP/SpectrumScope.h"
+#include "../DisplayHistory.h"
 
 namespace pad
 {
@@ -25,7 +26,8 @@ namespace pad
     {
     public:
         HardwareRenderer (ParameterBridge&, SharedUIState&, const enh::dsp::EngineMeters&, const UIConfig&,
-                          artwork::TextureSet textures, const enh::dsp::ScopeCurve&);
+                          artwork::TextureSet textures, const enh::dsp::ScopeCurve&,
+                          const enh::dsp::ScopeCurve& balancerScope, const DisplayHistory&);
         ~HardwareRenderer() override;
 
         void newOpenGLContextCreated() override;
@@ -42,8 +44,8 @@ namespace pad
                          scaleRing, arcRing, led,
                          tubeFaceTop, tubeFaceEdges, tubeEarWalls, tubeEarFloors, tubeScrews, tubeScrewSlots,
                          seraphWalls, seraphGlass, seraphBezel,
-                         tideFaceTop, lumenFaceTop, limiterFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
-                         enhBody, tubeBody, oneUBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
+                         levelScopeWalls, levelScopeGlass, levelScopeBezel, balancerWalls, balancerGlass, balancerBezel,
+                         enhBody, tubeBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
                          caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges;
 
             template <typename Fn> void forEach (Fn&& fn)
@@ -54,12 +56,25 @@ namespace pad
                                  &scaleRing, &arcRing, &led,
                                  &tubeFaceTop, &tubeFaceEdges, &tubeEarWalls, &tubeEarFloors, &tubeScrews, &tubeScrewSlots,
                                  &seraphWalls, &seraphGlass, &seraphBezel,
-                                 &tideFaceTop, &lumenFaceTop, &limiterFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
-                                 &enhBody, &tubeBody, &oneUBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
+                                 &levelScopeWalls, &levelScopeGlass, &levelScopeBezel, &balancerWalls, &balancerGlass, &balancerBezel,
+                                 &enhBody, &tubeBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
                                  &caseCheeks, &caseRails, &caseFrontRails, &caseRailHoles, &caseEdges })
                     fn (*m);
             }
         };
+
+        /** The shell of an outboard unit (the 1U units, LEVEL & LOUDNESS, MIX BALANCER): its own height,
+            ear slots, and holes for its meters and windows. */
+        struct OutboardMeshes
+        {
+            gfx::GpuMesh faceTop, faceEdges, earWalls, earFloors, screws, screwSlots, body;
+            template <typename Fn> void forEach (Fn&& fn)
+            {
+                for (auto* m : { &faceTop, &faceEdges, &earWalls, &earFloors, &screws, &screwSlots, &body })
+                    fn (*m);
+            }
+        };
+        std::array<OutboardMeshes, layout::numUnits> outboard;
 
         /** A HardwareKit model on the GPU: one mesh per part plus its material hints. */
         struct GpuModel
@@ -83,7 +98,13 @@ namespace pad
 
         /** moving = matrix for parts that turn / press; fixed = for the rest. accentGain scales accent colours.
             litPointer: the pointer part glows (lamps, jewels); otherwise it is paint, lit like the knob. */
-        float autoTurnedValue (const layout::ControlDef&, float value) const;
+        float autoTurnedValue (int control, float value) const;
+        static constexpr int autoOutputRole = 7;
+        std::array<int, layout::numControls> autoRole {};
+        std::array<const params::Spec*, layout::numControls> autoSpec {};
+        int silkAutoParam = -1, seraphMultiplyParam = -1;
+        const params::Spec* silkAutoSpec = nullptr;
+        const params::Spec* seraphMultiplySpec = nullptr;
 
         void drawModel (const GpuModel&, const gfx::Mat4& moving, const gfx::Mat4& fixed, gfx::Vec3 hoverLift,
                         gfx::Vec3 pointerColour, float accentGain = 1.0f, bool litPointer = true);
@@ -112,6 +133,18 @@ namespace pad
         SharedUIState& shared;
         const enh::dsp::EngineMeters& meters;
         const enh::dsp::ScopeCurve& scope;
+        const enh::dsp::ScopeCurve& balancerScope;
+        const DisplayHistory& history;
+
+        // LEVEL & LOUDNESS waveform (R = the band now, G = its afterimage) and the MIX BALANCER's data
+        // (spectrum row + history row), rebuilt every frame from the histories
+        gfx::Texture2D waveTex, balancerDataTex;
+        std::vector<juce::uint8> waveScratch, balancerScratch;
+        std::array<float, DisplayHistory::waveColumns> waveGhost {};
+        std::array<float, 6> balancerBands {};
+        void uploadDisplays (float dt);
+        void uploadLevelLabelsIfChanged();
+        juce::uint32 uploadedLevelLabelsVersion = 0;
 
         /** The analyser curve, uploaded once a frame as a strip: R = input, G = output, B = peak. */
         gfx::Texture2D scopeTex;
@@ -135,6 +168,8 @@ namespace pad
         gfx::Texture2D decalTex, scaleTex, scaleWideTex, scale3Tex, scale5Tex, tubeDecalTex, seraphLabelTex, overlayTex, calloutTex;
         gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex;
         std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
+        gfx::Texture2D levelDecalTex, balancerDecalTex, levelLabelTex, balancerLabelTex;
+        std::array<gfx::Texture2D, 2> levelFaceTex;      // MOMENTARY and SHORT-TERM faces
 
         /** A VU movement: the needle has mass, so it swings toward the reading and overshoots
             a little, the way a real moving coil does. */
@@ -144,15 +179,21 @@ namespace pad
             void update (float target, float dt) noexcept;
         };
 
-        // [0] compressor, [1..3] leveler low / mid / high, [4..5] limiter spectral / broadband (layout::firstNeedle)
+        // [0] compressor, [1..3] leveler low / mid / high, [4..5] limiter spectral / broadband,
+        // [6..7] loudness momentary / short-term (layout::firstNeedle)
         std::array<Needle, layout::numNeedles> needles {};
-        std::array<float, 3> oneULamp {};          // backlight per 1U unit (compressor, leveler, limiter), on with IN
+        std::array<float, layout::numUnits> unitLamp {};   // backlight per outboard unit, on with IN (or always)
 
-        GpuModel tideVu, lumenVu, limiterVu;       // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu, levelVu;      // HardwareKit VU models, one per size
+        GpuModel& vuModelFor (int unit) noexcept
+        {
+            return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu : limiterVu;
+        }
 
-        /** faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
+        /** An outboard unit. faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
         void drawOneU (int unit, const gfx::Mat4& panel, gfx::Vec3 colour, const gfx::Texture2D& decal,
-                       std::initializer_list<const gfx::Texture2D*> faces, const gfx::GpuMesh& faceTop);
+                       std::initializer_list<const gfx::Texture2D*> faces);
+        void drawWindows (const gfx::Mat4& levelPanel, const gfx::Mat4& balancerPanel);
         void drawVuGlass (int unit, const gfx::Mat4& panel);
 
         // Models from HardwareKit, each at every level of detail: one per distinct knob (style, radius,

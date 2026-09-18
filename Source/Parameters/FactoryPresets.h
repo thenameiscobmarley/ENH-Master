@@ -38,7 +38,7 @@ namespace pad::presets
                   { id::clarityMode, 0.0f }, { id::clarityNorm, 21.0f }, { id::adaptSpeed, 55.0f },
                   { id::sub, 0.0f }, { id::subBoost, 0.0f }, { id::footstep, 1.0f }, { id::enhStrength, 1.3f },
                   { id::lumenTarget, -22.0f }, { id::lumenResponse, 4.0f },                 // lift quiet detail, steadily
-                  { id::spectralRange, 13.0f }, { id::spectralRelease, 110.0f }, { id::spectralCeiling, -6.0f },
+                  { id::spectralRange, 13.0f }, { id::spectralRelease, 110.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 35.0f }, { id::tideResponse, 5.0f },                     // light bus compression: transients are cues
                   { id::seraphMode, 1.0f },                                                // TONE only: no reverb tail
                   { id::silkSmooth, 5.0f }, { id::silkAir, 3.0f }, { id::silkWarmth, 1.0f }, { id::silkBody, 0.0f },
@@ -53,7 +53,7 @@ namespace pad::presets
                   { id::clarityMode, 1.0f }, { id::clarityAdd, 4.0f }, { id::adaptSpeed, 35.0f },
                   { id::sub, 45.0f }, { id::subBoost, 0.0f }, { id::footstep, 0.0f },
                   { id::lumenTarget, -22.0f }, { id::lumenResponse, 4.0f },               // hits don't pull the detail down
-                  { id::spectralRange, 9.0f }, { id::spectralRelease, 240.0f }, { id::spectralCeiling, -2.0f },
+                  { id::spectralRange, 9.0f }, { id::spectralRelease, 240.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 40.0f }, { id::tideResponse, 4.0f },
                   { id::seraphMode, 2.0f },
                   { id::silkSmooth, 4.0f }, { id::silkAir, 4.0f }, { id::silkWarmth, 3.0f }, { id::silkBody, 2.5f },
@@ -68,7 +68,7 @@ namespace pad::presets
               {
                   { id::clarityMode, 0.0f }, { id::clarityNorm, 16.0f }, { id::sub, 0.0f }, { id::footstep, 1.0f },
                   { id::lumenTarget, -24.0f }, { id::lumenResponse, 4.5f },
-                  { id::spectralRange, 16.0f }, { id::spectralRelease, 200.0f }, { id::spectralCeiling, -8.0f },
+                  { id::spectralRange, 16.0f }, { id::spectralRelease, 200.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 80.0f }, { id::tideResponse, 7.0f },
                   { id::seraphMode, 1.0f },
                   { id::silkSmooth, 5.0f }, { id::silkAir, 2.0f }, { id::silkWarmth, 2.0f }, { id::silkBody, 1.0f },
@@ -81,7 +81,7 @@ namespace pad::presets
                   { id::clarityMode, 1.0f }, { id::clarityAdd, 3.0f }, { id::sub, 60.0f }, { id::subBoost, 1.0f },
                   { id::footstep, 1.0f },
                   { id::lumenTarget, -21.0f },
-                  { id::spectralRange, 15.0f }, { id::spectralRelease, 170.0f }, { id::spectralCeiling, -7.0f },
+                  { id::spectralRange, 15.0f }, { id::spectralRelease, 170.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 50.0f }, { id::tideResponse, 5.0f },
                   { id::seraphMode, 2.0f },
                   { id::silkBody, 1.0f }, { id::silkWarmth, 2.0f }, { id::silkSub, 4.0f },
@@ -94,7 +94,7 @@ namespace pad::presets
                   { id::clarityMode, 0.0f }, { id::clarityNorm, 22.0f }, { id::adaptSpeed, 50.0f },
                   { id::sub, 0.0f }, { id::footstep, 0.0f },
                   { id::lumenTarget, -20.0f }, { id::lumenResponse, 5.0f },
-                  { id::spectralRange, 9.0f }, { id::spectralRelease, 150.0f }, { id::spectralCeiling, -3.0f },
+                  { id::spectralRange, 9.0f }, { id::spectralRelease, 150.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 70.0f }, { id::tideResponse, 6.0f },
                   { id::seraphMode, 1.0f },
                   { id::silkSmooth, 6.0f }, { id::silkAir, 3.0f }, { id::silkWarmth, 2.0f }, { id::silkBody, 3.0f },
@@ -107,7 +107,7 @@ namespace pad::presets
                   { id::clarityMode, 1.0f }, { id::clarityAdd, 3.0f }, { id::adaptSpeed, 30.0f },
                   { id::sub, 25.0f }, { id::footstep, 0.0f },
                   { id::lumenActive, 0.0f },                                                // music keeps its dynamics
-                  { id::spectralRange, 6.0f }, { id::spectralRelease, 300.0f }, { id::spectralCeiling, -1.0f },
+                  { id::spectralRange, 6.0f }, { id::spectralRelease, 300.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 35.0f }, { id::tideResponse, 3.0f },
                   { id::seraphMode, 2.0f },
                   { id::silkSmooth, 3.0f }, { id::silkAir, 3.0f }, { id::silkWarmth, 4.5f }, { id::silkBody, 3.0f },
@@ -122,7 +122,7 @@ namespace pad::presets
                   { id::clarityMode, 1.0f }, { id::clarityAdd, 4.0f }, { id::adaptSpeed, 35.0f },
                   { id::sub, 20.0f }, { id::footstep, 0.0f },
                   { id::lumenActive, 0.0f },
-                  { id::spectralRange, 6.0f }, { id::spectralRelease, 300.0f }, { id::spectralCeiling, -1.0f },
+                  { id::spectralRange, 6.0f }, { id::spectralRelease, 300.0f }, { id::spectralCeiling, 0.0f },
                   { id::tideMix, 30.0f }, { id::tideResponse, 3.0f },
                   { id::seraphMode, 2.0f },
                   { id::silkSmooth, 4.0f }, { id::silkAir, 6.0f }, { id::silkWarmth, 2.0f }, { id::silkBody, 1.5f },
@@ -135,7 +135,7 @@ namespace pad::presets
               "a reference: every unit bypassed, the enhancer at STRENGTH 0 (its subsonic filter and the output safety limiter stay)",
               {
                   { id::enhStrength, 0.0f }, { id::sub, 0.0f }, { id::footstep, 0.0f },
-                  { id::lumenActive, 0.0f }, { id::spectralActive, 0.0f }, { id::tideActive, 0.0f },
+                  { id::lumenActive, 0.0f }, { id::spectralActive, 0.0f }, { id::tideActive, 0.0f }, { id::balActive, 0.0f },
                   { id::seraphMode, 0.0f },
               } },
         };

@@ -111,7 +111,7 @@ namespace enh::dsp
         if (! baselineSet && a.fullShortDb > -75.0f)
         {
             for (int k = 0; k < n; ++k)
-                basePower[(size_t) k] = a.shortTerm[(size_t) k].env;
+                basePower[(size_t) k] = a.shortTerm.env[(size_t) k];
             baselineSet = true;
         }
 
@@ -124,7 +124,7 @@ namespace enh::dsp
         for (int k = 0; k < n; ++k)
         {
             const auto i = (size_t) k;
-            power[i] = a.shortTerm[i].env;
+            power[i] = a.shortTerm.env[i];
             total += power[i];
 
             // The analyser's fast (transient) follower: a hit is seen within a few ms, before a
@@ -244,8 +244,8 @@ namespace enh::dsp
         localHistory[(size_t) localHead] = 1.0f - t * t * (3.0f - 2.0f * t);
         localHead = (localHead + 1) % localTicks;
         d.localised = *std::min_element (localHistory.begin(), localHistory.begin() + localTicks);
-        eventHoldS = d.abnormal && d.localised > 0.5f ? 0.5f : std::max (0.0f, eventHoldS - dt);
         d.abnormal = flagged > 0 && warm > 0.0f;
+        eventHoldS = d.abnormal && d.localised > 0.5f ? 0.5f : std::max (0.0f, eventHoldS - dt);   // (after d.abnormal is known)
 
         // Soft knee: gentle for the first 4 dB beyond normal, full treatment above that
         for (int k = 0; k < n; ++k)

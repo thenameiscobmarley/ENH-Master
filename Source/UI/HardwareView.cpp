@@ -38,7 +38,15 @@ namespace pad
         textures.limiterDecal = artwork::renderOneUDecal (limiterUnit, config.panelTextureWidth, &textItems);
         textures.limiterVuFace[0] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 0);
         textures.limiterVuFace[1] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 1);
+        textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
+        textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
+        textures.levelVuFace[0] = artwork::renderVuFace (levelUnit, 1024, &textItems, 0);
+        textures.levelVuFace[1] = artwork::renderVuFace (levelUnit, 1024, &textItems, 1);
+        textures.levelScopeLabels = artwork::renderWindowLabels (levelUnit, 1536, &textItems);
+        textures.balancerLabels = artwork::renderWindowLabels (balancerUnit, 3072, &textItems);
         scopeAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
+        balancerAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
+        waveReader.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
         artwork::collectKnobScaleText (textItems);
 
         // Dev-only: PAD_UI_DUMP_ARTWORK=<dir> writes the printed panels with measured clearances
@@ -46,7 +54,8 @@ namespace pad
         if (dumpDir.isNotEmpty())
             audit::writeLayoutAudit (textures, textItems, juce::File (dumpDir));
 
-        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures), scopeCurve);
+        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures), scopeCurve,
+                                                       balancerCurve, displayHistory);
 
         juce::OpenGLPixelFormat format;
         format.depthBufferBits = 24;
@@ -501,6 +510,61 @@ namespace pad
         return renderingActive;
     }
 
+    /** The LEVEL & LOUDNESS waveform and readout, and the MIX BALANCER's spectrum and history. */
+    void HardwareView::updateDisplayHistories (float dt)
+    {
+        if (demoScope)
+        {
+            // Screenshots: the balancer spectrum is the demo analyser's, a little rearranged
+            for (int i = 0; i < enh::dsp::ScopeCurve::numPoints; ++i)
+            {
+                const float in = scopeCurve.inputDb[(size_t) i].load();
+                balancerCurve.inputDb[(size_t) i].store (in);
+                balancerCurve.outputDb[(size_t) i].store (in - 2.5f * std::exp (-std::pow ((float) i / 192.0f - 0.45f, 2.0f) * 60.0f));
+            }
+        }
+        else
+        {
+            balancerAnalyser.update (processor.getBalancerInputScope(), processor.getBalancerOutputScope(), balancerCurve, dt);
+            waveReader.update (processor.getOutputScope(), displayHistory);
+        }
+
+        // One balancer history column per tick (~10 s across the display)
+        {
+            const int head = displayHistory.balHead.load (std::memory_order_relaxed);
+            const auto k = (size_t) (head % DisplayHistory::balColumns);
+            float cut = 0.0f;
+            for (auto& g : meters.balanceGainDb)
+                cut = std::min (cut, g.load (std::memory_order_relaxed));
+            displayHistory.balInDb[k].store (balancerCurve.inputRmsDb.load (std::memory_order_relaxed));
+            displayHistory.balOutDb[k].store (balancerCurve.outputRmsDb.load (std::memory_order_relaxed));
+            displayHistory.balCutDb[k].store (cut);
+            displayHistory.balHead.store (head + 1, std::memory_order_release);
+        }
+
+        // The readout under the waveform: integrated loudness and true peak, a few times a second
+        const double now = juce::Time::getMillisecondCounterHiRes();
+        if (now - lastReadoutMs < 250.0)
+            return;
+        lastReadoutMs = now;
+
+        auto fmt = [] (float v, const char* unit, float floor)
+        {
+            return v <= floor ? juce::String ("--.-  ") + unit : juce::String (v, 1) + "  " + unit;
+        };
+        const float integrated = demoScope ? -16.4f : meters.integratedLufs.load (std::memory_order_relaxed);
+        const float peak = demoScope ? -1.2f : meters.truePeakDb.load (std::memory_order_relaxed);
+        const auto text = "INTEGRATED  " + fmt (integrated, "LUFS", -69.9f) + "        TRUE PEAK  " + fmt (peak, "dBTP", -99.0f);
+        if (text == levelReadout)
+            return;
+        levelReadout = text;
+
+        auto tex = artwork::renderWindowLabels (levelUnit, 1536, nullptr, text);
+        const juce::SpinLock::ScopedLockType lock (shared.levelLabelsLock);
+        shared.levelLabelsPending = std::move (tex);
+        ++shared.levelLabelsVersion;
+    }
+
     void HardwareView::timerCallback()
     {
         // Spectrum: pull the newest window out of the audio thread's FIFOs and analyse it here
@@ -513,6 +577,8 @@ namespace pad
                 fillDemoScope ((float) (now * 0.001));
             else
                 scopeAnalyser.update (processor.getInputScope(), processor.getOutputScope(), scopeCurve, dt);
+
+            updateDisplayHistories (dt);
         }
 
         if (! testParamsApplied && juce::Time::getMillisecondCounter() - openedAtMs > 1500)
@@ -532,6 +598,13 @@ namespace pad
                 if (wantMinimised != peer->isMinimised())
                     peer->setMinimised (wantMinimised);
             }
+
+        // Loudness RESET: momentary - clears integrated loudness and the true-peak hold, springs back
+        if (const int reset = bridge.indexOf (pad::params::id::loudnessReset); reset >= 0 && bridge.getNormalised (reset) > 0.5f)
+        {
+            processor.resetLoudness();
+            bridge.setValueWithSource (reset, 0.0f, ControlSource::user);
+        }
 
         // PRESET PREV / NEXT: momentary - a press loads the preset here (message thread) and springs back
         for (auto [pid, delta] : { std::pair { pad::params::id::presetPrev, -1 }, std::pair { pad::params::id::presetNext, 1 } })
