@@ -6,6 +6,7 @@ namespace enh::dsp
     {
         constexpr double confirmTime  = 0.004;   // provisional confidence
         constexpr double decisionTime = 0.042;   // full decision (FFT windows now cover the event)
+        constexpr double secondLookTime = 0.070; // decay-limited events are judged again here
         constexpr double sustainTime  = 0.110;   // must have decayed by here
         constexpr double watchEnd     = 0.160;   // end of the retraction watch -> learn the step
         constexpr double refractory   = 0.070;   // heel + toe merge into one event
@@ -52,6 +53,9 @@ namespace enh::dsp
         decided = false;
         armed = true;
         strengthLow = 0.0f;
+        secondLook = false;
+        othersAtDecision = 0.0f;
+        learnedDrop = 10.0f;
         clutterCount = rhythm = hotHold = fingerprintStrength = suspicion = suspicionAtDecision = 0.0f;
         confidence = confidenceTarget = 0.0f;
         eventCount = rejectedCount = 0;
@@ -136,6 +140,8 @@ namespace enh::dsp
         onsetTime = clock;
         phase = Phase::provisional;
         decided = false;
+        secondLook = false;
+        decayScale = 1.0f;
 
         preBackground = background;
         for (int k = 0; k < activeCount; ++k)
@@ -145,6 +151,8 @@ namespace enh::dsp
         contextTonal = spectrum.getTonalityHold();
         strengthMax = hotMax = broadbandMax = midMax = risingTonalMax = 0.0f;
         eventScore = 0.0f;
+        eventPeakEnergy = 0.0f;
+        peakAt = 0.0;
     }
 
     void FootstepDetector::retract() noexcept
@@ -204,11 +212,33 @@ namespace enh::dsp
         return weight > 0.0 ? (float) (sum / weight) : 0.0f;
     }
 
+    float FootstepDetector::eventExcessDb() const noexcept
+    {
+        double sum = 0.0, weight = 0.0;
+        for (int k = 0; k < activeCount; ++k)
+        {
+            const float excess = peakDb[(size_t) k] - preBackground[(size_t) k];
+            if (excess <= 6.0f)
+                continue;
+            sum += (double) excess * excess * excess;
+            weight += (double) excess * excess;
+        }
+        return weight > 0.0 ? (float) (sum / weight) : 0.0f;
+    }
+
     void FootstepDetector::evaluate (const BandAnalyzer& a) noexcept
     {
-        const float decay = saturate01 ((eventDropDb (a, false) - 2.0f) / 5.0f);
         const float tonal = saturate01 ((risingTonalMax - 0.12f) / 0.25f);
         const float context = saturate01 ((contextTonal - 0.15f) / 0.3f);
+
+        // Decay, scaled to how this programme's steps decay (0.55 .. 1: never below about half the
+        // default requirement). Only outside tonal activity: a syllable inside speech is a short burst
+        // that fades too, so there the default requirement stands.
+        const bool clearOfVoice = adaptive && context < 0.3f && midMax < 0.25f && eventExcessDb() >= 14.0f && peakAt <= 0.012;
+        const float drop = eventDropDb (a, false);
+        const float s = clearOfVoice ? std::clamp (learnedDrop / 10.0f, 0.55f, 1.0f) : 1.0f;
+        decayScale = s;
+        const float decay = saturate01 ((drop - 2.0f * s) / (5.0f * s));
 
         // Only impulsive events (ones that die away) count as clutter; swelling sounds such as
         // speech syllables or engine noise do not
@@ -216,8 +246,7 @@ namespace enh::dsp
         clutterCount += decay;
         suspicionAtDecision = suspicion;
 
-        eventScore = saturate01 (1.5f * strengthMax)
-                   * decay
+        const float others = saturate01 (1.5f * strengthMax)
                    * (1.0f - tonal)
                    * (1.0f - 0.8f * hotMax)
                    * (1.0f - 0.6f * broadbandMax)
@@ -225,6 +254,8 @@ namespace enh::dsp
                    * (1.0f - clutterAtOnset)
                    * (1.0f - 0.5f * context)
                    * (1.0f - 0.8f * suspicion);   // just after a rejected ringing / rattling event
+        eventScore = others * decay;
+        othersAtDecision = others;
 
         // A step that continues a walking sequence gets the full lift; a lone event a moderate one
         const float final = saturate01 (eventScore * (0.8f + 0.6f * sequence));
@@ -239,6 +270,16 @@ namespace enh::dsp
         {
             phase = Phase::accepted;
             confidenceTarget = final;
+            learnedDrop += (std::clamp (drop, 4.0f, 14.0f) - learnedDrop) * 0.15f;
+        }
+        else if (! secondLook && clearOfVoice && others * (0.8f + 0.6f * sequence) >= 0.45f && tonal < 0.3f && hotMax < 0.5f
+                 && clutterAtOnset < 0.3f && decay > 0.05f)
+        {
+            // Everything but decay says step: look again over a longer window before deciding - with no
+            // lift meanwhile (an undecided event must not lift or duck for longer than a normal one)
+            secondLook = true;
+            decided = false;
+            confidenceTarget = 0.0f;
         }
         else
         {
@@ -343,8 +384,17 @@ namespace enh::dsp
         {
             if (t < refractory)
             {
+                float energy = 0.0f;
                 for (int k = 0; k < activeCount; ++k)
+                {
                     peakDb[(size_t) k] = std::max (peakDb[(size_t) k], a.transientDb[(size_t) k]);
+                    energy += a.transient[(size_t) k].env;
+                }
+                if (energy > eventPeakEnergy)
+                {
+                    eventPeakEnergy = energy;
+                    peakAt = t;
+                }
 
                 strengthMax = std::max (strengthMax, strength);
                 hotMax = std::max (hotMax, hotHold);
@@ -373,7 +423,7 @@ namespace enh::dsp
                 // rhythm AND sounds like the recent steps gets more than a slight lift
                 expected = rhythm * rhythmFit * (0.5f + 0.5f * soundsAlike);
 
-                if (t >= confirmTime && ! decided)
+                if (t >= confirmTime && ! decided && ! secondLook)
                 {
                     const float provisional = saturate01 (1.4f * strengthMax)
                                             * (1.0f - 0.8f * hotMax) * (1.0f - 0.7f * broadbandMax) * (1.0f - 0.6f * midMax)
@@ -384,8 +434,25 @@ namespace enh::dsp
                     confidenceTarget = std::min (0.25f + 0.75f * expected, provisional);
                 }
 
-                if (t >= decisionTime)
+                if (t >= decisionTime && ! secondLook)
                     evaluate (a);
+                else if (secondLook && ! decided && t >= secondLookTime)
+                {
+                    // The longer view: the short-term level against the event's peak, needing a clear fall
+                    const float s = std::clamp (learnedDrop / 10.0f, 0.55f, 1.0f);
+                    const float decay2 = saturate01 ((eventDropDb (a, true) - 3.0f * s) / (6.0f * s));
+                    const float final2 = saturate01 (othersAtDecision * decay2 * (0.8f + 0.6f * sequence));
+                    decided = true;
+                    trace.decay = decay2;
+                    trace.score = final2;
+                    if (final2 >= 0.45f && risingTonalMax < 0.30f)
+                    {
+                        phase = Phase::accepted;
+                        confidenceTarget = final2;
+                    }
+                    else
+                        retract();
+                }
             }
             else if (phase == Phase::accepted)
             {
@@ -397,7 +464,9 @@ namespace enh::dsp
                 }
                 else if (t >= sustainTime && t < sustainTime + 0.01)
                 {
-                    if (eventDropDb (a, true) < 9.0f)
+                    // Must have fallen well away by now - by as much as this programme's steps do
+                    // (a room tail holds a step up; a sustained sound does not fall at all)
+                    if (eventDropDb (a, true) < 9.0f * decayScale)
                         retract();
                 }
 
@@ -416,7 +485,7 @@ namespace enh::dsp
         }
 
         // --- confidence: instant rise, slow release for steps, fast drop for rejected events --
-        const float release = phase == Phase::rejected ? 0.02f : 0.15f;
+        const float release = phase == Phase::rejected || (secondLook && ! decided) ? 0.02f : 0.15f;   // an undecided second look lets go at once too
         confidence = std::max (confidenceTarget, confidence * std::exp (-dt / release));
 
         // --- where to lift / duck -----------------------------------------------------------

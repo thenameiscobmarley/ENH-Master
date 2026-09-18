@@ -19,13 +19,13 @@ namespace pad
             if (c.kind == ControlKind::button)
             {
                 if (cam.intersectUnit (c.unit, ndcX, ndcY, 0.03f, lx, lz)
-                    && Rect { c.x, c.z, buttonHalfW + 0.05f, buttonHalfD + 0.05f }.contains (lx, lz))
+                    && Rect { c.x, c.z, buttonOutline (c.buttonStyle).halfW + 0.035f, buttonOutline (c.buttonStyle).halfD + 0.035f }.contains (lx, lz))
                     return i;
             }
             else if (c.kind == ControlKind::toggle)
             {
                 if (cam.intersectUnit (c.unit, ndcX, ndcY, 0.02f, lx, lz)
-                    && Rect { c.x, c.z, hwk::models::rockerHalfW + 0.03f, hwk::models::rockerHalfD + 0.03f }.contains (lx, lz))
+                    && Rect { c.x, c.z, switchOutline (c.switchStyle).halfW + 0.03f, switchOutline (c.switchStyle).halfD + 0.03f }.contains (lx, lz))
                     return i;
             }
             else

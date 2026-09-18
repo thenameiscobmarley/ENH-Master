@@ -67,6 +67,7 @@ namespace enh::dsp
         const HarmonicPlanner& getHarmonicPlan() const noexcept { return planner; }
         const AdaptiveEQ& getEQ() const noexcept { return eq; }
         const FootstepDetector& getFootstepDetector() const noexcept { return steps; }
+        void setFootstepAdaptive (bool on) noexcept { steps.setAdaptive (on); }   // tests
         const Seraph& getSeraph() const noexcept { return seraph; }
         const DynamicCompressor& getCompressor() const noexcept { return tide; }
         const SpectralLeveler& getLeveler() const noexcept { return lumen; }

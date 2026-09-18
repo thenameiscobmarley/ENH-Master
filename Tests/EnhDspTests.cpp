@@ -298,6 +298,52 @@ namespace
         return s;
     }
 
+    /** Steps in a reverberant room: varied surfaces through a comb / allpass room (RT ~0.6 s),
+        over ambience, optionally with speech. Game engines put steps in rooms like this. */
+    Scene makeReverbScene (double sr, double seconds, int seed, bool withSpeech)
+    {
+        Scene dry = makeScene (sr, seconds, false, false, seed, true);
+        Scene s;
+        s.left.assign (dry.left.size(), 0.0f);
+        s.right.assign (dry.right.size(), 0.0f);
+        s.steps = dry.steps;
+
+        // Remove the ambience from the dry scene's steps: rebuild them alone, then add both
+        juce::Random r (seed + 1);
+        Pink pinkL, pinkR;
+        const int combs[4] { (int) (0.0297 * sr), (int) (0.0371 * sr), (int) (0.0411 * sr), (int) (0.0437 * sr) };
+        std::vector<std::vector<float>> lines (4);
+        std::vector<int> pos (4, 0);
+        std::vector<float> damp (4, 0.0f);
+        for (int c = 0; c < 4; ++c) lines[(size_t) c].assign ((size_t) combs[c], 0.0f);
+        const float feedback = 0.80f;   // RT60 ~0.6 s at these delays
+
+        for (size_t i = 0; i < dry.left.size(); ++i)
+        {
+            const float x = 0.5f * (dry.left[i] + dry.right[i]);
+            float wet = 0.0f;
+            for (int c = 0; c < 4; ++c)
+            {
+                auto& line = lines[(size_t) c];
+                const float y = line[(size_t) pos[(size_t) c]];
+                damp[(size_t) c] += (y - damp[(size_t) c]) * 0.45f;
+                line[(size_t) pos[(size_t) c]] = x + damp[(size_t) c] * feedback;
+                pos[(size_t) c] = (pos[(size_t) c] + 1) % combs[c];
+                wet += y;
+            }
+            wet *= 0.30f;
+            s.left[i] = dry.left[i] + wet + pinkL.next (r) * dbfs (-48.0f);
+            s.right[i] = dry.right[i] + wet * 0.9f + pinkR.next (r) * dbfs (-48.0f);
+        }
+
+        if (withSpeech)
+        {
+            addSpeech (s, sr, 4.0, 7.0, r);
+            addSpeech (s, sr, 13.0, 16.0, r);
+        }
+        return s;
+    }
+
     /** Music-like programme: kick, snare, hats, bass, pad and a formant "vocal". */
     Scene makeMusic (double sr, double seconds, int seed)
     {
@@ -368,10 +414,12 @@ namespace
     };
 
     RunResult run (const Scene& scene, double sr, int blockSize, const EnhEngine::Parameters& p,
-                   std::function<void (const EnhEngine&)> atEnd = {})
+                   std::function<void (const EnhEngine&)> atEnd = {}, std::function<void (EnhEngine&)> atStart = {})
     {
         EnhEngine engine;
         engine.prepare (sr, blockSize, 2);
+        if (atStart)
+            atStart (engine);
 
         RunResult res;
         const int total = (int) scene.left.size();
@@ -479,12 +527,13 @@ namespace
         float maxCutBeforeDb = 0.0f;    // deepest spectral cut while only normal material played
         float cutDuringDb = 0.0f, cutAfterDb = 0.0f, broadbandDuringDb = 0.0f, cutHz = 0.0f;
         float compressorGrDuringDb = 0.0f, peak = 0.0f;
+        int footstepEvents = 0;
         std::array<float, 3> levelerBefore {}, levelerDuring {};   // UPWARD LEVELER lift per band
         bool finite = true;
     };
 
     LimiterRun runLimiterScene (double sr, bool limiterIn, bool broadbandEvent, int blockSize, float eventDb = 0.0f, bool trebleEvent = false,
-                                const EnhEngine::Parameters* whole = nullptr)
+                                const EnhEngine::Parameters* whole = nullptr, std::function<void (EnhEngine&)> setup = {})
     {
         const double seconds = 10.5, eventAt = 8.0, eventLen = 0.5;
         const int n = (int) (seconds * sr);
@@ -528,6 +577,8 @@ namespace
 
         EnhEngine engine;
         engine.prepare (sr, blockSize, 2);
+        if (setup)
+            setup (engine);
         EnhEngine::Parameters p;
         p.normalize = 0.0f; p.strength = 0.0f;               // ENH does nothing: only the 1U units act
         p.seraph.mode = enh::dsp::Seraph::off;
@@ -590,6 +641,7 @@ namespace
             }
         }
 
+        out.footstepEvents = engine.getFootstepEventCount();
         out.detailDipDb = (float) (10.0 * std::log10 ((detDuring / std::max (1, nDuring) + 1e-15) / (detBefore / std::max (1, nBefore) + 1e-15)));
         out.bassDuringDb = (float) (10.0 * std::log10 (bassDuring / std::max (1, nDuring) + 1e-15));
         return out;
@@ -761,6 +813,16 @@ namespace
             variant ("only limiter + compressor", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; p.lumen.active = false; p.seraph.mode = enh::dsp::Seraph::off; });
         }
 
+        if (std::getenv ("FS_KICK_DIAG") != nullptr)
+        {
+            const auto p = presetParameters (pad::presets::all()[1]);
+            for (bool adaptive : { false, true })
+            {
+                const auto hit = runLimiterScene (sr, true, false, 256, -6.0f, false, &p, [adaptive] (EnhEngine& e) { e.setFootstepAdaptive (adaptive); });
+                std::printf ("    COMPETITIVE, footstep adaptive %s: footstep events %d, detail %+.1f dB\n", adaptive ? "on " : "off", hit.footstepEvents, hit.detailDipDb);
+            }
+        }
+
         // The reference preset: level unchanged, and nothing processing the bass hit
         {
             const auto p = presetParameters (pad::presets::all().back());
@@ -859,6 +921,7 @@ int main (int argc, char** argv)
         const auto scene = which == "quiet" ? makeScene (sr, 12.0, false, false, 77)
                          : which == "crates" ? makeCrateScene (sr, 40.0, argc > 3 ? std::atoi (argv[3]) : 11)
                          : which == "varied" ? makeScene (sr, 30.0, true, true, argc > 3 ? std::atoi (argv[3]) : 7, true)
+                         : which == "reverb" ? makeReverbScene (sr, 24.0, argc > 3 ? std::atoi (argv[3]) : 5, true)
                          : makeScene (sr, 24.0, true, true, argc > 3 ? std::atoi (argv[3]) : 1234);
         EnhEngine engine;
         const int eb = 32;
@@ -1016,6 +1079,38 @@ int main (int argc, char** argv)
         check (hitRate >= 0.75f, "detects >= 75% of varied-surface footsteps");
         check (shotFalse <= (int) scene.shots.size() / 5, "gunshots rarely flagged");
         check (voiceRate <= 0.10f, "voice rarely flagged");
+    }
+
+    for (int seed : { 5, 88 })
+    {
+        std::printf ("\n== Reverberant rooms (varied surfaces, RT ~0.6 s) + voice, seed %d: fixed rules vs adaptive ==\n", seed);
+        const auto scene = makeReverbScene (sr, 24.0, seed, true);
+        auto measure = [&] (bool adaptive)
+        {
+            EnhEngine::Parameters p;
+            p.normalize = 0.6f; p.footstep = true;
+            const auto r = run (scene, sr, block, p, {}, [adaptive] (EnhEngine& e) { e.setFootstepAdaptive (adaptive); });
+            int hits = 0;
+            for (auto& st : scene.steps)
+                hits += maxConfidence (r, sr, block, st.time, st.time + 0.08) >= 0.5f ? 1 : 0;
+            int voiceBlocks = 0, voiceFalse = 0;
+            for (auto& seg : scene.speech)
+                for (int b = (int) (seg.first * sr / block); b < (int) (seg.second * sr / block); ++b)
+                {
+                    const double t = b * block / sr;
+                    bool nearStep = false;
+                    for (auto& st : scene.steps) nearStep = nearStep || (t > st.time - 0.05 && t < st.time + 0.25);
+                    if (nearStep) continue;
+                    ++voiceBlocks;
+                    voiceFalse += r.confidence[(size_t) b] >= 0.5f ? 1 : 0;
+                }
+            return std::make_pair ((float) hits / (float) std::max<size_t> (1, scene.steps.size()), (float) voiceFalse / (float) std::max (1, voiceBlocks));
+        };
+        const auto fixed = measure (false), adaptive = measure (true);
+        std::printf ("  fixed rules : steps %.0f%%, voice false time %.1f%%\n", 100.0f * fixed.first, 100.0f * fixed.second);
+        std::printf ("  adaptive    : steps %.0f%%, voice false time %.1f%%\n", 100.0f * adaptive.first, 100.0f * adaptive.second);
+        check (adaptive.first >= fixed.first, "adaptive detection catches at least as many reverberant steps");
+        check (adaptive.second <= 0.10f, "voice still rarely flagged");
     }
 
     std::printf ("\n== Quiet scene: only footsteps over ambience ==\n");
@@ -1985,6 +2080,66 @@ int main (int argc, char** argv)
     }
 
     //==========================================================================
+    std::printf ("\n== ADAPTIVE COMPRESSOR: pumping (steady 2 kHz tone under a kick every 0.5 s), dual vs single release ==\n");
+    {
+        using enh::dsp::DynamicCompressor;
+        auto pumping = [&] (bool dual)
+        {
+            DynamicCompressor comp;
+            comp.prepare (sr, 2);
+            comp.setDualRelease (dual);
+            DynamicCompressor::Settings s;
+            s.active = true; s.response = 0.5f; s.mix = 1.0f;
+            const int n = (int) (8.0 * sr);
+            std::vector<float> l ((size_t) n), r ((size_t) n);
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = i / sr, kt = std::fmod (t, 0.5);
+                const float tone = dbfs (-20.0f) * (float) std::sin (twoPi * 2000.0 * t);
+                const float kick = dbfs (-6.0f) * (float) (std::sin (twoPi * (55.0 + 60.0 * std::exp (-kt / 0.02)) * kt) * std::exp (-kt / 0.09));
+                l[(size_t) i] = r[(size_t) i] = tone + kick;
+            }
+            double grSum = 0.0;
+            int grCount = 0;
+            for (int pos = 0; pos < n; pos += block)
+            {
+                float* c[2] { l.data() + pos, r.data() + pos };
+                comp.process (c, 2, std::min (block, n - pos), s);
+                if (pos > 4.0 * sr) { grSum += comp.getReadout().gainReductionDb; ++grCount; }
+            }
+            // The tone's level in 10 ms windows over the last 4 s: how much it swings is the pumping
+            const auto bp = BiquadCoeffs::bandPass (sr, 2000.0, 4.0);
+            BiquadState b1, b2;
+            std::vector<float> levels;
+            const int win = (int) (0.010 * sr);
+            double acc = 0.0;
+            for (int i = 0; i < n; ++i)
+            {
+                const float y = b1.process (bp, b2.process (bp, l[(size_t) i]));
+                acc += (double) y * y;
+                if ((i + 1) % win == 0)
+                {
+                    if (i > 4.0 * sr)
+                    {
+                        levels.push_back ((float) (10.0 * std::log10 (acc / win + 1e-15)));
+                    }
+                    acc = 0.0;
+                }
+            }
+            // Pumping: how far the tone sits from its typical level, on average over time
+            auto sorted = levels;
+            std::nth_element (sorted.begin(), sorted.begin() + (long) sorted.size() / 2, sorted.end());
+            const float median = sorted[sorted.size() / 2];
+            double dev = 0.0;
+            for (float v : levels) dev += std::abs (v - median);
+            return std::make_pair ((float) (dev / std::max<size_t> (1, levels.size())), (float) (grSum / std::max (1, grCount)));
+        };
+        const auto single = pumping (false), dual = pumping (true);
+        std::printf ("  single release: tone off its level by %.2f dB on average (mean GR %.1f dB)\n", single.first, single.second);
+        std::printf ("  dual release  : tone off its level by %.2f dB on average (mean GR %.1f dB)\n", dual.first, dual.second);
+        check (dual.first < single.first * 0.75f, "dual release pumps a steady tone at least 25% less");
+    }
+
     std::printf ("\n== LUMEN (spectral leveler) ==\n");
     {
         using enh::dsp::SpectralLeveler;

@@ -25,7 +25,7 @@ namespace enh::dsp
         onsetRate = lastFlux = 0.0f;
         thresholdDb = -20.0f;
         ratio = 2.0f;
-        gainDb = makeupDb = 0.0f;
+        gainDb = makeupDb = slowDb = fastDb = 0.0f;
         controlPhase = 0.0f;
         readout = {};
     }
@@ -91,6 +91,9 @@ namespace enh::dsp
         const float releaseMs = (420.0f - 260.0f * resp) * (1.0f - 0.45f * std::clamp (onsetRate * 8.0f, 0.0f, 1.0f));
         attackCoeff = std::exp (-1.0f / (0.001f * std::max (0.5f, attackMs) * (float) sr));
         releaseCoeff = std::exp (-1.0f / (0.001f * std::max (20.0f, releaseMs) * (float) sr));
+        slowAttackCoeff = std::exp (-1.0f / (0.001f * std::max (40.0f, attackMs * 20.0f) * (float) sr));
+        slowReleaseCoeff = std::exp (-1.0f / (0.001f * std::max (50.0f, releaseMs * 2.5f) * (float) sr));
+        fastReleaseCoeff = std::exp (-1.0f / (0.050f * (float) sr));
 
         readout.thresholdDb = thresholdDb;
         readout.ratio = ratio;
@@ -165,8 +168,19 @@ namespace enh::dsp
             }
 
             // Ballistics: fast down, programme-dependent up
-            const float coeff = targetGainDb < gainDb ? attackCoeff : releaseCoeff;
-            gainDb = targetGainDb + (gainDb - targetGainDb) * coeff;
+            if (dualRelease)
+            {
+                // Slow: the average reduction. Fast: only what a transient needs beyond it, released quickly.
+                slowDb = targetGainDb + (slowDb - targetGainDb) * (targetGainDb < slowDb ? slowAttackCoeff : slowReleaseCoeff);
+                const float residual = std::min (0.0f, targetGainDb - slowDb);
+                fastDb = residual + (fastDb - residual) * (residual < fastDb ? attackCoeff : fastReleaseCoeff);
+                gainDb = slowDb + fastDb;
+            }
+            else
+            {
+                const float coeff = targetGainDb < gainDb ? attackCoeff : releaseCoeff;
+                gainDb = targetGainDb + (gainDb - targetGainDb) * coeff;
+            }
 
             // Auto make-up: give back most of what is being taken, so MIX is level-matched
             const float wantedMakeup = -gainDb * 0.65f;

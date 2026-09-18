@@ -264,10 +264,10 @@ namespace pad::artwork
             // (0.13 either side of its nut), or the button's collar
             recorder.control = (int) (&c - controls.data());
             if (c.kind == ControlKind::knob)
-                text (g, m, c.label, c.x, c.z + (c.size < 0.99f ? 0.155f : knobRadius * tubeKnobScale * c.size * 1.32f + 0.052f),
+                text (g, m, c.label, c.x, c.z + (c.size < 0.99f ? 0.155f : hwk::models::knob (c.style, knobBodyRadius (c), {}, 0).footprintRadius + 0.052f),
                       c.size < 0.99f ? 0.022f : 0.024f, centred, true, 0.14f, 0.40f);
             else if (c.kind == ControlKind::toggle)
-                text (g, m, c.label, c.x, c.z + hwk::models::rockerHalfD + 0.050f, 0.020f, centred, true, 0.10f, 0.30f);
+                text (g, m, c.label, c.x, c.z + switchOutline (c.switchStyle).halfD + 0.050f, 0.020f, centred, true, 0.10f, 0.30f);
             else if (c.kind == ControlKind::button)
                 text (g, m, c.label, c.x, c.z + 0.105f, 0.022f, centred, true, 0.14f, 0.30f);
             recorder.control = -1;

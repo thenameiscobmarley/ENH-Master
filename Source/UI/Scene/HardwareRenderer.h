@@ -161,7 +161,13 @@ namespace pad
         std::vector<std::unique_ptr<GpuModel>> knobModels;
         std::array<std::array<int, numDetail>, layout::numControls> knobModelIndex {};
         std::array<int, layout::numControls> ringScale {};
-        std::array<GpuModel, numDetail> buttonModels, rockerModels;
+        std::array<std::array<GpuModel, numDetail>, hwk::models::numButtonStyles> buttonModels;
+        std::array<std::array<GpuModel, numDetail>, hwk::models::numSwitchStyles> switchModels;
+        std::array<float, hwk::models::numSwitchStyles> switchPivotY {}, switchAngle {};
+
+        // Dev only (PAD_UI_TEST_GALLERY=1): every knob, switch and button style laid out on the enhancer
+        const bool gallery = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_GALLERY", {}).isNotEmpty();
+        std::vector<std::unique_ptr<GpuModel>> galleryKnobs;
         GpuModel lampModel;
 
         /** Level of detail for something of `radius` at panel (x, z) of `panel`, seen by `cam` in a viewport `viewportW` wide. */

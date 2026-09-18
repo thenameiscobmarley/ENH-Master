@@ -18,6 +18,9 @@ namespace pad::layout
 {
     using Rect = hwk::geo::Rect;
 
+    /** A switch or button's outline on the panel (half sizes), per style, measured once from the models. */
+    struct Outline { float halfW = 0.0f, halfD = 0.0f; };
+
     inline constexpr float pi = 3.14159265f;
 
     // --- Faceplate (19" style, with rack ears) --------------------------------
@@ -93,6 +96,21 @@ namespace pad::layout
     // --- Push buttons (local to button) -------------------------------------------------
     inline constexpr float buttonHalfW  = 0.060f;
     inline constexpr float buttonHalfD  = 0.042f;
+
+    inline Outline buttonOutline (hwk::models::ButtonStyle s)
+    {
+        static const auto table = []
+        {
+            std::array<Outline, hwk::models::numButtonStyles> t {};
+            for (int i = 0; i < hwk::models::numButtonStyles; ++i)
+            {
+                const auto m = hwk::models::pushButton ((hwk::models::ButtonStyle) i, buttonHalfW, buttonHalfD, 0);
+                t[(size_t) i] = { m.halfW, m.halfD };
+            }
+            return t;
+        }();
+        return table[(size_t) s];
+    }
     inline constexpr float buttonTravel = 0.020f;
     inline constexpr float buttonLedDz  = -0.19f;   // LED above the button
     inline constexpr float ledRadius    = 0.020f;
@@ -119,9 +137,28 @@ namespace pad::layout
         const char* group = nullptr;         // shown before the label on the display (e.g. "TONE")
         float size = 1.0f;                   // knob size relative to the unit's standard knob
         hwk::models::KnobStyle style = hwk::models::KnobStyle::proXl;
+        hwk::models::SwitchStyle switchStyle = hwk::models::SwitchStyle::rocker;   // toggles
+        hwk::models::ButtonStyle buttonStyle = hwk::models::ButtonStyle::square;   // buttons
     };
 
     using hwk::models::KnobStyle;
+    using hwk::models::SwitchStyle;
+    using hwk::models::ButtonStyle;
+
+    inline Outline switchOutline (SwitchStyle s)
+    {
+        static const auto table = []
+        {
+            std::array<Outline, hwk::models::numSwitchStyles> t {};
+            for (int i = 0; i < hwk::models::numSwitchStyles; ++i)
+            {
+                const auto m = hwk::models::toggleSwitch ((SwitchStyle) i, 0);
+                t[(size_t) i] = { m.halfW, m.halfD };
+            }
+            return t;
+        }();
+        return table[(size_t) s];
+    }
 
     namespace pid = pad::params::id;
 
@@ -356,21 +393,21 @@ namespace pad::layout
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT" },
-        { ControlKind::knob,    0.42f, knobZ,   pid::sub,         "SUB" },
+        { ControlKind::knob,    0.42f, knobZ,   pid::sub,         "SUB", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::machinedBlack },
         { ControlKind::button,  0.79f, buttonZ, pid::subBoost,    "BOOST" },
         { ControlKind::button,  1.18f, buttonZ, pid::footstep,    "PRIORITY" },
-        { ControlKind::knob,   masterKnobX2[0], knobZ, pid::enhMultiply, "MULTIPLY", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::aluminium },
-        { ControlKind::knob,   masterKnobX2[1], knobZ, pid::enhStrength, "STRENGTH", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::aluminium },
+        { ControlKind::knob,   masterKnobX2[0], knobZ, pid::enhMultiply, "MULTIPLY", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::machinedSilver },
+        { ControlKind::knob,   masterKnobX2[1], knobZ, pid::enhStrength, "STRENGTH", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::machinedSilver },
 
         // Rack-wide PRESET buttons in the maker block (momentary; the name shows on the analyser)
         { ControlKind::button, presetButtonX[0], presetButtonZ, pid::presetPrev, "PREV", nullptr, nullptr, enhUnit, "PRESET" },
         { ControlKind::button, presetButtonX[1], presetButtonZ, pid::presetNext, "NEXT", nullptr, nullptr, enhUnit, "PRESET" },
 
-        { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow1Z, pid::silkSmooth, "SMOOTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow1Z, pid::silkAir, "AIR", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow1Z, pid::silkWarmth, "WARMTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow1Z, pid::silkBody, "BODY", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
-        { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow1Z, pid::silkOutput, "OUTPUT", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::fluted },
+        { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow1Z, pid::silkSmooth, "SMOOTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
+        { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow1Z, pid::silkAir, "AIR", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
+        { ControlKind::knob, seraphFirstKnobX + 2.0f * seraphKnobStep, seraphRow1Z, pid::silkWarmth, "WARMTH", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
+        { ControlKind::knob, seraphFirstKnobX + 3.0f * seraphKnobStep, seraphRow1Z, pid::silkBody, "BODY", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
+        { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow1Z, pid::silkOutput, "OUTPUT", nullptr, nullptr, tubeUnit, "TONE", 1.0f, KnobStyle::chromeSkirtCone },
 
         { ControlKind::knob, seraphFirstKnobX + 0.0f * seraphKnobStep, seraphRow2Z, pid::haloWidth, "WIDTH", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
         { ControlKind::knob, seraphFirstKnobX + 1.0f * seraphKnobStep, seraphRow2Z, pid::haloSpace, "REVERB", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
@@ -379,8 +416,8 @@ namespace pad::layout
         { ControlKind::knob, seraphFirstKnobX + 4.0f * seraphKnobStep, seraphRow2Z, pid::haloTone, "TONE", nullptr, nullptr, tubeUnit, "SPACE", 1.0f, KnobStyle::fluted },
 
         // LOUDNESS: one knob, two printed scales (HOLD / LIFT + HOLD), a button to swap between them
-        { ControlKind::knob,   0.74f, seraphRow2Z, pid::heavenHold, "LOUDNESS", pid::heavenLift, pid::heavenMode, tubeUnit, "TONE & SPACE", 1.18f, KnobStyle::fluted },
-        { ControlKind::button, 1.28f, seraphRow2Z, pid::heavenMode, "LIFT", nullptr, nullptr, tubeUnit, "LOUDNESS" },
+        { ControlKind::knob,   0.74f, seraphRow2Z, pid::heavenHold, "LOUDNESS", pid::heavenLift, pid::heavenMode, tubeUnit, "TONE & SPACE", 1.18f, KnobStyle::marconi },
+        { ControlKind::button, 1.22f, seraphRow2Z, pid::heavenMode, "LIFT", nullptr, nullptr, tubeUnit, "LOUDNESS", 1.0f, KnobStyle::proXl, SwitchStyle::rocker, ButtonStyle::chromeBezel },
 
         { ControlKind::toggle, 1.78f, seraphRow1Z - 0.10f, pid::silkProtect, "PROTECT", nullptr, nullptr, tubeUnit, "TONE" },
         { ControlKind::toggle, 2.12f, seraphRow1Z - 0.10f, pid::silkTape, "TAPE", nullptr, nullptr, tubeUnit, "TONE" },
@@ -397,15 +434,15 @@ namespace pad::layout
         { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::tideResponse, "RESPONSE", nullptr, nullptr, tideUnit, "COMPRESSOR", 1.0f, KnobStyle::skirted },
         { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::tideActive, "IN", nullptr, nullptr, tideUnit, "COMPRESSOR" },
 
-        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::lumenTarget, "TARGET", nullptr, nullptr, lumenUnit, "LEVELER", 1.0f, KnobStyle::skirted },
-        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::lumenResponse, "RESPONSE", nullptr, nullptr, lumenUnit, "LEVELER", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::lumenTarget, "TARGET", nullptr, nullptr, lumenUnit, "LEVELER", 1.0f, KnobStyle::amberInstrument },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::lumenResponse, "RESPONSE", nullptr, nullptr, lumenUnit, "LEVELER", 1.0f, KnobStyle::amberInstrument },
         { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::lumenActive, "IN", nullptr, nullptr, lumenUnit, "LEVELER" },
 
         // SPECTRAL LIMITER: three knobs, then IN
-        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::spectralRange, "RANGE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::skirted },
-        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::spectralRelease, "RELEASE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::skirted },
-        { ControlKind::knob,   oneUKnobX + 2.0f * oneUKnobStep, oneUKnobZ, pid::spectralCeiling, "CEILING", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::skirted },
-        { ControlKind::toggle, oneUKnobX + 2.0f * oneUKnobStep + 0.38f, oneUButtonZ, pid::spectralActive, "IN", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER" },
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::spectralRange, "RANGE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::oxbloodInstrument },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::spectralRelease, "RELEASE", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::oxbloodInstrument },
+        { ControlKind::knob,   oneUKnobX + 2.0f * oneUKnobStep, oneUKnobZ, pid::spectralCeiling, "CEILING", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::oxbloodInstrument },
+        { ControlKind::toggle, oneUKnobX + 2.0f * oneUKnobStep + 0.38f, oneUButtonZ, pid::spectralActive, "IN", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
     }};
 
     inline constexpr int numControls = (int) controls.size();

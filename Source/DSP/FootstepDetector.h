@@ -32,6 +32,17 @@ namespace enh::dsp
         ringing / sustain / re-attacks that retracts the decision. Only events that survive
         are learned into the rhythm and fingerprint.
 
+        Adapting to the game, not a fixed idea of a footstep:
+          - how fast steps die away is learnt from the steps it accepts: in a reverberant game, or on
+            wood and carpet, steps decay more slowly, and the decay test scales with them (bounded,
+            so a slow swell can never pass as a step);
+          - an event that failed only on decay at 42 ms (short, noise-like, not hot, not clutter) gets a
+            second look at 70 ms over the longer window - steps with a room tail, on wood, far away.
+        Both relaxations apply only to an impact: an event that reached its peak within 12 ms of its
+        onset, stands well clear of its background (>= 14 dB) and is outside tonal activity. A
+        syllable is a short burst that fades too, but it swells up over tens of ms, so for speech
+        the default requirement stands.
+
         dynamicWeight describes where THIS step's energy actually rose above the background
         (with a gentle preference for the 1-4 kHz detail region that carries footsteps in
         games such as Call of Duty), so the EQ lifts the real step instead of a fixed region.
@@ -44,6 +55,9 @@ namespace enh::dsp
         float update (const BandAnalyzer&, SpectralAnalyzer&, float dt) noexcept;
 
         float getConfidence() const noexcept { return confidence; }
+
+        /** Tests: switch the adaptive decay and the second look off, to compare with fixed rules. */
+        void setAdaptive (bool on) noexcept  { adaptive = on; }
         int getEventCount() const noexcept   { return eventCount; }
         int getRejectedCount() const noexcept { return rejectedCount; }
 
@@ -68,6 +82,7 @@ namespace enh::dsp
         void computeShape (std::array<float, numBands>& shape) const noexcept;
         float fingerprintMatch() const noexcept;
         float eventDropDb (const BandAnalyzer&, bool useShortTerm) const noexcept;
+        float eventExcessDb() const noexcept;   // how far the event stands above its own background
 
         std::array<float, numBands> background {}, onsetBand {}, onsetPattern {}, emphasis {};
         std::array<bool, numBands> voiceBand {}, lowBand {}, highBand {};
@@ -80,6 +95,13 @@ namespace enh::dsp
         float contextTonal = 0, clutterAtOnset = 0, sequence = 0, expected = 0, eventScore = 0, lastDecay = 0;
         bool decided = false, armed = true;
         float strengthLow = 0.0f;
+        bool adaptive = true;
+        float decayScale = 1.0f;                 // this event's decay requirement (1 = the default)
+        bool secondLook = false;                 // decay-limited: re-judged at secondLookTime
+        float eventPeakEnergy = 0.0f;            // the event's loudest moment so far (transient power)
+        double peakAt = 0.0;                     // ... and when, after the onset (impacts peak within ms)
+        float othersAtDecision = 0.0f;           // the decision's score without its decay factor
+        float learnedDrop = 10.0f;               // typical drop (dB) of accepted steps at the decision
 
         // History / sequence
         float clutterCount = 0.0f, rhythm = 0.0f, hotHold = 0.0f, suspicion = 0.0f, suspicionAtDecision = 0.0f;

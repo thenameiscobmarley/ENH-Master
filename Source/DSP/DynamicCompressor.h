@@ -20,6 +20,11 @@ namespace enh::dsp
           - a running estimate of the loud part of the programme (a cheap percentile tracker),
             so the threshold sits under the music rather than under one static number.
 
+        Dual release (program-dependent, as on the classic bus compressors): a slow follower carries
+        the average gain reduction the programme needs; a fast one takes only the momentary extra a
+        transient asks for, and gives it back in ~50 ms. A kick then dips the mix for a moment
+        instead of pulling the sustained parts down and letting them swell back (pumping).
+
         RESPONSE (0..1) scales how quickly all of that adapts and how hard the ballistics are.
         MIX is a straight wet/dry blend, applied after auto make-up so the blend does not
         change the level.
@@ -55,6 +60,9 @@ namespace enh::dsp
 
         const Readout& getReadout() const noexcept { return readout; }
 
+        /** Tests: the single-follower ballistics this unit had before, for comparison. */
+        void setDualRelease (bool on) noexcept { dualRelease = on; }
+
     private:
         void updateDetector (float peak, float rms, const Settings&) noexcept;
 
@@ -70,7 +78,9 @@ namespace enh::dsp
         float onsetRate = 0.0f, lastFlux = 0.0f;
         float thresholdDb = -20.0f, ratio = 2.0f, kneeDb = 6.0f;
         float gainDb = 0.0f, makeupDb = 0.0f;
-        float attackCoeff = 0.0f, releaseCoeff = 0.0f;
+        float slowDb = 0.0f, fastDb = 0.0f;   // dual release: average + transient gain reduction
+        float attackCoeff = 0.0f, releaseCoeff = 0.0f, slowAttackCoeff = 0.0f, slowReleaseCoeff = 0.0f, fastReleaseCoeff = 0.0f;
+        bool dualRelease = true;
         float controlPhase = 0.0f;
 
         Readout readout {};

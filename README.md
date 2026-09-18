@@ -262,6 +262,40 @@ moved it while moving: gold user, cyan host automation, violet self-tune.
 The display shows the applied adaptive EQ response (24 bands, 40 Hz – 16 kHz) and flashes on detected footsteps.
 The lid vents glow with enhancement activity (pink) and detected footsteps (lime).
 
+## Footstep detection adapts to the game
+
+The classifier still rejects crates, gunshots, voices and rattles. Two things now adapt to the
+programme:
+
+- **How fast steps die away** is learnt from the steps it accepts. In a reverberant game, or on wood
+  and carpet, steps decay more slowly, and the decay test scales with them (never below about half
+  the default). The 110 ms sustain check scales the same way.
+- **A second look at 70 ms** is given to an event that failed only on decay: over a longer window,
+  with no lift while it waits.
+
+Both apply only to real impacts:
+- the event peaks within 12 ms of its onset (a syllable swells over tens of ms);
+- it stands at least 14 dB above its own background;
+- it is outside tonal activity.
+
+Under a voice, the default rules stand.
+
+Reverberant rooms (RT about 0.6 s, `EnhDspTests`):
+
+| | Seed 5 | Seed 88 |
+|---|---|---|
+| Fixed rules | 60 % | 50 % |
+| Adaptive | 73 % | 67 % |
+
+Voice false time in those rooms is unchanged, and every other detection test holds.
+
+## ADAPTIVE COMPRESSOR: dual release
+
+A slow follower carries the average gain reduction; a fast one takes only what a transient needs,
+and gives it back in about 50 ms. In the test, a steady tone under a kick every 0.5 s sits 0.69 dB
+off its level on average, against 1.02 dB with the old single release: 32 % less pumping at the
+same average gain reduction.
+
 ## Signal chain (Source/DSP)
 
 ```
@@ -343,6 +377,35 @@ lies flat against the back of its unit's faceplate, meeting its neighbours in th
 They are zinc-plated, with square rack holes under every ear screw. The units sit 0.03 inside the
 cheeks' arc, and a contact shadow runs where the ears clamp to the rails.
 
+## Hardware styles
+
+HardwareKit now has 49 knob styles, 5 switch styles and 5 button styles. Most knob styles are
+recipes (skirt, body shape, grip carving, cap, pointer, materials) built by one generator at every
+level of detail:
+
+- console knobs with coloured caps;
+- vintage: Marconi, bakelite, cream radio, chrome-skirt cones, wing pointers;
+- machined metal: silver, black, gunmetal, brass, crosshatch, stepped, chrome dome;
+- instrument collets and Eurorack knobs;
+- rubber knobs and pointer bars;
+- hi-fi discs;
+- guitar top-hats and speed knobs.
+
+Switches: I / O rocker (standard, red, wide), bat toggle, paddle toggle. Buttons: square, round,
+wide, chrome bezel, soft dome. `PAD_UI_TEST_GALLERY=1` lays every style out on the enhancer (dev only).
+
+In use:
+
+| Unit | Knobs | Switches and buttons |
+|---|---|---|
+| ADAPTIVE ENHANCER | ProXL; machined black SUB; machined silver masters | |
+| TONE & SPACE | cones on chrome skirts (TONE), Davies flutes (SPACE), a stepped Marconi knob for LOUDNESS | chrome-bezel LIFT button |
+| ADAPTIVE COMPRESSOR | machined skirts with a petrol cap | |
+| UPWARD LEVELER | instrument knobs with burnt-amber caps | |
+| SPECTRAL LIMITER | instrument knobs with oxblood caps | red I / O rocker |
+
+The rockers are 30 % larger than in 1.1.
+
 ## Detail and resolution
 
 - **Detail levels:** every knob, selector, push button and switch is built at four levels (32, 64,
@@ -355,7 +418,7 @@ cheeks' arc, and a contact shadow runs where the ears clamp to the rails.
   - set screws;
   - anodised cap inserts in muted unit colours: petrol (compressor), bronze (leveler), oxblood
     (limiter).
-- **Switches:** I / O rocker switches, with the I end pressed in when on.
+- **Switches:** I / O rocker switches, with the I end pressed in when on (see Hardware styles).
 - **Screws:** pan-head ear screws on washers.
 - **Printed panels:** 4096 px wide, mipmapped, so the GPU uses the resolution the camera needs and
   the print sharpens as you get closer. Scale rings are 1024 px, meter faces up to 1536 px.

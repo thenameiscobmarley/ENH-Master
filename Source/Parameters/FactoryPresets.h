@@ -36,7 +36,7 @@ namespace pad::presets
                   { id::sub, 0.0f }, { id::subBoost, 0.0f }, { id::footstep, 1.0f }, { id::enhStrength, 1.3f },
                   { id::lumenTarget, -22.0f }, { id::lumenResponse, 4.0f },                 // lift quiet detail, steadily
                   { id::spectralRange, 13.0f }, { id::spectralRelease, 110.0f }, { id::spectralCeiling, -6.0f },
-                  { id::tideMix, 45.0f }, { id::tideResponse, 6.0f },
+                  { id::tideMix, 35.0f }, { id::tideResponse, 5.0f },                     // light bus compression: transients are cues
                   { id::seraphMode, 1.0f },                                                // TONE only: no reverb tail
                   { id::silkSmooth, 5.0f }, { id::silkAir, 3.0f }, { id::silkWarmth, 1.0f }, { id::silkBody, 0.0f },
                   { id::silkProtect, 1.0f }, { id::silkTape, 0.0f }, { id::silkAuto, 1.0f },

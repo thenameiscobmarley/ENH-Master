@@ -265,9 +265,25 @@ namespace pad
         }
         for (int d = 0; d < numDetail; ++d)
         {
-            buttonModels[(size_t) d].upload (hwk::models::pushButton (buttonHalfW, buttonHalfD, d));
-            rockerModels[(size_t) d].upload (hwk::models::rockerSwitch (d));
+            for (int s = 0; s < hwk::models::numButtonStyles; ++s)
+                buttonModels[(size_t) s][(size_t) d].upload (hwk::models::pushButton ((ButtonStyle) s, buttonHalfW, buttonHalfD, d));
+            for (int s = 0; s < hwk::models::numSwitchStyles; ++s)
+            {
+                const auto model = hwk::models::toggleSwitch ((SwitchStyle) s, d);
+                switchModels[(size_t) s][(size_t) d].upload (model);
+                switchPivotY[(size_t) s] = model.leverPivotY;
+                switchAngle[(size_t) s] = model.leverAngle;
+            }
         }
+
+        galleryKnobs.clear();
+        if (gallery)
+            for (int s = 0; s < hwk::models::numKnobStyles; ++s)
+            {
+                auto model = std::make_unique<GpuModel>();
+                model->upload (hwk::models::knob ((KnobStyle) s, 0.085f, { 0.42f, 0.08f, 0.12f }, 2));
+                galleryKnobs.push_back (std::move (model));
+            }
         lampModel.upload (hwk::models::jewelLamp());
         meshes.led.upload (hwk::models::ledLens());
 
@@ -319,8 +335,10 @@ namespace pad
         for (auto& model : knobModels)
             model->release();
         knobModels.clear();
-        for (auto& b : buttonModels) b.release();
-        for (auto& r : rockerModels) r.release();
+        for (auto& style : buttonModels) for (auto& b : style) b.release();
+        for (auto& style : switchModels) for (auto& s : style) s.release();
+        for (auto& g : galleryKnobs) g->release();
+        galleryKnobs.clear();
         lampModel.release();
         tideVu.release();
         lumenVu.release();
@@ -651,7 +669,8 @@ namespace pad
             if (c.kind == ControlKind::toggle)
             {
                 auto& tg = toggles[(size_t) i];
-                tg.update (value > 0.5f, -hwk::models::rockerAngle, hwk::models::rockerAngle, dt);   // on = the I end pressed in
+                const float a = switchAngle[(size_t) c.switchStyle];
+                tg.update (value > 0.5f, -a, a, dt);   // on: a rocker's I end pressed in, a lever up
                 busy = busy || ! tg.isIdle();
                 continue;
             }
@@ -1181,9 +1200,34 @@ namespace pad
         // =============================================================================
         // Opaque, front to back
         // =============================================================================
+        if (gallery)
+        {
+            // Every knob style in order, 10 across; then the switch and button styles on the last row
+            const int n = (int) galleryKnobs.size();
+            for (int s = 0; s < n; ++s)
+            {
+                const float x = -2.20f + 0.49f * (float) (s % 10), z = -0.72f + 0.33f * (float) (s / 10);
+                const auto at = panel * Mat4::translation ({ x, 0.05f, z }) * Mat4::rotationY (-0.6f);
+                drawModel (*galleryKnobs[(size_t) s], at, at, {}, { 0.94f, 0.94f, 0.96f });
+            }
+            for (int s = 0; s < hwk::models::numSwitchStyles; ++s)
+            {
+                const auto at = panel * Mat4::translation ({ -2.20f + 0.40f * (float) s, 0.05f, 0.95f });
+                drawModel (switchModels[(size_t) s][2], at * Mat4::translation ({ 0.0f, switchPivotY[(size_t) s], 0.0f }) * Mat4::rotationX (-switchAngle[(size_t) s]),
+                           at, {}, { 0.93f, 0.93f, 0.95f });
+            }
+            for (int s = 0; s < hwk::models::numButtonStyles; ++s)
+            {
+                const auto at = panel * Mat4::translation ({ 0.0f + 0.42f * (float) s, 0.05f, 0.95f });
+                drawModel (buttonModels[(size_t) s][2], at, at, {}, {});
+            }
+        }
+
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
+            if (gallery && c.unit == enhUnit)
+                continue;
             const auto& unitPanel = panelFor (c.unit);
             const auto base = unitPanel * Mat4::translation ({ c.x, 0.0f, c.z });
             const bool hovered = shared.hoveredControl.load() == i || shared.activeControl.load() == i;
@@ -1209,8 +1253,9 @@ namespace pad
                 // I / O rocker: the paddle and its marks rock about the pivot; the bezel stays put
                 const auto& tg = toggles[(size_t) i];
                 const Vec3 lift = hovered ? Vec3 { 0.05f, 0.05f, 0.06f } : Vec3 {};
-                const int detail = detailFor (cam, unitPanel, c.x, c.z, hwk::models::rockerHalfD, vw);
-                drawModel (rockerModels[(size_t) detail], base * Mat4::translation ({ 0.0f, hwk::models::rockerPivotY, 0.0f }) * Mat4::rotationX (tg.angle),
+                const auto style = (size_t) c.switchStyle;
+                const int detail = detailFor (cam, unitPanel, c.x, c.z, switchOutline (c.switchStyle).halfD, vw);
+                drawModel (switchModels[style][(size_t) detail], base * Mat4::translation ({ 0.0f, switchPivotY[style], 0.0f }) * Mat4::rotationX (tg.angle),
                            base, lift, { 0.93f, 0.93f, 0.95f });
             }
             else
@@ -1218,7 +1263,7 @@ namespace pad
                 const auto& bt = buttons[(size_t) i];
                 const auto pressed = base * Mat4::translation ({ 0.0f, -buttonTravel * bt.travel(), 0.0f });
                 const int detail = detailFor (cam, unitPanel, c.x, c.z, buttonHalfW, vw);
-                drawModel (buttonModels[(size_t) detail], pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
+                drawModel (buttonModels[(size_t) c.buttonStyle][(size_t) detail], pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
 
                 // Each button's LED on its own unit's panel (the LIFT button's used to be drawn on the
                 // enhancer's panel, where it landed inside FOOTSTEP)
@@ -1499,8 +1544,8 @@ namespace pad
                 }
             }
             else if (c.kind == ControlKind::toggle)
-                drawShadow (unitPanel, c.x + offX * 0.012f, 0.003f, c.z + offZ * 0.012f, hwk::models::rockerHalfW + 0.004f,
-                            hwk::models::rockerHalfD + 0.004f, 0.014f, 0.014f, 0.45f);
+                drawShadow (unitPanel, c.x + offX * 0.012f, 0.003f, c.z + offZ * 0.012f, switchOutline (c.switchStyle).halfW + 0.004f,
+                            std::min (switchOutline (c.switchStyle).halfD, 0.10f) + 0.004f, 0.014f, 0.014f, 0.45f);
             else
                 drawShadow (unitPanel, c.x + offX * 0.015f, 0.003f, c.z + offZ * 0.015f, buttonHalfW + 0.014f, buttonHalfD + 0.014f, 0.016f, 0.015f, 0.5f);
         }

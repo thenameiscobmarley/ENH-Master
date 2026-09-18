@@ -230,8 +230,8 @@ int main()
         }
         else
         {
-            const float hw = c.kind == ControlKind::button ? buttonHalfW + 0.016f : hwk::models::rockerHalfW;
-            const float hd = c.kind == ControlKind::button ? buttonHalfD + 0.016f : hwk::models::rockerHalfD;
+            const auto o = c.kind == ControlKind::button ? buttonOutline (c.buttonStyle) : switchOutline (c.switchStyle);
+            const float hw = o.halfW, hd = o.halfD;
             const auto a = panelPx (cam, c.unit, c.x - hw, c.z - hd, 0, W, H), b = panelPx (cam, c.unit, c.x + hw, c.z + hd, 0, W, H);
             std::fprintf (f, "<rect x='%.1f' y='%.1f' width='%.1f' height='%.1f' fill='none' stroke='%s' stroke-width='1' stroke-dasharray='2 1'><title>%s %s (%s): panel x %.3f z %.3f</title></rect>\n",
                           std::min (a.x, b.x), std::min (a.y, b.y), std::abs (b.x - a.x), std::abs (b.y - a.y), col, xml (unitInfo[(size_t) c.unit].name).c_str(), c.label, kindName (c.kind), c.x, c.z);

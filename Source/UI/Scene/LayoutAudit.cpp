@@ -81,15 +81,7 @@ namespace pad::audit
 
         float knobFootprint (const ControlDef& c)
         {
-            const float r = knobBodyRadius (c);
-            switch (c.style)
-            {
-                case KnobStyle::fluted:      return r * 1.32f;
-                case KnobStyle::chickenHead: return r * 1.6f;
-                case KnobStyle::skirted:     return r * 1.26f;
-                case KnobStyle::proXl:       return r * 1.12f;
-                default:                     return r * 1.12f;
-            }
+            return hwk::models::knob (c.style, knobBodyRadius (c), {}, 0).footprintRadius;   // the model's own
         }
 
         void addScrews (std::vector<Obstacle>& obs, const Rect* slots, size_t count)
@@ -154,11 +146,11 @@ namespace pad::audit
                 else if (c.kind == ControlKind::toggle)
                 {
                     // The rocker's bezel
-                    obs.push_back ({ Obstacle::rect, c.x, c.z, hwk::models::rockerHalfW, hwk::models::rockerHalfD, name });
+                    obs.push_back ({ Obstacle::rect, c.x, c.z, switchOutline (c.switchStyle).halfW, switchOutline (c.switchStyle).halfD, name });
                 }
                 else
                 {
-                    obs.push_back ({ Obstacle::rect, c.x, c.z, buttonHalfW + 0.016f, buttonHalfD + 0.016f, name });
+                    obs.push_back ({ Obstacle::rect, c.x, c.z, buttonOutline (c.buttonStyle).halfW, buttonOutline (c.buttonStyle).halfD, name });
                     if (hasLed (c))
                     {
                         if (std::string_view (c.paramId) == pad::params::id::clarityMode)
