@@ -22,14 +22,33 @@ footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, ADAPTIVE COMPRESS
 
 ## Build
 
-Needs JUCE 8 and the [HardwareKit](../../../HardwareKit) module checked out next to this repository:
+The easy way is the builder script. It checks your tools and offers to download JUCE and
+[HardwareKit](https://github.com/thenameiscobmarley/HardwareKit) if they're missing. Then it asks two
+questions and builds:
+
+```sh
+./build.sh
+```
+
+- **How many CPU cores:** 1 (slowest, lightest on memory), all of them (fastest), or a number you choose.
+- **Replace or copy:**
+  - *replace* installs over `~/.vst3/ENH Master.vst3`, the copy your DAW loads.
+  - *copy* puts a separate build in `dist/ENH-Master-<version>-<date>/` and leaves the installed
+    plugin alone.
+
+You can also skip the questions with flags: `./build.sh --jobs all --mode replace`, or `--jobs 2`,
+`--mode copy`, `--tests` (run the DSP tests afterwards), `--clean` (build from scratch), and `-y` (use
+the defaults). See `./build.sh --help`. If the compiler runs out of memory with many cores, it offers
+to retry with half as many. The build log is `build/builder.log`.
+
+By hand, the same thing:
 
 ```sh
 git clone https://github.com/juce-framework/JUCE ~/JUCE
-git clone <HardwareKit repo> ~/Projects/HardwareKit     # or pass -DHARDWAREKIT_PATH=
+git clone https://github.com/thenameiscobmarley/HardwareKit ../HardwareKit   # or pass -DHARDWAREKIT_PATH=
 
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # JUCE_PATH defaults to ~/JUCE
-cmake --build build -j1                                   # -j1: JUCE needs a lot of RAM per job
+cmake --build build -j"$(nproc)"                          # all cores; add -DENH_COPY_PLUGIN=OFF to not install
 build/EnhDspTests_artefacts/Release/EnhDspTests           # offline DSP tests + CPU benchmark
 ```
 

@@ -15,6 +15,7 @@ set(JUCE_PATH "$ENV{HOME}/JUCE" CACHE PATH "Path to the JUCE source tree")
 option(ENH_BUILD_STANDALONE "Also build a Standalone app" ON)
 option(ENH_BUILD_TESTS "Build the offline DSP test/benchmark tool" ON)
 option(ENH_BUILD_TOOLS "Build LayoutViz (layout analysis / visualisation, no effect on the plugin)" ON)
+option(ENH_COPY_PLUGIN "Install the VST3 into the user plug-in folder after building (replacing the installed one)" ON)
 
 add_subdirectory(${JUCE_PATH} JUCE EXCLUDE_FROM_ALL)
 
@@ -56,7 +57,7 @@ juce_add_plugin(EnhMaster
     IS_MIDI_EFFECT              FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     VST3_CATEGORIES             Fx Dynamics EQ
-    COPY_PLUGIN_AFTER_BUILD     TRUE)
+    COPY_PLUGIN_AFTER_BUILD     ${ENH_COPY_PLUGIN})
 
 target_sources(EnhMaster PRIVATE
     Source/PluginProcessor.cpp
