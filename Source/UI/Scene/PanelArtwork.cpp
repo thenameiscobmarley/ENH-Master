@@ -127,10 +127,7 @@ namespace pad::artwork
                 };
                 line ("ADAPTIVE", -0.655f, 0.052f, 0.16f);
                 line ("ENHANCER", -0.585f, 0.052f, 0.16f);
-                line ("ADAPTIVE EQ", -0.505f, 0.020f, 0.14f);
-                line ("HARMONIC EXCITER", -0.473f, 0.020f, 0.14f);
-                line ("SUB  -  FOOTSTEP PRIORITY", -0.441f, 0.020f, 0.14f);
-                line ("EM-4   STAGE 1 OF 5", -0.395f, 0.018f, 0.14f);
+                line ("MODEL EM-1", -0.505f, 0.020f, 0.14f);   // a model number, as real units carry
                 line ("PRESET", -0.325f, 0.022f, 0.30f);   // over the PREV / NEXT buttons
             }
 
@@ -238,9 +235,7 @@ namespace pad::artwork
                 text (g, m, s, x0, z, fitHeight (m, s, h, width, true, tracking), left, true, tracking, width);
             };
             line ("TONE & SPACE", -0.745f, 0.050f, 0.16f);
-            line ("FINISHING PROCESSOR", -0.675f, 0.020f, 0.12f);
-            line ("TONE - SPACE - LOUDNESS HOLD", -0.638f, 0.018f, 0.10f);
-            line ("STAGE 5 OF 5  -  ENH MASTER SERIES", -0.602f, 0.016f, 0.10f);
+            line ("MODEL EM-5", -0.675f, 0.020f, 0.12f);
         }
 
         // Row headings, so it is obvious which knobs belong to which section
@@ -371,8 +366,7 @@ namespace pad::artwork
             const juce::String name (info.name);
             line (name.upToFirstOccurrenceOf (" ", false, false), -0.176f, 0.050f, 0.16f);
             line (name.fromFirstOccurrenceOf (" ", false, false), -0.104f, 0.050f, 0.16f);
-            line (info.role, -0.038f, 0.019f, 0.10f);
-            line (juce::String ("STAGE ") + juce::String (info.chainPosition) + " OF 5  -  ENH MASTER SERIES", 0.004f, 0.015f, 0.08f);
+            line (juce::String ("MODEL EM-") + juce::String (info.chainPosition), -0.038f, 0.019f, 0.10f);
         }
 
         // Bordered control section, as on a hardware compressor
@@ -590,7 +584,7 @@ namespace pad::artwork
         const float small = (float) h * 0.062f, tiny = (float) h * 0.056f;
 
         // Left: where SMOOTH is dipping resonances right now
-        label ("SMOOTH  -  RESONANCE DIPS", displayDipsU0, 0.10f, small, juce::Justification::left,
+        label ("SMOOTH", displayDipsU0, 0.10f, small, juce::Justification::left,
                "SMOOTH: where resonances are being dipped right now (shared by L + R)");
         for (auto [hz, name] : { std::pair { 150.0f, "150" }, std::pair { 1000.0f, "1k" }, std::pair { 4000.0f, "4k" }, std::pair { 16000.0f, "16k" } })
         {
@@ -602,7 +596,7 @@ namespace pad::artwork
         label ("-12", displayDipsU0 - 0.004f, 0.72f, tiny, juce::Justification::right, "-12 dB dip");
 
         // Right: what every process is doing to each channel
-        label ("PER-CHANNEL PROCESSING  -  L / R", displayColsU0, 0.10f, small, juce::Justification::left,
+        label ("L / R", displayColsU0, 0.10f, small, juce::Justification::left,
                "What each process is doing to the left and right channel, right now");
         const std::array<std::pair<const char*, const char*>, displayColumns> columns {{
             { "SMOOTH",  "SMOOTH: energy of the resonance dips on L / R" },

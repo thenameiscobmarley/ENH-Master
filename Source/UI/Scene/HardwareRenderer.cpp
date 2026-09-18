@@ -20,28 +20,12 @@ namespace pad
         constexpr Vec3 amber        { 1.00f, 0.55f, 0.15f };
         constexpr Vec3 knobBlack    { 0.030f, 0.030f, 0.033f };
         constexpr Vec3 buttonGrey   { 0.40f, 0.41f, 0.43f };
-        constexpr Vec3 seraphPurple { 0.30f, 0.14f, 0.55f };
-        constexpr Vec3 user        { 1.00f, 0.70f, 0.20f };
-        constexpr Vec3 automation  { 0.20f, 0.82f, 1.00f };
-        constexpr Vec3 selfTune    { 0.68f, 0.42f, 1.00f };
-        constexpr Vec3 neutral     { 0.92f, 0.93f, 0.95f };
+        constexpr Vec3 seraphPurple { 0.21f, 0.13f, 0.30f };   // deep aubergine enamel
         constexpr Vec3 chrome      { 0.92f, 0.90f, 0.93f };
     }
 
     static Vec3 mixVec (Vec3 a, Vec3 b, float t) noexcept { return a + (b - a) * t; }
     static float saturateUi (float x) noexcept { return std::clamp (x, 0.0f, 1.0f); }
-
-    Vec3 HardwareRenderer::sourceColour (ControlSource s) noexcept
-    {
-        switch (s)
-        {
-            case ControlSource::user:           return colours::user;
-            case ControlSource::hostAutomation: return colours::automation;
-            case ControlSource::selfTune:       return colours::selfTune;
-            case ControlSource::none:           break;
-        }
-        return colours::neutral;
-    }
 
     //==============================================================================
     HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const enh::dsp::EngineMeters& m,
@@ -99,7 +83,7 @@ namespace pad
     }
 
     void HardwareRenderer::drawModel (const GpuModel& model, const Mat4& moving, const Mat4& fixed, Vec3 hoverLift,
-                                      Vec3 pointerColour, float accentGain)
+                                      Vec3 pointerColour, float accentGain, bool litPointer)
     {
         using hwk::models::Role;
         for (auto& part : model.parts)
@@ -120,6 +104,12 @@ namespace pad
                     draw (part->mesh, m, part->colour, hoverLift * 0.5f);
                     break;
                 case Role::pointer:
+                    if (! litPointer)   // an inlaid / painted line, as on real knobs
+                    {
+                        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                        draw (part->mesh, m, part->colour, hoverLift);
+                        break;
+                    }
                     use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
                     draw (part->mesh, m, pointerColour * 0.55f, pointerColour * 0.45f);
                     break;
@@ -188,7 +178,6 @@ namespace pad
         meshes.caseFrontRails.upload (geo::caseFrontRails());
         meshes.caseRailHoles.upload (geo::caseRailHoles());
         meshes.caseEdges.upload (geo::caseEdges());
-        meshes.flowArrow.upload (geo::flowArrow());
         meshes.faceEdges.upload (geo::faceplateEdges());
         meshes.faceTop.upload (geo::faceplateTop());
         meshes.displayWalls.upload (geo::displayWalls());
@@ -220,9 +209,9 @@ namespace pad
         meshes.oneUScrewSlots.upload (geo::oneUScrewSlots());
         // VU movements, one model per size (the compressor's wide meter, the leveler's three narrow
         // ones, the limiter's two)
-        tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.09f, 0.26f, 0.42f }));
-        lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.14f, 0.13f, 0.12f }));
-        limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.34f, 0.07f, 0.11f }));
+        tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
+        lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
+        limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
 
 
         // HardwareKit models, every distinct (style, radius, unit accent) at every level of detail
@@ -239,7 +228,7 @@ namespace pad
             const float r = knobBodyRadius (c);
             // Soft-touch caps (TONE & SPACE masters) in violet; the 1U units' anodised caps muted -
             // petrol, bronze and oxblood, as anodised aluminium comes
-            const auto accent = c.unit == tubeUnit    ? Vec3 { 0.62f, 0.44f, 1.0f }
+            const auto accent = c.unit == tubeUnit    ? Vec3 { 0.30f, 0.26f, 0.40f }
                               : c.unit == tideUnit    ? Vec3 { 0.10f, 0.29f, 0.35f }
                               : c.unit == lumenUnit   ? Vec3 { 0.47f, 0.33f, 0.14f }
                               : c.unit == limiterUnit ? Vec3 { 0.42f, 0.08f, 0.12f }
@@ -849,7 +838,6 @@ namespace pad
         };
 
         // The signal-flow pulse travelling up the chain
-        flowPhase = std::fmod (flowPhase + dt * 0.55f, 1.0f);   // paced as an idle animation
 
         // Walking up to the rack, or stepping back from it
         {
@@ -1244,9 +1232,9 @@ namespace pad
                 const float dip = altParam[(size_t) i] >= 0 ? -0.035f * std::sin (pi * swapPulse) : 0.0f;
                 const auto spin = base * Mat4::translation ({ 0.0f, dip, 0.0f }) * Mat4::rotationY (-k.angle);
 
-                // Pointer: white, tinted by who moved the knob while it moves
-                const Vec3 pointer = mixVec ({ 0.94f, 0.94f, 0.96f }, sourceColour ((ControlSource) k.source), 0.55f * k.activity);
-                drawModel (*knobModels[(size_t) modelIndex], spin, base, Vec3 { 0.035f, 0.033f, 0.042f } * k.hover, pointer);
+                // Pointer: the model's own paint (white on dark knobs, black on metal); hover lifts it slightly
+                drawModel (*knobModels[(size_t) modelIndex], spin, base, Vec3 { 0.025f, 0.025f, 0.027f } * k.hover,
+                           {}, 1.0f, false);
             }
             else if (c.kind == ControlKind::toggle)
             {
@@ -1268,8 +1256,6 @@ namespace pad
                 // Each button's LED on its own unit's panel (the LIFT button's used to be drawn on the
                 // enhancer's panel, where it landed inside FOOTSTEP)
                 use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-                if (std::string_view (c.paramId) == pad::params::id::heavenAuto)   // the cap itself lights violet
-                    queueGlow (unitPanel, c.x, c.z, 0.16f, Vec3 { 0.62f, 0.42f, 1.0f }, bt.led * breath);
                 if (! hasLed (c))
                     continue;
                 if (i == modeControl)
@@ -1281,7 +1267,8 @@ namespace pad
                 {
                     const bool isFootstep = i == footstepControl;
                     const float on = isFootstep ? bt.led * (0.75f + 0.25f * stepFlash) : bt.led;
-                    drawLed (unitPanel, c.x, c.z + buttonLedDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
+                    const auto [ledDx, ledDz] = ledOffset (c);
+                    drawLed (unitPanel, c.x + ledDx, c.z + ledDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
                 }
             }
         }
@@ -1304,7 +1291,7 @@ namespace pad
 
             auto& vuRecess = use (shaders::recess);
             vuRecess.set ("uParams", seraphDisplayDepth, 0.0f, 0.0f, 0.0f);
-            vuRecess.set ("uGlow", Vec3 { 0.18f, 0.10f, 0.30f } * tubePower);
+            vuRecess.set ("uGlow", Vec3 { 0.06f, 0.05f, 0.08f } * tubePower);
             draw (meshes.seraphWalls, tubePanel, { 0.06f, 0.05f, 0.08f });
             vuRecess.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
             vuRecess.set ("uGlow", zero);
@@ -1319,7 +1306,7 @@ namespace pad
             const auto lampAt = tubePanel * Mat4::translation ({ lampX, 0.0f, lampZ });
             const float lampOn = tubePower * (0.92f + 0.08f * breath);
             drawModel (lampModel, lampAt, lampAt, {}, Vec3 { 0.45f, 0.05f, 0.04f } + Vec3 { 2.4f, 0.18f, 0.09f } * lampOn);
-            queueGlow (tubePanel, lampX, lampZ, 0.26f, { 1.0f, 0.12f, 0.06f }, 0.55f * lampOn);
+            queueGlow (tubePanel, lampX, lampZ, 0.14f, { 1.0f, 0.12f, 0.06f }, 0.30f * lampOn);
 
             use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
             draw (meshes.tubeEarFloors, tubePanel, { 0.012f, 0.01f, 0.014f });
@@ -1430,32 +1417,6 @@ namespace pad
         use (shaders::table);
         draw (meshes.table, I, zero);
 
-        /*  Signal flow: a chevron in each gap between units, on both rails, lit in turn from
-            the bottom of the case to the top. It says which way the audio runs without
-            putting anything near the controls. */
-        {
-            auto& flow = use (shaders::emissive);
-            flow.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-
-            for (int i = 0; i + 1 < numUnits; ++i)
-            {
-                const int below = rackOrder[(size_t) i];
-                const float here = (float) i / (float) (numUnits - 1);
-                const float lit = 0.25f + 0.75f * std::pow (std::max (0.0f, 1.0f - std::abs (flowPhase - here) * 3.4f), 2.0f);
-                const Vec3 colour = colours::amber * lit;
-
-                for (float side : { -1.0f, 1.0f })
-                {
-                    const auto at = panelFor (below)
-                                      * Mat4::translation ({ side * (faceHalfW + 0.055f), 0.012f,
-                                                             -unitHalfH (below) - rackGap * 0.5f });
-                    draw (meshes.flowArrow, at, colour * 0.35f, colour);
-                    queueGlow (panelFor (below), side * (faceHalfW + 0.055f), -unitHalfH (below) - rackGap * 0.5f,
-                               0.11f, colours::amber, 0.30f * lit);
-                }
-            }
-        }
-
         // =============================================================================
         // Blended: printed knob scales, then soft shadows
         // =============================================================================
@@ -1497,12 +1458,8 @@ namespace pad
 
                 const float r = knobModels[(size_t) modelIndex]->footprint * 1.04f;
                 const auto& unitPanel = panelFor (c.unit);
-                const Vec3 arcColour = c.unit == tubeUnit  ? Vec3 { 0.86f, 0.74f, 1.00f }
-                                     : c.unit == tideUnit  ? Vec3 { 0.40f, 0.88f, 1.00f }
-                                     : c.unit == lumenUnit ? Vec3 { 1.00f, 0.80f, 0.35f }
-                                     : c.unit == limiterUnit ? Vec3 { 1.00f, 0.45f, 0.62f }
-                                                           : Vec3 { 1.00f, 0.76f, 0.32f };
-                arc.set ("uParams", knobAngleForValue (0.0f), k.angle, 0.9f * show, 0.22f);
+                const Vec3 arcColour { 0.86f, 0.83f, 0.76f };   // faint, neutral: a hint of where the value sits
+                arc.set ("uParams", knobAngleForValue (0.0f), k.angle, 0.40f * show, 0.22f);
                 draw (meshes.arcRing, unitPanel * Mat4::translation ({ c.x, 0.0025f, c.z }) * Mat4::scale (r, 1.0f, r), arcColour);
             }
         }

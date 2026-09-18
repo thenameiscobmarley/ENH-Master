@@ -26,7 +26,6 @@ namespace pad::geo
     MeshData caseRailHoles();   // the square rack holes punched down those rails
     MeshData caseEdges();       // bright chamfer along the front edges of the cheeks
     MeshData caseFloor();       // the surface the case is standing on
-    MeshData flowArrow();       // small chevron marking the signal path between two units
 
     // --- panel-local ---------------------------------------------------------------
     MeshData faceplateEdges();

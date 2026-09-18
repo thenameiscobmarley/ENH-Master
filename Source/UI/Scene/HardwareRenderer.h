@@ -32,7 +32,6 @@ namespace pad
         void renderOpenGL() override;
         void openGLContextClosing() override;
 
-        static gfx::Vec3 sourceColour (ControlSource) noexcept;
 
     private:
         struct Meshes
@@ -45,7 +44,7 @@ namespace pad
                          seraphWalls, seraphGlass, seraphBezel,
                          tideFaceTop, lumenFaceTop, limiterFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
                          enhBody, tubeBody, oneUBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
-                         caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges, flowArrow;
+                         caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
@@ -57,7 +56,7 @@ namespace pad
                                  &seraphWalls, &seraphGlass, &seraphBezel,
                                  &tideFaceTop, &lumenFaceTop, &limiterFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
                                  &enhBody, &tubeBody, &oneUBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
-                                 &caseCheeks, &caseRails, &caseFrontRails, &caseRailHoles, &caseEdges, &flowArrow })
+                                 &caseCheeks, &caseRails, &caseFrontRails, &caseRailHoles, &caseEdges })
                     fn (*m);
             }
         };
@@ -82,9 +81,10 @@ namespace pad
             void release();
         };
 
-        /** moving = matrix for parts that turn / press; fixed = for the rest. accentGain scales accent colours. */
+        /** moving = matrix for parts that turn / press; fixed = for the rest. accentGain scales accent colours.
+            litPointer: the pointer part glows (lamps, jewels); otherwise it is paint, lit like the knob. */
         void drawModel (const GpuModel&, const gfx::Mat4& moving, const gfx::Mat4& fixed, gfx::Vec3 hoverLift,
-                        gfx::Vec3 pointerColour, float accentGain = 1.0f);
+                        gfx::Vec3 pointerColour, float accentGain = 1.0f, bool litPointer = true);
 
         void renderLoupeView (const CameraRig&, int viewportW, int viewportH);
         void drawLoupe (int viewportW, int viewportH);
@@ -208,7 +208,6 @@ namespace pad
         // LED ladders (smoothed segment brightness, bottom to top)
         std::array<float, layout::ladderSegments> outLeds {}, enhLeds {}, detectLeds {};
 
-        float flowPhase = 0.0f;        // travels up the chain, lighting each arrow in turn
         float parallaxX = 0.0f, parallaxY = 0.0f;
         float focusAmount = 0.0f;      // animated toward shared.focusTarget
         std::array<float, enh::dsp::numBands> displayBands {};

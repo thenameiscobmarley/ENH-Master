@@ -157,7 +157,10 @@ namespace pad::audit
                             for (float dx : { -modeLedDx, modeLedDx })
                                 obs.push_back ({ Obstacle::circle, c.x + dx, c.z + buttonLedDz, ledRadius * 1.1f, 0.0f, "MODE LED" });
                         else
-                            obs.push_back ({ Obstacle::circle, c.x, c.z + buttonLedDz, ledRadius * 1.1f, 0.0f, juce::String (c.label) + " LED" });
+                        {
+                            const auto [ledDx, ledDz] = ledOffset (c);
+                            obs.push_back ({ Obstacle::circle, c.x + ledDx, c.z + ledDz, ledRadius * 1.1f, 0.0f, juce::String (c.label) + " LED" });
+                        }
                     }
                 }
             }

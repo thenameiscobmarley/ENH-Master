@@ -11,7 +11,7 @@ selector on the left, MULTIPLY and STRENGTH masters at far left.
 
 **POWER**: OFF (true bypass) / TONE / TONE + SPACE.
 
-Right of the display (1.2.0): **AUTO** (a round button whose cap lights violet) hands the heaven to
+Right of the display (1.2.0): **AUTO** (a round button with its own LED, like every latching button) hands the heaven to
 the unit, and the **HEAVEN** knob sets how far it may take it (0 = your knobs, 10 = all AUTO). AUTO
 listens over ~4 s: crest factor (sustained or percussive), side/mid ratio (mono or wide), 8 kHz+ vs
 presence (dull or bright), sub-120 Hz vs mids (thin or full). From those it picks REVERB, DECAY,

@@ -55,19 +55,19 @@ namespace pad::shaders
     float peakV = 1.0 - clamp ((peak    - floorT) / max (topT - floorT, 0.001), 0.0, 1.0);
 
     // Input: a filled area, brighter at its edge, the way a good analyser draws it
-    float fillIn = step (inV, v) * (0.10 + 0.22 * (1.0 - v));
-    float edgeIn = (1.0 - smoothstep (0.0, px * 2.4, abs (v - inV) * (plotB - plotT)));
-    col += vec3 (0.16, 0.45, 0.62) * fillIn * inPlot * uParams.y;
-    col += vec3 (0.35, 0.78, 0.95) * edgeIn * inPlot * uParams.y * 0.75;
+    // One pale phosphor, as on a hardware analyser: input a dim fill, output the bright line
+    const vec3 phosphor = vec3 (0.62, 0.86, 0.80);
+    float fillIn = step (inV, v) * (0.05 + 0.10 * (1.0 - v));
+    float edgeIn = (1.0 - smoothstep (0.0, px * 2.0, abs (v - inV) * (plotB - plotT)));
+    col += phosphor * (fillIn + edgeIn * 0.30) * inPlot * uParams.y;
 
-    // Output: a crisp line over it, plus a soft bloom so it reads at a glance
     float dOut = abs (v - outV) * (plotB - plotT);
-    float lineOut = (1.0 - smoothstep (px * 0.8, px * 2.4, dOut)) + exp (-dOut / 0.02) * 0.22;
-    col += vec3 (0.45, 1.00, 0.80) * lineOut * inPlot * uParams.y;
+    float lineOut = 1.0 - smoothstep (px * 0.7, px * 2.0, dOut);
+    col += phosphor * lineOut * 0.85 * inPlot * uParams.y;
 
-    // Peak hold: a thin, dimmer trace above it
+    // Peak hold: a thin, dim trace above it
     float dPeak = abs (v - peakV) * (plotB - plotT);
-    col += vec3 (0.85, 0.95, 1.00) * (1.0 - smoothstep (px * 0.6, px * 1.8, dPeak)) * inPlot * uParams.y * 0.35;
+    col += phosphor * (1.0 - smoothstep (px * 0.6, px * 1.6, dPeak)) * inPlot * uParams.y * 0.22;
 
     // --- what the EQ is doing, on the same axes ------------------------------------------
     float t = u * 23.0;
@@ -85,11 +85,12 @@ namespace pad::shaders
     // The zero line it is drawn against, dashed so it never competes with the spectrum
     float zero = (1.0 - smoothstep (px * 0.5, px * 1.4, abs (v - eqMid) * (plotB - plotT)))
                  * step (0.45, fract (uv.x * 90.0)) * 0.30;
-    col += vec3 (0.9, 0.75, 0.35) * zero * inPlot * uParams.y;
+    const vec3 eqInk = vec3 (0.86, 0.68, 0.36);
+    col += eqInk * zero * 0.7 * inPlot * uParams.y;
 
-    float eqLine = 1.0 - smoothstep (px * 1.0, px * 2.8, dEq);
-    float eqFill = step (min (eqV, eqMid), v) * step (v, max (eqV, eqMid)) * 0.13;
-    col += vec3 (1.00, 0.76, 0.28) * (eqLine + eqFill) * inPlot * uParams.y;
+    float eqLine = 1.0 - smoothstep (px * 0.8, px * 2.2, dEq);
+    float eqFill = step (min (eqV, eqMid), v) * step (v, max (eqV, eqMid)) * 0.06;
+    col += eqInk * (eqLine * 0.75 + eqFill) * inPlot * uParams.y;
 
     // --- SPECTRAL LIMITER: where it is cutting, hanging from the top like gain reduction ----
     float lt = u * 47.0;
@@ -101,20 +102,16 @@ namespace pad::shaders
     float inCut = step (v, cutV) * smoothstep (0.2, 0.8, cut + bb);
     float cutEdge = (1.0 - smoothstep (px * 0.8, px * 2.4, abs (v - cutV) * (plotB - plotT))) * smoothstep (0.4, 1.2, cut + bb);
     float shade = 0.10 + 0.22 * (1.0 - v / max (cutV, 0.001));
-    vec3 cutCol = mix (vec3 (1.00, 0.22, 0.55), vec3 (1.00, 0.62, 0.18), step (v, bbV));   // magenta: spectral, amber: broadband
-    col += cutCol * (inCut * shade + cutEdge * 0.85) * inPlot * uParams.y;
+    vec3 cutCol = mix (vec3 (0.80, 0.30, 0.26), vec3 (0.86, 0.56, 0.30), step (v, bbV));   // muted red: spectral, amber: broadband
+    col += cutCol * (inCut * shade * 0.7 + cutEdge * 0.6) * inPlot * uParams.y;
 
     // --- print, scanlines, glass ---------------------------------------------------------
     float text = texture (uTex2, uv).r;
-    col += vec3 (0.55, 0.95, 1.00) * text * uParams.y * 0.85;
+    col += vec3 (0.66, 0.80, 0.78) * text * uParams.y * 0.70;
 
     float scanPhase = uv.y * 190.0;
-    float scan = 1.0 - 0.07 * (0.5 + 0.5 * sin (scanPhase * 6.28318)) * clamp (1.0 - fwidth (scanPhase) * 1.5, 0.0, 1.0);
+    float scan = 1.0 - 0.04 * (0.5 + 0.5 * sin (scanPhase * 6.28318)) * clamp (1.0 - fwidth (scanPhase) * 1.5, 0.0, 1.0);
     col *= scan;
-
-    // Footstep detection: a lime edge glow around the whole window
-    float edge = 1.0 - smoothstep (0.0, 0.05, min (min (uv.x, 1.0 - uv.x), min (uv.y, 1.0 - uv.y)));
-    col += vec3 (0.45, 1.0, 0.15) * edge * uParams.w * 0.55;
 
     col += envColor (R) * (0.03 + 0.25 * pow (facing, 4.0));
     col += vec3 (0.9, 0.95, 1.0) * exp (-pow ((uv.x + uv.y * 0.6 - 0.35) * 6.0, 2.0)) * 0.035;
@@ -123,7 +120,7 @@ namespace pad::shaders
     inline const hwk::shaders::Material seraphLive { "seraphLive", R"GLSL(
     vec2 uv = vUV;
     float px = fwidth (uv.y), pxu = fwidth (uv.x);
-    vec3 violet = vec3 (0.55, 0.36, 1.00), gold = vec3 (1.00, 0.90, 0.66);
+    vec3 violet = vec3 (0.66, 0.60, 0.84), gold = violet;   // one ink, as a single-colour display has
     col = vec3 (0.020, 0.010, 0.036);
     float power = uParams.x;
     vec3 light = vec3 (0.0);
@@ -139,8 +136,8 @@ namespace pad::shaders
         float dip = 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f);
         float baseY = 0.30, curveY = baseY + clamp (-dip / 12.0, 0.0, 1.08) * 0.42;   // -12 dB at 0.72
         float d = abs (uv.y - curveY);
-        float line = (1.0 - smoothstep (px * 0.8, px * 2.4, d)) + exp (-d / 0.03) * 0.25;
-        float fill = step (baseY, uv.y) * step (uv.y, curveY) * (0.25 + 0.35 * (uv.y - baseY) / max (0.001, curveY - baseY));
+        float line = 1.0 - smoothstep (px * 0.7, px * 2.0, d);
+        float fill = step (baseY, uv.y) * step (uv.y, curveY) * (0.10 + 0.18 * (uv.y - baseY) / max (0.001, curveY - baseY));
         float grid = (1.0 - smoothstep (0.0, px * 1.5, abs (uv.y - baseY))) * step (0.5, fract (uv.x * 120.0)) * 0.25
                    + (1.0 - smoothstep (0.0, px * 1.5, abs (uv.y - 0.72))) * step (0.5, fract (uv.x * 120.0)) * 0.10;
         light += mix (gold, violet, clamp ((curveY - baseY) * 2.0, 0.0, 1.0)) * (line + fill) + violet * grid;
@@ -167,13 +164,13 @@ namespace pad::shaders
             lit = step (level, value);
 
         vec3 segCol = mix (violet, gold, clamp (level, 0.0, 1.0));
-        light += segCol * inBar * segment * (0.08 + 1.05 * lit);
+        light += segCol * inBar * segment * (0.06 + 0.80 * lit);
         // column separators
         light += violet * 0.12 * (1.0 - smoothstep (0.0, pxu * 1.5, min (fu, 1.0 - fu))) * step (0.5, fract (uv.y * 60.0));
     }
 
     float text = texture (uTex, uv).r;
-    light += mix (violet, vec3 (1.0), 0.65) * text * 0.85;
+    light += mix (violet, vec3 (1.0), 0.40) * text * 0.70;
 
     col += light * power;
     col += envColor (R) * (0.03 + 0.22 * pow (facing, 4.0));

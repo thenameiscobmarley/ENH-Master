@@ -390,7 +390,7 @@ cheeks' arc, and a contact shadow runs where the ears clamp to the rails.
 
 ## Hardware styles
 
-HardwareKit now has 49 knob styles, 5 switch styles and 5 button styles. Most knob styles are
+HardwareKit now has 52 knob styles, 5 switch styles and 5 button styles. Most knob styles are
 recipes (skirt, body shape, grip carving, cap, pointer, materials) built by one generator at every
 level of detail:
 
@@ -400,20 +400,27 @@ level of detail:
 - instrument collets and Eurorack knobs;
 - rubber knobs and pointer bars;
 - hi-fi discs;
-- guitar top-hats and speed knobs.
+- guitar top-hats and speed knobs;
+- Neve 1073-type Marconi knobs in grey, blue and red.
 
 Switches: I / O rocker (standard, red, wide), bat toggle, paddle toggle. Buttons: square, round,
 wide, chrome bezel, soft dome. `PAD_UI_TEST_GALLERY=1` lays every style out on the enhancer (dev only).
+
+The knobs imitate real studio hardware: Neve 1073 Marconi knobs, Davies 1900 flutes, Rogan and
+instrument skirts. Plastics are satin rather than glossy, and caps are small, muted inserts. Metal is
+satin aluminium, not mirror chrome. Pointer lines are painted or inlaid, lit by the room, and they don't
+glow. The panels follow the same idea: a model number instead of feature lists, plain black meter
+bezels, single-colour displays, and no animated signal-flow arrows.
 
 In use:
 
 | Unit | Knobs | Switches and buttons |
 |---|---|---|
 | ADAPTIVE ENHANCER | ProXL; machined black SUB; machined silver masters | |
-| TONE & SPACE | cones on chrome skirts (TONE), Davies flutes (SPACE), a stepped Marconi knob for LOUDNESS, a gunmetal HEAVEN knob | chrome-bezel LIFT button, round AUTO button whose cap lights violet |
+| TONE & SPACE | grey Neve-1073-type Marconi knobs (TONE, masters), Davies flutes (SPACE), a black Marconi for LOUDNESS, a blue Marconi for HEAVEN | chrome-bezel LIFT button, round AUTO button with its own LED |
 | ADAPTIVE COMPRESSOR | machined skirts with a petrol cap | |
-| UPWARD LEVELER | instrument knobs with burnt-amber caps | |
-| SPECTRAL LIMITER | instrument knobs with oxblood caps | red I / O rocker |
+| UPWARD LEVELER | instrument knobs with small burnt-amber cap inserts | |
+| SPECTRAL LIMITER | instrument knobs with small oxblood cap inserts | red I / O rocker |
 
 The rockers are 30 % larger than in 1.1.
 
