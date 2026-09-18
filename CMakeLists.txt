@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 1.2.0 LANGUAGES C CXX)
+project(EnhMaster VERSION 1.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -64,6 +64,7 @@ target_sources(EnhMaster PRIVATE
 
     Source/Parameters/ParameterSpecs.cpp
     Source/Parameters/ParameterBridge.cpp
+    Source/Parameters/PresetLibrary.cpp
 
     Source/Config/UIConfig.cpp
 
@@ -98,7 +99,7 @@ target_link_libraries(EnhMaster
 if(ENH_BUILD_TESTS)
     juce_add_console_app(EnhDspTests PRODUCT_NAME "EnhDspTests")
 
-    target_sources(EnhDspTests PRIVATE Tests/EnhDspTests.cpp Source/Parameters/ParameterSpecs.cpp ${ENH_DSP_SOURCES})
+    target_sources(EnhDspTests PRIVATE Tests/EnhDspTests.cpp Source/Parameters/ParameterSpecs.cpp Source/Parameters/PresetLibrary.cpp ${ENH_DSP_SOURCES})
     target_include_directories(EnhDspTests PRIVATE Source)
     target_compile_definitions(EnhDspTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(EnhDspTests

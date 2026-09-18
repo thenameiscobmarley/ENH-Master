@@ -6,8 +6,11 @@
 
 /*  Factory presets for the whole rack. Values are in each parameter's own units (as printed on
     the panels); anything a preset does not list goes back to its default, so every preset is a
-    complete, predictable state. Used by the processor (host programs, the PRESET buttons) and by
-    the tests, which run every preset through the engine.
+    complete, predictable state.
+
+    These are the built-in defaults. The plugin and the tests use the local preset file
+    (PresetLibrary.h: ~/.config/ENH Master/presets.json on Linux), which is seeded from this list the
+    first time the plugin runs and can then be edited and re-tuned without rebuilding.
 
     Units, bottom to top: ADAPTIVE ENHANCER, UPWARD LEVELER, SPECTRAL LIMITER, ADAPTIVE COMPRESSOR,
     TONE & SPACE. Parameter IDs keep the units' earlier names (tide* = compressor, lumen* = leveler,
@@ -17,14 +20,14 @@ namespace pad::presets
 {
     struct Preset
     {
-        const char* name;
-        const char* purpose;
-        std::vector<std::pair<const char*, float>> values;
+        juce::String name;
+        juce::String purpose;
+        std::vector<std::pair<juce::String, float>> values;
     };
 
     namespace id = params::id;
 
-    inline const std::vector<Preset>& all()
+    inline const std::vector<Preset>& factory()
     {
         static const std::vector<Preset> list {
             { "DEFAULT", "every unit at its default: a balanced starting point", {} },

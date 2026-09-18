@@ -10,7 +10,7 @@
 #include <complex>
 #include "DSP/EnhEngine.h"
 #include "DSP/ParameterMapping.h"
-#include "Parameters/FactoryPresets.h"
+#include "Parameters/PresetLibrary.h"
 
 using enh::dsp::EnhEngine;
 using enh::dsp::BiquadCoeffs;
@@ -699,6 +699,26 @@ namespace
         }
     }
     //==========================================================================
+    /** The presets under test: the local preset file (the one the plugin uses, so a re-tuned file is
+        tested as it stands), or the factory presets when there is none. Not seeded from here. */
+    const std::vector<pad::presets::Preset>& presetList()
+    {
+        static const auto list = pad::presets::library (false);
+        return *list;
+    }
+
+    /** A preset by name from that list, else from the factory list (tests that need a particular one). */
+    const pad::presets::Preset& presetNamed (const char* name)
+    {
+        for (auto& p : presetList())
+            if (p.name == name)
+                return p;
+        for (auto& p : pad::presets::factory())
+            if (p.name == name)
+                return p;
+        return pad::presets::factory().front();
+    }
+
     /** A factory preset as the engine sees it: the panel values through the same mapping the plugin uses. */
     EnhEngine::Parameters presetParameters (const pad::presets::Preset& preset)
     {
@@ -746,16 +766,73 @@ namespace
         return 10.0 * std::log10 (sum / (double) std::max<size_t> (1, l.size() - from) + 1e-15);
     }
 
+    /** Sets (or, with an empty value, clears) an environment variable, portably. */
+    void setEnv (const char* name, const juce::String& value)
+    {
+       #if JUCE_WINDOWS
+        _putenv_s (name, value.toRawUTF8());
+       #else
+        if (value.isEmpty()) ::unsetenv (name);
+        else ::setenv (name, value.toRawUTF8(), 1);
+       #endif
+    }
+
+    /** The preset file format: the factory list survives a write and a read unchanged, and a broken
+        file is refused rather than half-loaded. */
+    void runPresetFileTests()
+    {
+        std::printf ("\n== Preset file ==\n");
+        juce::String error;
+        const auto back = pad::presets::fromJson (pad::presets::toJson (pad::presets::factory()), error);
+        bool same = back.size() == pad::presets::factory().size();
+        for (size_t i = 0; same && i < back.size(); ++i)
+        {
+            const auto& a = pad::presets::factory()[i];
+            same = a.name == back[i].name && a.values.size() == back[i].values.size();
+            for (size_t k = 0; same && k < a.values.size(); ++k)
+                same = a.values[k].first == back[i].values[k].first && std::abs (a.values[k].second - back[i].values[k].second) < 1.0e-3f;
+        }
+        check (same, "factory presets survive a write and a read unchanged");
+
+        juce::String brokenError;
+        const bool refused = pad::presets::fromJson ("{ \"presets\": [ { \"name\": \"X\", ", brokenError).empty();
+        check (refused && brokenError.isNotEmpty(), "a broken preset file is refused (" + brokenError + ")");
+
+        const auto clamped = pad::presets::fromJson (R"({ "presets": [ { "name": "T", "values": { "haloDecay": 99, "noSuchParam": 1 } } ] })", error);
+        check (clamped.size() == 1 && clamped[0].values.size() == 1 && clamped[0].values[0].second == 8.0f,
+               "values are clamped to their range, unknown parameters skipped");
+
+        // An edited file is picked up without a restart (what the plugin does on a PRESET press)
+        {
+            const auto previous = juce::SystemStats::getEnvironmentVariable ("ENH_MASTER_PRESETS", {});
+            const auto temp = juce::File::createTempFile (".json");
+            setEnv ("ENH_MASTER_PRESETS", temp.getFullPathName());
+            temp.replaceWithText (R"({ "presets": [ { "name": "FIRST", "values": {} } ] })");
+            const auto first = pad::presets::library (false);
+            juce::Thread::sleep (600);
+            temp.replaceWithText (R"({ "presets": [ { "name": "SECOND", "values": {} }, { "name": "THIRD", "values": {} } ] })");
+            temp.setLastModificationTime (juce::Time::getCurrentTime() + juce::RelativeTime::seconds (2.0));
+            const auto second = pad::presets::library (false);
+            check (first->front().name == "FIRST" && second->size() == 2 && second->front().name == "SECOND",
+                   "an edited preset file is re-read without restarting");
+            temp.deleteFile();
+            setEnv ("ENH_MASTER_PRESETS", previous);
+        }
+    }
+
     void runPresetTests (double sr)
     {
-        std::printf ("\n== Factory presets (whole rack) on the game scene and the bass-hit mix ==\n");
+        runPresetFileTests();
+        std::printf ("\n== Presets (whole rack) on the game scene and the bass-hit mix ==\n");
+        const int presetCount = (int) presetList().size();   // loads the list first, so the source is known
+        std::printf ("  %d presets from %s\n", presetCount, pad::presets::librarySource().toRawUTF8());
         std::printf ("  %-24s %8s %7s %6s %6s %10s %9s\n", "preset", "level", "peak", "events", "cut", "detail dip", "comp GR");
         const auto scene = makeScene (sr, 16.0, true, true, 42);
         const double inDb = rmsDb (scene.left, scene.right, (size_t) (4.0 * sr));
 
         std::map<juce::String, float> dips, dipsOut;
         int defaultSteps = 0, footstepSteps = 0;
-        for (auto& preset : pad::presets::all())
+        for (auto& preset : presetList())
         {
             const auto p = presetParameters (preset);
             int steps = 0;
@@ -768,7 +845,7 @@ namespace
             const auto hitOut = runLimiterScene (sr, true, false, 256, -6.0f, false, &without);
             dips[preset.name] = hit.detailDipDb;
             dipsOut[preset.name] = hitOut.detailDipDb;
-            std::printf ("  %-24s %+6.1f dB %7.3f %6d %5.1f %+9.1f dB %6.1f dB   (limiter OUT: %+.1f dB)\n", preset.name, outDb - inDb, r.peak, steps,
+            std::printf ("  %-24s %+6.1f dB %7.3f %6d %5.1f %+9.1f dB %6.1f dB   (limiter OUT: %+.1f dB)\n", preset.name.toRawUTF8(), outDb - inDb, r.peak, steps,
                          hit.cutDuringDb, hit.detailDipDb, hit.compressorGrDuringDb, hitOut.detailDipDb);
 
             check (r.finite && r.peak <= 1.0f && hit.finite && hit.peak <= 1.0f, juce::String (preset.name) + ": stable, under full scale");
@@ -793,7 +870,7 @@ namespace
         if (std::getenv ("PRESET_DIAG") != nullptr)
         {
             // Which stage ducks the detail under the bass hit, with the whole rack running (DEFAULT)
-            const auto base = presetParameters (pad::presets::all()[(size_t) std::atoi (std::getenv ("PRESET_DIAG"))]);
+            const auto base = presetParameters (presetList()[(size_t) std::atoi (std::getenv ("PRESET_DIAG"))]);
             auto variant = [&] (const char* what, auto&& change)
             {
                 auto p = base;
@@ -819,7 +896,7 @@ namespace
 
         if (std::getenv ("FS_KICK_DIAG") != nullptr)
         {
-            const auto p = presetParameters (pad::presets::all()[1]);
+            const auto p = presetParameters (presetNamed ("COMPETITIVE FOOTSTEPS"));
             for (bool adaptive : { false, true })
             {
                 const auto hit = runLimiterScene (sr, true, false, 256, -6.0f, false, &p, [adaptive] (EnhEngine& e) { e.setFootstepAdaptive (adaptive); });
@@ -829,7 +906,7 @@ namespace
 
         // The reference preset: level unchanged, and nothing processing the bass hit
         {
-            const auto p = presetParameters (pad::presets::all().back());
+            const auto p = presetParameters (presetNamed ("TRANSPARENT (ALL OUT)"));
             const auto r = run (scene, sr, 256, p);
             const double outDb = rmsDb (r.outL, r.outR, (size_t) (4.0 * sr));
             const auto hit = runLimiterScene (sr, true, false, 256, 0.0f, false, &p);
@@ -943,7 +1020,7 @@ namespace
     {
         if (std::getenv ("PUMP_DIAG") != nullptr)
         {
-            const auto base = presetParameters (pad::presets::all().front());
+            const auto base = presetParameters (presetNamed ("DEFAULT"));
             auto show = [&] (const char* what, auto&& change)
             {
                 auto p = base;
@@ -981,7 +1058,7 @@ namespace
 
         if (std::getenv ("THD_DIAG") != nullptr)
         {
-            const auto base = presetParameters (pad::presets::all()[(size_t) std::atoi (std::getenv ("THD_DIAG"))]);
+            const auto base = presetParameters (presetList()[(size_t) std::atoi (std::getenv ("THD_DIAG"))]);
             auto show = [&] (const char* what, auto&& change)
             {
                 auto p = base;
@@ -1007,16 +1084,16 @@ namespace
         }
 
         std::printf ("\n== Loud bass through the whole rack: 45 Hz at -1 dBFS, harmonic distortion ==\n");
-        for (int index : { 0, 4 })
+        for (auto* name : { "DEFAULT", "BASS HEAVY, PROTECTED" })
         {
-            const auto& preset = pad::presets::all()[(size_t) index];
+            const auto& preset = presetNamed (name);
             float peak = 0.0f;
             const float thd = bassThdPercent (sr, presetParameters (preset), -1.0f, &peak);
-            std::printf ("  %-24s THD %.2f %%  (peak %.3f)\n", preset.name, thd, peak);
+            std::printf ("  %-24s THD %.2f %%  (peak %.3f)\n", preset.name.toRawUTF8(), thd, peak);
             check (thd < 3.0f && peak <= 1.0f, juce::String (preset.name) + ": loud bass stays clean (THD < 3 %)");
         }
         {
-            auto p = presetParameters (pad::presets::all().front());
+            auto p = presetParameters (presetNamed ("DEFAULT"));
             p.seraph.silk.sub = 10.0f;
             float peak = 0.0f;
             const float thd = bassThdPercent (sr, p, -1.0f, &peak);
@@ -1025,7 +1102,7 @@ namespace
         }
 
         std::printf ("\n== TONE & SPACE: 2 kHz tone while bass switches on and off (pumping) ==\n");
-        auto st = presetParameters (pad::presets::all().front()).seraph;
+        auto st = presetParameters (presetNamed ("DEFAULT")).seraph;
         const float pump = seraphPumpingDb (sr, st);
         std::printf ("  tone level with bass off vs on: %+.2f dB\n", pump);
         check (std::abs (pump) < 0.75f, "the tone does not pump with the bass (< 0.75 dB)");

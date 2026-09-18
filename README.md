@@ -15,6 +15,8 @@ automation still load; only the names the host and the panels show have changed.
 
 ![ENH Master](docs/screenshot.png)
 
+![Hovering a label: the loupe and the value callout](docs/screenshot-hover.png)
+
 *Five units in a curved case, bottom to top in signal order: ADAPTIVE ENHANCER (clarity, sub,
 footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, ADAPTIVE COMPRESSOR, TONE & SPACE.*
 
@@ -56,8 +58,28 @@ value arc lights up around the knob.
 Nine factory presets set the whole rack at once. They appear in the host's program list, and on the
 rack itself: PRESET PREV / NEXT in the ADAPTIVE ENHANCER's maker block. The name shows on the
 analyser for a few seconds (and while a PRESET button is hovered). Every preset is a complete
-state: anything it does not list goes back to its default. The table is in
-`Source/Parameters/FactoryPresets.h`.
+state: anything it does not list goes back to its default.
+
+**The presets live in a local file, not in the plugin**, so they can be edited and re-tuned (by hand
+or by an AI) without rebuilding:
+
+| | |
+|---|---|
+| Linux | `~/.config/ENH Master/presets.json` |
+| Windows | `%APPDATA%\ENH Master\presets.json` |
+| macOS | `~/Library/ENH Master/presets.json` |
+| any | `$ENH_MASTER_PRESETS` overrides the path |
+
+- The plugin writes the factory presets there the first time it runs.
+- After that the file is the source. Edits are picked up the next time you press PREV / NEXT or the
+  host lists its programs. There's no need to restart.
+- The file has a `parameters` block listing every parameter's range, default, units and what its
+  0 / 1 or choice numbers mean.
+- Values are clamped to their range and unknown names are skipped. A file that doesn't parse is
+  ignored, and the last good list stays in use.
+- Delete the file to get the factory presets back. They're in `Source/Parameters/FactoryPresets.h`.
+
+`EnhDspTests --presets` tests the same file, so a re-tuned file can be checked as it stands.
 
 | Preset | For |
 |---|---|
@@ -78,14 +100,16 @@ one the limiter reduces how much the 2 kHz detail ducks under the hit. Numbers f
 
 | Preset | IN | OUT |
 |---|---|---|
-| DEFAULT | -1.2 dB | -1.7 dB |
-| COMPETITIVE FOOTSTEPS | -2.1 dB | -2.3 dB |
-| NIGHT MODE | -1.3 dB | -2.1 dB |
-| BASS HEAVY, PROTECTED | -4.5 dB | -5.4 dB |
-| VOICE & STREAMING | -1.2 dB | -1.7 dB |
-| MUSIC: WARM MASTER | -0.9 dB | -1.2 dB |
+| DEFAULT | -1.1 dB | -1.4 dB |
+| COMPETITIVE FOOTSTEPS | -1.8 dB | -2.0 dB |
+| IMMERSIVE GAMES | -0.4 dB | -1.0 dB |
+| NIGHT MODE | -0.8 dB | -1.7 dB |
+| BASS HEAVY, PROTECTED | -4.4 dB | -5.4 dB |
+| VOICE & STREAMING | -1.1 dB | -1.3 dB |
+| MUSIC: WARM MASTER | -0.8 dB | -1.3 dB |
+| MUSIC: WIDE & AIRY | -0.4 dB | -0.7 dB |
 
-With the whole rack running, what is left is TONE & SPACE's output limiter catching a hot mix. The
+With the whole rack running, what is left is the rack's output limiter catching a hot mix. The
 spectral limiter alone takes the dip from -1.8 to -0.3 dB.
 
 Two level-matching loops now hold still while the SPECTRAL LIMITER is handling a localised spike:

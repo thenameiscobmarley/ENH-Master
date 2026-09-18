@@ -27,14 +27,14 @@ public:
     bool isMidiEffect() const override                       { return false; }
     double getTailLengthSeconds() const override             { return 0.1; }
 
-    // Factory presets (Source/Parameters/FactoryPresets.h) as host programs
+    // The rack presets (the local preset file, see Parameters/PresetLibrary.h) as host programs
     int getNumPrograms() override;
     int getCurrentProgram() override                         { return currentPreset.load(); }
     void setCurrentProgram (int) override;
     const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
 
-    /** Loads the next / previous factory preset (message thread); the PRESET buttons call this. */
+    /** Loads the next / previous preset (message thread); the PRESET buttons call this. */
     void stepPreset (int delta);
     /** Bumped on every preset load, so the editor can show the name. */
     juce::uint32 getPresetLoadCount() const noexcept         { return presetLoads.load(); }

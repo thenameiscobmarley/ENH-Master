@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Parameters/ParameterSpecs.h"
-#include "Parameters/FactoryPresets.h"
+#include "Parameters/PresetLibrary.h"
 
 namespace
 {
@@ -15,6 +15,8 @@ PluginProcessor::PluginProcessor()
       state (*this, nullptr, stateType, pad::params::createLayout()),
       bridge (state)
 {
+    pad::presets::library();   // load the local preset file now (writing the factory presets there if there is none)
+
     namespace id = pad::params::id;
     clarityNorm = state.getRawParameterValue (id::clarityNorm);
     clarityAdd  = state.getRawParameterValue (id::clarityAdd);
@@ -143,23 +145,24 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
 int PluginProcessor::getNumPrograms()
 {
-    return (int) pad::presets::all().size();
+    return (int) pad::presets::library()->size();
 }
 
 const juce::String PluginProcessor::getProgramName (int index)
 {
-    const auto& list = pad::presets::all();
-    return juce::isPositiveAndBelow (index, (int) list.size()) ? juce::String (list[(size_t) index].name) : juce::String();
+    const auto list = pad::presets::library();
+    return juce::isPositiveAndBelow (index, (int) list->size()) ? (*list)[(size_t) index].name : juce::String();
 }
 
 void PluginProcessor::setCurrentProgram (int index)
 {
-    const auto& list = pad::presets::all();
-    if (! juce::isPositiveAndBelow (index, (int) list.size()))
+    // The local preset file (re-read when it has changed), so presets can be tuned without a rebuild
+    const auto list = pad::presets::library();
+    if (! juce::isPositiveAndBelow (index, (int) list->size()))
         return;
 
     // Every parameter goes to the preset's value or its default, as a host-visible change
-    const auto& preset = list[(size_t) index];
+    const auto& preset = (*list)[(size_t) index];
     for (auto& spec : pad::params::allSpecs())
     {
         if (! spec.automatable)
