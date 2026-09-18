@@ -277,6 +277,205 @@ namespace pad::artwork
         return tex;
     }
 
+    /** TIDE and LUMEN: engraved print on a brushed plate - maker panel, a bordered control
+        section, knob labels with numbered scales, and what the meters are showing. */
+    RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry)
+    {
+        recorder = { registry, unit, -1, -1 };
+        const int w = textureWidth;
+        const int h = juce::roundToInt ((float) textureWidth * oneUHalfH / faceHalfW);
+        const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * oneUHalfH), oneUHalfH };
+
+        juce::Image ink (juce::Image::SingleChannel, w, h, true);
+        juce::Graphics g (ink);
+        g.setColour (juce::Colours::white);
+        const auto centred = juce::Justification::horizontallyCentred;
+        const auto left = juce::Justification::left;
+
+        const auto& info = unitInfo[(size_t) unit];
+
+        // Maker panel at the left edge, engraved: name, what it is, where it sits in the chain
+        text (g, m, info.name, -2.34f, -0.120f, 0.078f, left, true, 0.20f, 0.60f);
+        text (g, m, info.role, -2.34f, -0.038f, 0.020f, left, true, 0.13f, 0.34f);
+        text (g, m, juce::String ("STAGE ") + juce::String (info.chainPosition) + " OF 4  -  ENH MASTER SERIES",
+              -2.34f, 0.022f, 0.017f, left, true, 0.12f, 0.30f);
+
+        // Bordered control section, as on a hardware compressor
+        {
+            const auto& b = oneUSectionBox;
+            g.drawRoundedRectangle (m.rect (b.minX(), b.minZ(), b.maxX(), b.maxZ()), m.len (0.022f), m.len (0.006f));
+
+            const auto title = unit == tideUnit ? juce::String ("COMPRESSOR") : juce::String ("LEVELER");
+            const auto font = makeFont (m.len (0.024f), true, 0.30f);
+            const float tw = juce::GlyphArrangement::getStringWidth (font, title);
+            // Break the border where the title sits, the way engraved panels do
+            g.setColour (juce::Colours::black);
+            g.fillRect (juce::Rectangle<float> (m.px (b.cx) - 0.5f * tw - m.len (0.02f), m.pz (b.minZ()) - m.len (0.012f),
+                                                tw + m.len (0.04f), m.len (0.024f)));
+            g.setColour (juce::Colours::white);
+            text (g, m, title, b.cx, b.minZ() + 0.004f, 0.024f, centred, true, 0.30f, 0.0f);
+        }
+
+        auto valueText = [] (float v)
+        {
+            const float a = std::abs (v);
+            if (a >= 10.0f || a == 0.0f || std::abs (v - std::round (v)) < 1.0e-3f)
+                return juce::String (juce::roundToInt (v));
+            return juce::String (v, a < 0.1f ? 2 : 1).trimCharactersAtStart ("0");
+        };
+
+        for (auto& c : controls)
+        {
+            if (c.unit != unit)
+                continue;
+
+            recorder.control = (int) (&c - controls.data());
+            text (g, m, c.label, c.x, c.z + (c.kind == ControlKind::knob ? 0.182f : 0.140f), 0.026f, centred, true, 0.16f, 0.40f);
+            recorder.control = -1;
+
+            if (c.kind != ControlKind::knob)
+                continue;
+
+            const float r = oneUKnobRadius * c.size * 1.26f;    // outside the skirt
+            for (int i = 0; i <= 10; ++i)
+            {
+                const float angle = knobAngleForValue ((float) i / 10.0f);
+                const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                const float r0 = r + 0.012f, r1 = r + (i % 5 == 0 ? 0.040f : 0.028f);
+                g.drawLine (juce::Line<float> (m.px (c.x + dir.x * r0), m.pz (c.z + dir.y * r0),
+                                               m.px (c.x + dir.x * r1), m.pz (c.z + dir.y * r1)),
+                            m.len (i % 5 == 0 ? 0.008f : 0.004f));
+            }
+
+            if (auto* spec = pad::params::findSpec (c.paramId))
+            {
+                juce::NormalisableRange<float> range (spec->minValue, spec->maxValue);
+                if (spec->skewCentre > 0.0f)
+                    range.setSkewForCentre (spec->skewCentre);
+
+                for (int i = 0; i <= 4; ++i)
+                {
+                    const float t = (float) i / 4.0f;
+                    const float angle = knobAngleForValue (t);
+                    const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                    const float rr = r + 0.062f;
+                    text (g, m, valueText (range.convertFrom0to1 (t)), c.x + dir.x * rr, c.z + dir.y * rr, 0.022f,
+                          centred, true, 0.0f, 0.13f);
+                }
+            }
+        }
+
+        // What each meter is reading, engraved under its bezel
+        for (int i = 0; i < numVus (unit); ++i)
+        {
+            const char* names[3] { "LOW", "MID", "HIGH" };
+            const auto label = unit == tideUnit ? juce::String ("GAIN REDUCTION") : juce::String (names[i]);
+            text (g, m, label, vuX (unit, i), vuCentreZ + vuHalfH + 0.062f, 0.023f, centred, true, 0.20f, 0.36f);
+        }
+
+        recorder = {};
+        RawTexture tex { w, h, 1, {} };
+        tex.pixels.assign ((size_t) (w * h), 0);
+        copyChannel (ink, tex, 0);
+        return tex;
+    }
+
+    /*  A VU dial face, drawn from the same geometry the movement is built with (hwk::models::
+        vuPivotDrop / vuArcRadius), so the needle tip tracks the printed arc exactly.
+        R = ink, G = the red zone the meter material tints. */
+    RawTexture renderVuFace (int unit, int width, TextRegistry* registry)
+    {
+        const float halfW = vuHalfW (unit);
+        const int w = width, h = juce::jmax (8, juce::roundToInt ((float) width * vuHalfH / halfW));
+        juce::Image ink (juce::Image::SingleChannel, w, h, true);
+        juce::Image red (juce::Image::SingleChannel, w, h, true);
+
+        const bool tide = unit == tideUnit;
+        const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
+        const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
+        const float arcR = vuHalfH * hwk::models::vuArcRadius * scale;
+        const float sweep = hwk::models::vuSweep;
+
+        auto pointAt = [&] (float t, float rFraction)
+        {
+            const float a = (t - 0.5f) * sweep;
+            const float r = arcR * rFraction;
+            return juce::Point<float> (pivot.x + std::sin (a) * r, pivot.y - std::cos (a) * r);
+        };
+
+        auto band = [&] (juce::Graphics& g, float from, float to, float rIn, float rOut)
+        {
+            juce::Path p;
+            p.startNewSubPath (pointAt (from, rOut));
+            for (float t = from; t <= to + 1.0e-4f; t += 0.01f)
+                p.lineTo (pointAt (std::min (t, to), rOut));
+            for (float t = to; t >= from - 1.0e-4f; t -= 0.01f)
+                p.lineTo (pointAt (std::max (t, from), rIn));
+            p.closeSubPath();
+            g.fillPath (p);
+        };
+
+        {
+            juce::Graphics g (red);
+            g.setColour (juce::Colours::white);
+            band (g, tide ? 0.70f : 0.75f, 1.0f, 0.955f, 1.015f);   // red zone over the top of the scale
+        }
+
+        juce::Graphics g (ink);
+        g.setColour (juce::Colours::white);
+
+        // The scale arc itself
+        {
+            juce::Path arc;
+            arc.startNewSubPath (pointAt (0.0f, 1.0f));
+            for (float t = 0.0f; t <= 1.0001f; t += 0.01f)
+                arc.lineTo (pointAt (std::min (t, 1.0f), 1.0f));
+            g.strokePath (arc, juce::PathStrokeType (scale * 0.004f));
+        }
+
+        // Ticks, longer where a number is printed
+        const int majors = tide ? 4 : 3;
+        for (int i = 0; i <= majors * 2; ++i)
+        {
+            const float t = (float) i / (float) (majors * 2);
+            const bool major = (i % 2) == 0;
+            g.drawLine (juce::Line<float> (pointAt (t, 1.0f), pointAt (t, major ? 0.915f : 0.950f)),
+                        scale * (major ? 0.0065f : 0.0035f));
+        }
+
+        // Numbers inside the arc
+        const auto font = makeFont (vuHalfH * 0.30f * scale, true, 0.05f);
+        g.setFont (font);
+        for (int i = 0; i <= majors; ++i)
+        {
+            const float t = (float) i / (float) majors;
+            const auto label = juce::String (juce::roundToInt (t * (tide ? 12.0f : 18.0f)));
+            const auto at = pointAt (t, 0.845f);
+            const float tw = juce::GlyphArrangement::getStringWidth (font, label);
+            g.drawText (label, juce::Rectangle<float> (at.x - 0.5f * tw - 2.0f, at.y - font.getHeight() * 0.5f,
+                                                       tw + 4.0f, font.getHeight()),
+                        juce::Justification::centred, false);
+        }
+
+        // Caption low on the card, where the needle never covers it
+        const auto caption = tide ? juce::String ("GAIN REDUCTION   dB") : juce::String ("LIFT   dB");
+        const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
+        g.setFont (capFont);
+        g.drawText (caption, juce::Rectangle<float> (0.0f, (float) h * 0.66f, (float) w, (float) h * 0.24f),
+                    juce::Justification::centred, false);
+
+        if (registry != nullptr)
+            for (int i = 0; i < numVus (unit); ++i)
+                registry->push_back ({ unit, vuX (unit, i), vuCentreZ + vuHalfH * 0.52f,
+                                       vuHalfW (unit) * 0.6f, vuHalfH * 0.14f, caption, -1, -1 });
+
+        RawTexture tex { w, h, 4, {} };
+        tex.pixels.assign ((size_t) (w * h * 4), 0);
+        copyChannel (ink, tex, 0);
+        copyChannel (red, tex, 1);
+        return tex;
+    }
+
     RawTexture renderSeraphDisplayLabels (int width, TextRegistry* registry)
     {
         const auto& d = seraphDisplayRect;

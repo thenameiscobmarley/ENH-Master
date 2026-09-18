@@ -28,6 +28,10 @@ namespace pad
         textures.scale5 = artwork::renderKnobScale (512, 5);
         textures.tubeDecal = artwork::renderTubeDecal (config.panelTextureWidth, &textItems);
         textures.seraphLabels = artwork::renderSeraphDisplayLabels (1536, &textItems);
+        textures.tideDecal = artwork::renderOneUDecal (tideUnit, config.panelTextureWidth, &textItems);
+        textures.lumenDecal = artwork::renderOneUDecal (lumenUnit, config.panelTextureWidth, &textItems);
+        textures.tideVuFace = artwork::renderVuFace (tideUnit, 768, &textItems);
+        textures.lumenVuFace = artwork::renderVuFace (lumenUnit, 512, &textItems);
         renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures));
         artwork::collectKnobScaleText (textItems);
 
@@ -90,8 +94,35 @@ namespace pad
     int HardwareView::pickControl (juce::Point<float> pos) const
     {
         const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
-        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
+                                           { shared.focusUnit.load(), shared.focusAmount.load() });
         return pad::pickControl (cam, 2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h);
+    }
+
+    int HardwareView::unitUnderPointer (juce::Point<float> pos) const
+    {
+        const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
+                                           { shared.focusUnit.load(), shared.focusAmount.load() });
+        const float ndcX = 2.0f * pos.x / w - 1.0f, ndcY = 1.0f - 2.0f * pos.y / h;
+
+        for (int unit = 0; unit < numUnits; ++unit)
+        {
+            float lx = 0.0f, lz = 0.0f;
+            if (cam.intersectPanel (ndcX, ndcY, 0.0f, lx, lz, unitCenterY (unit))
+                && std::abs (lx) <= faceHalfW && std::abs (lz) <= unitHalfH (unit))
+                return unit;
+        }
+
+        return -1;
+    }
+
+    /** Walk toward a unit, or step back to see the whole rack. */
+    void HardwareView::setFocus (int unit, float amount)
+    {
+        if (unit >= 0)
+            shared.focusUnit = unit;
+        shared.focusTarget = juce::jlimit (0.0f, 1.0f, amount);
     }
 
     void HardwareView::updateMouse (juce::Point<float> pos)
@@ -129,8 +160,17 @@ namespace pad
     {
         updateMouse (e.position);
         const int hit = pickControl (e.position);
+
         if (hit < 0)
+        {
+            // Clicking the panel itself (not a control) walks up to that unit; the case steps back
+            const int unit = unitUnderPointer (e.position);
+            if (unit >= 0)
+                setFocus (unit, shared.focusAmount.load() > 0.5f && shared.focusUnit.load() == unit ? 0.0f : 1.0f);
+            else
+                setFocus (-1, 0.0f);
             return;
+        }
 
         const int p = paramIndexForControl (hit);
         const bool isToggle = isSwitchLike (controls[(size_t) hit].kind);
@@ -242,10 +282,21 @@ namespace pad
     void HardwareView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
         const int hit = pickControl (e.position);
-        if (hit < 0 || isSwitchLike (controls[(size_t) hit].kind))
+        const float step = (std::abs (wheel.deltaY) > 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
+
+        if (hit < 0)
+        {
+            // Not over a control: the wheel walks toward whichever unit is under the pointer
+            const int unit = unitUnderPointer (e.position);
+            if (unit >= 0 && step > 0.0f)
+                shared.focusUnit = unit;
+            setFocus (-1, shared.focusTarget.load() + step * 0.45f);
+            return;
+        }
+
+        if (isSwitchLike (controls[(size_t) hit].kind))
             return;
 
-        const float step = (std::abs (wheel.deltaY) > 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
         if (controls[(size_t) hit].kind == ControlKind::selector)
             nudge (hit, step > 0.0f ? 0.5f : -0.5f);   // one position per wheel step
         else
@@ -417,7 +468,8 @@ namespace pad
         if (! inside)
             return hide();
 
-        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
+                                           { shared.focusUnit.load(), shared.focusAmount.load() });
         const bool addMode = bridge.getNormalised (bridge.indexOf (pad::params::id::clarityMode)) > 0.5f;
 
         // While a control is being adjusted the loupe stays locked on it: moving the mouse to change
@@ -432,7 +484,7 @@ namespace pad
         const artwork::TextItem* best = nullptr;
         float bestArea = 1.0e9f;
 
-        for (int unit : { (int) enhUnit, (int) tubeUnit })
+        for (int unit : { (int) enhUnit, (int) tubeUnit, (int) tideUnit, (int) lumenUnit })
         {
             if (adjusting >= 0)
                 break;

@@ -47,5 +47,21 @@ namespace pad::geo
     MeshData seraphDisplayGlass();   // uv 0..1 across the window
     MeshData seraphDisplayBezel();
 
+    // --- the two 1U units (panel-local; both are the same shape) ------------------------
+    MeshData oneUFaceTop (int unit);   // holes cut for that unit's VU meters
+    MeshData oneUFaceEdges();
+    MeshData oneUEarWalls();
+    MeshData oneUEarFloors();
+    MeshData oneUScrewHeads();
+    MeshData oneUScrewSlots();
+    MeshData oneUChassis (float centreY, float halfH);   // world
+
+    // --- rack case (world space) ---------------------------------------------------------
+    MeshData rackRails();          // the two vertical rails, with their rack holes cut out
+    MeshData rackHoleWalls();
+    MeshData rackHoleFloors();
+    MeshData rackShell();          // back wall, floor and top of the case
+    MeshData rackEdges();          // the bright front edges of the case, where the light catches
+
     // (knobs, buttons, toggles and lamps come from hwk::models)
 }

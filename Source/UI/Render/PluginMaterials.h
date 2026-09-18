@@ -9,7 +9,7 @@ namespace pad::shaders
     enum Material
     {
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
-        paint, seraphDisplay, callout, glow, valueArc, lens,
+        paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
         numMaterials
     };
 
@@ -139,10 +139,14 @@ namespace pad::shaders
             case shadow:        return lib::softShadow;
             case paint:         return lib::lacquerPanel;
             case seraphDisplay: return seraphLive;
+            case brushed:       return lib::brushedFace;
+            case vuFace:        return lib::meterFace;
+            case vuGlass:       return lib::coverGlass;
             case callout:       return lib::screenOverlay;
             case glow:          return lib::glowSprite;
             case valueArc:      return lib::valueArc;
             case lens:          return lib::magnifierLens;
+            case sunlight:      return lib::windowLight;
             default:            return lib::plastic;
         }
     }

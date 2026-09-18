@@ -23,6 +23,8 @@ namespace pad::artwork
     struct TextureSet
     {
         RawTexture faceplateDecal, scale10, scale30, scale3, scale5, tubeDecal, seraphLabels;
+        RawTexture tideDecal, lumenDecal;          // the two 1U panels
+        RawTexture tideVuFace, lumenVuFace;        // the printed faces of their VU meters
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */
@@ -43,6 +45,12 @@ namespace pad::artwork
     /** SERAPH faceplate print (R8 white silkscreen) and the live display's labels (R8). */
     RawTexture renderTubeDecal (int textureWidth, TextRegistry* registry = nullptr);
     RawTexture renderSeraphDisplayLabels (int width, TextRegistry* registry = nullptr);
+
+    /** One of the 1U panels (TIDE or LUMEN): print, scales with numbers, and its place in the chain. */
+    RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
+
+    /** A VU dial face: arc, ticks, numbers, red zone (green channel) and caption. */
+    RawTexture renderVuFace (int unit, int width, TextRegistry* registry = nullptr);
 
     /** Numbers of the printed scale rings around ENH Master's knobs (they are drawn per knob at render time). */
     void collectKnobScaleText (TextRegistry&);

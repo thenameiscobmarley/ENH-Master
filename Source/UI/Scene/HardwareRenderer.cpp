@@ -87,6 +87,7 @@ namespace pad
         shadowRadius = model.bodyShadowRadius();
         beakLength = model.beakLength;
         beakHalfWidth = model.beakHalfWidth;
+        pivotOffset = model.pivotOffset;
     }
 
     void HardwareRenderer::GpuModel::release()
@@ -190,6 +191,26 @@ namespace pad
         meshes.seraphWalls.upload (geo::seraphDisplayWalls());
         meshes.seraphGlass.upload (geo::seraphDisplayGlass());
         meshes.seraphBezel.upload (geo::seraphDisplayBezel());
+
+        meshes.tideFaceTop.upload (geo::oneUFaceTop (tideUnit));
+        meshes.lumenFaceTop.upload (geo::oneUFaceTop (lumenUnit));
+        meshes.oneUFaceEdges.upload (geo::oneUFaceEdges());
+        meshes.oneUEarWalls.upload (geo::oneUEarWalls());
+        meshes.oneUEarFloors.upload (geo::oneUEarFloors());
+        meshes.oneUScrews.upload (geo::oneUScrewHeads());
+        meshes.oneUScrewSlots.upload (geo::oneUScrewSlots());
+        meshes.tideChassis.upload (geo::oneUChassis (tideCenterY, tideHalfH));
+        meshes.lumenChassis.upload (geo::oneUChassis (lumenCenterY, lumenHalfH));
+
+        // VU movements, one model per size (TIDE's wide meter, LUMEN's three narrow ones)
+        tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.09f, 0.26f, 0.42f }));
+        lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.14f, 0.13f, 0.12f }));
+
+        meshes.rackRails.upload (geo::rackRails());
+        meshes.rackHoleWalls.upload (geo::rackHoleWalls());
+        meshes.rackHoleFloors.upload (geo::rackHoleFloors());
+        meshes.rackShell.upload (geo::rackShell());
+        meshes.rackEdges.upload (geo::rackEdges());
         // HardwareKit models: one GPU model per distinct (style, radius)
         knobModels.clear();
         std::vector<std::pair<int, float>> built;
@@ -201,7 +222,10 @@ namespace pad
                 continue;
 
             const float r = knobBodyRadius (c);
-            const auto accent = c.unit == tubeUnit ? Vec3 { 0.62f, 0.44f, 1.0f } : Vec3 { 0.55f, 0.56f, 0.60f };
+            const auto accent = c.unit == tubeUnit  ? Vec3 { 0.62f, 0.44f, 1.0f }
+                              : c.unit == tideUnit  ? Vec3 { 0.20f, 0.80f, 0.95f }
+                              : c.unit == lumenUnit ? Vec3 { 1.00f, 0.72f, 0.22f }
+                                                    : Vec3 { 0.55f, 0.56f, 0.60f };
             const auto key = std::make_pair ((int) c.style, r);
             const auto found = std::find (built.begin(), built.end(), key);
             if (found != built.end())
@@ -232,6 +256,10 @@ namespace pad
         upload (scale5Tex, textureData.scale5);
         upload (tubeDecalTex, textureData.tubeDecal);
         upload (seraphLabelTex, textureData.seraphLabels);
+        upload (tideDecalTex, textureData.tideDecal);
+        upload (lumenDecalTex, textureData.lumenDecal);
+        upload (tideLabelTex, textureData.tideVuFace);
+        upload (lumenLabelTex, textureData.lumenVuFace);
 
         const std::vector<juce::uint8> blank ((size_t) (artwork::displayOverlayWidth * artwork::displayOverlayHeight), 0);
         overlayTex.upload (blank.data(), artwork::displayOverlayWidth, artwork::displayOverlayHeight, 1, true, 1);
@@ -258,6 +286,8 @@ namespace pad
         toggleBaseModel.release();
         toggleLeverModel.release();
         lampModel.release();
+        tideVu.release();
+        lumenVu.release();
         loupeTarget.release();
         loupeReady = false;
         seraphLabelTex.release();
@@ -475,7 +505,7 @@ namespace pad
         // A press only counts when our window is really the one under the pointer
         if (pressed && pointerInside && pointer.isTopmostUnderPointer ((unsigned long) shared.nativeWindow.load()))
         {
-            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY);
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount });
             const int hit = pickControl (cam, pointerNdcX, pointerNdcY);
 
             if (hit >= 0)
@@ -529,7 +559,7 @@ namespace pad
 
         if (dragParam < 0 && pointerInside)
         {
-            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY);
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount });
             shared.hoveredControl = pickControl (cam, pointerNdcX, pointerNdcY);
         }
     }
@@ -631,6 +661,30 @@ namespace pad
             busy = busy || std::abs (tubePower - (on ? 1.0f : 0.0f)) > 1.0e-3f;
         }
 
+        // TIDE and LUMEN: the meter movements, and the backlight behind their dials
+        {
+            const bool tideOn = bridge.getNormalised (bridge.indexOf (params::id::tideActive)) > 0.5f;
+            const bool lumenOn = bridge.getNormalised (bridge.indexOf (params::id::lumenActive)) > 0.5f;
+            oneULamp[0] = anim::approach (oneULamp[0], tideOn ? 1.0f : 0.15f, 4.0f, dt);
+            oneULamp[1] = anim::approach (oneULamp[1], lumenOn ? 1.0f : 0.15f, 4.0f, dt);
+
+            // TIDE reads gain reduction (0..12 dB), LUMEN reads the lift in each band (0..18 dB)
+            const float readings[4] {
+                saturateUi (meters.tideGrDb.load() / 12.0f),
+                saturateUi (meters.lumenGainDb[0].load() / 18.0f),
+                saturateUi (meters.lumenGainDb[1].load() / 18.0f),
+                saturateUi (meters.lumenGainDb[2].load() / 18.0f),
+            };
+
+            for (int i = 0; i < 4; ++i)
+            {
+                auto& n = needles[(size_t) i];
+                const float before = n.angle;
+                n.update (hwk::models::vuAngleFor (readings[(size_t) i]), dt);
+                busy = busy || std::abs (n.angle - before) > 2.0e-4f || std::abs (n.velocity) > 1.0e-3f;
+            }
+        }
+
         // CLARITY scale swap: the printed scale cross-fades and the knob dips as it changes over
         {
             const bool addMode = modeControl >= 0 && bridge.getNormalised (controlParam[(size_t) modeControl]) > 0.5f;
@@ -676,6 +730,14 @@ namespace pad
             if (std::abs (v - target) > 1.0e-3f)
                 busy = true;
         };
+
+        // Walking up to the rack, or stepping back from it
+        {
+            const float before = focusAmount;
+            focusAmount = anim::approach (focusAmount, std::clamp (shared.focusTarget.load(), 0.0f, 1.0f), 6.0f, dt);
+            shared.focusAmount.store (focusAmount);
+            busy = busy || std::abs (focusAmount - before) > 1.0e-4f;
+        }
 
         settle (parallaxX, parallaxOn ? pointerNdcX * config.parallaxAmount : 0.0f, 12.0f);
         settle (parallaxY, parallaxOn ? pointerNdcY * config.parallaxAmount : 0.0f, 12.0f);
@@ -776,7 +838,8 @@ namespace pad
         uploadOverlayIfChanged();
         uploadCalloutIfChanged();
 
-        const auto camera = CameraRig::build ((float) logicalW / (float) logicalH, parallaxX, parallaxY);
+        const auto camera = CameraRig::build ((float) logicalW / (float) logicalH, parallaxX, parallaxY,
+                                             { shared.focusUnit.load(), focusAmount });
 
         // Loupe: fades and zooms in over hovered print, keeps its last anchor while fading out
         const bool loupeWanted = shared.calloutVisible.load();
@@ -855,6 +918,107 @@ namespace pad
         queueGlow (panel, x, z, ledRadius * 4.0f, colour, 0.42f * on);
     }
 
+    void HardwareRenderer::Needle::update (float target, float dt) noexcept
+    {
+        // A moving coil: spring toward the reading, damped, so it settles like the real thing
+        const float stiffness = 240.0f, damping = 21.0f;
+        const float step = std::min (dt, 0.02f);
+        velocity += (stiffness * (target - angle) - damping * velocity) * step;
+        angle += velocity * step;
+    }
+
+    /** One of the 1U units: brushed plate, engraved print, knobs in a bordered section, and
+        moving-coil meters behind glass. Both units are the same build, different print. */
+    void HardwareRenderer::drawOneU (int unit, const Mat4& panel, Vec3 colour, const gfx::Texture2D& decal,
+                                     const gfx::Texture2D& faceTex, const gfx::GpuMesh& faceTop)
+    {
+        const bool tide = unit == tideUnit;
+        const float lamp = oneULamp[(size_t) (tide ? 0 : 1)];
+        auto& model = tide ? tideVu : lumenVu;
+
+        // The meters: case, printed face, needle, hub, bezel (the glass comes later, blended)
+        for (int i = 0; i < numVus (unit); ++i)
+        {
+            const auto at = panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ });
+            const auto& needle = needles[(size_t) (tide ? 0 : 1 + i)];
+            // The movement is hinged below the window: turn about that hinge, not the centre
+            const auto swing = at * Mat4::translation ({ 0.0f, 0.0f, model.pivotOffset })
+                                  * Mat4::rotationY (-needle.angle)
+                                  * Mat4::translation ({ 0.0f, 0.0f, -model.pivotOffset });
+
+            for (auto& part : model.parts)
+            {
+                using hwk::models::Role;
+                const Mat4& m = part->rotates ? swing : at;
+
+                switch (part->role)
+                {
+                    case Role::screen:
+                        faceTex.bind (0);
+                        use (shaders::vuFace).set ("uParams", 0.0f, lamp, 0.0f, (float) i);
+                        draw (part->mesh, m, part->colour);
+                        break;
+                    case Role::metal:
+                        use (shaders::chrome).set ("uParams", part->polish, part->brushed ? 1.0f : 0.0f, 0.0f, 0.0f);
+                        draw (part->mesh, m, part->colour);
+                        break;
+                    case Role::pointer:
+                        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                        draw (part->mesh, m, part->colour);
+                        break;
+                    case Role::glass:
+                        break;                       // drawn after everything else
+                    case Role::body:
+                    case Role::accent:
+                        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+                        draw (part->mesh, m, part->colour);
+                        break;
+                }
+            }
+        }
+
+        auto& recessed = use (shaders::recess);
+        recessed.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
+        recessed.set ("uGlow", Vec3 {});
+        draw (meshes.oneUEarWalls, panel, { 0.09f, 0.09f, 0.10f });
+
+        use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.oneUScrews, panel, { 0.75f, 0.74f, 0.78f });
+
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.oneUEarFloors, panel, { 0.012f, 0.012f, 0.014f });
+
+        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.oneUScrewSlots, panel, { 0.02f, 0.02f, 0.025f });
+
+        // Brushed faceplate with the print engraved into it
+        decal.bind (0);
+        auto& plate = use (shaders::brushed);
+        plate.set ("uParams", -faceHalfW, -oneUHalfH, 2.0f * faceHalfW, 2.0f * oneUHalfH);
+        draw (faceTop, panel, colour);
+        draw (meshes.oneUFaceEdges, panel, colour * 0.82f);
+
+        use (shaders::chassis);
+        draw (tide ? meshes.tideChassis : meshes.lumenChassis, Mat4::identity(), colours::chassisBlack);
+    }
+
+    /** The cover glass over a unit's meters, drawn with everything else transparent. */
+    void HardwareRenderer::drawVuGlass (int unit, const Mat4& panel)
+    {
+        auto& model = unit == tideUnit ? tideVu : lumenVu;
+
+        for (int i = 0; i < numVus (unit); ++i)
+        {
+            const auto at = panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ });
+            for (auto& part : model.parts)
+                if (part->role == hwk::models::Role::glass)
+                {
+                    use (shaders::vuGlass);
+                    draw (part->mesh, at, part->colour);
+                }
+        }
+    }
+
     void HardwareRenderer::drawScene (const CameraRig& cam, int vw, int vh)
     {
         ++frameIndex;
@@ -868,6 +1032,12 @@ namespace pad
         const Vec3 L = cam.lightDir;
         const Mat4 panel = panelToWorld();
         const Mat4 tubePanel = panelToWorld (tubeUnit);
+        const Mat4 tidePanel = panelToWorld (tideUnit);
+        const Mat4 lumenPanel = panelToWorld (lumenUnit);
+        const auto panelFor = [&] (int unit) -> const Mat4&
+        {
+            return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel : panel;
+        };
         const Mat4 tubeLid = Mat4::translation ({ 0.0f, tubeChassisTop, 0.0f });
         const Mat4 I = Mat4::identity();
         const Mat4 lid = Mat4::translation ({ 0.0f, chassisTop, 0.0f });
@@ -893,7 +1063,7 @@ namespace pad
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            const auto& unitPanel = c.unit == tubeUnit ? tubePanel : panel;
+            const auto& unitPanel = panelFor (c.unit);
             const auto base = unitPanel * Mat4::translation ({ c.x, 0.0f, c.z });
             const bool hovered = shared.hoveredControl.load() == i || shared.activeControl.load() == i;
 
@@ -938,6 +1108,28 @@ namespace pad
                     drawLed (panel, c.x, c.z + buttonLedDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
                 }
             }
+        }
+
+        // --- TIDE and LUMEN: the two 1U units ---------------------------------------------------
+        drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, tideLabelTex, meshes.tideFaceTop);
+        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, lumenLabelTex, meshes.lumenFaceTop);
+
+        // --- the rack case the units are bolted into ---------------------------------------------
+        {
+            use (shaders::chassis);
+            draw (meshes.rackShell, I, { 0.030f, 0.030f, 0.034f });
+
+            auto& railRecess = use (shaders::recess);
+            railRecess.set ("uParams", 0.03f, 0.0f, 0.0f, 0.0f);
+            railRecess.set ("uGlow", zero);
+            draw (meshes.rackHoleWalls, I, { 0.055f, 0.055f, 0.060f });
+            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.rackHoleFloors, I, { 0.010f, 0.010f, 0.012f });
+
+            use (shaders::chrome).set ("uParams", 0.30f, 1.0f, 0.0f, 0.0f);
+            draw (meshes.rackRails, I, { 0.42f, 0.43f, 0.45f });
+            use (shaders::chrome).set ("uParams", 0.55f, 1.0f, 0.0f, 0.0f);
+            draw (meshes.rackEdges, I, { 0.58f, 0.59f, 0.62f });
         }
 
         // --- SERAPH: VU meters, lamp, screws, faceplate, chassis --------------------------------
@@ -1107,10 +1299,13 @@ namespace pad
                     continue;
 
                 const float r = knobModels[(size_t) modelIndex]->footprint * 1.04f;
-                const auto& unitPanel = c.unit == tubeUnit ? tubePanel : panel;
+                const auto& unitPanel = panelFor (c.unit);
+                const Vec3 arcColour = c.unit == tubeUnit  ? Vec3 { 0.86f, 0.74f, 1.00f }
+                                     : c.unit == tideUnit  ? Vec3 { 0.40f, 0.88f, 1.00f }
+                                     : c.unit == lumenUnit ? Vec3 { 1.00f, 0.80f, 0.35f }
+                                                           : Vec3 { 1.00f, 0.76f, 0.32f };
                 arc.set ("uParams", knobAngleForValue (0.0f), k.angle, 0.9f * show, 0.22f);
-                draw (meshes.arcRing, unitPanel * Mat4::translation ({ c.x, 0.0025f, c.z }) * Mat4::scale (r, 1.0f, r),
-                      c.unit == tubeUnit ? Vec3 { 0.86f, 0.74f, 1.0f } : Vec3 { 1.0f, 0.76f, 0.32f });
+                draw (meshes.arcRing, unitPanel * Mat4::translation ({ c.x, 0.0025f, c.z }) * Mat4::scale (r, 1.0f, r), arcColour);
             }
         }
 
@@ -1122,7 +1317,7 @@ namespace pad
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
-            const auto& unitPanel = c.unit == tubeUnit ? tubePanel : panel;
+            const auto& unitPanel = panelFor (c.unit);
 
             if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
             {
@@ -1146,6 +1341,29 @@ namespace pad
                 drawShadow (unitPanel, c.x + offX * 0.02f, 0.003f, c.z + offZ * 0.02f, 0.042f, 0.042f, 0.042f, 0.02f, 0.5f);
             else
                 drawShadow (unitPanel, c.x + offX * 0.015f, 0.003f, c.z + offZ * 0.015f, buttonHalfW + 0.014f, buttonHalfD + 0.014f, 0.016f, 0.015f, 0.5f);
+        }
+
+        // Cover glass over the meters, blended over what is behind it
+        {
+            glEnable (GL_BLEND);
+            glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask (GL_FALSE);
+            drawVuGlass (tideUnit, tidePanel);
+            drawVuGlass (lumenUnit, lumenPanel);
+            glDepthMask (GL_TRUE);
+        }
+
+        // The room: shafts of window light and the dust drifting through them, over the frame
+        if (vignette > 0.5f)
+        {
+            glDisable (GL_DEPTH_TEST);
+            glEnable (GL_BLEND);
+            glBlendFunc (GL_SRC_ALPHA, GL_ONE);
+            auto& sun = use (shaders::sunlight);
+            sun.set ("uViewProj", Mat4::identity());
+            sun.set ("uParams", 1.0f, (float) vw / (float) juce::jmax (1, vh), 0.0f, 0.0f);
+            draw (meshes.quad, gfx::screenQuad (vw, vh, 0.5f * (float) vw, 0.5f * (float) vh, 0.5f * (float) vw, 0.0f, 0.0f, 0.5f * (float) vh), {});
+            glEnable (GL_DEPTH_TEST);
         }
 
         // LED / lamp halos, additive, on top of everything

@@ -41,7 +41,10 @@ namespace pad
                          earWalls, earFloors, screws, screwSlots, lidScrews,
                          scaleRing, arcRing, led,
                          tubeChassis, tubeFaceTop, tubeFaceEdges, tubeEarWalls, tubeEarFloors, tubeScrews, tubeScrewSlots,
-                         seraphWalls, seraphGlass, seraphBezel;
+                         seraphWalls, seraphGlass, seraphBezel,
+                         tideFaceTop, lumenFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
+                         tideChassis, lumenChassis,
+                         rackRails, rackHoleWalls, rackHoleFloors, rackShell, rackEdges;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
@@ -50,7 +53,10 @@ namespace pad
                                  &earWalls, &earFloors, &screws, &screwSlots, &lidScrews,
                                  &scaleRing, &arcRing, &led,
                                  &tubeChassis, &tubeFaceTop, &tubeFaceEdges, &tubeEarWalls, &tubeEarFloors, &tubeScrews, &tubeScrewSlots,
-                                 &seraphWalls, &seraphGlass, &seraphBezel })
+                                 &seraphWalls, &seraphGlass, &seraphBezel,
+                                 &tideFaceTop, &lumenFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
+                                 &tideChassis, &lumenChassis,
+                                 &rackRails, &rackHoleWalls, &rackHoleFloors, &rackShell, &rackEdges })
                     fn (*m);
             }
         };
@@ -69,7 +75,7 @@ namespace pad
 
             std::vector<std::unique_ptr<Part>> parts;
             float footprint = 0.12f;
-            float shadowRadius = 0.12f, beakLength = 0.0f, beakHalfWidth = 0.0f;
+            float shadowRadius = 0.12f, beakLength = 0.0f, beakHalfWidth = 0.0f, pivotOffset = 0.0f;
 
             void upload (const hwk::models::Model&);
             void release();
@@ -118,6 +124,24 @@ namespace pad
         float vignette = 1.0f;   // 0 while rendering the zoomed loupe view
 
         gfx::Texture2D decalTex, scaleTex, scaleWideTex, scale3Tex, scale5Tex, tubeDecalTex, seraphLabelTex, overlayTex, calloutTex;
+        gfx::Texture2D tideDecalTex, lumenDecalTex, tideLabelTex, lumenLabelTex;
+
+        /** A VU movement: the needle has mass, so it swings toward the reading and overshoots
+            a little, the way a real moving coil does. */
+        struct Needle
+        {
+            float angle = 0.0f, velocity = 0.0f;
+            void update (float target, float dt) noexcept;
+        };
+
+        std::array<Needle, 4> needles {};          // [0] TIDE, [1..3] LUMEN low / mid / high
+        std::array<float, 2> oneULamp {};          // backlight per unit, on with IN
+
+        GpuModel tideVu, lumenVu;                  // HardwareKit VU models, one per size
+
+        void drawOneU (int unit, const gfx::Mat4& panel, gfx::Vec3 colour, const gfx::Texture2D& decal,
+                       const gfx::Texture2D& faceTex, const gfx::GpuMesh& faceTop);
+        void drawVuGlass (int unit, const gfx::Mat4& panel);
 
         // Models from HardwareKit: one per distinct knob (style, radius); shared button / toggle / lamp models
         std::vector<std::unique_ptr<GpuModel>> knobModels;
@@ -160,6 +184,7 @@ namespace pad
         std::array<float, layout::ladderSegments> outLeds {}, enhLeds {}, detectLeds {};
 
         float parallaxX = 0.0f, parallaxY = 0.0f;
+        float focusAmount = 0.0f;      // animated toward shared.focusTarget
         std::array<float, enh::dsp::numBands> displayBands {};
         float stepFlash = 0.0f, activityGlow = 0.0f;
         bool pointerInside = false, pointerPolled = false, leftDown = false, lastLeftDown = false, fineDrag = false;

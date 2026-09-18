@@ -111,7 +111,7 @@ namespace pad::layout
     // --- Controls ---------------------------------------------------------------
     enum class ControlKind { knob, button, toggle, selector };
 
-    enum Unit { enhUnit = 0, tubeUnit = 1 };
+    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, numUnits = 4 };
 
     struct ControlDef
     {
@@ -138,14 +138,52 @@ namespace pad::layout
     // ==============================================================================
     // SERAPH - the purple finishing processor racked above ENH Master (SILK | HALO)
     // ==============================================================================
+    // Rack: the units sit in a case with air between them, signal flowing upward
+    //   ENH MASTER (2U) -> LUMEN (1U) -> TIDE (1U) -> SERAPH (2U) -> out
+    inline constexpr float rackGap          = 0.075f;    // air between panels, rails visible through it
+    inline constexpr float oneUHalfH        = 0.295f;
+
+    inline constexpr float lumenHalfH       = oneUHalfH;
+    inline constexpr float lumenCenterY     = faceCenterY + faceHalfH + rackGap + lumenHalfH;
+    inline constexpr float tideHalfH        = oneUHalfH;
+    inline constexpr float tideCenterY      = lumenCenterY + lumenHalfH + rackGap + tideHalfH;
     inline constexpr float tubeHalfH        = 0.54f;
-    inline constexpr float tubeCenterY      = faceCenterY + faceHalfH + 0.012f + tubeHalfH;
+    inline constexpr float tubeCenterY      = tideCenterY + tideHalfH + rackGap + tubeHalfH;
     inline constexpr float tubeChassisBottom = chassisTop + 0.004f;
     inline constexpr float tubeChassisTop   = tubeCenterY + tubeHalfH - 0.07f;
     inline constexpr float tubeKnobScale    = 1.12f;
 
-    inline constexpr float unitCenterY (int unit) noexcept { return unit == tubeUnit ? tubeCenterY : faceCenterY; }
-    inline constexpr float unitHalfH (int unit) noexcept   { return unit == tubeUnit ? tubeHalfH : faceHalfH; }
+    inline constexpr float unitCenterY (int unit) noexcept
+    {
+        return unit == tubeUnit ? tubeCenterY : unit == tideUnit ? tideCenterY : unit == lumenUnit ? lumenCenterY : faceCenterY;
+    }
+
+    inline constexpr float unitHalfH (int unit) noexcept
+    {
+        return unit == tubeUnit ? tubeHalfH : unit == tideUnit ? tideHalfH : unit == lumenUnit ? lumenHalfH : faceHalfH;
+    }
+
+    /** Where each unit sits in the signal chain, and what it is called on the rails. */
+    struct UnitInfo { const char* name; const char* role; int chainPosition; };
+
+    inline constexpr std::array<UnitInfo, numUnits> unitInfo {{
+        { "ENH MASTER", "ADAPTIVE CLARITY PROCESSOR", 1 },
+        { "SERAPH",     "CELESTIAL PROCESSOR",        4 },
+        { "TIDE",       "ADAPTIVE COMPRESSOR",        3 },
+        { "LUMEN",      "SPECTRAL LEVELER",           2 },
+    }};
+
+    /** Units in rack order, bottom to top. */
+    inline constexpr std::array<int, numUnits> rackOrder { enhUnit, lumenUnit, tideUnit, tubeUnit };
+
+    // --- rack case ---------------------------------------------------------------------
+    inline constexpr float rackRailX      = faceHalfW + 0.155f;   // centre of each vertical rail
+    inline constexpr float rackRailHalfW  = 0.145f;
+    inline constexpr float rackRailDepth  = 0.16f;
+    inline constexpr float rackFloorY     = faceCenterY - faceHalfH - 0.52f;   // empty U below the bottom unit
+    inline constexpr float rackTopY       = tubeCenterY + tubeHalfH + 0.62f;   // empty U above the top unit
+    inline constexpr float rackHoleStep   = 0.125f;
+    inline constexpr float rackBackZ      = chassisBackZ - 0.10f;
 
     inline gfx::Mat4 panelToWorld (int unit) noexcept
     {
@@ -186,9 +224,47 @@ namespace pad::layout
     /** Knob body radius for a control (unit standard x size); styles add their own skirts / caps. */
     inline constexpr float tubeKnobBodyRadius = 0.105f;
 
+    // --- the two 1U units ------------------------------------------------------------
+    // Built like outboard gear: brushed plate, engraved print, knobs in a bordered section on
+    // the left, moving-coil VU meters behind glass on the right.
+    inline constexpr float oneUKnobRadius = 0.105f;
+    inline constexpr float oneUKnobZ      = 0.010f;
+    inline constexpr float oneUKnobX      = -1.62f;     // first (left) knob
+    inline constexpr float oneUKnobStep   = 0.52f;
+    inline constexpr float oneUButtonX    = -0.72f;
+    inline constexpr float oneUButtonZ    = 0.010f;
+
+    /** Section box printed around the controls, like a hardware compressor's front panel. */
+    inline constexpr Rect  oneUSectionBox  { -1.29f, 0.0f, 0.68f, 0.225f };
+
+    // VU meters: one wide meter for TIDE, three narrow ones for LUMEN
+    inline constexpr float vuDepth      = 0.055f;
+    inline constexpr float vuCentreZ    = -0.005f;
+    inline constexpr float vuHalfH      = 0.190f;
+    inline constexpr float tideVuHalfW  = 0.76f;
+    inline constexpr float tideVuX      = 1.34f;
+    inline constexpr float lumenVuHalfW = 0.335f;
+    inline constexpr float lumenVuX     = 0.42f;        // first of three
+    inline constexpr float lumenVuStep  = 0.735f;
+
+    inline constexpr int numVus (int unit) noexcept { return unit == tideUnit ? 1 : 3; }
+
+    inline constexpr float vuHalfW (int unit) noexcept { return unit == tideUnit ? tideVuHalfW : lumenVuHalfW; }
+
+    inline constexpr float vuX (int unit, int index) noexcept
+    {
+        return unit == tideUnit ? tideVuX : lumenVuX + (float) index * lumenVuStep;
+    }
+
+    inline constexpr float oneUDisplayDepth = vuDepth;
+
+    inline constexpr std::array<Rect, 2> oneUEarSlots {{
+        { -2.36f, 0.0f, 0.075f, 0.036f }, { 2.36f, 0.0f, 0.075f, 0.036f },
+    }};
+
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 27> controls {{
+    inline constexpr std::array<ControlDef, 33> controls {{
         { ControlKind::button, -0.59f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.19f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode },
         { ControlKind::knob,    0.36f, knobZ,   pid::adaptSpeed,  "ADAPT" },
@@ -217,6 +293,14 @@ namespace pad::layout
         { ControlKind::selector, 2.07f, -0.23f, pid::seraphMode, "POWER", nullptr, nullptr, tubeUnit, "SERAPH", 1.0f, KnobStyle::chickenHead },
         { ControlKind::knob, seraphMasterX[0], seraphMasterZ, pid::seraphMultiply, "MULTIPLY", nullptr, nullptr, tubeUnit, "SERAPH", masterKnobSize, KnobStyle::softTouch },
         { ControlKind::knob, seraphMasterX[1], seraphMasterZ, pid::seraphStrength, "STRENGTH", nullptr, nullptr, tubeUnit, "SERAPH", masterKnobSize, KnobStyle::softTouch },
+
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::tideMix, "MIX", nullptr, nullptr, tideUnit, "TIDE", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::tideResponse, "RESPONSE", nullptr, nullptr, tideUnit, "TIDE", 1.0f, KnobStyle::skirted },
+        { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::tideActive, "IN", nullptr, nullptr, tideUnit, "TIDE" },
+
+        { ControlKind::knob,   oneUKnobX + 0.0f * oneUKnobStep, oneUKnobZ, pid::lumenTarget, "TARGET", nullptr, nullptr, lumenUnit, "LUMEN", 1.0f, KnobStyle::skirted },
+        { ControlKind::knob,   oneUKnobX + 1.0f * oneUKnobStep, oneUKnobZ, pid::lumenResponse, "RESPONSE", nullptr, nullptr, lumenUnit, "LUMEN", 1.0f, KnobStyle::skirted },
+        { ControlKind::toggle, oneUButtonX, oneUButtonZ, pid::lumenActive, "IN", nullptr, nullptr, lumenUnit, "LUMEN" },
     }};
 
     inline constexpr int numControls = (int) controls.size();
@@ -255,6 +339,14 @@ namespace pad::layout
     {
         if (c.unit == tubeUnit)
             return (c.kind == ControlKind::selector ? 0.10f : tubeKnobBodyRadius) * c.size;
+        if (c.unit == tideUnit || c.unit == lumenUnit)
+            return oneUKnobRadius * c.size;
         return knobRadius * c.size;
+    }
+
+    /** The display window on a unit's panel (the 1U units carry VU meters instead). */
+    inline constexpr Rect unitDisplayRect (int unit) noexcept
+    {
+        return unit == tubeUnit ? seraphDisplayRect : displayRect;
     }
 }

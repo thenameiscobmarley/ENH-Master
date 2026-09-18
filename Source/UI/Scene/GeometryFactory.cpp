@@ -249,4 +249,143 @@ namespace pad::geo
 
 
 
+
+    //==============================================================================
+    // The two 1U units: same shell, different print
+    MeshData oneUFaceTop (int unit)
+    {
+        std::vector<Rect> holes;
+        for (int i = 0; i < numVus (unit); ++i)
+            holes.push_back ({ vuX (unit, i), vuCentreZ, vuHalfW (unit), vuHalfH });
+        holes.insert (holes.end(), oneUEarSlots.begin(), oneUEarSlots.end());
+        return plateWithHoles ({ 0.0f, 0.0f, faceHalfW - 0.016f, oneUHalfH - 0.016f }, 0.0f, holes);
+    }
+
+    MeshData oneUFaceEdges()
+    {
+        constexpr float r = 0.020f;
+        return sweptRoundedRect (faceHalfW - r, oneUHalfH - r, r, 2,
+                                 { { 0.0f, -faceThick }, { 0.0f, -0.014f }, { -0.014f, 0.0f } }, false);
+    }
+
+    MeshData oneUEarWalls()
+    {
+        MeshData mesh;
+        for (auto& slot : oneUEarSlots)
+            mesh.append (wellWalls (slot, 0.0f, faceThick));
+        return mesh;
+    }
+
+    MeshData oneUEarFloors()
+    {
+        MeshData mesh;
+        for (auto& slot : oneUEarSlots)
+            mesh.append (horizontalQuad (slot, -faceThick));
+        return mesh;
+    }
+
+    MeshData oneUScrewHeads()
+    {
+        MeshData mesh;
+        const auto head = sweptRoundedRect (0, 0, 0.05f, 3, { { 0.0f, 0.0f }, { 0.0f, 0.012f }, { -0.02f, 0.03f } }, true);
+        for (auto& slot : oneUEarSlots)
+            mesh.append (head, Mat4::translation ({ slot.cx + (slot.cx > 0 ? -0.02f : 0.02f), 0.0f, slot.cz }));
+        return mesh;
+    }
+
+    MeshData oneUScrewSlots()
+    {
+        MeshData mesh;
+        for (auto& slot : oneUEarSlots)
+        {
+            const float x = slot.cx + (slot.cx > 0 ? -0.02f : 0.02f);
+            mesh.append (box ({ x - 0.022f, 0.026f, slot.cz - 0.0045f }, { x + 0.022f, 0.0315f, slot.cz + 0.0045f }));
+            mesh.append (box ({ x - 0.0045f, 0.026f, slot.cz - 0.022f }, { x + 0.0045f, 0.0315f, slot.cz + 0.022f }));
+        }
+        return mesh;
+    }
+
+
+
+    MeshData oneUChassis (float centreY, float halfH)
+    {
+        constexpr float r = 0.04f;
+        const float halfD = 0.5f * chassisDepth;
+        MeshData mesh;
+        mesh.append (sweptRoundedRect (chassisHalfW - r, halfD - r, r, 3,
+                                       { { 0.0f, centreY - halfH + 0.01f }, { 0.0f, centreY + halfH - 0.05f }, { -0.03f, centreY + halfH - 0.01f } }, false),
+                     Mat4::translation ({ 0.0f, 0.0f, chassisFrontZ - halfD }));
+        return mesh;
+    }
+
+    //==============================================================================
+    // Rack case: two vertical rails with rack holes, a back wall, a floor and a top
+    static std::vector<Rect> rackHoles (float railCx)
+    {
+        std::vector<Rect> holes;
+        for (float y = rackFloorY + 0.09f; y < rackTopY - 0.06f; y += rackHoleStep)
+            holes.push_back ({ railCx, y, 0.026f, 0.020f });
+        return holes;
+    }
+
+    MeshData rackRails()
+    {
+        MeshData mesh;
+        // Built in the xy plane at the front of the case, so "z" of the Rect is world y
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float cx = side * rackRailX;
+            auto plate = plateWithHoles ({ cx, 0.5f * (rackFloorY + rackTopY), rackRailHalfW, 0.5f * (rackTopY - rackFloorY) },
+                                         0.0f, rackHoles (cx));
+            mesh.append (plate, Mat4::translation ({ 0.0f, 0.0f, frontZ }) * Mat4::rotationX (0.5f * pi));
+        }
+        return mesh;
+    }
+
+    MeshData rackHoleWalls()
+    {
+        MeshData mesh;
+        for (float side : { -1.0f, 1.0f })
+            for (auto& h : rackHoles (side * rackRailX))
+                mesh.append (wellWalls (h, 0.0f, 0.03f), Mat4::translation ({ 0.0f, 0.0f, frontZ }) * Mat4::rotationX (0.5f * pi));
+        return mesh;
+    }
+
+    MeshData rackHoleFloors()
+    {
+        MeshData mesh;
+        for (float side : { -1.0f, 1.0f })
+            for (auto& h : rackHoles (side * rackRailX))
+                mesh.append (horizontalQuad (h, -0.03f), Mat4::translation ({ 0.0f, 0.0f, frontZ }) * Mat4::rotationX (0.5f * pi));
+        return mesh;
+    }
+
+    MeshData rackShell()
+    {
+        MeshData mesh;
+        const float outer = rackRailX + rackRailHalfW;
+        const float depth = frontZ - rackBackZ;
+
+        // Back wall (seen through the gaps between units), floor, top and two side walls
+        mesh.append (box ({ -outer, rackFloorY, rackBackZ }, { outer, rackTopY, rackBackZ + 0.05f }));
+        mesh.append (box ({ -outer, rackFloorY - 0.09f, rackBackZ }, { outer, rackFloorY, frontZ + 0.02f }));
+        mesh.append (box ({ -outer, rackTopY, rackBackZ }, { outer, rackTopY + 0.09f, frontZ + 0.02f }));
+        mesh.append (box ({ -outer - 0.06f, rackFloorY - 0.09f, rackBackZ }, { -outer, rackTopY + 0.09f, frontZ + 0.02f }));
+        mesh.append (box ({ outer, rackFloorY - 0.09f, rackBackZ }, { outer + 0.06f, rackTopY + 0.09f, frontZ + 0.02f }));
+        (void) depth;
+        return mesh;
+    }
+
+    MeshData rackEdges()
+    {
+        MeshData mesh;
+        const float outer = rackRailX + rackRailHalfW + 0.06f;
+        // A bright chamfer along the front edges of the case, where the window light catches it
+        for (float side : { -1.0f, 1.0f })
+            mesh.append (box ({ side * outer - 0.012f, rackFloorY - 0.09f, frontZ + 0.02f },
+                              { side * outer + 0.012f, rackTopY + 0.09f, frontZ + 0.035f }));
+        mesh.append (box ({ -outer, rackTopY + 0.075f, frontZ + 0.02f }, { outer, rackTopY + 0.09f, frontZ + 0.035f }));
+        mesh.append (box ({ -outer, rackFloorY - 0.09f, frontZ + 0.02f }, { outer, rackFloorY - 0.075f, frontZ + 0.035f }));
+        return mesh;
+    }
 }

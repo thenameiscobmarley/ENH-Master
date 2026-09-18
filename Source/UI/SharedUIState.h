@@ -23,6 +23,11 @@ namespace pad
         std::atomic<bool>  dragging { false };
         std::atomic<bool>  calloutAtPointer { true };   // false: loupe locks to the anchor below
 
+        // camera focus: which unit is being looked at, and how far in (0 = the whole rack)
+        std::atomic<int>   focusUnit { 0 };
+        std::atomic<float> focusTarget { 0.0f };   // message thread asks
+        std::atomic<float> focusAmount { 0.0f };   // render thread animates, both threads read
+
         // written by render thread
         std::atomic<float> parallaxX { 0.0f }, parallaxY { 0.0f };
         std::atomic<bool>  pointerInside { false };

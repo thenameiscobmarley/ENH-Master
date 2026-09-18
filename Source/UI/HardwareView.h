@@ -35,6 +35,10 @@ namespace pad
         void mouseDoubleClick (const juce::MouseEvent&) override;
         void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
+        /** Which unit's faceplate is under a point, or -1 for the rack case / the room. */
+        int unitUnderPointer (juce::Point<float>) const;
+        void setFocus (int unit, float amount);
+
     private:
         void timerCallback() override;
         void updateMouse (juce::Point<float>);
