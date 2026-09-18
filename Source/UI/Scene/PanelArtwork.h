@@ -68,7 +68,7 @@ namespace pad::artwork
         }
     };
 
-    inline constexpr int displayOverlayWidth = 512, displayOverlayHeight = 452;
+    inline constexpr int displayOverlayWidth = 1024, displayOverlayHeight = 180;
 
     RawTexture renderDisplayOverlay (const DisplayText&);
 }

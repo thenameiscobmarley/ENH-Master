@@ -3,10 +3,14 @@
 Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
+Four processors in one plugin, in signal order: **ENH MASTER** (adaptive EQ, generated harmonics,
+footstep priority), **LUMEN** (three-band leveler that lifts quiet material), **TIDE** (compressor
+whose threshold follows the programme) and **SERAPH** (tone, space and level).
+
 ![ENH Master](docs/screenshot.png)
 
-*Lower unit: adaptive clarity, sub and footstep priority. Upper unit (SERAPH): silk and halo. The
-glass is the hover loupe, magnifying the label under the cursor.*
+*Four units in a curved case: ENH MASTER (clarity, sub, footsteps, and the analyser), LUMEN
+(spectral leveler), TIDE (adaptive compressor) and SERAPH (silk, halo and heaven).*
 
 ## Build
 
@@ -31,11 +35,45 @@ install to tuning, plus notes on the DSP and the renderer. Start at `Vault/00 St
 
 ## Reading the panels
 
+The four units sit on an arc centred on the viewer, so however many are stacked, every panel faces
+the camera head on and nothing is foreshortened. Scroll or click a panel to walk up to a unit;
+click the case to step back to the whole rack.
+
 Hover anything - printed text, a knob, a button - and a **fisheye loupe** appears over it: the scene is re-rendered
 zoomed in (about 2.2x) behind a glass lens, so the magnified print is genuinely sharp rather than stretched pixels.
 It magnifies about the cursor - what is under the pointer stays under the pointer - is slightly transparent, and
 locks onto a control while you drag it. Controls also show a small name + value pill under the lens, and their
 value arc lights up around the knob.
+
+## TIDE - adaptive compressor (1U)
+
+Two controls, no threshold knob. The threshold, ratio, knee and ballistics all follow the
+programme: loudness now and over the last seconds, crest factor, spectral tilt, transient density
+and a running estimate of the loud part of the material. Peaky material gets a higher threshold and
+a gentler ratio so transients survive; dense material is held down.
+
+| Control | What it does |
+|---|---|
+| MIX | wet / dry, after auto make-up, so the blend does not change the level |
+| RESPONSE | how fast it reacts and how deep into the programme the threshold sits |
+| IN | hardware bypass |
+
+The VU reads gain reduction, 0-12 dB.
+
+## LUMEN - spectral leveler (1U)
+
+Lifts quiet material toward a target, per band, because "quiet" is rarely true of a whole signal at
+once. LR4 splits (which sum back to the input exactly), a per-band estimate of what is loud here
+and now, a noise floor that settles on the quiet moments, and gates on absolute level and
+modulation so hiss and room tone are never lifted.
+
+| Control | What it does |
+|---|---|
+| TARGET | the level quiet material is brought toward (-36 to -6 dBFS) |
+| RESPONSE | how quickly it follows, and how hard the slew limits bite |
+| IN | hardware bypass |
+
+Three VUs read the lift in the low, mid and high bands, 0-18 dB.
 
 ## Device masters
 
@@ -46,9 +84,13 @@ Each unit has two small master knobs:
 | MULTIPLY | `enhMultiply` / `seraphMultiply` | 0-3x. Multiplies every knob on that device before the DSP sees it (1.5x makes CLARITY 20 behave as 30). SERAPH's OUTPUT gain is not multiplied; ENH Master has no gain knob. Values may pass a knob's printed end and are clamped to what the processing can take. |
 | STRENGTH | `enhStrength` / `seraphStrength` | 0-5. How hard that device's processing hits: EQ moves, generated harmonics, sub lift, resonance dips, air, body, width, tail level and shimmer. 0 = the device does nothing; time settings (DECAY, TONE, ADAPT) are not scaled. |
 
-## SERAPH (upper unit)
+## SERAPH (top unit)
 
-A purple finishing processor racked above ENH Master, processing its output. **POWER**: OFF (true bypass) /
+A purple finishing processor at the top of the case, processing everything below it. **HEAVEN** is
+its level policy: one knob with two printed scales and a button to swap them. In STABLE it measures
+what came in and what is going out and works the output back toward the input, so the effect is
+loud enough to hear and never louder than the music. In LIFT + STABLE it adds gain first and then
+holds *that* steady, for sources that are quiet to begin with. **POWER**: OFF (true bypass) /
 SILK (tone & texture only) / HEAVEN (SILK + HALO). Zero latency.
 
 One unified front (no channel split): a live display in the middle, the ten knobs in one row along the bottom,
@@ -73,6 +115,11 @@ the six toggles (up = on) in a grid on the right, lamp and POWER on the left. Th
 | PROTECT | `silkProtect` | lifts a dip the moment an attack arrives and halves dips in 1–4.5 kHz (footsteps keep their bite) |
 | TAPE | `silkTape` | pre-emphasised soft saturation that rounds harsh transients |
 | AUTO | `silkAuto` | loudness-matched output |
+
+**HEAVEN** is SERAPH's level policy: one knob with two printed scales and a button to swap them.
+In STABLE it measures what came in and what is going out and works the output back toward the
+input, so the effect is loud enough to hear and never louder than the music. In LIFT + STABLE it
+adds gain first and then holds *that* steady, for sources that are quiet to begin with.
 
 SERAPH's stages end in an output limiter (instant gain-down above -0.7 dBFS, 80 ms recovery, then a soft clip), so
 MULTIPLY 3x with STRENGTH 5 on both units still lands at 0.92 peak. HALO also has early reflections (sparse stereo
@@ -187,7 +234,9 @@ plugin window is really the topmost window under the pointer (so clicking in an 
 
 Rendering pauses completely while the editor window is minimised or hidden (checked a few times a second through
 JUCE's peer state and the X server, so a minimised plugin host is noticed too); audio processing is unaffected.
-Measured on the standalone: 17 % of one core visible, 8 % minimised (audio only), rendering resumes on restore.
+Measured on the standalone with all four units running and the analyser live: 23 % of one core
+visible, 8 % minimised (audio only), rendering resumes on restore. The DSP itself is 16.8 % of that
+at 48 kHz; the rest is the renderer, which is draw-call bound rather than fill bound.
 
 Continuous repainting locked to vsync, paced on the render thread (60 fps active / 30 fps idle).
 The pointer is polled from X11 each frame on the render thread, so parallax stays smooth even when the

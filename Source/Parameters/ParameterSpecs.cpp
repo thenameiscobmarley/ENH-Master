@@ -36,6 +36,10 @@ namespace pad::params
             { id::silkTape,    "Silk Tape",       "TAPE",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0 },
             { id::silkAuto,    "Silk Auto Gain",  "AUTO",    "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0 },
 
+            { id::heavenHold, "Heaven Hold",   "HEAVEN", "",  Kind::continuous, 0.0f, 30.0f, 12.0f, 1 },
+            { id::heavenLift, "Heaven Lift",   "HEAVEN", "",  Kind::continuous, 0.0f, 10.0f, 4.0f,  1 },
+            { id::heavenMode, "Heaven Mode",   "MODE",   "",  Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "Stable", "Lift + Stable" } },
+
             { id::haloWidth,   "Halo Width",      "WIDTH",   " %",  Kind::continuous, 0.0f, 200.0f, 120.0f, 0 },
             { id::haloSpace,   "Halo Space",      "SPACE",   "",    Kind::continuous, 0.0f, 10.0f, 2.5f, 1 },
             { id::haloDecay,   "Halo Decay",      "DECAY",   " s",  Kind::continuous, 0.3f, 8.0f, 2.2f, 1, 2.0f },

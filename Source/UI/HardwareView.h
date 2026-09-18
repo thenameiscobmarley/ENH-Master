@@ -2,6 +2,7 @@
 
 #include <juce_opengl/juce_opengl.h>
 #include "SharedUIState.h"
+#include "../DSP/SpectrumScope.h"
 #include "../Config/UIConfig.h"
 #include "../DSP/EngineMeters.h"
 #include "HardwareKit.h"
@@ -41,6 +42,14 @@ namespace pad
 
     private:
         void timerCallback() override;
+
+        // Spectrum analyser: the FFT runs here, on the editor thread, and the curve it
+        // publishes is uploaded by the renderer once a frame.
+        enh::dsp::ScopeAnalyser scopeAnalyser;
+        enh::dsp::ScopeCurve scopeCurve;
+        double lastScopeMs = 0.0;
+        const bool demoScope = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_DEMO", {}).isNotEmpty();
+        void fillDemoScope (float seconds);
         void updateMouse (juce::Point<float>);
         int  pickControl (juce::Point<float>) const;
         int  paramIndexForControl (int controlIndex) const;
@@ -51,6 +60,7 @@ namespace pad
         void updateCallout();
         bool updateRenderingState();
 
+        PluginProcessor& processor;
         ParameterBridge& bridge;
         const enh::dsp::EngineMeters& meters;
         UIConfig config;

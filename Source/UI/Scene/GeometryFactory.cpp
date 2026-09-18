@@ -162,6 +162,26 @@ namespace pad::geo
         return mesh;
     }
 
+    /** A small chevron, lying flat in panel space and pointing up the panel (-z). */
+    MeshData flowArrow()
+    {
+        MeshData mesh;
+        constexpr float w = 0.055f, h = 0.055f, t = 0.016f;
+
+        // Two strokes meeting at the tip, so it reads as an arrowhead rather than a triangle
+        for (float side : { -1.0f, 1.0f })
+        {
+            const Vec3 a { side * w, 0.0f, h * 0.55f };
+            const Vec3 b { side * (w - t * 1.4f), 0.0f, h * 0.55f };
+            const Vec3 c { 0.0f, 0.0f, -h * 0.55f + t * 1.1f };
+            const Vec3 d { 0.0f, 0.0f, -h * 0.55f };
+            mesh.append (quad (a, b, c, d));
+            mesh.append (quad (d, c, b, a));
+        }
+
+        return mesh;
+    }
+
     MeshData caseFloor()
     {
         const auto bottom = arcPoint (-caseOverhang, 0.0f);

@@ -11,6 +11,7 @@
 #include "PanelArtwork.h"
 #include "CameraRig.h"
 #include "../../DSP/EngineMeters.h"
+#include "../../DSP/SpectrumScope.h"
 
 namespace pad
 {
@@ -24,7 +25,7 @@ namespace pad
     {
     public:
         HardwareRenderer (ParameterBridge&, SharedUIState&, const enh::dsp::EngineMeters&, const UIConfig&,
-                          artwork::TextureSet textures);
+                          artwork::TextureSet textures, const enh::dsp::ScopeCurve&);
         ~HardwareRenderer() override;
 
         void newOpenGLContextCreated() override;
@@ -44,7 +45,7 @@ namespace pad
                          seraphWalls, seraphGlass, seraphBezel,
                          tideFaceTop, lumenFaceTop, oneUFaceEdges, oneUEarWalls, oneUEarFloors, oneUScrews, oneUScrewSlots,
                          enhBody, tubeBody, oneUBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
-                         caseCheeks, caseRails, caseEdges;
+                         caseCheeks, caseRails, caseEdges, flowArrow;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
@@ -56,7 +57,7 @@ namespace pad
                                  &seraphWalls, &seraphGlass, &seraphBezel,
                                  &tideFaceTop, &lumenFaceTop, &oneUFaceEdges, &oneUEarWalls, &oneUEarFloors, &oneUScrews, &oneUScrewSlots,
                                  &enhBody, &tubeBody, &oneUBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
-                                 &caseCheeks, &caseRails, &caseEdges })
+                                 &caseCheeks, &caseRails, &caseEdges, &flowArrow })
                     fn (*m);
             }
         };
@@ -108,6 +109,12 @@ namespace pad
         ParameterBridge& bridge;
         SharedUIState& shared;
         const enh::dsp::EngineMeters& meters;
+        const enh::dsp::ScopeCurve& scope;
+
+        /** The analyser curve, uploaded once a frame as a strip: R = input, G = output, B = peak. */
+        gfx::Texture2D scopeTex;
+        std::vector<juce::uint8> scopeScratch;
+        void uploadScope();
         PointerPoller pointer;
         const UIConfig config;
 
@@ -183,6 +190,7 @@ namespace pad
         // LED ladders (smoothed segment brightness, bottom to top)
         std::array<float, layout::ladderSegments> outLeds {}, enhLeds {}, detectLeds {};
 
+        float flowPhase = 0.0f;        // travels up the chain, lighting each arrow in turn
         float parallaxX = 0.0f, parallaxY = 0.0f;
         float focusAmount = 0.0f;      // animated toward shared.focusTarget
         std::array<float, enh::dsp::numBands> displayBands {};

@@ -40,12 +40,17 @@ public:
     pad::ParameterBridge& getBridge() noexcept               { return bridge; }
     const enh::dsp::EngineMeters& getMeters() const noexcept { return engine.getMeters(); }
 
+    /** Analyser taps. The audio thread only copies samples into these; the editor runs the FFT. */
+    const enh::dsp::ScopeFifo& getInputScope() const noexcept { return engine.getInputScope(); }
+    const enh::dsp::ScopeFifo& getOutputScope() const noexcept { return engine.getOutputScope(); }
+
 private:
     juce::AudioProcessorValueTreeState state;
     pad::ParameterBridge bridge;
     enh::dsp::EnhEngine engine;
 
     std::atomic<float>* enhMultiply = nullptr, *enhStrength = nullptr, *seraphMultiply = nullptr, *seraphStrength = nullptr;
+    std::atomic<float>* heavenHold = nullptr, *heavenLift = nullptr, *heavenMode = nullptr;
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
     std::atomic<float>* seraphMode = nullptr,

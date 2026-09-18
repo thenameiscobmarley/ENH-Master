@@ -241,11 +241,31 @@ namespace enh::dsp
     public:
         enum Mode { off = 0, silkOnly = 1, heaven = 2 };
 
+        /** HEAVEN: what the unit does with the level of the sound it has made.
+
+            SERAPH changes the programme's loudness as a side effect of what it does - space and
+            air add level, smoothing takes it away, and how much depends on the material. This
+            holds that steady. In STABLE it measures what came in and what is going out and
+            works the output back toward the input, so the effect is loud enough to hear and
+            never louder than the music. In LIFT + STABLE it first adds gain, then holds *that*
+            steady, which is what you want when the source is quiet to begin with.
+
+            `amount` is how firmly it holds (0 = leave the level alone); `lift` is the extra
+            gain in LIFT mode. Both are one knob on the panel, with a button to swap modes. */
+        struct HeavenSettings
+        {
+            float amount = 0.0f;     // 0..1
+            float lift = 0.0f;       // 0..1 extra gain, LIFT + STABLE only
+            bool liftMode = false;
+            float strength = 1.0f;
+        };
+
         struct Settings
         {
             int mode = off;   // the plugin parameter defaults to HEAVEN; engine users opt in
             SilkStage::Settings silk {};
             HaloStage::Settings halo {};
+            HeavenSettings heaven {};
         };
 
         void prepare (double sampleRate)
@@ -261,12 +281,19 @@ namespace enh::dsp
             silk.reset();
             halo.reset();
             limiterGain = 1.0f;
+            dryLevel = wetLevel = 1.0e-4f;
+            heavenGain = 1.0f;
+            heavenDb = 0.0f;
         }
 
         void process (float* const* channels, int numChannels, int numSamples, const Settings& s) noexcept
         {
+            // What came in, before SERAPH touches it: the reference the level is held against
+            measure (channels, numChannels, numSamples, dryLevel);
+
             silk.process (channels, numChannels, numSamples, s.silk, s.mode >= silkOnly ? 1.0f : 0.0f);
             halo.process (channels, numChannels, numSamples, s.halo, s.mode == heaven ? 1.0f : 0.0f);
+            applyHeaven (channels, numChannels, numSamples, s.heaven);
 
             if (silk.getBlend() <= 0.0f && halo.getBlend() <= 0.0f)
             {
@@ -301,6 +328,7 @@ namespace enh::dsp
         }
 
         float getLimiterDb() const noexcept { return gainReductionDb; }
+        float getHeavenDb() const noexcept { return heavenDb; }
 
         const SilkStage& getSilk() const noexcept { return silk; }
         const HaloStage& getHalo() const noexcept { return halo; }
@@ -326,8 +354,52 @@ namespace enh::dsp
         }
 
     private:
+        /** Slow loudness of a block, smoothed: fast enough to follow a passage, slow enough
+            not to chase individual notes. */
+        static void measure (float* const* channels, int numChannels, int numSamples, float& level) noexcept
+        {
+            const int chans = std::min (numChannels, 2);
+            double sum = 0.0;
+            for (int c = 0; c < chans; ++c)
+                for (int i = 0; i < numSamples; ++i)
+                    sum += (double) channels[c][i] * channels[c][i];
+
+            const float rms = (float) std::sqrt (sum / std::max (1, chans * numSamples));
+            level += (rms - level) * 0.06f;
+        }
+
+        void applyHeaven (float* const* channels, int numChannels, int numSamples, const HeavenSettings& h) noexcept
+        {
+            const float amount = std::clamp (h.amount, 0.0f, 1.0f) * std::clamp (h.strength, 0.0f, 5.0f);
+            if (amount <= 1.0e-4f)
+            {
+                heavenGain += (1.0f - heavenGain) * 0.02f;
+                heavenDb = 20.0f * std::log10 (std::max (1.0e-3f, heavenGain));
+                return;
+            }
+
+            measure (channels, numChannels, numSamples, wetLevel);
+
+            // Where the output should sit: back at the input's loudness, plus the lift if asked
+            const float liftDb = h.liftMode ? 12.0f * std::clamp (h.lift, 0.0f, 1.0f) : 0.0f;
+            const float target = std::max (1.0e-5f, dryLevel) * std::pow (10.0f, liftDb * 0.05f);
+            const float wanted = std::clamp (target / std::max (1.0e-5f, wetLevel), 0.25f, 5.6f);
+
+            // Hold it only as firmly as the knob asks, and move slowly: this is a level policy,
+            // not a compressor, so it must never breathe with the music.
+            const float blended = 1.0f + (wanted - 1.0f) * std::min (1.0f, amount);
+            heavenGain += (blended - heavenGain) * 0.012f;
+            heavenDb = 20.0f * std::log10 (std::max (1.0e-3f, heavenGain));
+
+            const int chans = std::min (numChannels, 2);
+            for (int c = 0; c < chans; ++c)
+                for (int i = 0; i < numSamples; ++i)
+                    channels[c][i] *= heavenGain;
+        }
+
         SilkStage silk;
         HaloStage halo;
+        float dryLevel = 1.0e-4f, wetLevel = 1.0e-4f, heavenGain = 1.0f, heavenDb = 0.0f;
         float limiterGain = 1.0f, limiterRelease = 0.99f, gainReductionDb = 0.0f;
     };
 }

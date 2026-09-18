@@ -197,10 +197,14 @@ namespace pad::artwork
         const auto centred = juce::Justification::horizontallyCentred;
         const auto left = juce::Justification::left;
 
-        // Maker panel, top left
-        text (g, m, "SERAPH", -2.22f, -0.445f, 0.058f, left, true, 0.20f, 0.60f);
-        text (g, m, "CELESTIAL PROCESSOR", -2.22f, -0.375f, 0.019f, left, true, 0.12f, 0.32f);
-        text (g, m, "SR 2  SILK + HALO", -2.22f, -0.335f, 0.019f, left, true, 0.12f, 0.32f);
+        // Maker panel, top left, clear of the lamp
+        text (g, m, "SERAPH", -2.04f, -0.695f, 0.062f, left, true, 0.20f, 0.60f);
+        text (g, m, "CELESTIAL PROCESSOR", -2.04f, -0.625f, 0.019f, left, true, 0.12f, 0.32f);
+        text (g, m, "SR 3   SILK + HALO + HEAVEN", -2.04f, -0.585f, 0.019f, left, true, 0.12f, 0.32f);
+
+        // Row headings, so it is obvious which knobs belong to which stage
+        text (g, m, "SILK", -2.42f, seraphRow1Z - 0.20f, 0.026f, left, true, 0.34f, 0.0f);
+        text (g, m, "HALO", -2.42f, seraphRow2Z - 0.20f, 0.026f, left, true, 0.34f, 0.0f);
 
         auto valueText = [] (float v)
         {
@@ -236,20 +240,32 @@ namespace pad::artwork
                                 m.len (i % 5 == 0 ? 0.008f : 0.005f));
                 }
 
-                if (auto* spec = pad::params::findSpec (c.paramId))
+                // Numbers at every major tick. A mode-switched knob prints both of its scales,
+                // and the renderer cross-fades between them when the mode changes.
+                for (int pass = 0; pass < (c.altParamId != nullptr ? 2 : 1); ++pass)
                 {
+                    const char* id = pass == 0 ? c.paramId : c.altParamId;
+                    auto* spec = pad::params::findSpec (id);
+                    if (spec == nullptr)
+                        continue;
+
                     juce::NormalisableRange<float> range (spec->minValue, spec->maxValue);
                     if (spec->skewCentre > 0.0f)
                         range.setSkewForCentre (spec->skewCentre);
 
-                    for (float t : { 0.0f, 1.0f })
+                    recorder.clarityScale = c.altParamId != nullptr ? pass : -1;
+                    const float ring = c.altParamId != nullptr ? (pass == 0 ? 0.086f : 0.140f) : 0.086f;
+
+                    for (int i = 0; i <= 4; ++i)
                     {
+                        const float t = (float) i / 4.0f;
                         const float angle = knobAngleForValue (t);
                         const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
-                        const float rr = r + 0.085f;
-                        text (g, m, valueText (range.convertFrom0to1 (t)), c.x + dir.x * rr, c.z + dir.y * rr, 0.019f,
+                        const float rr = r + ring;
+                        text (g, m, valueText (range.convertFrom0to1 (t)), c.x + dir.x * rr, c.z + dir.y * rr, 0.020f,
                               centred, true, 0.0f, 0.14f);
                     }
+                    recorder.clarityScale = -1;
                 }
             }
             else if (c.kind == ControlKind::selector)
@@ -660,6 +676,9 @@ namespace pad::artwork
     }
 
     //==============================================================================
+    /*  The analyser graticule: the frequency scale along the bottom, the dB marks for the EQ
+        curve at the left, what the two traces are, and the live readout along the top. It is
+        re-rendered only when that text changes. */
     RawTexture renderDisplayOverlay (const DisplayText& t)
     {
         const int w = displayOverlayWidth, h = displayOverlayHeight;
@@ -667,17 +686,72 @@ namespace pad::artwork
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
 
-        const float pad = 18.0f;
+        // Same plot rectangle the shader uses
+        const float plotL = 0.055f * (float) w, plotR = 0.975f * (float) w;
+        const float plotT = 0.14f * (float) h, plotB = 0.90f * (float) h;
 
-        g.setFont (makeFont (34.0f, true, 0.02f, true));
-        g.drawText (t.title, juce::Rectangle<float> (pad, 8.0f, (float) w - 2.0f * pad, 42.0f), juce::Justification::centredLeft, false);
-        g.drawText (t.tag,   juce::Rectangle<float> (pad, 8.0f, (float) w - 2.0f * pad, 42.0f), juce::Justification::centredRight, false);
+        auto atHz = [&] (float hz) { return plotL + (plotR - plotL) * std::log (hz / 20.0f) / std::log (1000.0f); };
 
-        const float y = (float) h - 56.0f;
-        g.setFont (makeFont (34.0f, true, 0.0f, true));
+        // Graticule: decades bright, 2/5 steps faint, four horizontal dB lines
+        for (float hz : { 100.0f, 1000.0f, 10000.0f })
+        {
+            g.setOpacity (0.55f);
+            const float x = atHz (hz);
+            g.fillRect (juce::Rectangle<float> (x - 0.6f, plotT, 1.2f, plotB - plotT));
+        }
+        for (float hz : { 50.0f, 200.0f, 500.0f, 2000.0f, 5000.0f, 20000.0f })
+        {
+            g.setOpacity (0.18f);
+            const float x = atHz (hz);
+            if (x > plotL && x < plotR)
+                g.fillRect (juce::Rectangle<float> (x - 0.5f, plotT, 1.0f, plotB - plotT));
+        }
+        for (int i = 1; i < 4; ++i)
+        {
+            g.setOpacity (0.14f);
+            const float y = plotT + (plotB - plotT) * (float) i / 4.0f;
+            g.fillRect (juce::Rectangle<float> (plotL, y - 0.5f, plotR - plotL, 1.0f));
+        }
+        g.setOpacity (1.0f);
 
+        // Frequency scale, printed just inside the bottom of the plot
+        g.setFont (makeFont (13.0f, true, 0.10f));
+        struct Mark { float hz; const char* label; };
+        for (auto& mark : { Mark { 50.0f, "50" }, Mark { 100.0f, "100" }, Mark { 200.0f, "200" }, Mark { 500.0f, "500" },
+                            Mark { 1000.0f, "1k" }, Mark { 2000.0f, "2k" }, Mark { 5000.0f, "5k" },
+                            Mark { 10000.0f, "10k" }, Mark { 16000.0f, "16k" } })
+        {
+            const float x = atHz (mark.hz);
+            if (x < plotL + 6.0f || x > plotR - 14.0f)
+                continue;
+            g.drawText (mark.label, juce::Rectangle<float> (x - 22.0f, plotB - 16.0f, 44.0f, 15.0f),
+                        juce::Justification::centred, false);
+        }
+
+        // dB marks for the EQ curve, at the left edge
+        g.setFont (makeFont (12.0f, true, 0.08f));
+        for (int i = -1; i <= 1; ++i)
+        {
+            const float v = 0.5f - (float) i * 0.5f * 0.92f;
+            const float y = plotT + (plotB - plotT) * v;
+            const auto label = i == 0 ? juce::String ("0") : juce::String (i > 0 ? "+12" : "-12");
+            g.drawText (label, juce::Rectangle<float> (plotL + 3.0f, y - 8.0f, 34.0f, 16.0f),
+                        juce::Justification::centredLeft, false);
+        }
+
+        // Header: what the plugin is doing, and the key to the traces
+        g.setFont (makeFont (15.0f, true, 0.06f, true));
+        g.drawText (t.title, juce::Rectangle<float> (plotL + 2.0f, 2.0f, (float) w * 0.5f, 18.0f),
+                    juce::Justification::centredLeft, false);
         g.drawText (t.focusLine.isNotEmpty() ? t.focusLine : t.lineLeft,
-                    juce::Rectangle<float> (pad, y, (float) w - 2.0f * pad, 48.0f), juce::Justification::centredLeft, false);
+                    juce::Rectangle<float> ((float) w * 0.36f, 2.0f, (float) w * 0.40f, 18.0f),
+                    juce::Justification::centred, false);
+
+        g.setFont (makeFont (12.0f, true, 0.14f));
+        g.drawText ("IN / OUT / EQ", juce::Rectangle<float> ((float) w * 0.60f, 2.0f, plotR - (float) w * 0.60f - 2.0f, 18.0f),
+                    juce::Justification::centredRight, false);
+        g.drawText (t.tag, juce::Rectangle<float> (plotL, plotB + 1.0f, plotR - plotL, 16.0f),
+                    juce::Justification::centredRight, false);
 
         RawTexture tex { w, h, 1, {} };
         tex.pixels.assign ((size_t) (w * h), 0);

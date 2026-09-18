@@ -21,6 +21,8 @@ namespace enh::dsp
         bool protect = true, tape = false, autoGain = true;
         float widthPercent = 120.0f, space = 2.5f, decayS = 2.2f, shimmer = 1.5f, tone = 6.0f;
         bool duck = true, bassMono = true, mod = true;
+        float heavenHold = 12.0f, heavenLift = 4.0f;    // 0..30 / 0..10
+        bool heavenLiftMode = false;
         float seraphMultiply = 1.0f, seraphStrength = 1.0f;
 
         // TIDE (compressor) and LUMEN (leveler): two knobs each
@@ -79,6 +81,13 @@ namespace enh::dsp
         s.halo.bassMono = k.bassMono;
         s.halo.mod      = k.mod;
         s.halo.strength = ss;
+
+        // HEAVEN: one knob with two printed scales, like CLARITY on ENH Master
+        s.heaven.liftMode = k.heavenLiftMode;
+        s.heaven.amount   = k.heavenLiftMode ? std::clamp (k.heavenLift * sm / 10.0f, 0.0f, 3.0f)
+                                             : std::clamp (k.heavenHold * sm / 30.0f, 0.0f, 3.0f);
+        s.heaven.lift     = std::clamp (k.heavenLift * sm / 10.0f, 0.0f, 1.0f);
+        s.heaven.strength = ss;
 
         // TIDE / LUMEN: no device master, so their knobs map straight across
         p.tide.mix      = std::clamp (k.tideMixPercent / 100.0f, 0.0f, 1.0f);

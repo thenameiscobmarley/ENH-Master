@@ -46,6 +46,11 @@ namespace pad::params
         inline constexpr const char* silkTape     = "silkTape";      // pre-emphasised tape softening
         inline constexpr const char* silkAuto     = "silkAuto";      // loudness-matched output
 
+        // HEAVEN - what SERAPH does with the level of the sound it makes
+        inline constexpr const char* heavenHold = "heavenHold";   // STABLE: hold the level (0-30)
+        inline constexpr const char* heavenLift = "heavenLift";   // LIFT + STABLE: add, then hold (0-10)
+        inline constexpr const char* heavenMode = "heavenMode";   // off = STABLE, on = LIFT + STABLE
+
         // HALO - space & width
         inline constexpr const char* haloWidth    = "haloWidth";     // stereo width (%)
         inline constexpr const char* haloSpace    = "haloSpace";     // reverb amount

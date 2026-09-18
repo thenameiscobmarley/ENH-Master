@@ -13,54 +13,96 @@ namespace pad::shaders
         numMaterials
     };
 
-    /** ENH Master display glass: live spectral gain curve. uParams = (_, brightness, aspect, footstep confidence) */
+    /*  ENH Master's analyser: the incoming spectrum as a filled curve, what is coming out as a
+        line over it, a decaying peak trace, and the EQ the plugin is applying on the same axes,
+        so you can see the processing against the material it is reacting to.
+
+        uTex  = the analyser strip (R = input, G = output, B = peak), one texel per point
+        uTex2 = the printed graticule (Hz and dB marks, band names)
+        uParams  = (_, brightness, _, footstep confidence)
+        uParams2 = (spectrum floor dB, spectrum top dB, EQ range dB, scope 1 = have data)
+        uBands   = the 24 adaptive EQ gains in dB
+    */
     inline const hwk::shaders::Material enhDisplay { "enhDisplay", R"GLSL(
     vec2 uv = vUV;
-    vec3 phosphor = vec3 (0.40, 1.0, 0.80);
-    col = vec3 (0.010, 0.024, 0.022);
+    col = vec3 (0.008, 0.017, 0.020);
 
-    float px = fwidth (uv.y);
-    float plotL = 0.05, plotR = 0.95, zeroY = 0.56, dbScale = 0.27 / 12.0;
+    const float plotL = 0.055, plotR = 0.975, plotT = 0.14, plotB = 0.90;
+    float px = fwidth (uv.y), pxx = fwidth (uv.x);
+    float inPlot = step (plotL, uv.x) * step (uv.x, plotR) * step (plotT, uv.y) * step (uv.y, plotB);
 
-    // Decade grid lines (100 Hz, 1 kHz, 10 kHz) and the 0 dB line
-    float grid = 0.0;
-    for (int i = 0; i < 3; ++i)
-    {
-        float gx = plotL + (plotR - plotL) * log (100.0 * pow (10.0, float (i)) / 40.0) / log (400.0);
-        grid = max (grid, 1.0 - smoothstep (0.0, fwidth (uv.x) * 1.5, abs (uv.x - gx)));
-    }
-    grid *= step (0.20, uv.y) * step (uv.y, 0.84) * 0.10;
-    float zero = (1.0 - smoothstep (px * 0.5, px * 1.5, abs (uv.y - zeroY))) * step (0.5, fract (uv.x * 48.0)) * 0.25;
+    // Where this pixel sits in the plot, 0..1 across and down
+    float u = clamp ((uv.x - plotL) / (plotR - plotL), 0.0, 1.0);
+    float v = clamp ((uv.y - plotT) / (plotB - plotT), 0.0, 1.0);
 
-    // Catmull-Rom through the 24 band gains
-    float t = clamp ((uv.x - plotL) / (plotR - plotL), 0.0, 1.0) * 23.0;
+    // The graticule is printed into uTex2 rather than computed here: it never changes, and a
+    // per-fragment loop of log() calls is the one thing this GPU cannot spare.
+
+    // --- the spectrum --------------------------------------------------------------------
+    vec3 strip = texture (uTex, vec2 (u, 0.5)).rgb;   // r = input, g = output, b = peak hold
+    float inLevel  = strip.r;
+    float outLevel = strip.g;
+    float peak     = strip.b;
+
+    // The strip is normalised over [minDb, maxDb]; show the useful top of that range
+    float floorT = uParams2.x, topT = uParams2.y;
+    float inV  = 1.0 - clamp ((inLevel  - floorT) / max (topT - floorT, 0.001), 0.0, 1.0);
+    float outV = 1.0 - clamp ((outLevel - floorT) / max (topT - floorT, 0.001), 0.0, 1.0);
+    float peakV = 1.0 - clamp ((peak    - floorT) / max (topT - floorT, 0.001), 0.0, 1.0);
+
+    // Input: a filled area, brighter at its edge, the way a good analyser draws it
+    float fillIn = step (inV, v) * (0.10 + 0.22 * (1.0 - v));
+    float edgeIn = (1.0 - smoothstep (0.0, px * 2.4, abs (v - inV) * (plotB - plotT)));
+    col += vec3 (0.16, 0.45, 0.62) * fillIn * inPlot * uParams.y;
+    col += vec3 (0.35, 0.78, 0.95) * edgeIn * inPlot * uParams.y * 0.75;
+
+    // Output: a crisp line over it, plus a soft bloom so it reads at a glance
+    float dOut = abs (v - outV) * (plotB - plotT);
+    float lineOut = (1.0 - smoothstep (px * 0.8, px * 2.4, dOut)) + exp (-dOut / 0.02) * 0.22;
+    col += vec3 (0.45, 1.00, 0.80) * lineOut * inPlot * uParams.y;
+
+    // Peak hold: a thin, dimmer trace above it
+    float dPeak = abs (v - peakV) * (plotB - plotT);
+    col += vec3 (0.85, 0.95, 1.00) * (1.0 - smoothstep (px * 0.6, px * 1.8, dPeak)) * inPlot * uParams.y * 0.35;
+
+    // --- what the EQ is doing, on the same axes ------------------------------------------
+    float t = u * 23.0;
     int k = int (floor (t));
     float f = t - float (k);
     float p0 = uBands[max (k - 1, 0)], p1 = uBands[k], p2 = uBands[min (k + 1, 23)], p3 = uBands[min (k + 2, 23)];
-    float gainDb = 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f);
-    float curveY = zeroY - gainDb * dbScale;
+    float gainDb = 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f
+                          + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f);
 
-    float inPlot = step (plotL, uv.x) * step (uv.x, plotR);
-    float d = abs (uv.y - curveY);
-    float line = (1.0 - smoothstep (px * 1.0, px * 2.6, d)) + exp (-d / 0.025) * 0.30;
-    float plotFill = step (min (curveY, zeroY), uv.y) * step (uv.y, max (curveY, zeroY)) * 0.10;
+    float eqRange = max (uParams2.z, 1.0);
+    float eqMid = 0.5;
+    float eqV = eqMid - clamp (gainDb / eqRange, -0.5, 0.5) * 0.92;
+    float dEq = abs (v - eqV) * (plotB - plotT);
 
-    float text = texture (uTex, uv).r;
-    // Faint scanlines, faded out where they would alias
-    float scanPhase = uv.y * 170.0;
-    float scan = 1.0 - 0.10 * (0.5 + 0.5 * sin (scanPhase * 6.28318)) * clamp (1.0 - fwidth (scanPhase) * 1.5, 0.0, 1.0);
-    col += phosphor * ((grid + zero + (line + plotFill) * inPlot) + text) * uParams.y * scan;
+    // The zero line it is drawn against, dashed so it never competes with the spectrum
+    float zero = (1.0 - smoothstep (px * 0.5, px * 1.4, abs (v - eqMid) * (plotB - plotT)))
+                 * step (0.45, fract (uv.x * 90.0)) * 0.30;
+    col += vec3 (0.9, 0.75, 0.35) * zero * inPlot * uParams.y;
 
-    // Footstep detection: soft lime edge glow
-    float edge = 1.0 - smoothstep (0.0, 0.06, min (min (uv.x, 1.0 - uv.x), min (uv.y, 1.0 - uv.y)));
-    col += vec3 (0.45, 1.0, 0.15) * edge * uParams.w * 0.6;
+    float eqLine = 1.0 - smoothstep (px * 1.0, px * 2.8, dEq);
+    float eqFill = step (min (eqV, eqMid), v) * step (v, max (eqV, eqMid)) * 0.13;
+    col += vec3 (1.00, 0.76, 0.28) * (eqLine + eqFill) * inPlot * uParams.y;
+
+    // --- print, scanlines, glass ---------------------------------------------------------
+    float text = texture (uTex2, uv).r;
+    col += vec3 (0.55, 0.95, 1.00) * text * uParams.y * 0.85;
+
+    float scanPhase = uv.y * 190.0;
+    float scan = 1.0 - 0.07 * (0.5 + 0.5 * sin (scanPhase * 6.28318)) * clamp (1.0 - fwidth (scanPhase) * 1.5, 0.0, 1.0);
+    col *= scan;
+
+    // Footstep detection: a lime edge glow around the whole window
+    float edge = 1.0 - smoothstep (0.0, 0.05, min (min (uv.x, 1.0 - uv.x), min (uv.y, 1.0 - uv.y)));
+    col += vec3 (0.45, 1.0, 0.15) * edge * uParams.w * 0.55;
 
     col += envColor (R) * (0.03 + 0.25 * pow (facing, 4.0));
     col += vec3 (0.9, 0.95, 1.0) * exp (-pow ((uv.x + uv.y * 0.6 - 0.35) * 6.0, 2.0)) * 0.035;
+)GLSL", "uniform float uBands[24];   // adaptive EQ gains, dB\n" };
 
-)GLSL", "uniform float uBands[24];   // live adaptive EQ gains (dB)\n" };
-
-    /** SERAPH live display. uParams = (power, dipsU0, dipsU1, colsU0), uParams2.x = colsU1 */
     inline const hwk::shaders::Material seraphLive { "seraphLive", R"GLSL(
     vec2 uv = vUV;
     float px = fwidth (uv.y), pxu = fwidth (uv.x);

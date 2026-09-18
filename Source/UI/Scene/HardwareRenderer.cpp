@@ -44,8 +44,8 @@ namespace pad
 
     //==============================================================================
     HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const enh::dsp::EngineMeters& m,
-                                        const UIConfig& c, artwork::TextureSet textures)
-        : bridge (b), shared (s), meters (m), config (c), textureData (std::move (textures))
+                                        const UIConfig& c, artwork::TextureSet textures, const enh::dsp::ScopeCurve& sc)
+        : bridge (b), shared (s), meters (m), scope (sc), config (c), textureData (std::move (textures))
     {
         seraphModeParam = bridge.indexOf (params::id::seraphMode);
 
@@ -174,6 +174,7 @@ namespace pad
         meshes.caseCheeks.upload (geo::caseCheeks());
         meshes.caseRails.upload (geo::caseRails());
         meshes.caseEdges.upload (geo::caseEdges());
+        meshes.flowArrow.upload (geo::flowArrow());
         meshes.faceEdges.upload (geo::faceplateEdges());
         meshes.faceTop.upload (geo::faceplateTop());
         meshes.displayWalls.upload (geo::displayWalls());
@@ -300,6 +301,31 @@ namespace pad
     }
 
     //==============================================================================
+    /** The analyser curve as a 1 x N strip: one texel per display point. */
+    void HardwareRenderer::uploadScope()
+    {
+        constexpr int n = enh::dsp::ScopeCurve::numPoints;
+        scopeScratch.resize ((size_t) n * 4);
+
+        auto encode = [] (float db)
+        {
+            const float t = juce::jlimit (0.0f, 1.0f, (db - enh::dsp::ScopeCurve::minDb)
+                                                        / (enh::dsp::ScopeCurve::maxDb - enh::dsp::ScopeCurve::minDb));
+            return (juce::uint8) juce::roundToInt (t * 255.0f);
+        };
+
+        for (int i = 0; i < n; ++i)
+        {
+            auto* px = scopeScratch.data() + (size_t) i * 4;
+            px[0] = encode (scope.inputDb[(size_t) i].load (std::memory_order_relaxed));
+            px[1] = encode (scope.outputDb[(size_t) i].load (std::memory_order_relaxed));
+            px[2] = encode (scope.peakDb[(size_t) i].load (std::memory_order_relaxed));
+            px[3] = 255;
+        }
+
+        scopeTex.upload (scopeScratch.data(), n, 1, 4, false, 1);
+    }
+
     void HardwareRenderer::uploadOverlayIfChanged()
     {
         juce::uint32 version = 0;
@@ -727,6 +753,9 @@ namespace pad
                 busy = true;
         };
 
+        // The signal-flow pulse travelling up the chain
+        flowPhase = std::fmod (flowPhase + dt * 0.55f, 1.0f);   // paced as an idle animation
+
         // Walking up to the rack, or stepping back from it
         {
             const float before = focusAmount;
@@ -932,46 +961,47 @@ namespace pad
         const float lamp = oneULamp[(size_t) (tide ? 0 : 1)];
         auto& model = tide ? tideVu : lumenVu;
 
-        // The meters: case, printed face, needle, hub, bezel (the glass comes later, blended)
-        for (int i = 0; i < numVus (unit); ++i)
+        /*  The meters, grouped by material rather than by meter: every program switch costs a
+            uniform upload, and LUMEN has three of these side by side. */
+        using hwk::models::Role;
+
+        auto matrixFor = [&] (int i, bool moving)
         {
             const auto at = panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ });
-            const auto& needle = needles[(size_t) (tide ? 0 : 1 + i)];
-            // The movement is hinged below the window: turn about that hinge, not the centre
-            const auto swing = at * Mat4::translation ({ 0.0f, 0.0f, model.pivotOffset })
-                                  * Mat4::rotationY (-needle.angle)
-                                  * Mat4::translation ({ 0.0f, 0.0f, -model.pivotOffset });
+            if (! moving)
+                return at;
 
+            // The movement is hinged below the window: turn about that hinge, not the centre
+            const auto& needle = needles[(size_t) (tide ? 0 : 1 + i)];
+            return at * Mat4::translation ({ 0.0f, 0.0f, model.pivotOffset })
+                      * Mat4::rotationY (-needle.angle)
+                      * Mat4::translation ({ 0.0f, 0.0f, -model.pivotOffset });
+        };
+
+        auto drawRole = [&] (Role role)
+        {
             for (auto& part : model.parts)
             {
-                using hwk::models::Role;
-                const Mat4& m = part->rotates ? swing : at;
+                if (part->role != role)
+                    continue;
 
-                switch (part->role)
-                {
-                    case Role::screen:
-                        faceTex.bind (0);
-                        use (shaders::vuFace).set ("uParams", 0.0f, lamp, 0.0f, (float) i);
-                        draw (part->mesh, m, part->colour);
-                        break;
-                    case Role::metal:
-                        use (shaders::chrome).set ("uParams", part->polish, part->brushed ? 1.0f : 0.0f, 0.0f, 0.0f);
-                        draw (part->mesh, m, part->colour);
-                        break;
-                    case Role::pointer:
-                        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-                        draw (part->mesh, m, part->colour);
-                        break;
-                    case Role::glass:
-                        break;                       // drawn after everything else
-                    case Role::body:
-                    case Role::accent:
-                        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-                        draw (part->mesh, m, part->colour);
-                        break;
-                }
+                for (int i = 0; i < numVus (unit); ++i)
+                    draw (part->mesh, matrixFor (i, part->rotates), part->colour);
             }
-        }
+        };
+
+        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        drawRole (Role::body);
+
+        faceTex.bind (0);
+        use (shaders::vuFace).set ("uParams", 0.0f, lamp, 0.0f, 0.0f);
+        drawRole (Role::screen);
+
+        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        drawRole (Role::pointer);
+
+        use (shaders::chrome).set ("uParams", 0.55f, 0.0f, 0.0f, 0.0f);
+        drawRole (Role::metal);
 
         auto& recessed = use (shaders::recess);
         recessed.set ("uParams", faceThick, 0.0f, 0.0f, 0.0f);
@@ -1005,16 +1035,15 @@ namespace pad
     void HardwareRenderer::drawVuGlass (int unit, const Mat4& panel)
     {
         auto& model = unit == tideUnit ? tideVu : lumenVu;
+        use (shaders::vuGlass);
 
-        for (int i = 0; i < numVus (unit); ++i)
+        for (auto& part : model.parts)
         {
-            const auto at = panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ });
-            for (auto& part : model.parts)
-                if (part->role == hwk::models::Role::glass)
-                {
-                    use (shaders::vuGlass);
-                    draw (part->mesh, at, part->colour);
-                }
+            if (part->role != hwk::models::Role::glass)
+                continue;
+
+            for (int i = 0; i < numVus (unit); ++i)
+                draw (part->mesh, panel * Mat4::translation ({ vuX (unit, i), 0.0f, vuCentreZ }), part->colour);
         }
     }
 
@@ -1198,9 +1227,15 @@ namespace pad
         draw (meshes.screwSlots, panel, { 0.02f, 0.02f, 0.025f });
         draw (meshes.displayBezel, panel, { 0.03f, 0.031f, 0.035f });
 
-        overlayTex.bind (0);
+        // Analyser: the spectrum strip on unit 0, the printed graticule on unit 1
+        uploadScope();
+        scopeTex.bind (0);
+        overlayTex.bind (1);
         auto& display = use (shaders::display);
+        display.set ("uTex2", 1);
         display.set ("uParams", 0.0f, 1.0f, displayRect.hw / displayRect.hd, footOn * stepFlash);
+        // Show the top 78 dB of the strip's range, and +/- 12 dB of EQ against it
+        display.set ("uParams2", 0.135f, 1.0f, 24.0f, 1.0f);
         display.setArray ("uBands", displayBands.data(), enh::dsp::numBands);
         draw (meshes.displayGlass, panel, zero);
 
@@ -1238,6 +1273,32 @@ namespace pad
 
         use (shaders::table);
         draw (meshes.table, I, zero);
+
+        /*  Signal flow: a chevron in each gap between units, on both rails, lit in turn from
+            the bottom of the case to the top. It says which way the audio runs without
+            putting anything near the controls. */
+        {
+            auto& flow = use (shaders::emissive);
+            flow.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+
+            for (int i = 0; i + 1 < numUnits; ++i)
+            {
+                const int below = rackOrder[(size_t) i];
+                const float here = (float) i / (float) (numUnits - 1);
+                const float lit = 0.25f + 0.75f * std::pow (std::max (0.0f, 1.0f - std::abs (flowPhase - here) * 3.4f), 2.0f);
+                const Vec3 colour = colours::amber * lit;
+
+                for (float side : { -1.0f, 1.0f })
+                {
+                    const auto at = panelFor (below)
+                                      * Mat4::translation ({ side * (faceHalfW + 0.055f), 0.012f,
+                                                             -unitHalfH (below) - rackGap * 0.5f });
+                    draw (meshes.flowArrow, at, colour * 0.35f, colour);
+                    queueGlow (panelFor (below), side * (faceHalfW + 0.055f), -unitHalfH (below) - rackGap * 0.5f,
+                               0.11f, colours::amber, 0.30f * lit);
+                }
+            }
+        }
 
         // =============================================================================
         // Blended: printed knob scales, then soft shadows

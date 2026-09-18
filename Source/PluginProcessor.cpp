@@ -23,6 +23,10 @@ PluginProcessor::PluginProcessor()
     subBoost   = state.getRawParameterValue (id::subBoost);
     footstep   = state.getRawParameterValue (id::footstep);
 
+    heavenHold    = state.getRawParameterValue (id::heavenHold);
+    heavenLift    = state.getRawParameterValue (id::heavenLift);
+    heavenMode    = state.getRawParameterValue (id::heavenMode);
+
     tideMix       = state.getRawParameterValue (id::tideMix);
     tideResponse  = state.getRawParameterValue (id::tideResponse);
     tideActive    = state.getRawParameterValue (id::tideActive);
@@ -86,6 +90,10 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.footstep       = footstep->load() > 0.5f;
     k.enhMultiply    = enhMultiply->load();
     k.enhStrength    = enhStrength->load();
+
+    k.heavenHold     = heavenHold->load();
+    k.heavenLift     = heavenLift->load();
+    k.heavenLiftMode = heavenMode->load() > 0.5f;
 
     k.tideMixPercent = tideMix->load();
     k.tideResponse   = tideResponse->load();

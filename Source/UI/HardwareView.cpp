@@ -14,7 +14,8 @@ namespace pad
     static bool isSwitchLike (ControlKind k) noexcept { return k == ControlKind::button || k == ControlKind::toggle; }
 
     HardwareView::HardwareView (PluginProcessor& p)
-        : bridge (p.getBridge()),
+        : processor (p),
+          bridge (p.getBridge()),
           meters (p.getMeters()),
           config (UIConfig::loadOrCreate())
     {
@@ -32,7 +33,8 @@ namespace pad
         textures.lumenDecal = artwork::renderOneUDecal (lumenUnit, config.panelTextureWidth, &textItems);
         textures.tideVuFace = artwork::renderVuFace (tideUnit, 768, &textItems);
         textures.lumenVuFace = artwork::renderVuFace (lumenUnit, 512, &textItems);
-        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures));
+        scopeAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
+        renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures), scopeCurve);
         artwork::collectKnobScaleText (textItems);
 
         juce::OpenGLPixelFormat format;
@@ -304,6 +306,33 @@ namespace pad
     }
 
     //==============================================================================
+    /** Dev-only (PAD_UI_TEST_DEMO): a plausible spectrum so screenshots show the analyser
+        doing something without an audio device. */
+    void HardwareView::fillDemoScope (float t)
+    {
+        using enh::dsp::ScopeCurve;
+
+        for (int i = 0; i < ScopeCurve::numPoints; ++i)
+        {
+            const float u = (float) i / (float) (ScopeCurve::numPoints - 1);
+            const float hz = ScopeCurve::hzForPoint (i);
+
+            // Pink tilt, a couple of drifting resonances, and a little noise on top
+            float db = -16.0f - 13.0f * u;
+            db += 7.0f * std::exp (-std::pow ((std::log (hz / (180.0f + 60.0f * std::sin (t * 0.35f))) * 1.7f), 2.0f));
+            db += 5.0f * std::exp (-std::pow ((std::log (hz / (2400.0f + 900.0f * std::sin (t * 0.21f))) * 2.1f), 2.0f));
+            db += 3.0f * std::sin (u * 34.0f + t * 2.1f) * 0.5f;
+            db -= 26.0f * std::pow (std::max (0.0f, u - 0.86f) / 0.14f, 2.0f);
+
+            const float out = db + 2.2f * std::sin (u * 9.0f + t * 0.6f);
+            scopeCurve.inputDb[(size_t) i].store (db);
+            scopeCurve.outputDb[(size_t) i].store (out);
+            scopeCurve.peakDb[(size_t) i].store (std::max (db, out) + 2.0f);
+        }
+
+        scopeCurve.active.store (true);
+    }
+
     void HardwareView::refreshOverlay()
     {
         auto valueText = [this] (int index)
@@ -414,6 +443,18 @@ namespace pad
 
     void HardwareView::timerCallback()
     {
+        // Spectrum: pull the newest window out of the audio thread's FIFOs and analyse it here
+        {
+            const double now = juce::Time::getMillisecondCounterHiRes();
+            const float dt = lastScopeMs > 0.0 ? (float) juce::jlimit (0.005, 0.25, (now - lastScopeMs) * 0.001) : 0.033f;
+            lastScopeMs = now;
+
+            if (demoScope)
+                fillDemoScope ((float) (now * 0.001));
+            else
+                scopeAnalyser.update (processor.getInputScope(), processor.getOutputScope(), scopeCurve, dt);
+        }
+
         if (! testParamsApplied && juce::Time::getMillisecondCounter() - openedAtMs > 1500)
         {
             testParamsApplied = true;
