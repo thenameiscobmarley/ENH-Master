@@ -19,6 +19,7 @@ namespace pad
         obj->setProperty ("anisotropy", anisotropy);
         obj->setProperty ("maxDetail", maxDetail);
         obj->setProperty ("panelTextureWidth", panelTextureWidth);
+        obj->setProperty ("renderScale", renderScale);
         obj->setProperty ("parallaxAmount", parallaxAmount);
         obj->setProperty ("reduceMotion", reduceMotion);
         return juce::var (obj);
@@ -36,7 +37,7 @@ namespace pad
         }
 
         const auto known = juce::StringArray { "schemaVersion", "frameRate", "idleFrameRate", "msaaSamples",
-                                               "anisotropy", "maxDetail", "panelTextureWidth", "parallaxAmount", "reduceMotion" };
+                                               "anisotropy", "maxDetail", "panelTextureWidth", "renderScale", "parallaxAmount", "reduceMotion" };
 
         for (auto& prop : obj->getProperties())
             if (! known.contains (prop.name.toString()))
@@ -80,6 +81,15 @@ namespace pad
 
         c.panelTextureWidth = c.panelTextureWidth >= 3072 ? 4096 : c.panelTextureWidth >= 1536 ? 2048 : 1024;
         c.idleFrameRate = juce::jmin (c.idleFrameRate, c.frameRate);
+
+        auto scale = obj->getProperty ("renderScale");
+        if (! scale.isVoid())
+        {
+            if (scale.isDouble() || scale.isInt())
+                c.renderScale = (float) scale <= 0.0f ? 0.0f : juce::jlimit (1.0f, 2.0f, (float) scale);
+            else
+                c.warnings.add ("renderScale must be a number (0 = auto)");
+        }
 
         auto parallax = obj->getProperty ("parallaxAmount");
         if (! parallax.isVoid())

@@ -40,9 +40,11 @@ namespace pad
         textures.limiterVuFace[1] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 1);
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
-        textures.levelVuFace[0] = artwork::renderVuFace (levelUnit, 1024, &textItems, 0);
-        textures.levelVuFace[1] = artwork::renderVuFace (levelUnit, 1024, &textItems, 1);
-        textures.levelScopeLabels = artwork::renderWindowLabels (levelUnit, 1536, &textItems);
+        textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);
+        textures.levelVuFace = artwork::renderVuFace (levelUnit, 1536, &textItems);
+        textures.monitorVuFace[0] = artwork::renderVuFace (monitorUnit, 1024, &textItems, 0);
+        textures.monitorVuFace[1] = artwork::renderVuFace (monitorUnit, 1024, &textItems, 1);
+        textures.monitorLabels = artwork::renderWindowLabels (monitorUnit, 3072, &textItems);
         textures.balancerLabels = artwork::renderWindowLabels (balancerUnit, 3072, &textItems);
         scopeAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
         balancerAnalyser.prepare (p.getSampleRate() > 0.0 ? p.getSampleRate() : 48000.0);
@@ -526,7 +528,14 @@ namespace pad
         else
         {
             balancerAnalyser.update (processor.getBalancerInputScope(), processor.getBalancerOutputScope(), balancerCurve, dt);
-            waveReader.update (processor.getOutputScope(), displayHistory);
+            // SPEED 1 .. 10: about 20 s .. 1 s of audio across the screen
+            if (const int speed = bridge.indexOf (pad::params::id::monitorSpeed); speed >= 0)
+            {
+                const auto* spec = pad::params::findSpec (pad::params::id::monitorSpeed);
+                const float value = spec != nullptr ? spec->minValue + (spec->maxValue - spec->minValue) * bridge.getNormalised (speed) : 5.0f;
+                waveReader.setSecondsAcross (20.0 * std::pow (0.05, (value - 1.0) / 9.0));
+            }
+            waveReader.update (processor.getInputScope(), processor.getOutputScope(), displayHistory);
         }
 
         // One balancer history column per tick (~10 s across the display)
@@ -559,7 +568,7 @@ namespace pad
             return;
         levelReadout = text;
 
-        auto tex = artwork::renderWindowLabels (levelUnit, 1536, nullptr, text);
+        auto tex = artwork::renderWindowLabels (monitorUnit, 3072, nullptr, text);
         const juce::SpinLock::ScopedLockType lock (shared.levelLabelsLock);
         shared.levelLabelsPending = std::move (tex);
         ++shared.levelLabelsVersion;

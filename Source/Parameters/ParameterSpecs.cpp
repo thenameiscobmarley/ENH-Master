@@ -65,6 +65,8 @@ namespace pad::params
             { id::balTilt,   "Balancer Tilt",    "TILT",    "",    Kind::continuous, -5.0f, 5.0f, 0.0f, 1 },
             { id::balRange,  "Balancer Range",   "RANGE",   " dB", Kind::continuous, 0.0f, 12.0f, 6.0f, 1 },
             { id::balActive, "Balancer In",      "IN",      "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
+            { id::balResolution, "Balancer Resolution", "RESOLUTION", "", Kind::continuous, 0.0f, 10.0f, 0.0f, 1 },
+            { id::monitorSpeed, "Monitor Speed", "SPEED", "", Kind::continuous, 1.0f, 10.0f, 5.0f, 1, 0.0f, {}, false },
 
             { id::presetPrev,  "Preset Previous",  "PREV",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },
             { id::presetNext,  "Preset Next",      "NEXT",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },

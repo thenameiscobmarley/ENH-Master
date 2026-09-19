@@ -83,6 +83,10 @@ namespace pad::params
         inline constexpr const char* balTilt   = "balTilt";     // TILT: darker .. brighter target
         inline constexpr const char* balRange  = "balRange";    // RANGE: most any band moves (dB)
         inline constexpr const char* balActive = "balActive";   // IN
+        inline constexpr const char* balResolution = "balResolution"; // RESOLUTION: six bands (0) .. spectral, third-octave (10)
+
+        // MONITOR (top)
+        inline constexpr const char* monitorSpeed = "monitorSpeed";   // SPEED: how fast the visualiser scrolls (display only)
 
         // Rack-wide: the PRESET buttons on the ADAPTIVE ENHANCER (momentary, not automatable)
         inline constexpr const char* presetPrev   = "presetPrev";

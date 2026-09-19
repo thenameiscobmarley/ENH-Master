@@ -378,6 +378,7 @@ namespace pad::artwork
 
             const auto title = unit == tideUnit ? juce::String ("COMPRESSOR") : unit == lumenUnit ? juce::String ("LEVELER")
                              : unit == levelUnit ? juce::String ("LEVEL") : unit == balancerUnit ? juce::String ("BALANCE")
+                             : unit == monitorUnit ? juce::String ("MONITOR")
                                                                                                    : juce::String ("DYNAMIC EQ");
             const auto font = makeFont (m.len (0.024f), true, 0.30f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, title);
@@ -450,13 +451,15 @@ namespace pad::artwork
             const char* loudness[2] { "MOMENTARY", "SHORT-TERM" };
             const auto label = unit == tideUnit ? juce::String ("GAIN REDUCTION")
                              : unit == limiterUnit ? juce::String (limits[i])
-                             : unit == levelUnit ? juce::String (loudness[i]) : juce::String (bands[i]);
+                             : unit == monitorUnit ? juce::String (loudness[i])
+                             : unit == levelUnit ? juce::String ("INPUT") : juce::String (bands[i]);
             text (g, m, label, vuX (unit, i), vuZ (unit, i) + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
         }
 
-        // Under the displays: what they show
-        if (unit == levelUnit)
-            text (g, m, "OUTPUT WAVEFORM", levelScopeRect.cx, levelScopeRect.maxZ() + 0.070f, 0.021f, centred, true, 0.20f, 0.6f);
+        // Under the display: what it shows
+        if (unit == monitorUnit)
+            text (g, m, "IN AGAINST OUT   -   WAVEFORM  AND  SPECTRUM", monitorDisplayRect.cx, monitorDisplayRect.maxZ() + 0.074f,
+                  0.021f, centred, true, 0.20f, 1.2f);
 
         recorder = {};
         RawTexture tex { w, h, 1, {} };
@@ -478,7 +481,7 @@ namespace pad::artwork
         // Full scale: the compressor's GR 0-12, the leveler's lift 0-18, the limiter's spectral cut 0-18
         // (RANGE + headroom protection) and its broadband protection 0-12
         const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1);
-        const bool lufs = unit == levelUnit;   // -40 .. 0 LUFS
+        const bool lufs = unit == monitorUnit || unit == levelUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT)
         const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
         const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
         const float arcR = vuHalfH * hwk::models::vuArcRadius * scale;
@@ -537,7 +540,7 @@ namespace pad::artwork
         for (int i = 0; i <= majors; ++i)
         {
             if (lufs && (i % 2) != 0)
-                continue;   // a narrow dial: -40, -20 and 0 only
+                continue;   // -40, -20 and 0 only: the arc is too short for five numbers
             const float t = (float) i / (float) majors;
             const auto label = juce::String (juce::roundToInt (lufs ? -40.0f + 40.0f * t : t * (twelve ? 12.0f : 18.0f)));
             const auto at = pointAt (t, 0.845f);
@@ -550,7 +553,8 @@ namespace pad::artwork
         // Caption low on the card, where the needle never covers it
         const auto caption = unit == tideUnit ? juce::String ("GAIN REDUCTION   dB")
                            : unit == limiterUnit ? juce::String (meter == 0 ? "CUT   dB" : "BROADBAND   dB")
-                           : unit == levelUnit ? juce::String ("LUFS") : juce::String ("LIFT   dB");
+                           : unit == monitorUnit ? juce::String ("LUFS") : unit == levelUnit ? juce::String ("INPUT   dBFS")
+                                                 : juce::String ("LIFT   dB");
         const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
         g.setFont (capFont);
         g.drawText (caption, juce::Rectangle<float> (0.0f, (float) h * 0.66f, (float) w, (float) h * 0.24f),
@@ -558,7 +562,7 @@ namespace pad::artwork
 
         if (registry != nullptr)
             for (int i = 0; i < numVus (unit); ++i)
-                if ((unit != limiterUnit && unit != levelUnit) || i == meter)   // meters with faces of their own
+                if ((unit != limiterUnit && unit != monitorUnit) || i == meter)   // meters with faces of their own
                     registry->push_back ({ unit, vuX (unit, i), vuZ (unit, i) + vuHalfH * 0.52f,
                                            vuHalfW (unit) * 0.6f, vuHalfH * 0.14f, caption, -1, -1 });
 
@@ -569,12 +573,12 @@ namespace pad::artwork
         return tex;
     }
 
-    /** Print inside the two new displays (R8, uv 0..1 across the window):
-        LEVEL & LOUDNESS - dBFS marks up the side of the waveform screen;
-        MIX BALANCER     - the frequency axis, the dB axis and the band names, FabFilter-style. */
+    /** Print inside the MONITOR and MIX BALANCER displays (R8, uv 0..1 across the window):
+        MONITOR      - the waveform's dB marks, the spectrum's frequency axis, the legends, the readout;
+        MIX BALANCER - the frequency axis, the dB axis. */
     RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry, const juce::String& readout)
     {
-        const auto& d = unit == levelUnit ? levelScopeRect : balancerDisplayRect;
+        const auto& d = unit == monitorUnit ? monitorDisplayRect : balancerDisplayRect;
         const int w = width, h = juce::roundToInt ((float) width * d.hd / d.hw);
         juce::Image img (juce::Image::SingleChannel, w, h, true);
         juce::Graphics g (img);
@@ -596,21 +600,29 @@ namespace pad::artwork
                                        0.5f * tw / px, 0.6f * heightPanel, s, -1, -1 });
         };
 
-        if (unit == levelUnit)
+        if (unit == monitorUnit)
         {
-            // dBFS marks: the waveform is drawn in linear amplitude either side of the centre line
-            for (int db : { 0, -3, -6, -12 })
+            // Top: the waveform (centre 0.27, +-0.20), marks at 0, -6 and -12 dB up its right edge
+            for (int db : { 0, -6, -12 })
             {
                 const float a = std::pow (10.0f, (float) db / 20.0f);
-                label (juce::String (db), 0.985f, 0.5f - 0.40f * a, 0.030f, juce::Justification::right);
+                label (juce::String (db), 0.99f, 0.27f - 0.20f * a, 0.026f, juce::Justification::right);
             }
-            label ("dBFS", 0.015f, 0.05f, 0.028f, juce::Justification::left);
+            label ("IN  (PENCIL)     OUT  (INK)", 0.012f, 0.035f, 0.026f, juce::Justification::left);
+            // Bottom: the spectrum (0.55 .. 0.90) and the tone change in red about its dotted line
+            for (auto [hz, name] : { std::pair { 50.0f, "50" }, std::pair { 100.0f, "100" }, std::pair { 200.0f, "200" }, std::pair { 500.0f, "500" },
+                                     std::pair { 1000.0f, "1k" }, std::pair { 2000.0f, "2k" }, std::pair { 5000.0f, "5k" }, std::pair { 10000.0f, "10k" } })
+            {
+                const float u = std::log (hz / 20.0f) / std::log (20000.0f / 20.0f);
+                label (name, 0.02f + 0.96f * u, 0.918f, 0.026f, juce::Justification::horizontallyCentred);
+            }
+            label ("TONE CHANGE  (RED)   +-12 dB", 0.012f, 0.54f, 0.026f, juce::Justification::left);
             if (readout.isNotEmpty())
             {
                 // The live readout along the bottom of the card (not a hover target: it changes)
                 auto* keep = registry;
                 registry = nullptr;
-                label (readout, 0.5f, 0.952f, 0.032f, juce::Justification::horizontallyCentred);
+                label (readout, 0.5f, 0.965f, 0.028f, juce::Justification::horizontallyCentred);
                 registry = keep;
             }
         }

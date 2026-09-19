@@ -25,8 +25,9 @@ namespace pad::artwork
         RawTexture faceplateDecal, scale10, scale30, scale3, scale5, tubeDecal, seraphLabels;
         RawTexture tideDecal, lumenDecal, limiterDecal;              // the three 1U panels
         RawTexture tideVuFace, lumenVuFace, limiterVuFace[2];        // the printed faces of their VU meters
-        RawTexture levelDecal, balancerDecal, levelVuFace[2];         // LEVEL & LOUDNESS (2U), MIX BALANCER (4U)
-        RawTexture levelScopeLabels, balancerLabels;                  // print inside their displays
+        RawTexture levelDecal, balancerDecal, monitorDecal;           // LEVEL (1U), MIX BALANCER (4U), MONITOR (3U)
+        RawTexture levelVuFace, monitorVuFace[2];                     // INPUT; MOMENTARY and SHORT-TERM
+        RawTexture monitorLabels, balancerLabels;                     // print inside their displays
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */

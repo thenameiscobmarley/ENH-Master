@@ -12,6 +12,7 @@
 #include "CameraRig.h"
 #include "../../DSP/EngineMeters.h"
 #include "../../DSP/SpectrumScope.h"
+#include "../../DSP/MixBalancer.h"
 #include "../DisplayHistory.h"
 
 namespace pad
@@ -44,9 +45,10 @@ namespace pad
                          scaleRing, arcRing, led,
                          tubeFaceTop, tubeFaceEdges, tubeEarWalls, tubeEarFloors, tubeScrews, tubeScrewSlots,
                          seraphWalls, seraphGlass, seraphBezel,
-                         levelScopeWalls, levelScopeGlass, levelScopeBezel, balancerWalls, balancerGlass, balancerBezel,
+                         monitorWalls, monitorGlass, monitorBezel, balancerWalls, balancerGlass, balancerBezel,
                          enhBody, tubeBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
-                         caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges;
+                         caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges,
+                         caseBoards, caseFeet, caseBrass;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
@@ -56,9 +58,10 @@ namespace pad
                                  &scaleRing, &arcRing, &led,
                                  &tubeFaceTop, &tubeFaceEdges, &tubeEarWalls, &tubeEarFloors, &tubeScrews, &tubeScrewSlots,
                                  &seraphWalls, &seraphGlass, &seraphBezel,
-                                 &levelScopeWalls, &levelScopeGlass, &levelScopeBezel, &balancerWalls, &balancerGlass, &balancerBezel,
+                                 &monitorWalls, &monitorGlass, &monitorBezel, &balancerWalls, &balancerGlass, &balancerBezel,
                                  &enhBody, &tubeBody, &tubeVents, &tubeVentWalls, &tubeVentFloors, &bodyScrews,
-                                 &caseCheeks, &caseRails, &caseFrontRails, &caseRailHoles, &caseEdges })
+                                 &caseCheeks, &caseRails, &caseFrontRails, &caseRailHoles, &caseEdges,
+                                 &caseBoards, &caseFeet, &caseBrass })
                     fn (*m);
             }
         };
@@ -142,6 +145,8 @@ namespace pad
         std::vector<juce::uint8> waveScratch, balancerScratch;
         std::array<float, DisplayHistory::waveColumns> waveGhost {};
         std::array<float, 6> balancerBands {};
+        std::array<float, 28> balancerFine {};
+        float balancerCoarse = 1.0f;
         void uploadDisplays (float dt);
         void uploadLevelLabelsIfChanged();
         juce::uint32 uploadedLevelLabelsVersion = 0;
@@ -168,8 +173,8 @@ namespace pad
         gfx::Texture2D decalTex, scaleTex, scaleWideTex, scale3Tex, scale5Tex, tubeDecalTex, seraphLabelTex, overlayTex, calloutTex;
         gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex;
         std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
-        gfx::Texture2D levelDecalTex, balancerDecalTex, levelLabelTex, balancerLabelTex;
-        std::array<gfx::Texture2D, 2> levelFaceTex;      // MOMENTARY and SHORT-TERM faces
+        gfx::Texture2D levelDecalTex, balancerDecalTex, monitorDecalTex, monitorLabelTex, balancerLabelTex, levelFaceTex;
+        std::array<gfx::Texture2D, 2> monitorFaceTex;    // MOMENTARY and SHORT-TERM faces
 
         /** A VU movement: the needle has mass, so it swings toward the reading and overshoots
             a little, the way a real moving coil does. */
@@ -184,16 +189,17 @@ namespace pad
         std::array<Needle, layout::numNeedles> needles {};
         std::array<float, layout::numUnits> unitLamp {};   // backlight per outboard unit, on with IN (or always)
 
-        GpuModel tideVu, lumenVu, limiterVu, levelVu;      // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu;   // HardwareKit VU models, one per size
         GpuModel& vuModelFor (int unit) noexcept
         {
-            return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu : limiterVu;
+            return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu
+                 : unit == layout::monitorUnit ? monitorVu : limiterVu;
         }
 
         /** An outboard unit. faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
         void drawOneU (int unit, const gfx::Mat4& panel, gfx::Vec3 colour, const gfx::Texture2D& decal,
                        std::initializer_list<const gfx::Texture2D*> faces);
-        void drawWindows (const gfx::Mat4& levelPanel, const gfx::Mat4& balancerPanel);
+        void drawWindows (const gfx::Mat4& monitorPanel, const gfx::Mat4& balancerPanel);
         void drawVuGlass (int unit, const gfx::Mat4& panel);
 
         // Models from HardwareKit, each at every level of detail: one per distinct knob (style, radius,
@@ -215,6 +221,12 @@ namespace pad
 
         /** Level of detail for something of `radius` at panel (x, z) of `panel`, seen by `cam` in a viewport `viewportW` wide. */
         int detailFor (const CameraRig& cam, const gfx::Mat4& panel, float x, float z, float radius, int viewportW) const noexcept;
+
+        // The scene is drawn into this multisampled buffer (and supersampled on small windows), then
+        // filtered down to the screen - anti-aliased whatever framebuffer the host's window gives us
+        gfx::RenderTarget sceneTarget;
+        float renderScaleFor (int logicalW) const noexcept;
+        void presentScene (int screenW, int screenH);
 
         // Fisheye loupe over hovered print
         gfx::RenderTarget loupeTarget;

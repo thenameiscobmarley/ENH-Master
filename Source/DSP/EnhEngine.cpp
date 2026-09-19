@@ -131,6 +131,9 @@ namespace enh::dsp
             meters.balanceGainDb[(size_t) b].store (balancer.getGainDb (b), std::memory_order_relaxed);
             meters.balanceLevelDb[(size_t) b].store (balancer.getLevelDb (b), std::memory_order_relaxed);
         }
+        for (int k = 0; k < MixBalancer::numFine; ++k)
+            meters.balanceFineGainDb[(size_t) k].store (balancer.getFineGainDb (k), std::memory_order_relaxed);
+        meters.balanceResolution.store (p.balancer.resolution, std::memory_order_relaxed);
         for (int r = 0; r < FinalLimiter::numRegions; ++r)
             meters.outputRegionCutDb[(size_t) r].store (output.getRegionCutDb()[(size_t) r], std::memory_order_relaxed);
         meters.outputLimitDb.store (output.getReductionDb(), std::memory_order_relaxed);

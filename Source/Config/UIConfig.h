@@ -22,6 +22,7 @@ namespace pad
         int   maxDetail       = 3;      // 0..3: finest level of detail the models may use up close
         int   panelTextureWidth = 4096; // 1024, 2048 or 4096: printed panels (mipmapped: the GPU picks the
                                         // resolution the camera needs, so print sharpens as you walk up)
+        float renderScale     = 0.0f;   // supersampling: 0 = auto (1x), or 1..2 (draw finer than the screen, filter down)
         float parallaxAmount  = 1.0f;   // 0..2
         bool  reduceMotion    = false;  // disables idle sheen + parallax
 

@@ -57,6 +57,8 @@ namespace enh::dsp
 
         // MIX BALANCER: what each band's fader is doing (dB) and its level now (dB)
         std::array<std::atomic<float>, 6> balanceGainDb {}, balanceLevelDb {};
+        std::array<std::atomic<float>, 28> balanceFineGainDb {};   // spectral mode's third-octave faders (dB, as applied)
+        std::atomic<float> balanceResolution { 0.0f };             // 0 = six bands .. 1 = spectral
 
         // Output limiter: spectral cut per region (low, low-mid, mid, high) and broadband (dB)
         std::array<std::atomic<float>, 4> outputRegionCutDb {};

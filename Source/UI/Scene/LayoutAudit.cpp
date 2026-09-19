@@ -231,7 +231,7 @@ namespace pad::audit
         std::vector<Panel> panels { { enhUnit, &textures.faceplateDecal, "enh.png" }, { tubeUnit, &textures.tubeDecal, "tube.png" },
                                     { tideUnit, &textures.tideDecal, "tide.png" }, { lumenUnit, &textures.lumenDecal, "lumen.png" },
                                     { limiterUnit, &textures.limiterDecal, "limiter.png" }, { levelUnit, &textures.levelDecal, "level.png" },
-                                    { balancerUnit, &textures.balancerDecal, "balancer.png" } };
+                                    { balancerUnit, &textures.balancerDecal, "balancer.png" }, { monitorUnit, &textures.monitorDecal, "monitor.png" } };
 
         for (auto& panel : panels)
         {

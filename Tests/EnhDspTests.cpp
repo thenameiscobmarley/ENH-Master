@@ -745,6 +745,7 @@ namespace
             else if (i == id::balAmount) k.balAmount = v;   else if (i == id::balSpeed) k.balSpeed = v;
             else if (i == id::balTilt) k.balTilt = v;       else if (i == id::balRange) k.balRangeDb = v;
             else if (i == id::balActive) k.balActive = on;
+            else if (i == id::balResolution) k.balResolution = v;
             else if (i == id::seraphMode) k.seraphMode = juce::roundToInt (v);
             else if (i == id::seraphMultiply) k.seraphMultiply = v; else if (i == id::seraphStrength) k.seraphStrength = v;
             else if (i == id::silkSmooth) k.smooth = v;   else if (i == id::silkAir) k.air = v;
@@ -1306,6 +1307,44 @@ namespace
             std::printf ("  everything +10 dB together: deepest move %.2f dB\n", std::min (cut, -other));
             check (cut > -0.5f && other < 0.5f, "a louder mix overall is not a reason to move (balance, not loudness)");
         }
+        {
+            // RESOLUTION at spectral: a narrow 2.5 kHz whistle is cut in its own third-octave, and an octave
+            // either side hardly moves
+            MixBalancer b;
+            b.prepare (sr, 2);
+            MixBalancer::Settings s;
+            s.active = true; s.amount = 0.6f; s.speed = 0.5f; s.rangeDb = 8.0f; s.resolution = 1.0f;
+            const int n = (int) (8.0 * sr);
+            std::vector<float> l ((size_t) n);
+            juce::Random rnd (5);
+            enh::dsp::BiquadCoeffs pink = enh::dsp::BiquadCoeffs::lowPass (sr, 3000.0, 0.5);
+            enh::dsp::BiquadState ps;
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = i / sr;
+                l[(size_t) i] = ps.process (pink, rnd.nextFloat() * 2.0f - 1.0f) * 0.2f + (t > 5.0 ? 0.08f * (float) std::sin (twoPi * 2500.0 * t) : 0.0f);
+            }
+            auto r = l;
+            std::array<float, MixBalancer::numFine> most {};
+            for (int pos = 0; pos < n; pos += 256)
+            {
+                const int m = std::min (256, n - pos);
+                float* ch[2] { l.data() + pos, r.data() + pos };
+                b.process (ch, 2, m, s);
+                if (pos / sr > 5.1 && pos / sr < 6.2)
+                    for (int k = 0; k < MixBalancer::numFine; ++k)
+                        most[(size_t) k] = std::min (most[(size_t) k], b.getFineGainDb (k));
+            }
+            int deepestBand = 0;
+            for (int k = 1; k < MixBalancer::numFine; ++k)
+                if (most[(size_t) k] < most[(size_t) deepestBand]) deepestBand = k;
+            const int at = deepestBand;
+            const float octaveAway = std::min (std::abs (most[(size_t) std::max (0, at - 3)]), std::abs (most[(size_t) std::min (MixBalancer::numFine - 1, at + 3)]));
+            std::printf ("  spectral mode, a 2.5 kHz whistle: deepest cut %.1f dB at %.0f Hz, an octave either side %.1f dB\n",
+                         most[(size_t) at], MixBalancer::fineHz (at), -octaveAway);
+            check (std::abs (MixBalancer::fineHz (at) - 2500.0f) < 400.0f && most[(size_t) at] < -2.0f && octaveAway < 0.5f * std::abs (most[(size_t) at]),
+                   "spectral mode cuts the whistle in its own third-octave, not the octave around it");
+        }
     }
 
     int runNewUnitsMode (double sr)
@@ -1406,6 +1445,14 @@ namespace
                 change (p);
                 std::printf ("  %-28s saves %5.2f %%\n", what, all - pct (p));
             };
+            {
+                auto spectral = full;
+                spectral.balancer.active = true;
+                spectral.balancer.resolution = 1.0f;
+                auto bands = full;
+                bands.balancer.active = true;
+                std::printf ("  MIX BALANCER spectral costs %5.2f %% over six bands\n", pct (spectral) - pct (bands));
+            }
             without ("TONE & SPACE SPACE (tone only)", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::silkOnly; });
             without ("TONE & SPACE off", [] (auto& p) { p.seraph.mode = enh::dsp::Seraph::off; });
             without ("compressor", [] (auto& p) { p.tide.active = false; });

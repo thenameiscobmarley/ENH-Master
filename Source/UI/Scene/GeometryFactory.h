@@ -20,8 +20,11 @@ namespace pad::geo
     MeshData unitBodyScrews (float halfH);    // screws along the body seam
 
     // --- the curved case (world space) -----------------------------------------------------
-    MeshData caseCheeks();      // the two side walls, swept along the arc
-    MeshData caseRails();       // the rails behind the gaps between units
+    MeshData caseCheeks();      // the two walnut side cheeks, swept along the arc, with their end grain
+    MeshData caseBoards();      // walnut crown on top, plinth underneath
+    MeshData caseFeet();        // four feet under the plinth
+    MeshData caseBrass();       // brass corner protectors and their screws
+    MeshData caseRails();       // the back board, seen through the gaps between units
     MeshData caseFrontRails();  // the front mounting rails the units' ears are screwed to
     MeshData caseRailHoles();   // the square rack holes punched down those rails
     MeshData caseEdges();       // bright chamfer along the front edges of the cheeks

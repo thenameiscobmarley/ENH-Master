@@ -40,7 +40,7 @@ namespace enh::dsp
 
         // LEVEL, MIX BALANCER
         float levelDb = 0.0f;
-        float balAmount = 5.0f, balSpeed = 5.0f, balTilt = 0.0f, balRangeDb = 6.0f;
+        float balAmount = 5.0f, balSpeed = 5.0f, balTilt = 0.0f, balRangeDb = 6.0f, balResolution = 0.0f;
         bool balActive = true;
     };
 
@@ -121,6 +121,7 @@ namespace enh::dsp
         p.balancer.tilt    = std::clamp (k.balTilt / 5.0f, -1.0f, 1.0f);
         p.balancer.rangeDb = std::clamp (k.balRangeDb, 0.0f, 12.0f);
         p.balancer.active  = k.balActive;
+        p.balancer.resolution = std::clamp (k.balResolution / 10.0f, 0.0f, 1.0f);
         p.limiter.active    = k.spectralActive;
         return p;
     }

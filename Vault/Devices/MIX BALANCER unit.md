@@ -25,14 +25,17 @@ louder as a whole moves nothing, because this is balance, not loudness. Further 
 - **TILT:** steer darker (−) or brighter (+).
 - **RANGE:** the most any band moves, in dB.
 - **IN.**
+- **RESOLUTION:** from 6 BANDS to SPECTRAL. Spectral mode is 28 third-octave bands (31.5 Hz – 16 kHz),
+  ridden against the median of all 28. The two sets of faders are blended in series (the six scaled
+  by 1 − R, the 28 by R), which is an exact blend of the two curves with no phasing.
 
 ## Display
 
-FabFilter-style (`balancerDisplay` shader):
+FabFilter-style layout, printed on the cream card like every display (`balancerDisplay` shader):
 - the spectrum in (filled) and out (line);
 - the faders drawn as the curve they make, in the band colours, with a handle per band;
 - a Pro-C-style strip of the last ten seconds underneath: level in, level out, and the cut in red.
 
 The curve and grid are computed per column on the CPU.
 
-Related: [[LEVEL & LOUDNESS unit]].
+Related: [[LEVEL CONTROL and OUTPUT MONITOR]].

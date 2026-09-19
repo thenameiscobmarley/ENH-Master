@@ -122,15 +122,17 @@ namespace pad::layout
 
     /*  Panel names (what each unit does): enhUnit = ADAPTIVE ENHANCER, tubeUnit = TONE & SPACE,
         tideUnit = ADAPTIVE COMPRESSOR, lumenUnit = UPWARD LEVELER, limiterUnit = SPECTRAL LIMITER,
-        levelUnit = LEVEL & LOUDNESS (2U), balancerUnit = MIX BALANCER (4U).
+        levelUnit = LEVEL (1U, first), balancerUnit = MIX BALANCER (4U), monitorUnit = MONITOR (3U, on top:
+        the rack's input against its output, and its loudness).
         The identifiers keep the units' earlier names, as the parameter IDs do. */
-    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, levelUnit = 5, balancerUnit = 6, numUnits = 7 };
+    enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, levelUnit = 5, balancerUnit = 6,
+                monitorUnit = 7, numUnits = 8 };
 
     inline constexpr bool isOneU (int unit) noexcept { return unit == tideUnit || unit == lumenUnit || unit == limiterUnit; }
 
     /** The outboard family: brushed plate, engraved print, knobs in a bordered section, meters or a
         display behind glass. The three 1U units, LEVEL & LOUDNESS (2U) and MIX BALANCER (4U). */
-    inline constexpr bool isOutboard (int unit) noexcept { return isOneU (unit) || unit == levelUnit || unit == balancerUnit; }
+    inline constexpr bool isOutboard (int unit) noexcept { return isOneU (unit) || unit == levelUnit || unit == balancerUnit || unit == monitorUnit; }
 
     struct ControlDef
     {
@@ -184,8 +186,8 @@ namespace pad::layout
         further it leans back and the more it is rotated toward you. Nothing is foreshortened,
         which is what keeps the print readable as the case grows.
 
-            LEVEL & LOUDNESS (2U) -> ADAPTIVE ENHANCER (3U) -> UPWARD LEVELER (1U) -> SPECTRAL LIMITER (1U)
-                -> MIX BALANCER (4U) -> ADAPTIVE COMPRESSOR (1U) -> TONE & SPACE (3U) -> out
+            LEVEL (1U) -> ADAPTIVE ENHANCER (3U) -> UPWARD LEVELER (1U) -> SPECTRAL LIMITER (1U)
+                -> MIX BALANCER (4U) -> ADAPTIVE COMPRESSOR (1U) -> TONE & SPACE (3U) -> MONITOR (3U) -> out
     */
     inline constexpr float rackGap    = 0.105f;   // air between panels, measured along the arc
     inline constexpr float oneUHalfH  = 0.295f;
@@ -193,7 +195,8 @@ namespace pad::layout
     inline constexpr float lumenHalfH = oneUHalfH;
     inline constexpr float tideHalfH  = oneUHalfH;
     inline constexpr float tubeHalfH  = 0.82f;
-    inline constexpr float levelHalfH    = 2.0f * oneUHalfH;   // 2U
+    inline constexpr float levelHalfH    = oneUHalfH;          // 1U
+    inline constexpr float monitorHalfH  = 3.0f * oneUHalfH;   // 3U
     inline constexpr float balancerHalfH = 4.0f * oneUHalfH;   // 4U
 
     inline constexpr float arcRadius  = 9.60f;    // viewer to panel
@@ -204,11 +207,11 @@ namespace pad::layout
     inline constexpr float unitHalfH (int unit) noexcept
     {
         return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : unit == levelUnit ? levelHalfH
-             : unit == balancerUnit ? balancerHalfH : faceHalfH;
+             : unit == balancerUnit ? balancerHalfH : unit == monitorUnit ? monitorHalfH : faceHalfH;
     }
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
-    inline constexpr std::array<int, numUnits> rackOrder { levelUnit, enhUnit, lumenUnit, limiterUnit, balancerUnit, tideUnit, tubeUnit };
+    inline constexpr std::array<int, numUnits> rackOrder { levelUnit, enhUnit, lumenUnit, limiterUnit, balancerUnit, tideUnit, tubeUnit, monitorUnit };
 
     /** Distance along the arc from the bottom of the stack to the centre of a unit. */
     inline constexpr float unitArcPos (int unit) noexcept
@@ -273,16 +276,19 @@ namespace pad::layout
         { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       6 },
         { "UPWARD LEVELER",      "3-BAND - LIFTS QUIET DETAIL",                              3 },
         { "SPECTRAL LIMITER",    "ANTI-PUMP DYNAMIC EQ",                                     4 },
-        { "LEVEL & LOUDNESS",    "WORKING LEVEL - LUFS METER - WAVEFORM",                    1 },
+        { "LEVEL CONTROL",       "THE RACK'S WORKING LEVEL",                                 1 },
         { "MIX BALANCER",        "SIX-BAND DYNAMIC BALANCE",                                 5 },
+        { "OUTPUT MONITOR",      "INPUT AGAINST OUTPUT - LOUDNESS",                          8 },
     }};
 
     // --- the case the units are screwed into -------------------------------------------
     inline constexpr float caseSideX     = faceHalfW + 0.115f;   // inner face of each cheek
-    inline constexpr float caseCheekW    = 0.135f;
+    inline constexpr float caseCheekW    = 0.28f;                // solid walnut
+    inline constexpr float caseFront     = 0.05f;                // the cheeks stand this far proud of the panels
+    inline constexpr float caseBoardT    = 0.10f;                // crown and plinth thickness
     inline constexpr float caseDepth     = 0.78f;                // how far the case runs back
     inline constexpr float caseOverhang  = 0.30f;                // past the top and bottom unit
-    inline constexpr int   caseArcSteps  = 26;                   // segments along the curve
+    inline constexpr int   caseArcSteps  = 72;                   // segments along the curve (smooth on the rounded edges)
 
     /*  Front mounting rails, one each side. In a curved cabinet they are straight segments, one per
         unit, lying flat against the back of that unit's faceplate (the ears are clamped to them by the
@@ -356,23 +362,24 @@ namespace pad::layout
     inline constexpr Rect oneUSectionBox (int unit) noexcept
     {
         return unit == limiterUnit ? Rect { -0.73f, 0.0f, 0.92f, 0.245f }
-             : unit == levelUnit ? Rect { -0.99f, 0.0f, 0.62f, 0.47f }
+             : unit == levelUnit ? Rect { -0.99f, 0.0f, 0.66f, 0.245f }
+             : unit == monitorUnit ? Rect { 1.83f, 0.52f, 0.40f, 0.28f }
              : unit == balancerUnit ? Rect { 1.80f, 0.0f, 0.44f, 1.06f }
                                     : Rect { -0.99f, 0.0f, 0.66f, 0.245f };
     }
 
     /** Where an outboard unit's maker block (its name) starts, down the panel. */
-    inline constexpr float makerTopZ (int unit) noexcept { return isOneU (unit) ? -0.176f : -unitHalfH (unit) + 0.20f; }
+    inline constexpr float makerTopZ (int unit) noexcept { return isOneU (unit) || unit == levelUnit ? -0.176f : -unitHalfH (unit) + 0.20f; }
 
-    // LEVEL & LOUDNESS: the waveform screen, cream like the meter faces; MIX BALANCER: its display
-    inline constexpr Rect  levelScopeRect      { 0.52f, -0.02f, 0.74f, 0.42f };
+    // MONITOR: its big display (waveform and spectrum, in against out); MIX BALANCER: its display
+    inline constexpr Rect  monitorDisplayRect  { -0.16f, -0.02f, 1.47f, 0.76f };
     inline constexpr Rect  balancerDisplayRect { -0.16f, -0.02f, 1.47f, 1.02f };
     inline constexpr float windowDepth         = 0.045f;
 
     /** The windows cut into an outboard unit's plate besides its meters. */
     inline std::vector<Rect> outboardWindows (int unit)
     {
-        if (unit == levelUnit) return { levelScopeRect };
+        if (unit == monitorUnit) return { monitorDisplayRect };
         if (unit == balancerUnit) return { balancerDisplayRect };
         return {};
     }
@@ -390,18 +397,21 @@ namespace pad::layout
     inline constexpr float limiterVuX     = 0.80f;      // SPECTRAL, then BROADBAND
     inline constexpr float limiterVuStep  = 0.96f;
 
-    inline constexpr float levelVuHalfW = 0.36f;
-    inline constexpr float levelVuX     = 1.83f;        // MOMENTARY above SHORT-TERM
-    inline constexpr std::array<float, 2> levelVuZ { -0.25f, 0.25f };
+    inline constexpr float levelVuHalfW   = 0.76f;        // LEVEL: one wide INPUT meter, like the compressor's
+    inline constexpr float levelVuX       = 1.34f;
+    inline constexpr float monitorVuHalfW = 0.36f;
+    inline constexpr float monitorVuX     = 1.83f;        // MOMENTARY above SHORT-TERM
+    inline constexpr std::array<float, 2> monitorVuZ { -0.60f, -0.08f };
 
     inline constexpr int numVus (int unit) noexcept
     {
-        return unit == tideUnit ? 1 : unit == limiterUnit || unit == levelUnit ? 2 : unit == lumenUnit ? 3 : 0;
+        return unit == tideUnit || unit == levelUnit ? 1 : unit == limiterUnit || unit == monitorUnit ? 2 : unit == lumenUnit ? 3 : 0;
     }
 
     inline constexpr float vuHalfW (int unit) noexcept
     {
-        return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : unit == levelUnit ? levelVuHalfW : lumenVuHalfW;
+        return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : unit == levelUnit ? levelVuHalfW
+             : unit == monitorUnit ? monitorVuHalfW : lumenVuHalfW;
     }
 
     inline constexpr float vuX (int unit, int index) noexcept
@@ -409,17 +419,22 @@ namespace pad::layout
         return unit == tideUnit ? tideVuX
              : unit == limiterUnit ? limiterVuX + (float) index * limiterVuStep
              : unit == levelUnit ? levelVuX
+             : unit == monitorUnit ? monitorVuX
                                  : lumenVuX + (float) index * lumenVuStep;
     }
 
     inline constexpr float vuZ (int unit, int index) noexcept
     {
-        return unit == levelUnit ? levelVuZ[(size_t) std::clamp (index, 0, 1)] : vuCentreZ;
+        return unit == monitorUnit ? monitorVuZ[(size_t) std::clamp (index, 0, 1)] : vuCentreZ;
     }
 
-    /** First needle of each metered unit in the renderer's needle array (compressor 1, leveler 3, limiter 2, loudness 2). */
-    inline constexpr int firstNeedle (int unit) noexcept { return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : unit == levelUnit ? 6 : 4; }
-    inline constexpr int numNeedles = 8;
+    /** First needle of each metered unit in the renderer's needle array (compressor 1, leveler 3, limiter 2,
+        level 1, monitor 2). */
+    inline constexpr int firstNeedle (int unit) noexcept
+    {
+        return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : unit == levelUnit ? 6 : unit == monitorUnit ? 7 : 4;
+    }
+    inline constexpr int numNeedles = 9;
 
     inline constexpr float oneUDisplayDepth = vuDepth;
 
@@ -430,9 +445,9 @@ namespace pad::layout
     /** An outboard unit's ear slots: one each side on a 1U, two each side on the taller ones. */
     inline std::vector<Rect> outboardEarSlots (int unit)
     {
-        if (isOneU (unit))
+        if (isOneU (unit) || unit == levelUnit)
             return { oneUEarSlots.begin(), oneUEarSlots.end() };
-        const float z = unit == levelUnit ? oneUHalfH : 3.0f * oneUHalfH;
+        const float z = unit == monitorUnit ? 2.0f * oneUHalfH : 3.0f * oneUHalfH;
         return { { -2.36f, -z, 0.075f, 0.036f }, { -2.36f, z, 0.075f, 0.036f }, { 2.36f, -z, 0.075f, 0.036f }, { 2.36f, z, 0.075f, 0.036f } };
     }
 
@@ -442,7 +457,7 @@ namespace pad::layout
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 51> controls {{
+    inline constexpr std::array<ControlDef, 53> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
@@ -503,15 +518,17 @@ namespace pad::layout
         { ControlKind::toggle, oneUKnobX + 2.0f * oneUKnobStep + 0.38f, oneUButtonZ, pid::spectralActive, "IN", nullptr, nullptr, limiterUnit, "SPECTRAL LIMITER", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
 
         // LEVEL & LOUDNESS: the working level, and RESET for the integrated loudness / true-peak hold
-        { ControlKind::knob,   -1.22f, -0.02f, pid::levelGain, "LEVEL", nullptr, nullptr, levelUnit, "LEVEL", 1.45f, KnobStyle::chickenHeadKnob },
-        { ControlKind::button, -0.56f, 0.13f, pid::loudnessReset, "RESET", nullptr, nullptr, levelUnit, "LOUDNESS" },
+        { ControlKind::knob,   oneUKnobX + 0.26f, oneUKnobZ, pid::levelGain, "LEVEL", nullptr, nullptr, levelUnit, "LEVEL", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,   1.66f, 0.52f, pid::monitorSpeed, "SPEED", nullptr, nullptr, monitorUnit, "MONITOR", 0.8f, KnobStyle::chickenHeadKnob },
+        { ControlKind::button, 2.06f, 0.50f, pid::loudnessReset, "RESET", nullptr, nullptr, monitorUnit, "LOUDNESS" },
 
         // MIX BALANCER: four knobs down the right, IN under the name
         { ControlKind::knob,   1.80f, -0.72f, pid::balAmount, "BALANCE", nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   1.80f, -0.25f, pid::balSpeed,  "SPEED",   nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   1.80f,  0.22f, pid::balTilt,   "TILT",    nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   1.80f,  0.69f, pid::balRange,  "RANGE",   nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
-        { ControlKind::toggle, -1.98f, 0.30f, pid::balActive, "IN",      nullptr, nullptr, balancerUnit, "MIX BALANCER" },
+        { ControlKind::knob,   -1.98f, -0.30f, pid::balResolution, "RESOLUTION", nullptr, nullptr, balancerUnit, "MIX BALANCER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::toggle, -1.98f, 0.45f, pid::balActive, "IN",      nullptr, nullptr, balancerUnit, "MIX BALANCER" },
     }};
 
     inline constexpr int numControls = (int) controls.size();

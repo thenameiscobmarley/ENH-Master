@@ -3,8 +3,8 @@
 Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
-Seven processors in one plugin, in signal order:
-- **LEVEL & LOUDNESS**: the rack's working level, a BS.1770 loudness meter and the output waveform.
+Seven processors and a monitor in one plugin, in signal order:
+- **LEVEL CONTROL**: the rack's working level, with an INPUT meter.
 - **ADAPTIVE ENHANCER**: adaptive EQ, generated harmonics, sub and footstep priority.
 - **UPWARD LEVELER**: three bands, lifts quiet material.
 - **SPECTRAL LIMITER**: cuts a region that jumps out of balance, or goes over 0 dBFS, where it is, so a
@@ -12,6 +12,8 @@ Seven processors in one plugin, in signal order:
 - **MIX BALANCER**: rides six band faders to keep the mix balanced moment to moment.
 - **ADAPTIVE COMPRESSOR**: its threshold follows the programme.
 - **TONE & SPACE**: tone, space and loudness hold.
+- **OUTPUT MONITOR** (on top): how the rack is changing the track. It shows the input against the
+  output as a waveform and a spectrum, a red tone-change curve, and BS.1770 loudness.
 
 Unit names describe what each unit does. Until September 2026 they were called ENH MASTER, LUMEN,
 TIDE and SERAPH (SILK / HALO / HEAVEN). Parameter IDs keep those old names, so saved sessions and
@@ -21,9 +23,9 @@ automation still load; only the names the host and the panels show have changed.
 
 ![Hovering a label: the loupe and the value callout](docs/screenshot-hover.png)
 
-*Seven units in a curved case, bottom to top in signal order: LEVEL & LOUDNESS, ADAPTIVE ENHANCER
+*Eight units in a curved walnut case, bottom to top in signal order: LEVEL CONTROL, ADAPTIVE ENHANCER
 (clarity, sub, footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, MIX BALANCER, ADAPTIVE
-COMPRESSOR, TONE & SPACE.*
+COMPRESSOR, TONE & SPACE, OUTPUT MONITOR.*
 
 ## Build
 
@@ -142,7 +144,7 @@ Two level-matching loops now hold still while the SPECTRAL LIMITER is handling a
   mid and top band, so it used to pull the lift on footsteps and detail back on every hit.
 - **The enhancer's auto gain.** It used to chase the sub-enhanced spike.
 
-## LEVEL & LOUDNESS (2U, first in the chain)
+## LEVEL CONTROL (1U, first in the chain)
 
 **LEVEL** (−24 … +12 dB) sets how loud the whole rack runs. It comes first, so every unit after it
 hears the level it sets:
@@ -151,17 +153,24 @@ hears the level it sets:
 - The UPWARD LEVELER reads levels as if LEVEL were at 0 dB, so it never lifts the rack back up
   against the knob. Tested: the same lift within 0.1 dB at −12 dB.
 
-The meters read what leaves the rack, to ITU-R BS.1770 / EBU R128:
-- **MOMENTARY** (400 ms) and **SHORT-TERM** (3 s) LUFS on two moving-coil dials (−40 … 0 LUFS);
-- **INTEGRATED** loudness (gated, since RESET) and **TRUE PEAK** (4x oversampled) printed under the
-  waveform;
-- **RESET** starts the integrated reading and the true-peak hold again.
+The **INPUT** meter shows the level going into the rack after the knob (−40 … 0 dBFS RMS).
 
-Checked against the EBU Tech 3341 cases: a −23 dBFS stereo 1 kHz sine reads −23.0 LUFS.
+## OUTPUT MONITOR (3U, on top)
 
-**OUTPUT WAVEFORM**: the rack's output scrolling right to left as a black band on a cream card, lit
-like the meter faces, in linear amplitude with −3, −6 and −12 dB marks. When something loud goes
-past, a faded afterimage of it stays on the card and slowly fades, the way a phosphor holds a trace.
+This shows what the rack does to the track. It is printed on the same cream card as the meters, with
+the input in pencil and the output in ink.
+- **Waveform:** the input and output overlaid, scrolling right to left. Wherever the rack takes a hit
+  down, the pencil input shows past the ink output. A faded afterimage of the output stays behind and
+  fades over a second or two.
+- **SPEED** sets how fast it scrolls: about 20 s across the screen at 1, down to 1 s at 10. It is a
+  display setting, not automatable.
+- **Spectrum:** the input (pencil fill) and the output (ink). In red, **TONE CHANGE** shows exactly
+  how the rack is changing the tone (out minus in, ±12 dB).
+- **Loudness** of what leaves the rack, to ITU-R BS.1770 / EBU R128:
+  - **MOMENTARY** (400 ms) and **SHORT-TERM** (3 s) LUFS on two dials;
+  - **INTEGRATED** (gated, since RESET) and **TRUE PEAK** (4x oversampled) printed under the display;
+  - **RESET** starts the integrated reading and the true-peak hold again.
+  Checked against EBU Tech 3341: a −23 dBFS stereo 1 kHz sine reads −23.0 LUFS.
 
 ## MIX BALANCER (4U)
 
@@ -178,8 +187,15 @@ is taken down; a region that drops out is lifted, gently.
 - **Zero latency.**
 - **Controls:** BALANCE (how much of each jump it corrects), SPEED, TILT (steer darker or brighter),
   RANGE (the most any band moves; lifts are held to half of it) and IN.
+- **RESOLUTION** blends from **6 BANDS** (0) to **SPECTRAL** (10): 28 third-octave bands from
+  31.5 Hz to 16 kHz, each ridden the same way against the median of all 28. It's as precise as
+  balancing gets without an FFT's latency.
+  - Tested: a 2.5 kHz whistle is cut −4.1 dB in its own band, with no change an octave away.
+  - In between, the six faders are scaled by 1 − RESOLUTION and the 28 by RESOLUTION, in series, so
+    the result is exactly the blend of the two curves, with no phasing.
+  - Spectral mode costs 1.7 % of a core extra, and nothing at 0.
 
-The display is FabFilter-style:
+The display is laid out FabFilter-style, printed on the cream card like every display on the rack:
 - the spectrum going in (filled) and coming out (line);
 - the six faders drawn as the curve they make, with a handle on each band;
 - the last ten seconds scrolling underneath, Pro-C style: level in, level out, and the cut hanging
@@ -508,6 +524,20 @@ Knob styles in use: every knob is `chickenHeadKnob` (black bakelite, beak ending
 
 ## The rack
 
+A curved case in oiled walnut:
+- solid cheeks with a chamfered inner edge, two routed grooves down the front, a rounded outer front
+  edge, and end grain showing top and bottom;
+- a crown board on top and a plinth underneath on four turned feet;
+- a dark-stained back board seen through the gaps;
+- brass corner protectors with their screws;
+- the steel mounting rails with square holes.
+
+The grain follows the arc on the cheeks and runs across on the crown and plinth. Every stripe fades
+to its average once it is finer than a pixel, so it never shimmers.
+
+All the displays are printed on the same cream card as the meter faces: pencil for what comes in,
+ink for what goes out, sepia for EQ curves, and red for cuts and tone change.
+
 The front mounting rails are straight segments, one per unit, as in a real curved cabinet. Each
 lies flat against the back of its unit's faceplate, meeting its neighbours in the middle of each gap.
 They are zinc-plated, with square rack holes under every ear screw. The units sit 0.03 inside the
@@ -599,6 +629,21 @@ JUCE's peer state and the X server, so a minimised plugin host is noticed too); 
 Measured on the standalone with all four units running and the analyser live: 23 % of one core
 visible, 8 % minimised (audio only), rendering resumes on restore. The DSP itself is 16.8 % of that
 at 48 kHz; the rest is the renderer, which is draw-call bound rather than fill bound.
+
+**Anti-aliasing is on regardless of the host.** The scene is drawn into the plugin's own 4x
+multisampled buffer and filtered to the screen, so edges are smooth even when a host's window gives no
+multisampling of its own.
+
+`renderScale` in the config also supersamples (1 … 2x, then filtered down) for GPUs with room to
+spare. Measured on the UHD 600, the whole rack runs:
+
+| Setting | Frame rate |
+|---|---|
+| 4x MSAA at 1x | ~57 fps |
+| + 1.25x supersampling | ~44 fps |
+| + 1.5x supersampling | ~31 fps |
+
+So auto uses 1x.
 
 Per-frame work was trimmed without touching what is drawn:
 - the analyser is uploaded once a frame, not once per view (the loupe draws the scene twice);

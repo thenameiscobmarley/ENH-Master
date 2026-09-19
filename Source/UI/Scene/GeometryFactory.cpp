@@ -106,43 +106,185 @@ namespace pad::geo
         }
     }
 
+    namespace
+    {
+        /** The case's frame at a point on the arc: x across, T along the arc (up), O out toward the viewer. */
+        Mat4 caseFrame (float s, float out)
+        {
+            const float a = (s - 0.5f * totalArcLength()) / arcRadius;
+            const auto o = arcPoint (s, out);
+            Mat4 m = Mat4::identity();
+            m.at (0, 0) = 1.0f; m.at (1, 0) = 0.0f;         m.at (2, 0) = 0.0f;           // x
+            m.at (0, 1) = 0.0f; m.at (1, 1) = std::cos (a); m.at (2, 1) = std::sin (a);   // y -> T
+            m.at (0, 2) = 0.0f; m.at (1, 2) = -std::sin (a); m.at (2, 2) = std::cos (a);  // z -> O
+            m.at (0, 3) = o.x;  m.at (1, 3) = o.y;          m.at (2, 3) = o.z;
+            return m;
+        }
+
+        /** A cheek's cross-section: points (dx from its inner face, out toward the viewer) with their
+            normals, in strips - a strip's points share smooth normals, strips meet at hard edges. */
+        struct SectionPoint { float dx, out, nx, nout; };
+        std::vector<std::vector<SectionPoint>> cheekSection()
+        {
+            constexpr float W = caseCheekW, F = caseFront, D = caseDepth;
+            constexpr float c = 0.012f, r = 0.035f, rb = 0.02f, g0 = 0.45f * W;
+            std::vector<std::vector<SectionPoint>> strips;
+            strips.push_back ({ { 0.0f, -D, -1.0f, 0.0f }, { 0.0f, F - c, -1.0f, 0.0f } });                       // inner face
+            strips.push_back ({ { 0.0f, F - c, -0.7071f, 0.7071f }, { c, F, -0.7071f, 0.7071f } });               // chamfer
+            // Front face with two routed V-grooves running down it
+            const float g1 = 0.62f * W;
+            strips.push_back ({ { c, F, 0.0f, 1.0f }, { g0 - 0.03f, F, 0.0f, 1.0f } });
+            for (float g : { g0 - 0.03f, g1 })
+            {
+                strips.push_back ({ { g, F, -0.83f, 0.55f }, { g + 0.010f, F - 0.016f, -0.83f, 0.55f } });
+                strips.push_back ({ { g + 0.010f, F - 0.016f, 0.83f, 0.55f }, { g + 0.020f, F, 0.83f, 0.55f } });
+                strips.push_back ({ { g + 0.020f, F, 0.0f, 1.0f }, { g == g1 ? W - r : g1, F, 0.0f, 1.0f } });
+            }
+            std::vector<SectionPoint> round;                                                                      // rounded front edge
+            for (int k = 0; k <= 8; ++k)
+            {
+                const float th = 0.5f * pi * (1.0f - (float) k / 8.0f);
+                round.push_back ({ W - r + r * std::cos (th), F - r + r * std::sin (th), std::cos (th), std::sin (th) });
+            }
+            strips.push_back (round);
+            strips.push_back ({ { W, F - r, 1.0f, 0.0f }, { W, -D + rb, 1.0f, 0.0f } });                          // outer face
+            std::vector<SectionPoint> back;
+            for (int k = 0; k <= 4; ++k)
+            {
+                const float th = -0.5f * pi * (float) k / 4.0f;
+                back.push_back ({ W - rb + rb * std::cos (th), -D + rb + rb * std::sin (th), std::cos (th), std::sin (th) });
+            }
+            strips.push_back (back);
+            strips.push_back ({ { W - rb, -D, 0.0f, -1.0f }, { 0.0f, -D, 0.0f, -1.0f } });                        // back face
+            return strips;
+        }
+    }
+
+    /*  The case, in walnut: two solid cheeks swept along the arc - a chamfer on the inner front edge, a
+        routed groove down the front, the outer front edge rounded over - with their end grain showing
+        top and bottom. The crown, plinth, feet, back board and brass corners are separate meshes. */
     MeshData caseCheeks()
     {
         MeshData mesh;
         const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+        const auto strips = cheekSection();
 
         for (float side : { -1.0f, 1.0f })
         {
-            const float xIn = side * caseSideX, xOut = side * (caseSideX + caseCheekW);
-
-            for (int i = 0; i < caseArcSteps; ++i)
+            for (auto& strip : strips)
             {
-                const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
-                const float sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
+                for (int i = 0; i <= caseArcSteps; ++i)
+                {
+                    const float s = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
+                    const float a = (s - 0.5f * totalArcLength()) / arcRadius;
+                    for (auto& p : strip)
+                    {
+                        const auto w = arcPoint (s, p.out);
+                        mesh.addVertex ({ side * (caseSideX + p.dx), w.y, w.z },
+                                        { side * p.nx, -std::sin (a) * p.nout, std::cos (a) * p.nout }, s, p.dx);
+                    }
+                }
+                // Stitch the strip's copies at consecutive arc steps
+                const auto n = (juce::uint32) strip.size();
+                const auto base = (juce::uint32) mesh.vertices.size() - n * (juce::uint32) (caseArcSteps + 1);
+                for (juce::uint32 i = 0; i < (juce::uint32) caseArcSteps; ++i)
+                    for (juce::uint32 k = 0; k + 1 < n; ++k)
+                    {
+                        const auto a = base + i * n + k, b = a + 1, c = a + n, d = c + 1;
+                        mesh.addQuad (a, b, d, c);
+                    }
+            }
 
-                const auto fA = arcPoint (sA, 0.02f), fB = arcPoint (sB, 0.02f);          // front edge
-                const auto bA = arcPoint (sA, -caseDepth), bB = arcPoint (sB, -caseDepth); // back edge
-
-                // outer wall
-                mesh.append (quad ({ xOut, fA.y, fA.z }, { xOut, fB.y, fB.z }, { xOut, bB.y, bB.z }, { xOut, bA.y, bA.z }));
-                // inner wall
-                mesh.append (quad ({ xIn, bA.y, bA.z }, { xIn, bB.y, bB.z }, { xIn, fB.y, fB.z }, { xIn, fA.y, fA.z }));
-                // top edge of the cheek, facing the viewer
-                mesh.append (quad ({ xIn, fA.y, fA.z }, { xIn, fB.y, fB.z }, { xOut, fB.y, fB.z }, { xOut, fA.y, fA.z }));
-                mesh.append (quad ({ xOut, bA.y, bA.z }, { xOut, bB.y, bB.z }, { xIn, bB.y, bB.z }, { xIn, bA.y, bA.z }));
+            // End grain, top and bottom: the section filled, facing along the arc
+            for (float s : { s0, s1 })
+            {
+                const float a = (s - 0.5f * totalArcLength()) / arcRadius;
+                const float sign = s > s0 ? 1.0f : -1.0f;
+                const Vec3 normal { 0.0f, sign * std::cos (a), sign * std::sin (a) };
+                std::vector<Vec3> outline;
+                for (auto& strip : strips)
+                    for (auto& p : strip)
+                    {
+                        const auto w = arcPoint (s, p.out);
+                        outline.push_back ({ side * (caseSideX + p.dx), w.y, w.z });
+                    }
+                Vec3 centre {};
+                for (auto& v : outline) centre = centre + v;
+                centre = centre * (1.0f / (float) outline.size());
+                const auto mid = mesh.addVertex (centre, normal, s, 0.0f);
+                const auto first = (juce::uint32) mesh.vertices.size();
+                for (auto& v : outline)
+                    mesh.addVertex (v, normal, s, 0.0f);
+                for (juce::uint32 k = 0; k < (juce::uint32) outline.size(); ++k)
+                    mesh.addTriangle (mid, first + k, first + (k + 1) % (juce::uint32) outline.size());
             }
         }
+        return mesh;
+    }
 
+    /** Crown on top and plinth underneath: walnut boards across both cheeks, edges chamfered, the crown
+        standing a little proud at the front. */
+    MeshData caseBoards()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+        const float centreOut = 0.5f * (caseFront - caseDepth);
+        const float hw = caseSideX + caseCheekW + 0.03f, hd = 0.5f * (caseFront + caseDepth) + 0.03f;
+        constexpr float c = 0.014f;
+        // Crown: from the top of the cheeks up
+        mesh.append (sweptRoundedRect (hw - 0.03f, hd - 0.03f, 0.03f, 3, { { 0.0f, 0.0f }, { 0.0f, caseBoardT - c }, { -c, caseBoardT } }, true),
+                     caseFrame (s1, centreOut + 0.015f));
+        // Plinth: under the cheeks, a touch wider and deeper
+        mesh.append (sweptRoundedRect (hw + 0.02f - 0.03f, hd + 0.02f - 0.03f, 0.03f, 3, { { 0.0f, 0.0f }, { 0.0f, caseBoardT - c }, { -c, caseBoardT } }, true),
+                     caseFrame (s0 - caseBoardT, centreOut + 0.01f));
+        return mesh;
+    }
+
+    /** Four feet under the plinth: short turned pucks. */
+    MeshData caseFeet()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang;
+        const float hw = caseSideX + caseCheekW - 0.02f;
+        const auto foot = lathe (0.055f, { { 0.0f, 0.0f }, { 0.0f, 0.035f }, { -0.008f, 0.045f }, { -0.02f, 0.048f } }, 48, true);
+        for (float x : { -hw, hw })
+            for (float out : { caseFront - 0.10f, -caseDepth + 0.10f })
+                mesh.append (foot, caseFrame (s0 - caseBoardT, out) * Mat4::translation ({ x, 0.0f, 0.0f }) * Mat4::rotationX (pi));
+        return mesh;
+    }
+
+    /** Brass corner protectors on the front of each cheek, top and bottom, each held by two screws. */
+    MeshData caseBrass()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
+        constexpr float len = 0.36f, th = 0.005f;
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float x0 = side * (caseSideX - 0.002f), x1 = side * (caseSideX + caseCheekW + 0.002f);
+            for (float s : { s0, s1 })
+            {
+                const float dir = s > s0 ? -1.0f : 1.0f;   // the plate runs from the end back along the cheek
+                const auto frame = caseFrame (s, caseFront);
+                const float y0 = std::min (0.0f, dir * len), y1 = std::max (0.0f, dir * len);
+                mesh.append (box ({ std::min (x0, x1), y0, 0.0f }, { std::max (x0, x1), y1, th }), frame);
+                // and round onto the cheek's outer side
+                const float xo = side * (caseSideX + caseCheekW);
+                mesh.append (box ({ std::min (xo, xo + side * th), y0, -0.16f }, { std::max (xo, xo + side * th), y1, 0.0f }), frame);
+                const auto screw = lathe (0.011f, { { 0.0f, 0.0f }, { -0.002f, 0.003f }, { -0.007f, 0.0045f } }, 24, true);
+                for (float f : { 0.25f, 0.75f })
+                    mesh.append (screw, frame * Mat4::translation ({ side * (caseSideX + caseCheekW * 0.5f), dir * len * f, th })
+                                          * Mat4::rotationX (0.5f * pi));
+            }
+        }
         return mesh;
     }
 
     MeshData caseRails()
     {
+        // The back board: seen only through the gaps between units, dark-stained
         MeshData mesh;
         const float s0 = -caseOverhang, s1 = totalArcLength() + caseOverhang;
-
-        // A rail running the length of the case well behind the units, so it is seen only
-        // through the gaps between them - never through a meter window.
         for (int i = 0; i < caseArcSteps; ++i)
         {
             const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps;
@@ -151,7 +293,6 @@ namespace pad::geo
             mesh.append (quad ({ -caseSideX, a.y, a.z }, { -caseSideX, b.y, b.z },
                                { caseSideX, b.y, b.z }, { caseSideX, a.y, a.z }));
         }
-
         return mesh;
     }
 
@@ -264,7 +405,7 @@ namespace pad::geo
     MeshData caseFloor()
     {
         const auto bottom = arcPoint (-caseOverhang, 0.0f);
-        return horizontalQuad ({ 0.0f, bottom.z - 6.0f, 26.0f, 26.0f }, bottom.y - 0.10f);
+        return horizontalQuad ({ 0.0f, bottom.z - 6.0f, 26.0f, 26.0f }, bottom.y - caseBoardT - 0.05f);   // under the plinth's feet
     }
 
     //==============================================================================

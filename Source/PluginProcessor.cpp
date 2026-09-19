@@ -46,6 +46,7 @@ PluginProcessor::PluginProcessor()
     balTilt         = state.getRawParameterValue (id::balTilt);
     balRange        = state.getRawParameterValue (id::balRange);
     balActive       = state.getRawParameterValue (id::balActive);
+    balResolution   = state.getRawParameterValue (id::balResolution);
 
     seraphMode   = state.getRawParameterValue (id::seraphMode);
     enhMultiply    = state.getRawParameterValue (id::enhMultiply);
@@ -127,6 +128,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.balTilt           = balTilt->load();
     k.balRangeDb        = balRange->load();
     k.balActive         = balActive->load() > 0.5f;
+    k.balResolution     = balResolution->load();
 
     k.seraphMode     = juce::roundToInt (seraphMode->load());
     k.smooth         = silkSmooth->load();

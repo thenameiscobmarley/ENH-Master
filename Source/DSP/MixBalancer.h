@@ -19,6 +19,11 @@ namespace enh::dsp
           SPEED    how quickly it rides (slow and smooth .. fast)
           TILT     the balance it steers toward: darker (-) or brighter (+) than the programme's own
           RANGE    the most any band moves (dB; lifts are held to half of it)
+          RESOLUTION  from six broad bands (0) to spectral (1): 28 third-octave bands (31.5 Hz - 16 kHz),
+                   each ridden the same way against the median of all 28 - as precise as it gets
+                   without an FFT's latency. In between, the two sets of faders are blended: the six
+                   are scaled by 1 - RESOLUTION and the 28 by RESOLUTION, in series, so the result is
+                   exactly the blend of the two curves (no phasing between parallel paths).
 
         Attacks are respected: a band's cut is held back while that band is in a fresh transient, so
         footsteps and gunshots keep their front edge. Zero latency; minimum-phase bells and shelves.
@@ -35,10 +40,14 @@ namespace enh::dsp
             float speed = 0.5f;     // 0..1
             float tilt = 0.0f;      // -1..1 (darker .. brighter)
             float rangeDb = 6.0f;   // 0..12
+            float resolution = 0.0f; // 0 = six bands .. 1 = spectral (third-octave)
             bool active = false;
         };
 
         static constexpr std::array<float, numBands> centreHz { 70.0f, 200.0f, 500.0f, 1300.0f, 3500.0f, 9000.0f };
+
+        static constexpr int numFine = 28;                         // spectral mode: third-octave bands
+        static float fineHz (int k) noexcept { return 31.5f * std::pow (2.0f, (float) k / 3.0f); }
 
         void prepare (double sampleRate, int numChannels)
         {
@@ -64,6 +73,19 @@ namespace enh::dsp
             }
             transientK = onePole (0.0015, sr);
             slowK = onePole (4.0, sr);
+
+            fineCount = 0;
+            for (int k = 0; k < numFine; ++k)
+            {
+                const double hz = fineHz (k);
+                if (hz < 0.43 * sr)
+                    fineCount = k + 1;
+                fineDetect.set (k, BiquadCoeffs::bandPass (sr, hz, 4.3));
+                fineBells[(size_t) k].setup (sr, hz, 4.3);
+                // Each band listens over a few of its own cycles
+                fineAtt[(size_t) k] = onePole (std::max (0.005, 2.5 / hz), sr);
+                fineRel[(size_t) k] = onePole (std::max (0.060, 10.0 / hz), sr);
+            }
             reset();
         }
 
@@ -75,6 +97,14 @@ namespace enh::dsp
             gainDb = {}; designedDb.fill (1000.0f);
             for (int b = 0; b < numBands; ++b)
                 design (b, 0.0f);
+            fineDetect.reset();
+            for (auto& c : fineFilters) for (auto& s : c) s.reset();
+            fineFast = {}; fineSlow = {}; fineTransient = {};
+            fineGainDb = {}; fineDesignedDb = {};
+            for (int k = 0; k < numFine; ++k)
+                fineCoeffs[(size_t) k] = fineBells[(size_t) k].make (0.0f);
+            fineOn = fineEngaged = false;
+            coarseScale = 1.0f; fineScale = 0.0f;
             toTick = tickEvery;
             deepestCutDb = 0.0f;
         }
@@ -88,11 +118,16 @@ namespace enh::dsp
             if (! s.active)
             {
                 // True bypass; the analysis keeps listening so it is ready when it comes back in
-                if (anyGain())
+                if (anyGain() || fineEngaged)
                 {
                     gainDb = {};
                     for (int b = 0; b < numBands; ++b) design (b, 0.0f);
                     for (auto& c : filters) for (auto& f : c) f.reset();
+                    fineGainDb = {};
+                    fineDesignedDb = {};
+                    for (int k = 0; k < numFine; ++k) fineCoeffs[(size_t) k] = fineBells[(size_t) k].make (0.0f);
+                    for (auto& c : fineFilters) for (auto& f : c) f.reset();
+                    fineEngaged = false;
                 }
                 for (int i = 0; i < n; ++i)
                     listen (ch == 2 ? 0.5f * (data[0][i] + data[1][i]) : data[0][i]);
@@ -108,20 +143,28 @@ namespace enh::dsp
                     toTick = tickEvery;
                 }
 
-                if (! engaged)
-                    continue;
-                for (int c = 0; c < ch; ++c)
-                {
-                    float w = data[c][i];
-                    for (int b = 0; b < numBands; ++b)
-                        w = filters[(size_t) c][(size_t) b].process (coeffs[(size_t) b], w);
-                    data[c][i] = w;
-                }
+                if (engaged)
+                    for (int c = 0; c < ch; ++c)
+                    {
+                        float w = data[c][i];
+                        for (int b = 0; b < numBands; ++b)
+                            w = filters[(size_t) c][(size_t) b].process (coeffs[(size_t) b], w);
+                        data[c][i] = w;
+                    }
+                if (fineEngaged)
+                    for (int c = 0; c < ch; ++c)
+                    {
+                        float w = data[c][i];
+                        for (int k = 0; k < fineCount; ++k)
+                            w = fineFilters[(size_t) c][(size_t) k].process (fineCoeffs[(size_t) k], w);
+                        data[c][i] = w;
+                    }
             }
         }
 
-        /** Per band: what it is doing (dB, + lift / - cut) and its level now (dB), for the display. */
-        float getGainDb (int band) const noexcept  { return gainDb[(size_t) band]; }
+        /** Per band: what it is doing (dB, + lift / - cut, as applied) and its level now (dB), for the display. */
+        float getGainDb (int band) const noexcept  { return gainDb[(size_t) band] * coarseScale; }
+        float getFineGainDb (int k) const noexcept { return fineGainDb[(size_t) k] * fineScale; }
         float getLevelDb (int band) const noexcept { return powerToDb (fast[(size_t) band]); }
         float getDeepestCutDb() const noexcept     { return deepestCutDb; }
 
@@ -138,6 +181,77 @@ namespace enh::dsp
                 auto& t = transient[(size_t) b];
                 t = transientK * (t - p) + p;
             }
+
+            if (fineOn)
+            {
+                // All third-octave bands at once (vectorised bank)
+                alignas (16) float y[numFine];
+                fineDetect.process (mono, y, fineCount);
+                for (int k = 0; k < fineCount; ++k)
+                {
+                    const float p = y[k] * y[k];
+                    float& f = fineFast[(size_t) k];
+                    f = (p > f ? fineAtt[(size_t) k] : fineRel[(size_t) k]) * (f - p) + p;
+                    float& tr = fineTransient[(size_t) k];
+                    tr = transientK * (tr - p) + p;
+                }
+            }
+        }
+
+        /** Spectral mode's 28 faders, the same rules as the six, against the median of all 28. */
+        void fineTick (const Settings& s, bool listening, float amount, float range, float kAtt, float kRel) noexcept
+        {
+            const float r = std::clamp (s.resolution, 0.0f, 1.0f);
+            fineOn = r > 0.001f || fineEngaged;
+            fineScale = r;
+            if (! fineOn)
+                return;
+
+            double totalSlow = 0.0;
+            for (int k = 0; k < fineCount; ++k)
+                totalSlow += fineSlow[(size_t) k];
+            const float learn = listening ? 1.0f - std::pow (slowK, (float) tickEvery) : 0.0f;
+            std::array<float, numFine> moved {};
+            for (int k = 0; k < fineCount; ++k)
+            {
+                auto& sl = fineSlow[(size_t) k];
+                sl += (fineFast[(size_t) k] - sl) * learn * (std::abs (fineGainDb[(size_t) k]) > 1.0f ? 0.25f : 1.0f);
+                moved[(size_t) k] = 10.0f * std::log10 ((fineFast[(size_t) k] + 1.0e-12f) / (sl + 1.0e-12f));
+            }
+            auto sorted = moved;
+            std::sort (sorted.begin(), sorted.begin() + fineCount);
+            const float mixMoved = fineCount > 1 ? 0.5f * (sorted[(size_t) (fineCount / 2 - 1)] + sorted[(size_t) (fineCount / 2)]) : 0.0f;
+
+            bool any = false;
+            for (int k = 0; k < fineCount; ++k)
+            {
+                float target = 0.0f;
+                if (listening && totalSlow > 1.0e-9 && fineSlow[(size_t) k] > 0.002 * totalSlow)
+                {
+                    const float position = ((float) k - 0.5f * (float) (fineCount - 1)) / (0.5f * (float) (fineCount - 1));
+                    const float error = moved[(size_t) k] - mixMoved - std::clamp (s.tilt, -1.0f, 1.0f) * 3.0f * position;
+                    const float beyond = std::copysign (std::max (0.0f, std::abs (error) - 1.5f), error);
+                    target = std::clamp (-amount * beyond, -range, 0.5f * range);
+                    if (target < 0.0f && fineTransient[(size_t) k] > 2.5f * fineFast[(size_t) k])
+                        target = std::max (target, fineGainDb[(size_t) k]);
+                }
+                auto& g = fineGainDb[(size_t) k];
+                const bool movingAway = std::abs (target) > std::abs (g);
+                g += (target - g) * (! movingAway ? kRel : target < 0.0f ? kAtt : 0.5f * kRel);
+
+                const float applied = g * r;
+                if (std::abs (applied - fineDesignedDb[(size_t) k]) > 0.05f)
+                {
+                    fineDesignedDb[(size_t) k] = std::abs (applied) < 0.05f ? 0.0f : applied;
+                    fineCoeffs[(size_t) k] = fineBells[(size_t) k].make (fineDesignedDb[(size_t) k]);
+                }
+                any = any || fineDesignedDb[(size_t) k] != 0.0f;
+            }
+            bool state = false;
+            for (auto& c : fineFilters)
+                for (int k = 0; k < fineCount; ++k)
+                    state = state || c[(size_t) k].z1 != 0.0f || c[(size_t) k].z2 != 0.0f;
+            fineEngaged = any || state;
         }
 
         void controlTick (const Settings& s) noexcept
@@ -158,6 +272,7 @@ namespace enh::dsp
                 slow[(size_t) b] += (fast[(size_t) b] - slow[(size_t) b]) * learn * (std::abs (gainDb[(size_t) b]) > 1.0f ? 0.25f : 1.0f);
 
             const float amount = std::clamp (s.amount, 0.0f, 1.0f) * 0.85f;
+            coarseScale = 1.0f - std::clamp (s.resolution, 0.0f, 1.0f);
             const float range = std::clamp (s.rangeDb, 0.0f, 12.0f);
             const float speed = std::clamp (s.speed, 0.0f, 1.0f);
             const float attackS = 0.200f * std::pow (0.1f, speed), releaseS = 1.2f * std::pow (0.15f, speed);
@@ -200,12 +315,18 @@ namespace enh::dsp
                 auto& g = gainDb[(size_t) b];
                 const bool movingAway = std::abs (target) > std::abs (g);
                 g += (target - g) * (! movingAway ? kRel : target < 0.0f ? kAtt : 0.5f * kRel);
-                deepest = std::min (deepest, g);
-                if (std::abs (g - designedDb[(size_t) b]) > 0.05f)
-                    design (b, g);
+                const float applied = g * coarseScale;
+                deepest = std::min (deepest, applied);
+                if (std::abs (applied - designedDb[(size_t) b]) > 0.05f)
+                    design (b, applied);
             }
-            deepestCutDb = -deepest;
             engaged = anyGain() || anyState();
+
+            // RESOLUTION: the six faders give way to the 28 of spectral mode
+            fineTick (s, listening, amount, range, kAtt, kRel);
+            for (int k = 0; k < fineCount; ++k)
+                deepest = std::min (deepest, fineGainDb[(size_t) k] * fineScale);
+            deepestCutDb = -deepest;
         }
 
         void design (int b, float db) noexcept
@@ -250,5 +371,16 @@ namespace enh::dsp
         std::array<float, numBands> fastAtt {}, fastRel {};
         float transientK = 0.0f, slowK = 0.0f, deepestCutDb = 0.0f;
         bool engaged = false;
+
+        // Spectral mode
+        int fineCount = numFine;
+        BiquadBank<numFine> fineDetect {};
+        alignas (16) std::array<float, numFine> fineFast {}, fineSlow {}, fineTransient {}, fineAtt {}, fineRel {};
+        std::array<float, numFine> fineGainDb {}, fineDesignedDb {};
+        std::array<PeakingDesigner, numFine> fineBells {};
+        std::array<BiquadCoeffs, numFine> fineCoeffs {};
+        std::array<std::array<BiquadState, numFine>, 2> fineFilters {};
+        float coarseScale = 1.0f, fineScale = 0.0f;
+        bool fineOn = false, fineEngaged = false;
     };
 }
