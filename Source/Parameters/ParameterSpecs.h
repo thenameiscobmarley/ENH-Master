@@ -90,6 +90,13 @@ namespace pad::params
         inline constexpr const char* balActive = "balActive";   // IN
         inline constexpr const char* balResolution = "balResolution"; // RESOLUTION: six bands (0) .. spectral, third-octave (10)
 
+        // DEEP SUB - 1U: a sub-harmonic synthesiser and a resonant hull
+        inline constexpr const char* deepDepth    = "deepDepth";     // DEPTH: the octave-down sub (0-10)
+        inline constexpr const char* deepHull     = "deepHull";      // HULL: the hull's resonance (0-10)
+        inline constexpr const char* deepSize     = "deepSize";      // SIZE: small boat .. vast hull (0-10)
+        inline constexpr const char* deepPressure = "deepPressure";  // PRESSURE: weight / harmonics (0-10)
+        inline constexpr const char* deepActive   = "deepActive";    // IN
+
         // MONITOR (top)
         inline constexpr const char* monitorSpeed = "monitorSpeed";   // SPEED: how fast the visualiser scrolls (display only)
 

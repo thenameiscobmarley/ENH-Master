@@ -22,6 +22,7 @@ namespace enh::dsp
         tide.prepare (sr, numChannels);
         seraph.prepare (sr);
         balancer.prepare (sr, numChannels);
+        deep.prepare (sr);
         output.prepare (sr);
         loudness.prepare (sr);
         reset();
@@ -41,6 +42,7 @@ namespace enh::dsp
         tide.reset();
         seraph.reset();
         balancer.reset();
+        deep.reset();
         loudness.reset();
 
         samplesToTick = controlInterval;
@@ -136,6 +138,9 @@ namespace enh::dsp
             meters.balanceFineGainDb[(size_t) k].store (balancer.getFineGainDb (k), std::memory_order_relaxed);
         meters.balanceResolution.store (p.balancer.resolution, std::memory_order_relaxed);
         meters.balanceMakeupDb.store (balancer.getMakeupDb(), std::memory_order_relaxed);
+        meters.deepGeneratedDb.store (deep.getGeneratedDb(), std::memory_order_relaxed);
+        meters.deepPitchHz.store (deep.getPitchHz(), std::memory_order_relaxed);
+        meters.deepConfidence.store (deep.getConfidence(), std::memory_order_relaxed);
         for (int r = 0; r < FinalLimiter::numRegions; ++r)
             meters.outputRegionCutDb[(size_t) r].store (output.getRegionCutDb()[(size_t) r], std::memory_order_relaxed);
         meters.outputLimitDb.store (output.getReductionDb(), std::memory_order_relaxed);
@@ -247,6 +252,7 @@ namespace enh::dsp
         lumenSettings.holdGains = p.limiter.active && limiter.isHandlingLocalisedEvent();
         lumenSettings.levelDb = levelDbNow;   // LEVEL moves the whole rack; the leveler reads levels relative to it
         lumen.process (chunk, chans, n, lumenSettings);
+        deep.process (chunk, chans, n, p.deep);   // DEEP SUB: before the limiters, so they look after what it adds
         limiter.process (chunk, chans, n, p.limiter);
 
         // MIX BALANCER, with taps either side of it for its display

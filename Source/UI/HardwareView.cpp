@@ -40,6 +40,8 @@ namespace pad
         textures.limiterDecal = artwork::renderOneUDecal (limiterUnit, config.panelTextureWidth, &textItems);
         textures.limiterVuFace[0] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 0);
         textures.limiterVuFace[1] = artwork::renderVuFace (limiterUnit, 1024, &textItems, 1);
+        textures.deepDecal = artwork::renderOneUDecal (deepUnit, config.panelTextureWidth, &textItems);
+        textures.deepVuFace = artwork::renderVuFace (deepUnit, 1536, &textItems);
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
         textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);

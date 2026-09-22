@@ -15,7 +15,8 @@ namespace pad
         grouped in categories, one under another in a column that scrolls - nothing side by side.
 
           PROCESSING  the unit's stages (DSP/MethodRegistry.h): how it measures, calculates, smooths...
-          KNOBS       per knob: its own law (where it has one), then its SMOOTHING, CURVE and RANGE
+          KNOBS       one dropdown per knob (folded, with a one-line summary): its own law (where it has
+                      one), then its SMOOTHING, CURVE and RANGE
           OUTPUT      output settings (the output limiter's ceiling)
           DISPLAY     display settings
           RESET       puts every setting of the unit back to its default
@@ -37,7 +38,7 @@ namespace pad
         inline constexpr float width = 244.0f;          // a column, not a sheet
         inline constexpr float maxHeight = 500.0f;
         inline constexpr float gutter = 16.0f;          // from the window's edge
-        inline constexpr float headerH = 62.0f, categoryH = 30.0f, knobH = 24.0f, rowH = 46.0f, optionH = 27.0f,
+        inline constexpr float headerH = 62.0f, categoryH = 30.0f, knobH = 40.0f, rowH = 42.0f, optionH = 25.0f,
                                resetH = 44.0f, detailsH = 128.0f, bodyH = 90.0f;
 
         /** One line of the list. */
@@ -46,6 +47,7 @@ namespace pad
             enum Kind { category, knobHeader, stage, modifier, reset } kind = stage;
             juce::String title;                                   // category / knob name
             int categoryIndex = 0;                                // the category it belongs to
+            int knobGroup = -1;                                   // a knob's setting: its knob header's entry index
             const enh::dsp::methods::Stage* stageInfo = nullptr;  // stage
             int knob = -1, modifierKind = -1;                     // modifier: knob (knobFields index) and kind
 

@@ -1,6 +1,6 @@
 # SPECTRAL LIMITER unit
 
-1U, steel-blue plate, between the UPWARD LEVELER and the ADAPTIVE COMPRESSOR (stage 4 of the 7 processors).
+1U, steel-blue plate, between the UPWARD LEVELER and the ADAPTIVE COMPRESSOR (5th of the 8 processors).
 Source: `Source/DSP/SpectralLimiter.h/.cpp`. Back to [[00 Start Here]].
 
 ## What problem it solves

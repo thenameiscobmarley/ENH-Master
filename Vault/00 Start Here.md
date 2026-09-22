@@ -1,9 +1,9 @@
 # ENH Master - Start Here
 
 This is an [Obsidian](https://obsidian.md) vault documenting **ENH Master**, a JUCE/VST3 plugin for
-game audio: an eight-unit rack in a curved walnut case that makes footsteps and detail audible without
+game audio: a nine-unit rack in a curved walnut case that makes footsteps and detail audible without
 wrecking the mix. Bottom to top, in signal order: **LEVEL CONTROL**, the **ADAPTIVE ENHANCER**, the
-**UPWARD LEVELER**, the **SPECTRAL LIMITER**, the **MIX BALANCER**, the **ADAPTIVE COMPRESSOR**,
+**UPWARD LEVELER**, **DEEP SUB**, the **SPECTRAL LIMITER**, the **MIX BALANCER**, the **ADAPTIVE COMPRESSOR**,
 **TONE & SPACE** (a finishing processor that makes the result sound wide and beautiful) and, on top,
 the **OUTPUT MONITOR**. (Earlier names: ENH MASTER, LUMEN, TIDE, SERAPH. Note titles still use them.)
 
@@ -24,8 +24,9 @@ others; press `Ctrl+G` for the graph view.
 - [[LEVEL CONTROL and OUTPUT MONITOR]] - the rack's working level (bottom) and what the rack does to
   the track, with loudness and the DUCK readout (top)
 - [[ENH Master unit]] - the ADAPTIVE ENHANCER: clarity, sub, footstep priority (black)
+- [[DEEP SUB unit]] - an octave-down sub and a resonant steel hull (1U, blued steel)
 - [[SPECTRAL LIMITER unit]] - anti-pumping: cuts abnormal spectral excess where it is (1U, steel blue)
-- [[MIX BALANCER unit]] - rides six (or 28) band faders to keep the balance (4U)
+- [[MIX BALANCER unit]] - rides six (or 28) band faders to keep the balance (3U)
 - [[SERAPH unit]] - TONE & SPACE: tone & space sections, loudness hold (under the monitor, purple)
 - The UPWARD LEVELER and ADAPTIVE COMPRESSOR are described in the README
 

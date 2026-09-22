@@ -113,8 +113,10 @@ namespace pad
                     const auto* spec = pad::params::findSpec (pid);
                     Entry h;
                     h.kind = Entry::knobHeader;
-                    h.title = spec != nullptr ? spec->name.toUpperCase() : pid;
+                    h.title = spec != nullptr ? spec->shortLabel.toUpperCase() : pid;
                     h.categoryIndex = categoryOf ("KNOBS");
+                    h.open = h.openTarget = 0.0f;   // each knob is its own dropdown, folded
+                    const int header = (int) entries.size();
                     entries.push_back (h);
                     for (int i = 0; i < list.count; ++i)
                         if (str (list.stages[i].knobParam) == pid)
@@ -123,6 +125,7 @@ namespace pad
                             e.kind = Entry::stage;
                             e.stageInfo = &list.stages[i];
                             e.categoryIndex = h.categoryIndex;
+                            e.knobGroup = header;
                             entries.push_back (e);
                         }
                     for (int kind = 0; kind < m::numModifierKinds; ++kind)
@@ -132,6 +135,7 @@ namespace pad
                         e.knob = k;
                         e.modifierKind = kind;
                         e.categoryIndex = h.categoryIndex;
+                        e.knobGroup = header;
                         entries.push_back (e);
                     }
                 }
@@ -170,7 +174,9 @@ namespace pad
         float y = 0.0f;
         for (auto& e : entries)
         {
-            const float fold = e.kind == Entry::category || e.kind == Entry::reset ? 1.0f : categoryOpen (e.categoryIndex);
+            float fold = e.kind == Entry::category || e.kind == Entry::reset ? 1.0f : categoryOpen (e.categoryIndex);
+            if (e.knobGroup >= 0)
+                fold *= entries[(size_t) e.knobGroup].open;   // inside a knob's own dropdown
             switch (e.kind)
             {
                 case Entry::category:   e.h = categoryH; break;
@@ -269,6 +275,7 @@ namespace pad
                 resetUnit();
                 break;
             case Entry::knobHeader:
+                e.openTarget = e.openTarget > 0.5f ? 0.0f : 1.0f;
                 break;
             default:
                 if (h.option >= 0)
@@ -330,6 +337,8 @@ namespace pad
             {
                 const bool it = n++ == setting;
                 e.open = e.openTarget = it ? 1.0f : 0.0f;
+                if (it && e.knobGroup >= 0)   // the knob it belongs to opens too; the others stay folded
+                    entries[(size_t) e.knobGroup].open = entries[(size_t) e.knobGroup].openTarget = 1.0f;
                 if (it && hoveredOption >= 0)
                     hovered = { i, hoveredOption, true };
             }
@@ -496,7 +505,30 @@ namespace pad
                     }
                     else if (e.kind == Entry::knobHeader)
                     {
-                        text (e.title, box.withTrimmedTop (8.0f).withHeight (13.0f), font (9.0f, true, 0.16f), soft);
+                        // A knob's own dropdown: its name, and under it what is set (or that it is as it always was)
+                        juce::StringArray set;
+                        for (auto& o : entries)
+                            if (o.knobGroup == i && (o.kind == Entry::stage || o.kind == Entry::modifier))
+                                if (const int c = currentChoice (o); c != 0)
+                                    set.add ((o.kind == Entry::stage ? str (o.stageInfo->name) : str (m::modifiers[(size_t) o.modifierKind].fullName)).toUpperCase()
+                                             + " " + (o.kind == Entry::stage ? str (o.stageInfo->methods[c].shortName) : str (m::modifiers[(size_t) o.modifierKind].labels[(size_t) c])));
+                        if (e.hover > 0.01f)
+                        {
+                            g.setColour (white.withAlpha (0.07f * e.hover));
+                            g.fillRect (box.withHeight (knobH).expanded (8.0f, 0.0f));
+                        }
+                        juce::Path tri;
+                        tri.addTriangle (-2.5f, -3.5f, -2.5f, 3.5f, 3.5f, 0.0f);
+                        tri.applyTransform (juce::AffineTransform::rotation (e.open * juce::MathConstants<float>::halfPi)
+                                                .translated (box.getX() + 4.0f, box.getY() + 14.5f));
+                        g.setColour (white.withAlpha (0.8f));
+                        g.fillPath (tri);
+                        text (e.title, { box.getX() + 14.0f, box.getY() + 8.0f, box.getWidth() - 14.0f, 13.0f }, font (10.5f, true, 0.12f), white);
+                        text (set.isEmpty() ? juce::String ("as it is") : set.joinIntoString ("  /  "),
+                              { box.getX() + 14.0f, box.getY() + 22.0f, box.getWidth() - 14.0f, 12.0f }, font (9.5f, false, 0.02f),
+                              set.isEmpty() ? soft.withMultipliedAlpha (0.8f) : white.withAlpha (0.9f));
+                        g.setColour (faint);
+                        g.fillRect (box.getX(), box.getY() + knobH - 1.0f, box.getWidth(), 1.0f);
                     }
                     else if (e.kind == Entry::reset)
                     {
@@ -520,15 +552,16 @@ namespace pad
                         const juce::String title = e.kind == Entry::stage ? str (e.stageInfo->name)
                                                                           : str (m::modifiers[(size_t) e.modifierKind].fullName).toUpperCase();
                         // Title over its value, stacked; a hard square marks a setting that is not at its default
-                        text (title, { box.getX(), box.getY() + 8.0f, box.getWidth(), 13.0f }, font (9.5f, true, 0.14f), soft);
-                        float vx = box.getX();
+                        const float indent = e.knobGroup >= 0 ? 14.0f : 0.0f;   // a knob's settings sit under its name
+                        text (title, { box.getX() + indent, box.getY() + 7.0f, box.getWidth() - indent, 13.0f }, font (9.5f, true, 0.14f), soft);
+                        float vx = box.getX() + indent;
                         if (isChanged)
                         {
                             g.setColour (white);
-                            g.fillRect (vx, box.getY() + 28.0f, 5.0f, 5.0f);
+                            g.fillRect (vx, box.getY() + 26.0f, 5.0f, 5.0f);
                             vx += 11.0f;
                         }
-                        text (valueText (e, current), { vx, box.getY() + 22.0f, box.getRight() - vx, 17.0f }, font (12.5f, true, 0.02f), white);
+                        text (valueText (e, current), { vx, box.getY() + 20.0f, box.getRight() - vx, 17.0f }, font (12.5f, true, 0.02f), white);
 
                         // Its choices, fading in as the list opens
                         if (e.open > 0.01f)
@@ -542,11 +575,11 @@ namespace pad
                                     g.setColour (white.withAlpha (0.10f * a));
                                     g.fillRect (o.expanded (8.0f, 0.0f));
                                 }
-                                const juce::Rectangle<float> mark (o.getX() + 2.0f, o.getCentreY() - 4.0f, 8.0f, 8.0f);
+                                const juce::Rectangle<float> mark (o.getX() + 2.0f + indent, o.getCentreY() - 4.0f, 8.0f, 8.0f);
                                 g.setColour (white.withAlpha ((on ? 1.0f : 0.55f) * a));
                                 if (on) g.fillRect (mark);
                                 else    g.drawRect (mark, 1.0f);
-                                text (choiceText (e, k) + (k == 0 ? "   (default)" : ""), o.withTrimmedLeft (18.0f),
+                                text (choiceText (e, k) + (k == 0 ? "   (default)" : ""), o.withTrimmedLeft (18.0f + indent),
                                       font (11.5f, on, 0.02f), (on || oh ? white : soft).withMultipliedAlpha (a));
                             }
 
@@ -609,6 +642,9 @@ namespace pad
             else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::reset)
                 para ("Puts every setting of this unit back to its default: exactly how it sounded before these settings "
                       "existed. Knobs keep their positions.", 6, soft);
+            else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::knobHeader)
+                para ("This knob's own settings: how its travel maps (where it has a law), and SMOOTHING, CURVE and "
+                      "RANGE between the knob and the processing. Click to open or close it.", 6, soft);
             else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::category)
                 para (hoveredEntry->title == "KNOBS" ? "Per knob: how its travel maps, and what sits between the knob and the "
                                                        "processing. The host always sees the knob's raw value."

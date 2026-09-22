@@ -33,6 +33,11 @@ PluginProcessor::PluginProcessor()
     tideMix       = state.getRawParameterValue (id::tideMix);
     tideResponse  = state.getRawParameterValue (id::tideResponse);
     tideActive    = state.getRawParameterValue (id::tideActive);
+    deepDepth     = state.getRawParameterValue (id::deepDepth);
+    deepHull      = state.getRawParameterValue (id::deepHull);
+    deepSize      = state.getRawParameterValue (id::deepSize);
+    deepPressure  = state.getRawParameterValue (id::deepPressure);
+    deepActive    = state.getRawParameterValue (id::deepActive);
     // Every processing method's choice (MethodRegistry.h), by its MethodId
     for (int unit : enh::dsp::methods::unitsInRackOrder)
     {
@@ -135,6 +140,11 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     for (size_t m = 0; m < k.methods.size(); ++m)
         k.methods[m] = methodParams[m] != nullptr ? juce::roundToInt (methodParams[m]->load()) : 0;
     k.tideActive     = tideActive->load() > 0.5f;
+    k.deepDepth      = deepDepth->load();
+    k.deepHull       = deepHull->load();
+    k.deepSize       = deepSize->load();
+    k.deepPressure   = deepPressure->load();
+    k.deepActive     = deepActive->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
     k.lumenActive    = lumenActive->load() > 0.5f;

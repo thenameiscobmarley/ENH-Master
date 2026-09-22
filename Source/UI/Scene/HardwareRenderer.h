@@ -171,7 +171,7 @@ namespace pad
         float vignette = 1.0f;   // 0 while rendering the zoomed loupe view
 
         gfx::Texture2D decalTex, scaleTex, scaleWideTex, scale3Tex, scale5Tex, tubeDecalTex, seraphLabelTex, overlayTex, calloutTex;
-        gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex;
+        gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex, deepDecalTex, deepLabelTex;
         std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
         gfx::Texture2D levelDecalTex, balancerDecalTex, monitorDecalTex, monitorLabelTex, balancerLabelTex, levelFaceTex;
         std::array<gfx::Texture2D, 2> monitorFaceTex;    // MOMENTARY and SHORT-TERM faces
@@ -189,11 +189,11 @@ namespace pad
         std::array<Needle, layout::numNeedles> needles {};
         std::array<float, layout::numUnits> unitLamp {};   // backlight per outboard unit, on with IN (or always)
 
-        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu;   // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu;   // HardwareKit VU models, one per size
         GpuModel& vuModelFor (int unit) noexcept
         {
             return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu
-                 : unit == layout::monitorUnit ? monitorVu : limiterVu;
+                 : unit == layout::monitorUnit ? monitorVu : unit == layout::deepUnit ? deepVu : limiterVu;
         }
 
         /** An outboard unit. faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */

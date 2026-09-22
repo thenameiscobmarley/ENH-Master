@@ -62,6 +62,9 @@ namespace enh::dsp
         std::atomic<float> balanceResolution { 0.0f };             // 0 = six bands .. 1 = spectral
         std::atomic<float> balanceMakeupDb { 0.0f };               // loudness keeper's lift (dB)
 
+        // DEEP SUB: what it adds (dBFS RMS), and the bass note it is following
+        std::atomic<float> deepGeneratedDb { -120.0f }, deepPitchHz { 55.0f }, deepConfidence { 0.0f };
+
         // Output limiter: spectral cut per region (low, low-mid, mid, high) and broadband (dB)
         std::array<std::atomic<float>, 4> outputRegionCutDb {};
         std::atomic<float> outputLimitDb { 0.0f };

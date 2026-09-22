@@ -452,6 +452,7 @@ namespace pad::artwork
             const auto label = unit == tideUnit ? juce::String ("GAIN REDUCTION")
                              : unit == limiterUnit ? juce::String (limits[i])
                              : unit == monitorUnit ? juce::String (loudness[i])
+                             : unit == deepUnit ? juce::String ("SUB ADDED")
                              : unit == levelUnit ? juce::String ("INPUT") : juce::String (bands[i]);
             text (g, m, label, vuX (unit, i), vuZ (unit, i) + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
         }
@@ -481,7 +482,7 @@ namespace pad::artwork
         // Full scale: the compressor's GR 0-12, the leveler's lift 0-18, the limiter's spectral cut 0-18
         // (RANGE + headroom protection) and its broadband protection 0-12
         const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1);
-        const bool lufs = unit == monitorUnit || unit == levelUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT)
+        const bool lufs = unit == monitorUnit || unit == levelUnit || unit == deepUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT and DEEP SUB)
         const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
         const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
         const float arcR = vuHalfH * hwk::models::vuArcRadius * scale;
@@ -554,6 +555,7 @@ namespace pad::artwork
         const auto caption = unit == tideUnit ? juce::String ("GAIN REDUCTION   dB")
                            : unit == limiterUnit ? juce::String (meter == 0 ? "CUT   dB" : "BROADBAND   dB")
                            : unit == monitorUnit ? juce::String ("LUFS") : unit == levelUnit ? juce::String ("INPUT   dBFS")
+                           : unit == deepUnit ? juce::String ("SUB   dBFS")
                                                  : juce::String ("LIFT   dB");
         const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
         g.setFont (capFont);

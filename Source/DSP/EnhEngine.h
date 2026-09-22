@@ -11,6 +11,7 @@
 #include "Seraph.h"
 #include "DynamicCompressor.h"
 #include "MethodRegistry.h"
+#include "DeepSub.h"
 #include "SpectralLeveler.h"
 #include "SpectralLimiter.h"
 #include "SpectrumScope.h"
@@ -60,6 +61,7 @@ namespace enh::dsp
             float levelDb = 0.0f;                 // LEVEL: the rack's working level (-24 .. +12 dB), first in the chain
             MixBalancer::Settings balancer {};    // MIX BALANCER: rides six band faders for the balance
             std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
+            DeepSub::Settings deep {};                          // DEEP SUB: sub-harmonic synth and resonant hull
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -111,6 +113,7 @@ namespace enh::dsp
         Seraph seraph;
         ScopeFifo scopeIn, scopeOut, scopeBalIn, scopeBalOut;
         MixBalancer balancer;
+        DeepSub deep;
         LoudnessMeter loudness;
         std::atomic<bool> loudnessResetPending { false };
         float levelGain = 1.0f, levelDbNow = 0.0f;

@@ -763,6 +763,9 @@ namespace
             else if (i == id::haloDecay) k.decayS = v;       else if (i == id::haloShimmer) k.shimmer = v;
             else if (i == id::haloTone) k.tone = v;          else if (i == id::haloDuck) k.duck = on;
             else if (i == id::haloBassMono) k.bassMono = on; else if (i == id::haloMod) k.mod = on;
+            else if (i == id::deepDepth) k.deepDepth = v;   else if (i == id::deepHull) k.deepHull = v;
+            else if (i == id::deepSize) k.deepSize = v;     else if (i == id::deepPressure) k.deepPressure = v;
+            else if (i == id::deepActive) k.deepActive = on;
         }
         if (adjust)
             adjust (k);
@@ -1536,6 +1539,7 @@ namespace
             {
                 k.tape = true; k.footstep = true; k.clarityAddMode = true; k.clarityAdd = 6.0f;   // everything in the path
                 k.balAmount = 7.0f; k.balResolution = 5.0f;
+                k.deepDepth = 6.0f; k.deepHull = 5.0f; k.deepPressure = 3.0f;
             };
             auto latencyAt = [] (double rate) { EnhEngine e; e.prepare (rate, 128, 2); return e.getLatencySamples(); };
             // Scenes that exercise each stage: the game scene; for the SPECTRAL LIMITER a long mix with kicks
@@ -1683,9 +1687,11 @@ namespace
             switchTest (m::tideDetector, 2, none);    switchTest (m::tideSideChain, 2, none);
             switchTest (m::tideGain, 2, none);        switchTest (m::tideSmoothing, 2, none);
             switchTest (m::outputCeiling, 2, none);   switchTest (m::levelerLift, 2, none);
+            auto deepOn = [] (enh::dsp::KnobValues& k) { k.deepDepth = 8.0f; k.deepHull = 6.0f; };
+            switchTest (m::deepShape, 2, deepOn);     switchTest (m::deepMaterial, 2, deepOn);
             for (auto& s : stepped)
                 std::printf ("    stepped: %s\n", s.toRawUTF8());
-            check (stepped.isEmpty(), "switching a method while audio runs never steps it (tape, pre-delay, harmonics, compressor, ceiling, leveler)");
+            check (stepped.isEmpty(), "switching a method while audio runs never steps it (tape, pre-delay, harmonics, compressor, ceiling, leveler, deep sub)");
         }
 
         // GLIDE: LEVEL moved 12 dB; how long until it has covered 90 % of the way
@@ -1869,9 +1875,99 @@ namespace
         }
     }
 
+    //==========================================================================
+    void runDeepSubTests (double sr)
+    {
+        using enh::dsp::DeepSub;
+        std::printf ("\n== DEEP SUB ==\n");
+        // A bass line (80 and 98 Hz notes, half a second each) at -12 dBFS, then silence
+        auto bassLine = [&] (double seconds, double silenceFrom)
+        {
+            std::vector<float> x ((size_t) (seconds * sr));
+            for (size_t i = 0; i < x.size(); ++i)
+            {
+                const double t = i / sr;
+                const double f = std::fmod (t, 1.0) < 0.5 ? 80.0 : 98.0;
+                x[i] = t < silenceFrom ? dbfs (-12.0f) * (float) std::sin (twoPi * f * t) : 0.0f;
+            }
+            return x;
+        };
+        auto runDeep = [&] (DeepSub::Settings s, std::vector<float> l, int block)
+        {
+            DeepSub d;
+            d.prepare (sr);
+            auto r = l;
+            for (size_t pos = 0; pos < l.size(); pos += (size_t) block)
+            {
+                const int len = (int) std::min ((size_t) block, l.size() - pos);
+                float* ch[2] { l.data() + pos, r.data() + pos };
+                d.process (ch, 2, len, s);
+            }
+            return l;
+        };
+        auto bandDb = [&] (const std::vector<float>& x, double hz, double from, double to)
+        {
+            auto c = BiquadCoeffs::bandPass (sr, hz, 6.0);
+            BiquadState a, b;
+            double e = 0.0; int n = 0;
+            for (size_t i = 0; i < x.size(); ++i)
+            {
+                const float y = b.process (c, a.process (c, x[i]));
+                if (i >= (size_t) (from * sr) && i < (size_t) (to * sr)) { e += (double) y * y; ++n; }
+            }
+            return (float) (10.0 * std::log10 (e / std::max (1, n) + 1e-20));
+        };
+
+        const auto input = bassLine (6.0, 4.0);
+        {
+            DeepSub::Settings off;
+            off.active = true;   // IN, every amount at 0
+            const auto out = runDeep (off, input, 128);
+            check (out == input, "IN with DEPTH, HULL and PRESSURE at 0 leaves the audio exactly as it was");
+        }
+        DeepSub::Settings sub;
+        sub.active = true; sub.depth = 0.8f;
+        const auto withSub = runDeep (sub, input, 128);
+        const float at40 = bandDb (withSub, 40.0, 1.0, 3.9) - bandDb (input, 40.0, 1.0, 3.9);
+        const float at49 = bandDb (withSub, 49.0, 1.0, 3.9) - bandDb (input, 49.0, 1.0, 3.9);
+        std::printf ("  DEPTH 8 under an 80 / 98 Hz bass line: +%.1f dB at 40 Hz, +%.1f dB at 49 Hz (an octave below each note)\n", at40, at49);
+        check (at40 > 15.0f && at49 > 15.0f, "DEPTH adds a sub an octave below the bass notes");
+
+        DeepSub::Settings hull;
+        hull.active = true; hull.hull = 0.8f; hull.size = 0.7f;
+        const auto withHull = runDeep (hull, input, 128);
+        auto tailDb = [&] (const std::vector<float>& x)
+        {
+            double e = 0.0; int n = 0;
+            for (size_t i = (size_t) (4.3 * sr); i < (size_t) (5.0 * sr); ++i) { e += (double) x[i] * x[i]; ++n; }
+            return (float) (10.0 * std::log10 (e / std::max (1, n) + 1e-20));
+        };
+        std::printf ("  HULL 8: 0.3 - 1.0 s after the bass stops, the hull still rings at %.1f dBFS (dry: silence)\n", tailDb (withHull));
+        check (tailDb (withHull) > -60.0f && tailDb (input) < -150.0f, "the hull rings on after the bass stops");
+
+        // Everything up, loud bass near full scale: finite, and the same at any block size
+        DeepSub::Settings all;
+        all.active = true; all.depth = 1.0f; all.hull = 1.0f; all.size = 1.0f; all.pressure = 1.0f; all.shape = 2;
+        auto loud = input;
+        for (auto& x : loud) x *= 3.5f;
+        const auto a = runDeep (all, loud, 7), b = runDeep (all, loud, 1024);
+        float peak = 0.0f, diff = 0.0f;
+        bool finite = true;
+        for (size_t i = 0; i < a.size(); ++i)
+        {
+            finite = finite && std::isfinite (a[i]);
+            peak = std::max (peak, std::abs (a[i]));
+            diff = std::max (diff, std::abs (a[i] - b[i]));
+        }
+        std::printf ("  everything at 10, bass at -1 dBFS: output peak %.2f (the output limiter looks after full scale), block 7 vs 1024 differ by %.1e\n", peak, diff);
+        check (finite && peak < 4.0f, "stays finite and bounded with everything at full on a near-full-scale bass");
+        check (diff < 1.0e-5f, "the same at any block size");
+    }
+
     int runNewUnitsMode (double sr)
     {
         runNewUnitTests (sr);
+        runDeepSubTests (sr);
         std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
         return failures == 0 ? 0 : 1;
     }
@@ -3429,6 +3525,7 @@ int main (int argc, char** argv)
     runPresetTests (sr);
     runLoudBassTests (sr);
     runNewUnitTests (sr);
+    runDeepSubTests (sr);
     runMethodTests (sr);
 
     runCpuBenchmark();

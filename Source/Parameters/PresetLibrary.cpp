@@ -1,4 +1,5 @@
 #include "PresetLibrary.h"
+#include <algorithm>
 
 #include <mutex>
 
@@ -178,6 +179,11 @@ namespace pad::presets
                     // file's reference block does not list yet (the presets themselves are left as they are)
                     if (seedIfMissing && ! referenceIsCurrent (text))
                     {
+                        // ... and a newer build's new factory presets join the list (the file's own
+                        // presets, tuned or not, are left exactly as they are)
+                        for (const auto& f : factory())
+                            if (std::none_of (list.begin(), list.end(), [&] (const Preset& p) { return p.name == f.name; }))
+                                list.push_back (f);
                         file.replaceWithText (toJson (list));
                         modTime = file.getLastModificationTime();
                     }

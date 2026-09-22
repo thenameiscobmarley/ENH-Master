@@ -9,8 +9,9 @@ The unit's name and how many of its settings are changed, then its settings **on
 a column that scrolls with the wheel, never side by side, in categories that fold open and shut:
 
 - **PROCESSING** - the unit's stages (how it measures, calculates, moves) and their methods;
-- **KNOBS** (folded at first) - per knob: its own law where it has one, then SMOOTHING, CURVE and RANGE,
-  the modifiers between the knob and the processing;
+- **KNOBS** (folded at first) - one dropdown per knob, folded, showing its name and a one-line summary
+  ("as it is", or what is set); open one for its own law where it has one, then SMOOTHING, CURVE and
+  RANGE, the modifiers between the knob and the processing;
 - **OUTPUT** and **DISPLAY** - on the OUTPUT MONITOR;
 - **RESET TO DEFAULTS** - the whole unit back to how it always sounded;
 - at the bottom, a few lines about whatever is under the pointer: how it changes the sound, what it

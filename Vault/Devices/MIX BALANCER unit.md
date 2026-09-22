@@ -1,6 +1,7 @@
 # MIX BALANCER unit
 
-The 4U unit between the SPECTRAL LIMITER and the ADAPTIVE COMPRESSOR, most of its front a display.
+The 3U unit between the SPECTRAL LIMITER and the ADAPTIVE COMPRESSOR, most of its front a display, its four
+main knobs in a 2 x 2 grid beside it (4U, with a column of knobs, until 1.3.4.1).
 
 ## What it does
 

@@ -230,7 +230,7 @@ namespace pad::audit
         struct Panel { int unit; const artwork::RawTexture* tex; const char* file; };
         std::vector<Panel> panels { { enhUnit, &textures.faceplateDecal, "enh.png" }, { tubeUnit, &textures.tubeDecal, "tube.png" },
                                     { tideUnit, &textures.tideDecal, "tide.png" }, { lumenUnit, &textures.lumenDecal, "lumen.png" },
-                                    { limiterUnit, &textures.limiterDecal, "limiter.png" }, { levelUnit, &textures.levelDecal, "level.png" },
+                                    { limiterUnit, &textures.limiterDecal, "limiter.png" }, { deepUnit, &textures.deepDecal, "deepsub.png" }, { levelUnit, &textures.levelDecal, "level.png" },
                                     { balancerUnit, &textures.balancerDecal, "balancer.png" }, { monitorUnit, &textures.monitorDecal, "monitor.png" } };
 
         for (auto& panel : panels)

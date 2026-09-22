@@ -131,11 +131,28 @@ namespace pad::presets
                   { id::silkSub, 2.0f }, { id::heavenAuto, 1.0f }, { id::heavenAutoAmount, 7.0f },
               } },
 
+            { "DEEP SUB: SUBMARINE",
+              "the low end deep, dark and huge: an octave-down sub under the bass and a steel hull ringing after every hit",
+              {
+                  { id::clarityMode, 1.0f }, { id::clarityAdd, 3.0f }, { id::adaptSpeed, 35.0f },
+                  { id::sub, 30.0f }, { id::subBoost, 0.0f }, { id::footstep, 0.0f },
+                  { id::deepDepth, 6.5f }, { id::deepHull, 5.5f }, { id::deepSize, 7.5f }, { id::deepPressure, 4.0f },
+                  { id::lumenTarget, -22.0f }, { id::lumenResponse, 4.0f },
+                  { id::spectralRange, 9.0f }, { id::spectralRelease, 260.0f }, { id::spectralCeiling, 0.0f },
+                  { id::tideMix, 35.0f }, { id::tideResponse, 4.0f },
+                  { id::seraphMode, 2.0f },
+                  { id::silkSmooth, 4.0f }, { id::silkAir, 3.0f }, { id::silkWarmth, 3.5f }, { id::silkBody, 2.5f },
+                  { id::haloWidth, 125.0f }, { id::haloSpace, 2.5f }, { id::haloDecay, 3.2f }, { id::haloShimmer, 0.5f },
+                  { id::haloTone, 4.0f }, { id::haloDuck, 1.0f }, { id::haloBassMono, 1.0f },
+                  { id::heavenHold, 12.0f }, { id::silkSub, 3.0f },
+              } },
+
             { "TRANSPARENT (ALL OUT)",
               "a reference: every unit bypassed, the enhancer at STRENGTH 0 (its subsonic filter and the output safety limiter stay)",
               {
                   { id::enhStrength, 0.0f }, { id::sub, 0.0f }, { id::footstep, 0.0f },
                   { id::lumenActive, 0.0f }, { id::spectralActive, 0.0f }, { id::tideActive, 0.0f }, { id::balActive, 0.0f },
+                  { id::deepActive, 0.0f },
                   { id::seraphMode, 0.0f },
               } },
         };

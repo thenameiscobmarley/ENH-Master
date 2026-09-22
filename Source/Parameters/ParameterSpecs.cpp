@@ -67,6 +67,11 @@ namespace pad::params
             { id::balRange,  "Balancer Range",   "RANGE",   " dB", Kind::continuous, 0.0f, 12.0f, 6.0f, 1 },
             { id::balActive, "Balancer In",      "IN",      "",    Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
             { id::balResolution, "Balancer Resolution", "RESOLUTION", "", Kind::continuous, 0.0f, 10.0f, 0.0f, 1 },
+            { id::deepDepth,    "Deep Sub Depth",    "DEPTH",    "", Kind::continuous, 0.0f, 10.0f, 0.0f, 1 },
+            { id::deepHull,     "Deep Sub Hull",     "HULL",     "", Kind::continuous, 0.0f, 10.0f, 0.0f, 1 },
+            { id::deepSize,     "Deep Sub Size",     "SIZE",     "", Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
+            { id::deepPressure, "Deep Sub Pressure", "PRESSURE", "", Kind::continuous, 0.0f, 10.0f, 0.0f, 1 },
+            { id::deepActive,   "Deep Sub In",       "IN",       "", Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
             { id::monitorSpeed, "Monitor Speed", "SPEED", "", Kind::continuous, 1.0f, 10.0f, 5.0f, 1, 0.0f, {}, false },
 
             { id::presetPrev,  "Preset Previous",  "PREV",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },

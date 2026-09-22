@@ -67,6 +67,38 @@ PROCESSING. Parameter `levelerBalance`.
 | **MID** Mid focus | Low 7 dB under, high 3 dB under. | Even more of the lift goes to the midrange: voices and steps forward, boom and hiss left alone. | Control rate, no audio cost. Glides (slew-limited). |
 | **FLT** Flat | Every band aims at the target itself. | Lows and highs come up as much as the mids: fuller and brighter, less focused. | Control rate, no audio cost. Glides (slew-limited). |
 
+## DEEP SUB
+
+### SUB SHAPE - What the generated sub is
+
+PROCESSING. Parameter `deepShape`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **SIN** Sine (default) | The generated sub is a pure sine an octave under the bass note. | The deepest and cleanest: felt more than heard, pure pressure. Best on a subwoofer or big headphones. | Zero latency (default). |
+| **WRM** Warm | A softly saturated sine: a little 3rd harmonic on top of the sub. | Still deep, but it carries on small speakers and earbuds: the octave-down can be heard, not only felt. | Zero latency, same CPU. Crossfades over 30 ms. |
+| **GRL** Growl | A rounded square wave: strong odd harmonics. | A dark, growling engine-room sub with a lot of presence. The most aggressive. | Zero latency, same CPU. Crossfades over 30 ms. |
+
+### TRACKING - How it follows the bass note
+
+PROCESSING. Parameter `deepTracking`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **STD** Standard (default) | The generated note follows the bass note with a 30 ms glide. | Locks on to bass lines and hits quickly without warbling. | Control rate, no audio cost (default). |
+| **FST** Fast | An 8 ms glide. | Follows fast bass lines and pitch drops (808s) closely; can sound a little busier. | Control rate, no audio cost. |
+| **STB** Stable | A 90 ms glide. | A steadier, smoother sub that ignores small pitch wobbles: best for drones and ambience. | Control rate, no audio cost. |
+
+### HULL MATERIAL - How long the hull rings
+
+PROCESSING. Parameter `deepMaterial`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **STL** Steel (default) | The hull's resonances ring for up to about 3 seconds. | A vast steel hull: long, singing, metallic low tails after every hit. The submarine. | Control rate, no audio cost (default). |
+| **IRN** Iron | They ring about half as long, and the upper modes are darker. | Heavier and duller: a thick cast hull, the weight without as much tail. | Control rate, no audio cost. Glides. |
+| **CAV** Cavern | Short rings with brighter upper modes. | A rock cavern rather than a hull: dense and close, the low end blooms and stops. | Control rate, no audio cost. Glides. |
+
 ## SPECTRAL LIMITER
 
 ### NORMAL - What counts as normal for a band
@@ -297,4 +329,4 @@ three off the knob is exactly as it always was.
 | **CRV** Curve | Reshapes the knob's travel before it reaches the processing: LOW spends more travel at the bottom of the range (squared), HIGH more at the top (square root), S at both ends (smoothstep). | Finer control where you need it; the knob still covers the same range end to end. | No cost. | **LINEAR** (off), LOW, HIGH, S |
 | **LIM** Range | Limits how far the knob reaches: its full travel covers only the bottom part of its range. | A safety net for live use and presets: the setting can never be pushed past the limit, and the knob gets finer. | No cost. | **FULL** (off), 75 %, 50 %, 25 % |
 
-Knobs with modifiers: `clarityNorm`, `clarityAdd`, `adaptSpeed`, `sub`, `enhMultiply`, `enhStrength`, `heavenHold`, `heavenLift`, `heavenAutoAmount`, `tideMix`, `tideResponse`, `lumenTarget`, `lumenResponse`, `spectralRange`, `spectralRelease`, `spectralCeiling`, `levelGain`, `balAmount`, `balSpeed`, `balTilt`, `balRange`, `balResolution`, `silkSmooth`, `silkAir`, `silkWarmth`, `silkBody`, `silkOutput`, `silkSub`, `haloWidth`, `haloSpace`, `haloDecay`, `haloShimmer`, `haloTone`, `seraphMultiply`, `seraphStrength`.
+Knobs with modifiers: `clarityNorm`, `clarityAdd`, `adaptSpeed`, `sub`, `enhMultiply`, `enhStrength`, `heavenHold`, `heavenLift`, `heavenAutoAmount`, `tideMix`, `tideResponse`, `lumenTarget`, `lumenResponse`, `spectralRange`, `spectralRelease`, `spectralCeiling`, `levelGain`, `balAmount`, `balSpeed`, `balTilt`, `balRange`, `balResolution`, `silkSmooth`, `silkAir`, `silkWarmth`, `silkBody`, `silkOutput`, `silkSub`, `haloWidth`, `haloSpace`, `haloDecay`, `haloShimmer`, `haloTone`, `seraphMultiply`, `seraphStrength`, `deepDepth`, `deepHull`, `deepSize`, `deepPressure`.

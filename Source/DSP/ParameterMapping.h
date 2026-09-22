@@ -32,6 +32,10 @@ namespace enh::dsp
         float tideMixPercent = 60.0f, tideResponse = 5.0f;
         bool tideActive = true;
         std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
+
+        // DEEP SUB
+        float deepDepth = 0.0f, deepHull = 0.0f, deepSize = 5.0f, deepPressure = 0.0f;   // 0..10
+        bool deepActive = true;
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
 
@@ -48,7 +52,7 @@ namespace enh::dsp
     /** Every continuous knob, by parameter ID, and where its value goes: the knob modifiers
         (Parameters/KnobModifiers.h) work on these, before the mapping below. */
     struct KnobField { const char* param; float KnobValues::* field; };
-    inline constexpr std::array<KnobField, 35> knobFields {{
+    inline constexpr std::array<KnobField, 39> knobFields {{
         { "clarityNorm", &KnobValues::clarityNorm },       { "clarityAdd", &KnobValues::clarityAdd },
         { "adaptSpeed", &KnobValues::adaptPercent },       { "sub", &KnobValues::subPercent },
         { "enhMultiply", &KnobValues::enhMultiply },       { "enhStrength", &KnobValues::enhStrength },
@@ -69,6 +73,8 @@ namespace enh::dsp
         { "haloDecay", &KnobValues::decayS },              { "haloShimmer", &KnobValues::shimmer },
         { "haloTone", &KnobValues::tone },
         { "seraphMultiply", &KnobValues::seraphMultiply }, { "seraphStrength", &KnobValues::seraphStrength },
+        { "deepDepth", &KnobValues::deepDepth },           { "deepHull", &KnobValues::deepHull },
+        { "deepSize", &KnobValues::deepSize },             { "deepPressure", &KnobValues::deepPressure },
     }};
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -165,6 +171,15 @@ namespace enh::dsp
         p.seraph.silk.tapeCurve = mt[seraphTape];
         p.seraph.halo.preDelay  = mt[seraphPreDelay];
         p.seraph.heaven.window  = mt[seraphWindow];
+
+        p.deep.depth    = std::clamp (k.deepDepth / 10.0f, 0.0f, 1.0f);
+        p.deep.hull     = std::clamp (k.deepHull / 10.0f, 0.0f, 1.0f);
+        p.deep.size     = std::clamp (k.deepSize / 10.0f, 0.0f, 1.0f);
+        p.deep.pressure = std::clamp (k.deepPressure / 10.0f, 0.0f, 1.0f);
+        p.deep.active   = k.deepActive;
+        p.deep.shape    = mt[deepShape];
+        p.deep.tracking = mt[deepTracking];
+        p.deep.material = mt[deepMaterial];
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
         p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);

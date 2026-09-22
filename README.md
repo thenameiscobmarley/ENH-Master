@@ -3,10 +3,12 @@
 Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux and Windows),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
-Seven processors and a monitor in one plugin, in signal order:
+Eight processors and a monitor in one plugin, in signal order:
 - **LEVEL CONTROL**: the rack's working level, with an INPUT meter.
 - **ADAPTIVE ENHANCER**: adaptive EQ, generated harmonics, sub and footstep priority.
 - **UPWARD LEVELER**: three bands, lifts quiet material.
+- **DEEP SUB**: an octave-down sub under the bass line and a resonant steel hull ringing after every hit.
+  It makes the low end deep, dark and huge.
 - **SPECTRAL LIMITER**: cuts a region that jumps out of balance, or goes over 0 dBFS, where it is, so a
   bass hit doesn't duck the whole mix.
 - **MIX BALANCER**: rides six band faders to keep the mix balanced moment to moment.
@@ -23,9 +25,10 @@ automation still load; only the names the host and the panels show have changed.
 
 ![Hovering a label: the loupe and the value callout](docs/screenshot-hover.png)
 
-*Eight units in a curved walnut case, bottom to top in signal order: LEVEL CONTROL, ADAPTIVE ENHANCER
-(clarity, sub, footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, MIX BALANCER, ADAPTIVE
-COMPRESSOR, TONE & SPACE, OUTPUT MONITOR.*
+*Nine units in a curved walnut case, bottom to top in signal order: LEVEL CONTROL, ADAPTIVE ENHANCER
+(clarity, sub, footsteps and the analyser), UPWARD LEVELER, DEEP SUB, SPECTRAL LIMITER, MIX BALANCER,
+ADAPTIVE COMPRESSOR, TONE & SPACE, OUTPUT MONITOR. The case is no taller than it was with eight: the
+units sit closer together, and the MIX BALANCER is 3U, down from 4U.*
 
 ## Version numbers
 
@@ -40,7 +43,8 @@ From the release after 1.4.1, versions have four parts: **MASSIVE.BIG.SMALL.SMAL
 
 In this scheme 1.4.1 reads as 1.0.4.1. 1.1.4.1 raised the 2nd part for a big change (the glass info
 panels and the swappable processing methods), and 1.2.4.1 raises it again for another (settings on every
-unit, knob modifiers on every knob, and the panel's categories).
+unit, knob modifiers on every knob, and the panel's categories), and 1.3.4.1 once more (the DEEP SUB unit,
+a knob dropdown per knob, and a shorter rack).
 
 ## Build
 
@@ -142,8 +146,9 @@ corners and a soft shadow.
 **Every unit has settings**, in collapsible categories:
 
 - **PROCESSING:** the unit's stages, each with two or three named methods.
-- **KNOBS:** per knob, its own law where it has one, then three modifiers between the knob and the
-  processing: **SMOOTHING** (off, 50 ms, 250 ms, 1 s), **CURVE** (linear, low, high, S) and **RANGE**
+- **KNOBS:** every knob is its own dropdown, folded, with a one-line summary under its name ("as it is",
+  or what is set). Open one for its own law where it has one, then three modifiers between the knob and
+  the processing: **SMOOTHING** (off, 50 ms, 250 ms, 1 s), **CURVE** (linear, low, high, S) and **RANGE**
   (full, 75, 50, 25 %). The host always sees the knob's raw value.
 - **OUTPUT** and **DISPLAY** on the OUTPUT MONITOR.
 - **RESET TO DEFAULTS** at the bottom puts the whole unit back.
@@ -157,9 +162,10 @@ corners and a soft shadow.
 | MIX BALANCER | REFERENCE: median, average · DEAD ZONE: 1.5, 0.75, 3 dB · LIFTS: half, cuts only, full · ATTACK GUARD: standard, strong, off · LOUDNESS KEEPER: 60 %, 90 %, off |
 | ADAPTIVE COMPRESSOR | DETECTOR: PKR, RMS, KWT · SIDE-CHAIN: 90 Hz, 150 Hz, full · GAIN: adaptive, soft, hard · SMOOTHING: dual release, single, opto · MAKE-UP: 65 %, 90 %, none · RESPONSE law: linear, exponential, logarithmic |
 | TONE & SPACE | TAPE CURVE: tanh, arctangent, cubic · PRE-DELAY: 18, 8, 35 ms · LOUDNESS WINDOW: 2, 1, 4 s |
+| DEEP SUB | SUB SHAPE: sine, warm, growl · TRACKING: standard, fast, stable · HULL MATERIAL: steel, iron, cavern |
 | OUTPUT MONITOR | CEILING: 0.0, -0.3, -1.0 dBFS · TONE RANGE: ±12, ±6, ±24 dB · DUCK HOLD: 1.5, 0.5, 4 s · WAVEFORM: peak, RMS |
 
-That makes 26 settings with 76 methods, plus three modifiers on each of 35 knobs.
+That makes 29 settings with 85 methods, plus three modifiers on each of 39 knobs.
 
 - Hover any setting and the bottom of the panel explains how it changes the sound and what it costs.
 - Settings not at their default are marked with a small white square, and each category counts them.
@@ -218,6 +224,7 @@ or by an AI) without rebuilding:
 | VOICE & STREAMING | speech first: intelligibility, even level, no tail |
 | MUSIC: WARM MASTER | tape warmth, a touch of room, leveler OUT so music keeps its dynamics |
 | MUSIC: WIDE & AIRY | open top, wide image, a lush modulated hall |
+| DEEP SUB: SUBMARINE | the low end deep, dark and huge: an octave-down sub under the bass and a steel hull ringing after every hit |
 | TRANSPARENT (ALL OUT) | reference: everything bypassed, MIX BALANCER out too (the enhancer's subsonic filter and the output limiter stay) |
 
 `EnhDspTests --presets` runs every preset through the engine on the synthetic game scene and a bass
@@ -278,7 +285,39 @@ the input in pencil and the output in ink.
   deepest duck is held for 1.5 s so a short one can still be read. `LOUDNESS KEPT +1.6 dB` shows the
   loudness keepers' lift (see *Ducking without losing loudness*).
 
-## MIX BALANCER (4U)
+## DEEP SUB (1U)
+
+Low end you feel as much as hear: deep, dark and huge, like standing inside a steel hull under water.
+It sits after the UPWARD LEVELER and before the limiters, so they look after what it adds.
+
+- **DEPTH:** the bass line is tracked note by note, and a new tone is generated an octave below it,
+  following the bass's own envelope. The tracker uses zero crossings with hysteresis, and its confidence
+  only builds on a steady pitch. A note whose octave-down would fall under about 30 Hz, where nothing
+  reproduces it, is reinforced at its own pitch instead, blended smoothly.
+- **HULL:** six long-ringing low resonances at the inharmonic ratios of a steel shell, struck by the bass
+  and the sub. Each drifts very slowly, like a hull under pressure, and a dark rumble breathes under it
+  while it rings.
+- **SIZE:** from a small boat to a vast hull. The resonances sit between 48 and 22 Hz and ring longer as
+  the hull grows.
+- **PRESSURE:** weight you can feel on small speakers too: a low shelf on the programme, plus a soft
+  saturation of what is generated, which adds the harmonics that make a sub audible.
+- **IN:** bypass.
+- **Meter:** SUB, what it is adding (dBFS).
+- **In the glass panel:** SUB SHAPE (sine, warm, growl), TRACKING (standard, fast, stable) and HULL
+  MATERIAL (steel, iron, cavern).
+
+Everything generated is mono, high-passed at 18 Hz, and turned down when the programme is already near
+full scale. With DEPTH, HULL and PRESSURE at 0 the audio is not touched at all, so every older preset
+sounds exactly as before. The **DEEP SUB: SUBMARINE** preset shows it off.
+
+Tested (`EnhDspTests --units`):
+- under an 80 / 98 Hz bass line, DEPTH 8 adds +34 dB at 40 Hz and +27 dB at 49 Hz, an octave below each
+  note;
+- the hull still rings 0.3–1 s after the bass stops;
+- with everything at full on a near-full-scale bass, the output stays bounded and is identical at every
+  block size.
+
+## MIX BALANCER (3U)
 
 Rides six band faders the way a mix engineer would. It compares how far each of six regions has
 moved from its usual level with how far the mix as a whole has moved (the median of the six), in
@@ -302,6 +341,8 @@ is taken down; a region that drops out is lifted, gently.
   - Spectral mode costs 1.7 % of a core extra, and nothing at 0.
 - **Loudness keeper:** while bands are cut, the rest of the mix is lifted to hold the loudness (see
   *Ducking without losing loudness*).
+
+Its four main knobs sit in a 2 x 2 grid beside the display (it was 4U, with a column of four).
 
 The display is laid out FabFilter-style, printed on the cream card like every display on the rack:
 - the spectrum going in (filled) and coming out (line);

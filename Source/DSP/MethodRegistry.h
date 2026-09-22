@@ -41,6 +41,7 @@ namespace enh::dsp::methods
         levelGlide,
         outputCeiling,
         displayToneRange, displayDuckHold, displayWaveform,
+        deepShape, deepTracking, deepMaterial,
         numMethodIds,
         fixedStage = -1
     };
@@ -426,6 +427,51 @@ namespace enh::dsp::methods
     }};
 
     //==================================================================================================
+    // DEEP SUB
+    inline constexpr std::array<Method, 3> deepShapeMethods {{
+        { "SIN", "Sine",
+          "The generated sub is a pure sine an octave under the bass note.",
+          "The deepest and cleanest: felt more than heard, pure pressure. Best on a subwoofer or big headphones.",
+          "Zero latency (default)." },
+        { "WRM", "Warm",
+          "A softly saturated sine: a little 3rd harmonic on top of the sub.",
+          "Still deep, but it carries on small speakers and earbuds: the octave-down can be heard, not only felt.",
+          "Zero latency, same CPU. Crossfades over 30 ms." },
+        { "GRL", "Growl",
+          "A rounded square wave: strong odd harmonics.",
+          "A dark, growling engine-room sub with a lot of presence. The most aggressive.",
+          "Zero latency, same CPU. Crossfades over 30 ms." },
+    }};
+    inline constexpr std::array<Method, 3> deepTrackingMethods {{
+        { "STD", "Standard",
+          "The generated note follows the bass note with a 30 ms glide.",
+          "Locks on to bass lines and hits quickly without warbling.",
+          "Control rate, no audio cost (default)." },
+        { "FST", "Fast",
+          "An 8 ms glide.",
+          "Follows fast bass lines and pitch drops (808s) closely; can sound a little busier.",
+          "Control rate, no audio cost." },
+        { "STB", "Stable",
+          "A 90 ms glide.",
+          "A steadier, smoother sub that ignores small pitch wobbles: best for drones and ambience.",
+          "Control rate, no audio cost." },
+    }};
+    inline constexpr std::array<Method, 3> deepMaterialMethods {{
+        { "STL", "Steel",
+          "The hull's resonances ring for up to about 3 seconds.",
+          "A vast steel hull: long, singing, metallic low tails after every hit. The submarine.",
+          "Control rate, no audio cost (default)." },
+        { "IRN", "Iron",
+          "They ring about half as long, and the upper modes are darker.",
+          "Heavier and duller: a thick cast hull, the weight without as much tail.",
+          "Control rate, no audio cost. Glides." },
+        { "CAV", "Cavern",
+          "Short rings with brighter upper modes.",
+          "A rock cavern rather than a hull: dense and close, the low end blooms and stops.",
+          "Control rate, no audio cost. Glides." },
+    }};
+
+    //==================================================================================================
     // The stages of each unit, in the order the panel lists them
     inline constexpr std::array<Stage, 6> compressorStages {{
         { "ADAPTIVE COMPRESSOR", 2, "PROCESSING", "DETECTOR", "How it measures the level", "tideDetector", tideDetector, "", tideDetectorMethods.data(), 3 },
@@ -470,6 +516,12 @@ namespace enh::dsp::methods
         { "OUTPUT MONITOR", 7, "DISPLAY", "WAVEFORM", "What each waveform column shows", "displayWaveform", displayWaveform, "", displayWaveformMethods.data(), 2 },
     }};
 
+    inline constexpr std::array<Stage, 3> deepStages {{
+        { "DEEP SUB", 8, "PROCESSING", "SUB SHAPE", "What the generated sub is", "deepShape", deepShape, "", deepShapeMethods.data(), 3 },
+        { "DEEP SUB", 8, "PROCESSING", "TRACKING", "How it follows the bass note", "deepTracking", deepTracking, "", deepTrackingMethods.data(), 3 },
+        { "DEEP SUB", 8, "PROCESSING", "HULL MATERIAL", "How long the hull rings", "deepMaterial", deepMaterial, "", deepMaterialMethods.data(), 3 },
+    }};
+
     struct StageList { const Stage* stages; int count; };
 
     /** The stages of a unit (by its layout::Unit index). */
@@ -485,12 +537,13 @@ namespace enh::dsp::methods
             case 5: return { levelStages.data(), (int) levelStages.size() };
             case 6: return { balancerStages.data(), (int) balancerStages.size() };
             case 7: return { monitorStages.data(), (int) monitorStages.size() };
+            case 8: return { deepStages.data(), (int) deepStages.size() };
             default: return { nullptr, 0 };
         }
     }
 
     /** The units bottom to top (signal order), for the parameters and the reference page. */
-    inline constexpr std::array<int, 8> unitsInRackOrder { 5, 0, 3, 4, 6, 2, 1, 7 };
+    inline constexpr std::array<int, 9> unitsInRackOrder { 5, 0, 3, 8, 4, 6, 2, 1, 7 };
 
     //==================================================================================================
     // Knob modifiers: on every knob's input side, between the knob and its processing. Stored in the
