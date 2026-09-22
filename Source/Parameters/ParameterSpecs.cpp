@@ -1,4 +1,5 @@
 #include "ParameterSpecs.h"
+#include "../DSP/MethodRegistry.h"
 
 namespace pad::params
 {
@@ -18,9 +19,6 @@ namespace pad::params
             { id::tideMix,      "Compressor Mix", "MIX",      " %", Kind::continuous, 0.0f, 100.0f, 60.0f, 0 },
             { id::tideResponse, "Compressor Response", "RESPONSE", "",   Kind::continuous, 0.0f, 10.0f,  5.0f,  1 },
             { id::tideActive,   "Compressor In", "IN",       "",   Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
-            { id::tideDetector,    "Compressor Detector",     "DETECTOR",     "", Kind::choice, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "PKR", "RMS" }, false },
-            { id::tideSmoothing,   "Compressor Smoothing",    "SMOOTHING",    "", Kind::choice, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "DRL", "SRL" }, false },
-            { id::tideResponseLaw, "Compressor Response Law", "RESPONSE LAW", "", Kind::choice, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "LIN", "EXP" }, false },
 
             { id::lumenTarget,   "Leveler Target", "TARGET",   " dB", Kind::continuous, -36.0f, -6.0f, -18.0f, 1 },
             { id::lumenResponse, "Leveler Response", "RESPONSE", "",    Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
@@ -74,6 +72,27 @@ namespace pad::params
             { id::presetPrev,  "Preset Previous",  "PREV",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },
             { id::presetNext,  "Preset Next",      "NEXT",    "",    Kind::toggle, 0.0f, 1.0f, 0.0f, 0, 0.0f, {}, false },
         };
+
+        // Every processing method's choice (the glass panel), from the registry: not automatable, default =
+        // the first method (how the unit sounded before methods existed)
+        for (int unit : enh::dsp::methods::unitsInRackOrder)
+        {
+            const auto list = enh::dsp::methods::stagesForUnit (unit);
+            for (int i = 0; i < list.count; ++i)
+            {
+                const auto& st = list.stages[i];
+                if (st.param.empty())
+                    continue;
+                juce::StringArray texts;
+                for (int k = 0; k < st.numMethods; ++k)
+                    texts.add (juce::String (st.methods[k].shortName.data(), st.methods[k].shortName.size()));
+                const auto unitName = juce::String (st.unit.data(), st.unit.size());
+                const auto stageName = juce::String (st.name.data(), st.name.size());
+                specs.push_back ({ juce::String (st.param.data(), st.param.size()),
+                                   unitName.substring (0, 1) + unitName.substring (1).toLowerCase() + " " + stageName.toLowerCase(),
+                                   stageName, "", Kind::choice, 0.0f, (float) (st.numMethods - 1), 0.0f, 0, 0.0f, texts, false });
+            }
+        }
 
         return specs;
     }

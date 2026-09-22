@@ -10,6 +10,7 @@
 #include "AnalogStage.h"
 #include "Seraph.h"
 #include "DynamicCompressor.h"
+#include "MethodRegistry.h"
 #include "SpectralLeveler.h"
 #include "SpectralLimiter.h"
 #include "SpectrumScope.h"
@@ -58,6 +59,7 @@ namespace enh::dsp
             Seraph::Settings seraph {};
             float levelDb = 0.0f;                 // LEVEL: the rack's working level (-24 .. +12 dB), first in the chain
             MixBalancer::Settings balancer {};    // MIX BALANCER: rides six band faders for the balance
+            std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);

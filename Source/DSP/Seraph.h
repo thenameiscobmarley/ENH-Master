@@ -65,6 +65,7 @@ namespace enh::dsp
             float outputDb = 0.0f;
             bool protect = true, tape = false, autoGain = true;
             float strength = 1.0f;   // STRENGTH: 0 = no effect, 1 = as set, up to 5 = five times the effect
+            int tapeCurve = 0;       // TAPE CURVE method (MethodRegistry.h): 0 tanh, 1 arctangent, 2 cubic
         };
 
         void prepare (double sampleRate);
@@ -145,6 +146,8 @@ namespace enh::dsp
 
         float smoothingDb = 0.0f, blend = 0.0f, blendCoeff = 0.0f, meterSmoothing = 0.0f;
         bool tapeOn = false;
+        int tapeCurve = 0, fadingTapeCurve = -1, tapeFadeLeft = 0, tapeFadeLen = 1440;
+        static float tapeShape (int curve, float v) noexcept;
     };
 
     //==============================================================================
@@ -178,6 +181,7 @@ namespace enh::dsp
             float tone = 0.6f;       // 0..1
             bool duck = true, bassMono = true, mod = true;
             float strength = 1.0f;   // STRENGTH: scales width change, tail level and shimmer
+            int preDelay = 0;        // PRE-DELAY method (MethodRegistry.h): 0 18 ms, 1 8 ms, 2 35 ms
         };
 
         void prepare (double sampleRate);
@@ -245,6 +249,8 @@ namespace enh::dsp
 
         // Reverb
         Delay preDelay;
+        int preDelayMethod = 0, fadingPreDelay = -1, preDelayFadeLeft = 0, preDelayFadeLen = 1440;
+        static double preDelaySeconds (int method) noexcept { return method == 1 ? 0.008 : method == 2 ? 0.035 : 0.018; }
         std::array<Allpass, 4> diffusers {};
         std::array<Delay, numLines> lines {};
         std::array<float, numLines> lineLength {}, lineGain {}, damp {}, lfoPhase {}, lfoRate {}, lfoOffset {};
@@ -296,6 +302,7 @@ namespace enh::dsp
             float strength = 1.0f;
             bool autoHeaven = false; // AUTO: the unit tunes its own heaven to the programme
             float autoAmount = 0.5f; // HEAVEN: how far AUTO moves the knobs toward what it chose (0..1)
+            int window = 0;          // LOUDNESS WINDOW method (MethodRegistry.h): 0 2 s, 1 1 s, 2 4 s
         };
 
         /** What AUTO has chosen for this programme right now (display, tests). */
@@ -469,11 +476,12 @@ namespace enh::dsp
                 sum += (double) k * k;
             }
             const float power = (float) (sum / std::max (1, numSamples));
-            level += (power - level) * (1.0f - std::exp (-(float) numSamples / (2.0f * (float) sr)));
+            level += (power - level) * (1.0f - std::exp (-(float) numSamples / (windowSeconds * (float) sr)));
         }
 
         void applyHeaven (float* const* channels, int numChannels, int numSamples, const HeavenSettings& h) noexcept
         {
+            windowSeconds = h.window == 1 ? 1.0f : h.window == 2 ? 4.0f : 2.0f;   // LOUDNESS WINDOW (read by the next measure)
             const float amount = std::clamp (h.amount, 0.0f, 1.0f) * std::clamp (h.strength, 0.0f, 5.0f);
             if (amount <= 1.0e-4f)
             {
@@ -515,5 +523,6 @@ namespace enh::dsp
         BiquadState dryHp, dryHp2, dryShelf, wetHp, wetHp2, wetShelf;
         float dryLevel = 1.0e-8f, wetLevel = 1.0e-8f, heavenGain = 1.0f, heavenDb = 0.0f;
         float limiterGain = 1.0f, limiterRelease = 0.99f, gainReductionDb = 0.0f;
+        float windowSeconds = 2.0f;   // LOUDNESS WINDOW
     };
 }

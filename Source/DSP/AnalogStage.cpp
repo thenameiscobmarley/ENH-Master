@@ -9,7 +9,17 @@ namespace enh::dsp
         top  = SvfCoeffs::make (osr, std::min (4.2 * hz, 19000.0), 0.7071);
     }
 
-    inline float AnalogStage::excite (Exciter& e, const ExciterCoeffs& c, float in, float attack, float release) noexcept
+    AnalogStage::Weights AnalogStage::weightsFor (int method) noexcept
+    {
+        switch (method)
+        {
+            case 1:  return { 0.90f, 0.08f, 0.80f, 0.12f };   // EVN: warm, round
+            case 2:  return { 0.35f, 0.70f, 0.25f, 0.80f };   // ODD: edgy, forward
+            default: return { 0.75f, 0.35f, 0.55f, 0.50f };   // CHB: body mostly even, definition even + odd
+        }
+    }
+
+    inline float AnalogStage::excite (Exciter& e, const ExciterCoeffs& c, float in, float attack, float release, float w2, float w3) noexcept
     {
         const float x = e.pre2.process (c.pre, e.pre1.process (c.pre, in).band).band;
 
@@ -21,7 +31,7 @@ namespace enh::dsp
         // Normalised partial (soft-limited so the polynomials stay bounded on peaks)
         const float v = x / amp;
         const float u = v / (1.0f + 0.2f * std::abs (v));
-        const float h = (c.w2 * (2.0f * u * u - 1.0f) + c.w3 * (4.0f * u * u - 3.0f) * u) * amp;
+        const float h = (w2 * (2.0f * u * u - 1.0f) + w3 * (4.0f * u * u - 3.0f) * u) * amp;
 
         // Keep only what lies above the source: DC, the fundamental and IM products below go
         const float hp = e.post2.process (c.post, e.post1.process (c.post, h).high).high;
@@ -47,6 +57,10 @@ namespace enh::dsp
         depthCoeffs.w2 = 0.75f;   depthCoeffs.w3 = 0.35f;    // body: mostly even
         clarityCoeffs.w2 = 0.55f; clarityCoeffs.w3 = 0.50f;  // definition: even + odd
         depthHz = clarityHz = 0.0f;
+        weightsFrom = weightsTo = weightsFor (0);
+        harmonicsMethod = 0;
+        glideLen = std::max (1, (int) std::lround (0.030 * osr));
+        glidePos = glideLen;
 
         envAttack = onePole (0.001, osr);
         envRelease = onePole (0.060, osr);
@@ -156,6 +170,23 @@ namespace enh::dsp
         const float clarityStep = (clarityTarget - clarityMix) / (float) un;
         const bool exciting = depthTarget + depthMix + clarityTarget + clarityMix > 1.0e-5f;
 
+        // HARMONICS changed: glide from wherever the weights are now
+        const int wantHarmonics = std::clamp (s.harmonics, 0, 2);
+        if (wantHarmonics != harmonicsMethod)
+        {
+            const float t = (float) std::min (glidePos, glideLen) / (float) glideLen;
+            weightsFrom = { weightsFrom.depthW2 + (weightsTo.depthW2 - weightsFrom.depthW2) * t,
+                            weightsFrom.depthW3 + (weightsTo.depthW3 - weightsFrom.depthW3) * t,
+                            weightsFrom.clarityW2 + (weightsTo.clarityW2 - weightsFrom.clarityW2) * t,
+                            weightsFrom.clarityW3 + (weightsTo.clarityW3 - weightsFrom.clarityW3) * t };
+            weightsTo = weightsFor (wantHarmonics);
+            harmonicsMethod = wantHarmonics;
+            glidePos = 0;
+        }
+        const bool gliding = glidePos < glideLen;
+        const int glideStart = glidePos;
+        glidePos = std::min (glideLen, glidePos + un);
+
         // Transformer / valve colour, scaled by STRENGTH (0 = none). No ceiling here: in floating point a
         // mid-chain clipper protects nothing, it only distorts loud bass. The final limiter at the end of
         // the chain looks after full scale; the guard below only keeps the colour curve from folding over.
@@ -168,6 +199,7 @@ namespace enh::dsp
             auto* x = up.getChannelPointer ((size_t) c);
             auto& o = os[(size_t) c];
             float dMix = depthMix, cMix = clarityMix;
+            float dW2 = weightsTo.depthW2, dW3 = weightsTo.depthW3, cW2 = weightsTo.clarityW2, cW3 = weightsTo.clarityW3;
 
             for (int i = 0; i < un; ++i)
             {
@@ -178,8 +210,16 @@ namespace enh::dsp
                 {
                     dMix += depthStep;
                     cMix += clarityStep;
-                    y += dMix * excite (o.depth, depthCoeffs, in, envAttack, envRelease)
-                       + cMix * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease);
+                    if (gliding)
+                    {
+                        const float t = std::min (1.0f, (float) (glideStart + i) / (float) glideLen);
+                        dW2 = weightsFrom.depthW2 + (weightsTo.depthW2 - weightsFrom.depthW2) * t;
+                        dW3 = weightsFrom.depthW3 + (weightsTo.depthW3 - weightsFrom.depthW3) * t;
+                        cW2 = weightsFrom.clarityW2 + (weightsTo.clarityW2 - weightsFrom.clarityW2) * t;
+                        cW3 = weightsFrom.clarityW3 + (weightsTo.clarityW3 - weightsFrom.clarityW3) * t;
+                    }
+                    y += dMix * excite (o.depth, depthCoeffs, in, envAttack, envRelease, dW2, dW3)
+                       + cMix * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease, cW2, cW3);
                 }
 
                 // Transformer / valve colour

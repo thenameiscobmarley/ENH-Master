@@ -16,6 +16,8 @@ namespace enh::dsp
         scHp = BiquadCoeffs::highPass (sr, 90.0, 0.7071);
         fadeLength = std::max (1, (int) std::lround (0.030 * sr));
         rmsWindowCoeff = 1.0f - (float) std::exp (-1.0 / (0.050 * sr));
+        kwtShelf = BiquadCoeffs::highShelf (sr, 1500.0, 0.7071, 4.0);
+        scHp150 = BiquadCoeffs::highPass (sr, 150.0, 0.7071);
         reset();
     }
 
@@ -29,7 +31,11 @@ namespace enh::dsp
         thresholdDb = -20.0f;
         ratio = 2.0f;
         gainDb = makeupDb = slowDb = fastDb = singleDb = 0.0f;
-        rmsWindowEnergy = 0.0f;
+        rmsWindowEnergy = kwtEnergy = optoDb = 0.0f;
+        kwtState.reset();
+        for (auto& st : scState150) st.reset();
+        fadingSideChain = fadingGain = -1;
+        sideChainFadeLeft = gainFadeLeft = 0;
         fadingDetector = fadingSmoothing = -1;
         detectorFadeLeft = smoothingFadeLeft = 0;
         for (auto& st : scState) st.reset();
@@ -118,13 +124,41 @@ namespace enh::dsp
         switch (method)
         {
             case detectorRms: return std::sqrt (rmsWindowEnergy) * 1.4f;  // RMS: 50 ms power only (a sine reads as PKR does)
+            case detectorKwt: return std::sqrt (kwtEnergy) * 1.4f;        // KWT: the same, K-weighted
             default:          return std::max (peak, rms * 1.4f);         // PKR: whichever is higher, peak or RMS
         }
     }
 
     // Stage 3, smoothing: target gain -> applied gain
+    // Stage 2, gain computer: level -> target gain (dB, <= 0), soft knee
+    float DynamicCompressor::gainFor (int method, float levelDb) const noexcept
+    {
+        float r = ratio, knee = kneeDb;
+        if (method == gainSoft)      { r = 1.0f + (ratio - 1.0f) * 0.6f; knee = kneeDb + 6.0f; }
+        else if (method == gainHard) { r = 1.0f + (ratio - 1.0f) * 1.5f; knee = kneeDb * 0.33f; }
+
+        const float over = levelDb - thresholdDb;
+        float targetGainDb = 0.0f;
+        if (over > 0.5f * knee)
+            targetGainDb = -(over - over / r);
+        else if (over > -0.5f * knee && knee > 0.0f)
+        {
+            const float t = over + 0.5f * knee;
+            targetGainDb = -((1.0f - 1.0f / r) * t * t) / (2.0f * knee);
+        }
+        return targetGainDb;
+    }
+
     float DynamicCompressor::smooth (int method, float targetGainDb) noexcept
     {
+        if (method == smoothingOpto)
+        {
+            // An optical cell: quick back from light reduction, slower and slower from deep reduction
+            const float depth = std::clamp (-optoDb / 8.0f, 0.0f, 1.0f);
+            const float rel = releaseCoeff + (slowReleaseCoeff - releaseCoeff) * depth;
+            optoDb = targetGainDb + (optoDb - targetGainDb) * (targetGainDb < optoDb ? attackCoeff : rel);
+            return optoDb;
+        }
         if (method == smoothingSrl)
         {
             const float coeff = targetGainDb < singleDb ? attackCoeff : releaseCoeff;
@@ -144,6 +178,8 @@ namespace enh::dsp
     {
         if (method == smoothingSrl)
             singleDb = fromGainDb;
+        else if (method == smoothingOpto)
+            optoDb = fromGainDb;
         else
         {
             slowDb = fromGainDb;
@@ -169,10 +205,33 @@ namespace enh::dsp
         // A method changed: the old one fades out over 30 ms while the new one fades in
         const int wantDetector = std::clamp (s.detector, 0, numDetectors - 1);
         const int wantSmoothing = dualRelease ? std::clamp (s.smoothing, 0, numSmoothings - 1) : (int) smoothingSrl;
+        const int wantSideChain = std::clamp (s.sideChain, 0, numSideChains - 1);
+        if (wantSideChain != sideChain)
+        {
+            if (wantSideChain == sideChain150)
+                for (auto& st : scState150) st.reset();
+            else if (wantSideChain == sideChain90)
+                for (auto& st : scState) st.reset();
+            fadingSideChain = sideChain;
+            sideChain = wantSideChain;
+            sideChainFadeLeft = fadeLength;
+        }
+        const int wantGain = std::clamp (s.gain, 0, numGains - 1);
+        if (wantGain != gain)
+        {
+            fadingGain = gain;
+            gain = wantGain;
+            gainFadeLeft = fadeLength;
+        }
         if (wantDetector != detector)
         {
             if (wantDetector == detectorRms && detector != detectorRms && fadingDetector != detectorRms)
                 rmsWindowEnergy = std::max (0.0f, lowEnergy + highEnergy);   // starts from the level measured now
+            if (wantDetector == detectorKwt && detector != detectorKwt && fadingDetector != detectorKwt)
+            {
+                kwtEnergy = std::max (0.0f, lowEnergy + highEnergy);
+                kwtState.reset();
+            }
             fadingDetector = detector;
             detector = wantDetector;
             detectorFadeLeft = fadeLength;
@@ -193,13 +252,29 @@ namespace enh::dsp
 
         for (int i = 0; i < n; ++i)
         {
-            // Detector input: the loudest channel, so a hard-panned hit still triggers it
+            // Detector input: the loudest channel, so a hard-panned hit still triggers it, through the
+            // side-chain filter (crossfaded from the old one for 30 ms after a switch)
             float mono = 0.0f, peak = 0.0f;
-            for (int c = 0; c < ch; ++c)
+            auto sideChainInput = [&] (int method, float& monoOut, float& peakOut)
             {
-                const float x = scState[(size_t) std::min (c, 1)].process (scHp, key != nullptr ? key[c][i] : data[c][i]);
-                mono += x;
-                peak = std::max (peak, std::abs (x));
+                for (int c = 0; c < ch; ++c)
+                {
+                    const float in = key != nullptr ? key[c][i] : data[c][i];
+                    const float x = method == sideChain90 ? scState[(size_t) std::min (c, 1)].process (scHp, in)
+                                  : method == sideChain150 ? scState150[(size_t) std::min (c, 1)].process (scHp150, in)
+                                                           : in;
+                    monoOut += x;
+                    peakOut = std::max (peakOut, std::abs (x));
+                }
+            };
+            sideChainInput (sideChain, mono, peak);
+            if (sideChainFadeLeft > 0)
+            {
+                float oldMono = 0.0f, oldPeak = 0.0f;
+                sideChainInput (fadingSideChain, oldMono, oldPeak);
+                const float t = 1.0f - (float) --sideChainFadeLeft * fadeStep;
+                mono = oldMono + (mono - oldMono) * t;
+                peak = oldPeak + (peak - oldPeak) * t;
             }
             mono /= (float) ch;
 
@@ -213,6 +288,11 @@ namespace enh::dsp
             const float rms = std::sqrt (std::max (1.0e-12f, lowEnergy + highEnergy));
             if (detector == detectorRms || (detectorFadeLeft > 0 && fadingDetector == detectorRms))
                 rmsWindowEnergy += (mono * mono - rmsWindowEnergy) * rmsWindowCoeff;   // only while RMS is in use
+            if (detector == detectorKwt || (detectorFadeLeft > 0 && fadingDetector == detectorKwt))
+            {
+                const float k = kwtState.process (kwtShelf, mono);
+                kwtEnergy += (k * k - kwtEnergy) * rmsWindowCoeff;
+            }
             const float flux = std::max (0.0f, peak - peakEnv);
             lastFlux = std::max (lastFlux, flux);
 
@@ -232,15 +312,11 @@ namespace enh::dsp
             }
 
             // 2. Gain computer (ADT), dB domain, soft knee
-            const float over = levelDb - thresholdDb;
-            float targetGainDb = 0.0f;
-
-            if (over > 0.5f * kneeDb)
-                targetGainDb = -(over - over / ratio);
-            else if (over > -0.5f * kneeDb && kneeDb > 0.0f)
+            float targetGainDb = gainFor (gain, levelDb);
+            if (gainFadeLeft > 0)
             {
-                const float t = over + 0.5f * kneeDb;
-                targetGainDb = -((1.0f - 1.0f / ratio) * t * t) / (2.0f * kneeDb);
+                const float old = gainFor (fadingGain, levelDb);
+                targetGainDb = old + (targetGainDb - old) * (1.0f - (float) --gainFadeLeft * fadeStep);
             }
 
             // 3. Smoothing: fast down, programme-dependent up
@@ -252,7 +328,7 @@ namespace enh::dsp
             }
 
             // Auto make-up: give back most of what is being taken, so MIX is level-matched
-            const float wantedMakeup = -gainDb * 0.65f;
+            const float wantedMakeup = -gainDb * (s.makeup == 1 ? 0.90f : s.makeup == 2 ? 0.0f : 0.65f);
             makeupDb += (wantedMakeup - makeupDb) * 0.0005f;
 
             const float wetGain = fromDb (gainDb + makeupDb);

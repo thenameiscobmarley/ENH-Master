@@ -48,6 +48,11 @@ namespace enh::dsp
             float tilt = 0.0f;      // -1..1 (darker .. brighter)
             float rangeDb = 6.0f;   // 0..12
             float resolution = 0.0f; // 0 = six bands .. 1 = spectral (third-octave)
+            int reference = 0;       // methods (MethodRegistry.h): 0 median, 1 average
+            int deadZone = 0;        // 0 1.5 dB, 1 0.75 dB, 2 3 dB
+            int lifts = 0;           // 0 half range, 1 cuts only, 2 full range
+            int guard = 0;           // 0 at 2.5x, 1 at 1.8x, 2 off
+            int keeper = 0;          // 0 60 %, 1 90 %, 2 off
             bool active = false;
         };
 
@@ -250,7 +255,13 @@ namespace enh::dsp
             }
             auto sorted = moved;
             std::sort (sorted.begin(), sorted.begin() + fineCount);
-            const float mixMoved = fineCount > 1 ? 0.5f * (sorted[(size_t) (fineCount / 2 - 1)] + sorted[(size_t) (fineCount / 2)]) : 0.0f;
+            float mixMoved = fineCount > 1 ? 0.5f * (sorted[(size_t) (fineCount / 2 - 1)] + sorted[(size_t) (fineCount / 2)]) : 0.0f;
+            if (s.reference == 1 && fineCount > 0)   // REFERENCE: the average move instead of the median
+            {
+                float sum = 0.0f;
+                for (int k = 0; k < fineCount; ++k) sum += moved[(size_t) k];
+                mixMoved = sum / (float) fineCount;
+            }
             fineMixMoved = mixMoved;
 
             bool any = false;
@@ -261,9 +272,9 @@ namespace enh::dsp
                 {
                     const float position = ((float) k - 0.5f * (float) (fineCount - 1)) / (0.5f * (float) (fineCount - 1));
                     const float error = moved[(size_t) k] - mixMoved - std::clamp (s.tilt, -1.0f, 1.0f) * 3.0f * position;
-                    const float beyond = std::copysign (std::max (0.0f, std::abs (error) - 1.5f), error);
-                    target = std::clamp (-amount * beyond, -range, 0.5f * range);
-                    if (target < 0.0f && fineTransient[(size_t) k] > 2.5f * fineFast[(size_t) k])
+                    const float beyond = std::copysign (std::max (0.0f, std::abs (error) - deadZoneDb (s)), error);
+                    target = std::clamp (-amount * beyond, -range, liftShare (s) * range);
+                    if (target < 0.0f && s.guard != 2 && fineTransient[(size_t) k] > guardRatio (s) * fineFast[(size_t) k])
                         target = std::max (target, fineGainDb[(size_t) k]);
                 }
                 auto& g = fineGainDb[(size_t) k];
@@ -317,7 +328,13 @@ namespace enh::dsp
                 moved[(size_t) b] = (float) (10.0 * std::log10 ((fast[(size_t) b] + 1.0e-12) / (slow[(size_t) b] + 1.0e-12)));
             auto sorted = moved;
             std::sort (sorted.begin(), sorted.end());
-            const float mixMoved = 0.5f * (sorted[numBands / 2 - 1] + sorted[numBands / 2]);
+            float mixMoved = 0.5f * (sorted[numBands / 2 - 1] + sorted[numBands / 2]);
+            if (s.reference == 1)   // REFERENCE: the average move instead of the median
+            {
+                float sum = 0.0f;
+                for (float v : moved) sum += v;
+                mixMoved = sum / (float) numBands;
+            }
 
             float deepest = 0.0f;
             for (int b = 0; b < numBands; ++b)
@@ -333,11 +350,11 @@ namespace enh::dsp
                     const float error = jumpDb - tiltDb;
 
                     // Small wobbles are the programme breathing: a soft 1.5 dB dead zone
-                    const float beyond = std::copysign (std::max (0.0f, std::abs (error) - 1.5f), error);
-                    target = std::clamp (-amount * beyond, -range, 0.5f * range);
+                    const float beyond = std::copysign (std::max (0.0f, std::abs (error) - deadZoneDb (s)), error);
+                    target = std::clamp (-amount * beyond, -range, liftShare (s) * range);
 
                     // A band in a fresh attack is not cut yet: the front edge goes through
-                    if (target < 0.0f && transient[(size_t) b] > 2.5f * fast[(size_t) b])
+                    if (target < 0.0f && s.guard != 2 && transient[(size_t) b] > guardRatio (s) * fast[(size_t) b])
                         target = std::max (target, gainDb[(size_t) b]);
                 }
 
@@ -386,11 +403,17 @@ namespace enh::dsp
                                 std::pow (10.0, fineMixMoved / 10.0));
             const float lostDb = listening ? (float) (-10.0 * std::log10 (std::max (0.05, kept))) : 0.0f;
             const float headroomDb = -20.0f * std::log10 (std::max (1.0e-6f, peakEnv)) - 1.0f;
-            const float target = std::clamp (std::min (0.6f * lostDb, headroomDb), 0.0f, 3.0f);
+            const float share = s.keeper == 1 ? 0.9f : s.keeper == 2 ? 0.0f : 0.6f;   // LOUDNESS KEEPER
+            const float target = std::clamp (std::min (share * lostDb, headroomDb), 0.0f, 3.0f);
             makeupDb += (target - makeupDb) * (target > makeupDb ? kAtt : kRel);
             if (makeupDb < 0.01f && target <= 0.0f)
                 makeupDb = 0.0f;
         }
+
+        // The methods' numbers (defaults first: exactly what the balancer always used)
+        static float deadZoneDb (const Settings& s) noexcept { return s.deadZone == 1 ? 0.75f : s.deadZone == 2 ? 3.0f : 1.5f; }
+        static float liftShare (const Settings& s) noexcept  { return s.lifts == 1 ? 0.0f : s.lifts == 2 ? 1.0f : 0.5f; }
+        static float guardRatio (const Settings& s) noexcept { return s.guard == 1 ? 1.8f : 2.5f; }
 
         void design (int b, float db) noexcept
         {

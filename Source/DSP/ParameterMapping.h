@@ -31,7 +31,7 @@ namespace enh::dsp
         // ADAPTIVE COMPRESSOR and UPWARD LEVELER: two knobs each
         float tideMixPercent = 60.0f, tideResponse = 5.0f;
         bool tideActive = true;
-        int tideDetector = 0, tideSmoothing = 0, tideResponseLaw = 0;   // methods (MethodRegistry.h)
+        std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
 
@@ -44,6 +44,32 @@ namespace enh::dsp
         float balAmount = 5.0f, balSpeed = 5.0f, balTilt = 0.0f, balRangeDb = 6.0f, balResolution = 0.0f;
         bool balActive = true;
     };
+
+    /** Every continuous knob, by parameter ID, and where its value goes: the knob modifiers
+        (Parameters/KnobModifiers.h) work on these, before the mapping below. */
+    struct KnobField { const char* param; float KnobValues::* field; };
+    inline constexpr std::array<KnobField, 35> knobFields {{
+        { "clarityNorm", &KnobValues::clarityNorm },       { "clarityAdd", &KnobValues::clarityAdd },
+        { "adaptSpeed", &KnobValues::adaptPercent },       { "sub", &KnobValues::subPercent },
+        { "enhMultiply", &KnobValues::enhMultiply },       { "enhStrength", &KnobValues::enhStrength },
+        { "heavenHold", &KnobValues::heavenHold },         { "heavenLift", &KnobValues::heavenLift },
+        { "heavenAutoAmount", &KnobValues::heavenAutoAmount },
+        { "tideMix", &KnobValues::tideMixPercent },        { "tideResponse", &KnobValues::tideResponse },
+        { "lumenTarget", &KnobValues::lumenTargetDb },     { "lumenResponse", &KnobValues::lumenResponse },
+        { "spectralRange", &KnobValues::spectralRangeDb }, { "spectralRelease", &KnobValues::spectralReleaseMs },
+        { "spectralCeiling", &KnobValues::spectralCeilingDb },
+        { "levelGain", &KnobValues::levelDb },
+        { "balAmount", &KnobValues::balAmount },           { "balSpeed", &KnobValues::balSpeed },
+        { "balTilt", &KnobValues::balTilt },               { "balRange", &KnobValues::balRangeDb },
+        { "balResolution", &KnobValues::balResolution },
+        { "silkSmooth", &KnobValues::smooth },             { "silkAir", &KnobValues::air },
+        { "silkWarmth", &KnobValues::warmth },             { "silkBody", &KnobValues::body },
+        { "silkOutput", &KnobValues::outputDb },           { "silkSub", &KnobValues::silkSub },
+        { "haloWidth", &KnobValues::widthPercent },        { "haloSpace", &KnobValues::space },
+        { "haloDecay", &KnobValues::decayS },              { "haloShimmer", &KnobValues::shimmer },
+        { "haloTone", &KnobValues::tone },
+        { "seraphMultiply", &KnobValues::seraphMultiply }, { "seraphStrength", &KnobValues::seraphStrength },
+    }};
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
 
@@ -109,11 +135,36 @@ namespace enh::dsp
         p.tide.mix      = std::clamp (k.tideMixPercent / 100.0f, 0.0f, 1.0f);
         {
             // RESPONSE's own processing method: LIN (the travel as it is) or EXP (more of it at the slow end)
+            // RESPONSE's own processing method: LIN (the travel as it is), EXP (more of it at the slow end),
+            // LOG (more of it at the fast end)
             const float travel = std::clamp (k.tideResponse / 10.0f, 0.0f, 1.0f);
-            p.tide.response = k.tideResponseLaw == 1 ? (std::pow (8.0f, travel) - 1.0f) / 7.0f : travel;
+            const int law = k.methods[(size_t) methods::tideResponseLaw];
+            p.tide.response = law == 1 ? (std::pow (8.0f, travel) - 1.0f) / 7.0f
+                            : law == 2 ? 1.0f - (std::pow (8.0f, 1.0f - travel) - 1.0f) / 7.0f
+                                       : travel;
         }
-        p.tide.detector  = k.tideDetector;
-        p.tide.smoothing = k.tideSmoothing;
+
+        // The processing methods (MethodRegistry.h): the engine keeps the whole set, each unit gets its own
+        using namespace methods;
+        const auto& mt = k.methods;
+        p.methods = mt;
+        p.tide.detector  = mt[tideDetector];
+        p.tide.sideChain = mt[tideSideChain];
+        p.tide.gain      = mt[tideGain];
+        p.tide.smoothing = mt[tideSmoothing];
+        p.tide.makeup    = mt[tideMakeup];
+        p.limiter.keeper = mt[limiterKeeper];
+        p.balancer.reference = mt[balancerReference];
+        p.balancer.deadZone  = mt[balancerDeadZone];
+        p.balancer.lifts     = mt[balancerLifts];
+        p.balancer.guard     = mt[balancerGuard];
+        p.balancer.keeper    = mt[balancerKeeper];
+        p.lumen.lift    = mt[levelerLift];
+        p.lumen.gate    = mt[levelerGate];
+        p.lumen.balance = mt[levelerBalance];
+        p.seraph.silk.tapeCurve = mt[seraphTape];
+        p.seraph.halo.preDelay  = mt[seraphPreDelay];
+        p.seraph.heaven.window  = mt[seraphWindow];
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
         p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);

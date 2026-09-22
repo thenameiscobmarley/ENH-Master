@@ -208,7 +208,7 @@ namespace enh::dsp
             const int count = std::min (blockHistory, ringFilled - skip);
             if (count >= 8)
             {
-                const int rank = (count * 97) / 100;
+                const int rank = (count * (normalMethod == 1 ? 90 : normalMethod == 2 ? 99 : 97)) / 100;   // NORMAL
                 for (int k = 0; k < n; ++k)
                 {
                     const auto& h = history[(size_t) k];
@@ -324,6 +324,8 @@ namespace enh::dsp
                 target.octave = reg.centre;
             }
             target.width = (float) (reg.hi - reg.lo + 1) * bandSpacingOct;
+            if (widthMethod == 1) target.width *= 0.6f;        // CUT WIDTH: narrow
+            else if (widthMethod == 2) target.width *= 1.6f;   // wide
             target.depthDb = reg.peak * warm;
             target.share = reg.share;
             target.excursionDb = reg.excursion * warm;
@@ -560,7 +562,8 @@ namespace enh::dsp
         {
             const float lostDb = keeperLostDb;
             const float headroomDb = s.ceilingDb - 20.0f * std::log10 (std::max (1.0e-6f, peakEnv)) - 0.5f;
-            const float target = std::clamp (std::min (0.6f * lostDb, headroomDb), 0.0f, 3.0f);
+            const float share = s.keeper == 1 ? 0.9f : s.keeper == 2 ? 0.0f : 0.6f;   // LOUDNESS KEEPER
+            const float target = std::clamp (std::min (share * lostDb, headroomDb), 0.0f, 3.0f);
             makeupDb += (target > makeupDb ? kAttack : kRelease) * (target - makeupDb);
         }
     }

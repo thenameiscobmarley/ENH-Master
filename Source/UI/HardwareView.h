@@ -74,6 +74,7 @@ namespace pad
         void applyTestParams();
         void publishWindowGeometry();
         void updateCallout();
+        int displayChoice (const char* paramId) const;
 
         // The glass panel (GlassPanel.h): opened by clicking a unit, closed by clicking off the rack
         std::unique_ptr<GlassPanel> glassPanel;

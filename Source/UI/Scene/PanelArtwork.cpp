@@ -576,7 +576,7 @@ namespace pad::artwork
     /** Print inside the MONITOR and MIX BALANCER displays (R8, uv 0..1 across the window):
         MONITOR      - the waveform's dB marks, the spectrum's frequency axis, the legends, the readout;
         MIX BALANCER - the frequency axis, the dB axis. */
-    RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry, const juce::String& readout)
+    RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry, const juce::String& readout, int toneRangeDb)
     {
         const auto& d = unit == monitorUnit ? monitorDisplayRect : balancerDisplayRect;
         const int w = width, h = juce::roundToInt ((float) width * d.hd / d.hw);
@@ -616,7 +616,7 @@ namespace pad::artwork
                 const float u = std::log (hz / 20.0f) / std::log (20000.0f / 20.0f);
                 label (name, 0.02f + 0.96f * u, 0.918f, 0.026f, juce::Justification::horizontallyCentred);
             }
-            label ("TONE CHANGE  (RED)   +-12 dB", 0.012f, 0.54f, 0.026f, juce::Justification::left);
+            label ("TONE CHANGE  (RED)   +-" + juce::String (toneRangeDb) + " dB", 0.012f, 0.54f, 0.026f, juce::Justification::left);
             if (readout.isNotEmpty())
             {
                 // The live readout along the bottom of the card (not a hover target: it changes)

@@ -60,6 +60,7 @@ namespace enh::dsp
             float rangeDb = 9.0f;        // deepest spectral cut (0..18 dB)
             float releaseMs = 150.0f;    // how quickly a cut lets go (attack follows it)
             float ceilingDb = 0.0f;      // it acts only on peaks over this (dBFS); 0 dBFS: only real overs
+            int keeper = 0;              // LOUDNESS KEEPER method: 0 = 60 %, 1 = 90 %, 2 = off
             bool active = false;         // the plugin's parameter default is In; raw settings stay inert
         };
 
@@ -77,6 +78,9 @@ namespace enh::dsp
 
         /** Call at the start of every engine chunk, before the analyser ticks of that chunk. */
         void beginChunk() noexcept { pending = 0; }
+
+        /** The analysis methods (MethodRegistry.h: NORMAL, CUT WIDTH), for the ticks that follow. */
+        void setAnalysisMethods (int normal, int width) noexcept { normalMethod = normal; widthMethod = width; }
 
         /** Analyser tick: reads the shared band analysis and schedules its decision at `offset`
             samples into the current chunk. */
@@ -177,7 +181,8 @@ namespace enh::dsp
         std::array<float, numSlots> extraDb {};        // headroom protection on top of the spectral cut
         float peakEnv = 0.0f, broadbandDb = 0.0f, broadbandGain = 1.0f, localised = 1.0f;
         float makeupDb = 0.0f, makeupGain = 1.0f;          // the loudness keeper's lift
-        float keeperLostDb = 0.0f;                          // usual loudness the cuts take away (dB)
+        float keeperLostDb = 0.0f;
+        int normalMethod = 0, widthMethod = 0;                          // usual loudness the cuts take away (dB)
         int keeperStep = 0;
 
         /** Roughly how much a band counts toward loudness (the K-weighting's shape: little below 60 Hz,

@@ -205,7 +205,8 @@ namespace pad::shaders
     col = mix (col, ink, (1.0 - smoothstep (px * 0.6, px * 1.7, abs (sv - (1.0 - s.g)) * (sB - sT))) * 0.85 * inSpec);
     float diffDb = (s.g - s.r) * 90.0;
     float midY = 0.5 * (sT + sB);
-    float diffY = midY - clamp (diffDb / 12.0, -1.0, 1.0) * 0.5 * (sB - sT) * 0.9;
+    float toneRange = uParams.y > 0.5 ? uParams.y : 12.0;   // TONE RANGE (display setting)
+    float diffY = midY - clamp (diffDb / toneRange, -1.0, 1.0) * 0.5 * (sB - sT) * 0.9;
     float quiet = smoothstep (0.08, 0.18, max (s.r, s.g));   // no difference drawn where there is nothing
     col = mix (col, ink, (1.0 - smoothstep (0.0, px * 1.2, abs (uv.y - midY))) * step (0.5, fract (uv.x * 110.0)) * 0.35 * inSpec);
     col = mix (col, red, (1.0 - smoothstep (px * 0.8, px * 2.0, abs (uv.y - diffY))) * 0.90 * inSpec * quiet * lamp);

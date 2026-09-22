@@ -38,8 +38,9 @@ From the release after 1.4.1, versions have four parts: **MASSIVE.BIG.SMALL.SMAL
 | 3rd | small changes | 1.1.**5**.1 |
 | 4th | small changes (fixes, tuning) | 1.1.4.**2** |
 
-In this scheme 1.4.1 reads as 1.0.4.1. The next release, 1.1.4.1, raises the 2nd part for a big change:
-the glass info panels and the swappable processing methods.
+In this scheme 1.4.1 reads as 1.0.4.1. 1.1.4.1 raised the 2nd part for a big change (the glass info
+panels and the swappable processing methods), and 1.2.4.1 raises it again for another (settings on every
+unit, knob modifiers on every knob, and the panel's categories).
 
 ## Build
 
@@ -109,25 +110,38 @@ The panel shows the unit's name and its settings, listed one under another in a 
 with the wheel. The glass is the rack behind it, blurred; there is no tint, only white text, square
 corners and a soft shadow.
 
-**The ADAPTIVE COMPRESSOR is the pilot.** Its processing is split into swappable stages, each with
-named methods:
+**Every unit has settings**, in collapsible categories:
 
-| Stage | Methods | What changes |
-|---|---|---|
-| DETECTOR | **PKR** peak or RMS (default), **RMS** 50 ms power | RMS takes about a fifth less off a hit: attacks come through fuller |
-| GAIN | **ADT** adaptive threshold | one method so far |
-| SMOOTHING | **DRL** dual release (default), **SRL** single release | SRL is the classic bus-compressor breathing |
-| RESPONSE LAW | **LIN** linear (default), **EXP** exponential | EXP gives more of the knob's travel to slow, gentle settings |
-| RESPONSE SMOOTHING | OFF (default), 50 / 250 / 1000 ms | glides the RESPONSE knob; the host still sees its raw value |
+- **PROCESSING:** the unit's stages, each with two or three named methods.
+- **KNOBS:** per knob, its own law where it has one, then three modifiers between the knob and the
+  processing: **SMOOTHING** (off, 50 ms, 250 ms, 1 s), **CURVE** (linear, low, high, S) and **RANGE**
+  (full, 75, 50, 25 %). The host always sees the knob's raw value.
+- **OUTPUT** and **DISPLAY** on the OUTPUT MONITOR.
+- **RESET TO DEFAULTS** at the bottom puts the whole unit back.
+
+| Unit | Settings (default first) |
+|---|---|
+| LEVEL CONTROL | GLIDE: 20 ms, 5 ms, 150 ms |
+| ADAPTIVE ENHANCER | HARMONICS: Chebyshev 2 + 3, even, odd |
+| UPWARD LEVELER | LIFT: standard, gentle, big · GATE: -58, -66, -50 dBFS · BAND BALANCE: voiced, mid focus, flat |
+| SPECTRAL LIMITER | NORMAL: 97th, 90th, 99th percentile · CUT WIDTH: region, narrow, wide · LOUDNESS KEEPER: 60 %, 90 %, off |
+| MIX BALANCER | REFERENCE: median, average · DEAD ZONE: 1.5, 0.75, 3 dB · LIFTS: half, cuts only, full · ATTACK GUARD: standard, strong, off · LOUDNESS KEEPER: 60 %, 90 %, off |
+| ADAPTIVE COMPRESSOR | DETECTOR: PKR, RMS, KWT · SIDE-CHAIN: 90 Hz, 150 Hz, full · GAIN: adaptive, soft, hard · SMOOTHING: dual release, single, opto · MAKE-UP: 65 %, 90 %, none · RESPONSE law: linear, exponential, logarithmic |
+| TONE & SPACE | TAPE CURVE: tanh, arctangent, cubic · PRE-DELAY: 18, 8, 35 ms · LOUDNESS WINDOW: 2, 1, 4 s |
+| OUTPUT MONITOR | CEILING: 0.0, -0.3, -1.0 dBFS · TONE RANGE: ±12, ±6, ±24 dB · DUCK HOLD: 1.5, 0.5, 4 s · WAVEFORM: peak, RMS |
+
+That makes 26 settings with 76 methods, plus three modifiers on each of 35 knobs.
 
 - Hover any setting and the bottom of the panel explains how it changes the sound and what it costs.
-- Only the method in use runs. Switching crossfades over 30 ms, so it never clicks (tested).
+- Settings not at their default are marked with a small white square, and each category counts them.
+- Opening, folding, hovering and scrolling all ease rather than jump.
+- Only the method in use runs. Audio-rate methods (compressor stages, tape curve, pre-delay,
+  harmonics) crossfade over 30 ms when switched; control-rate ones glide through the unit's own
+  smoothing. Switching never steps the audio (tested).
 - No method changes the latency the plugin reports.
-- Method choices are saved with the session, are not automatable, and presets leave them alone.
-  Sessions from before this release load with the defaults, which sound exactly as before (checked
-  sample for sample).
-- The RESPONSE smoothing is stored in the session, not as a parameter.
-- The other units open a panel with their name for now; their stages come after the pilot.
+- Choices are saved with the session, are not automatable, and presets leave them alone. Sessions
+  from before this release load with every default, which sound exactly as before (checked sample
+  for sample).
 
 The full list, generated from `Source/DSP/MethodRegistry.h`, is `Vault/Reference/Methods.md`.
 `EnhDspTests --methods` runs every combination through the stability, peak, latency and block-size

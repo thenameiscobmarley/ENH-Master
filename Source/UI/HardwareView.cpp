@@ -147,7 +147,7 @@ namespace pad
     void HardwareView::publishPanel (bool force)
     {
         glassPanel->pollValues();
-        const auto r = glassPanel->getLayout().panel;
+        const auto r = glassPanel->getBounds();
         shared.panelX = r.getX();
         shared.panelY = r.getY();
         shared.panelW = r.getWidth();
@@ -241,7 +241,7 @@ namespace pad
                 publishPanel();
             shared.hoveredControl = -1;
             shared.hoveredUnit = -1;
-            setMouseCursor (glassPanel->hitTest (e.position).row >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+            setMouseCursor (glassPanel->hitTest (e.position).entry >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
             return;
         }
         if (glassPanel->hover (e.position))
@@ -262,6 +262,7 @@ namespace pad
 
     void HardwareView::mouseExit (const juce::MouseEvent&)
     {
+        glassPanel->unhover();
         shared.mouseInside = false;
         shared.hoveredControl = -1;
     }
@@ -411,11 +412,7 @@ namespace pad
         {
             // Over the glass the wheel scrolls its list
             const float dy = (std::abs (wheel.deltaY) > 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
-            if (glassPanel->scroll (dy * 120.0f))
-            {
-                glassPanel->hover (e.position);
-                publishPanel (true);
-            }
+            glassPanel->scroll (dy * 160.0f);   // eases to it (tick)
             return;
         }
         const int hit = pickControl (e.position);
@@ -643,6 +640,7 @@ namespace pad
                 const float value = spec != nullptr ? spec->minValue + (spec->maxValue - spec->minValue) * bridge.getNormalised (speed) : 5.0f;
                 waveReader.setSecondsAcross (20.0 * std::pow (0.05, (value - 1.0) / 9.0));
             }
+            waveReader.setRms (displayChoice ("displayWaveform") == 1);   // WAVEFORM display setting
             waveReader.update (processor.getInputScope(), processor.getOutputScope(), displayHistory);
         }
 
@@ -698,7 +696,8 @@ namespace pad
 
             if (demoScope) { depth = 4.2f; what = "SPECTRAL LIMITER  AT 2.5 kHz"; }
 
-            if (depth >= duckHeldDb || now - duckHeldMs > 1500.0)
+            const int hold = displayChoice ("displayDuckHold");            // DUCK HOLD display setting
+            if (depth >= duckHeldDb || now - duckHeldMs > (hold == 1 ? 500.0 : hold == 2 ? 4000.0 : 1500.0))
             {
                 duckHeldDb = depth;
                 duckHeldMs = now;
@@ -721,16 +720,28 @@ namespace pad
         };
         const float integrated = demoScope ? -16.4f : meters.integratedLufs.load (std::memory_order_relaxed);
         const float peak = demoScope ? -1.2f : meters.truePeakDb.load (std::memory_order_relaxed);
-        const auto text = "INTEGRATED  " + fmt (integrated, "LUFS", -69.9f) + "        TRUE PEAK  " + fmt (peak, "dBTP", -99.0f)
+        const int toneChoice = displayChoice ("displayToneRange");
+        const int toneRangeDb = toneChoice == 1 ? 6 : toneChoice == 2 ? 24 : 12;
+        const auto text = juce::String (toneRangeDb) + "\x01" + "INTEGRATED  " + fmt (integrated, "LUFS", -69.9f) + "        TRUE PEAK  " + fmt (peak, "dBTP", -99.0f)
                           + "\n" + duckText;
         if (text == levelReadout)
             return;
         levelReadout = text;
 
-        auto tex = artwork::renderWindowLabels (monitorUnit, 3072, nullptr, text);
+        auto tex = artwork::renderWindowLabels (monitorUnit, 3072, nullptr, text.fromFirstOccurrenceOf ("\x01", false, false), toneRangeDb);
         const juce::SpinLock::ScopedLockType lock (shared.levelLabelsLock);
         shared.levelLabelsPending = std::move (tex);
         ++shared.levelLabelsVersion;
+    }
+
+    /** A display setting's choice (MethodRegistry.h, DISPLAY), 0 = the default. */
+    int HardwareView::displayChoice (const char* paramId) const
+    {
+        const int p = bridge.indexOf (paramId);
+        if (p < 0)
+            return 0;
+        const auto* spec = pad::params::findSpec (paramId);
+        return juce::roundToInt (bridge.getNormalised (p) * (spec != nullptr ? spec->maxValue : 1.0f));
     }
 
     void HardwareView::timerCallback()
@@ -792,7 +803,10 @@ namespace pad
         refreshOverlay();
         updateCallout();
         if (glassPanel->isOpen())
-            publishPanel();   // redraws only when a shown value changed (host, preset) or the hover moved
+        {
+            glassPanel->tick (1.0f / 30.0f);   // folding, hover and scrolling ease; the print follows
+            publishPanel();                     // redraws only when something shown changed or is moving
+        }
     }
 
     void HardwareView::updateCallout()

@@ -32,6 +32,7 @@ namespace enh::dsp
             HarmonicPlanner::Band depth, clarityBand;
             float strength = 1.0f;       // device STRENGTH (0..5)
             bool holdLevel = false;      // SPECTRAL LIMITER is handling a localised event: auto gain holds
+            int harmonics = 0;           // HARMONICS method (MethodRegistry.h): 0 Chebyshev 2+3, 1 even, 2 odd
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -79,7 +80,14 @@ namespace enh::dsp
             float dcX = 0.0f, dcY = 0.0f;
         };
 
-        static inline float excite (Exciter&, const ExciterCoeffs&, float in, float attack, float release) noexcept;
+        static inline float excite (Exciter&, const ExciterCoeffs&, float in, float attack, float release, float w2, float w3) noexcept;
+
+        // HARMONICS: the exciters' 2nd / 3rd weights glide to the chosen method's over 30 ms. The output is
+        // linear in the weights, so the glide is an exact crossfade between the two methods.
+        struct Weights { float depthW2, depthW3, clarityW2, clarityW3; };
+        static Weights weightsFor (int method) noexcept;
+        Weights weightsFrom {}, weightsTo {};
+        int harmonicsMethod = -1, glidePos = 0, glideLen = 1;
 
         double sr = 48000.0;
         std::unique_ptr<juce::dsp::Oversampling<float>> oversampling;

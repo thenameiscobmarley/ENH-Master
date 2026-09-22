@@ -41,6 +41,9 @@ namespace enh::dsp
             float response = 0.5f;   // 0..1
             bool holdGains = false;  // SPECTRAL LIMITER is handling a localised spike: band gains stay put
             float levelDb = 0.0f;    // the rack's LEVEL: levels are read as if it were 0 dB, so nothing here fights it
+            int lift = 0;            // methods (MethodRegistry.h): 0 standard, 1 gentle (0.6x), 2 big (1.3x)
+            int gate = 0;            // 0 at -58 dBFS, 1 at -66, 2 at -50
+            int balance = 0;         // 0 voiced, 1 mid focus, 2 flat
             bool active = false;     // the plugin's parameter default is In; raw settings stay inert
         };
 

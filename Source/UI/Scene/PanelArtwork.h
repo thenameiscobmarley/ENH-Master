@@ -53,7 +53,8 @@ namespace pad::artwork
     RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
 
     /** Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window). */
-    RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry = nullptr, const juce::String& readout = {});
+    RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry = nullptr, const juce::String& readout = {},
+                                   int toneRangeDb = 12);
 
     /** A VU dial face: arc, ticks, numbers, red zone (green channel) and caption. `meter` picks the
         face where a unit's meters read different things (the limiter: 0 = spectral cut, 1 = broadband). */

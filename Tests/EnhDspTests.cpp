@@ -723,7 +723,8 @@ namespace
     }
 
     /** A factory preset as the engine sees it: the panel values through the same mapping the plugin uses. */
-    EnhEngine::Parameters presetParameters (const pad::presets::Preset& preset)
+    EnhEngine::Parameters presetParameters (const pad::presets::Preset& preset,
+                                            std::function<void (enh::dsp::KnobValues&)> adjust = {})
     {
         enh::dsp::KnobValues k;
         namespace id = pad::params::id;
@@ -763,6 +764,8 @@ namespace
             else if (i == id::haloTone) k.tone = v;          else if (i == id::haloDuck) k.duck = on;
             else if (i == id::haloBassMono) k.bassMono = on; else if (i == id::haloMod) k.mod = on;
         }
+        if (adjust)
+            adjust (k);
         return enh::dsp::mapKnobs (k);
     }
 
@@ -1427,23 +1430,25 @@ namespace
         out << "# Processing methods\n\n"
             << "Generated from `Source/DSP/MethodRegistry.h` by `EnhDspTests --methods-doc`; do not edit by hand\n"
             << "(the test suite fails when this page and the registry disagree). Back to [[00 Start Here]].\n\n"
-            << "Click a unit on the rack to open its glass panel; each dropdown there is one stage below. The first\n"
-            << "method of every stage is the default, and is how the unit sounded before methods existed. Every\n"
-            << "method is zero-latency, and a switch crossfades over 30 ms. Method choices are stored in the session\n"
-            << "(not automatable) and presets leave them alone.\n";
-        auto stages = [&] (const m::Stage* list, int count)
+            << "Click a unit on the rack to open its glass panel. Its settings are grouped in categories: PROCESSING\n"
+            << "(how the unit measures, calculates and moves), KNOBS (each knob's law and modifiers), OUTPUT and\n"
+            << "DISPLAY. The first method of every setting is the default, and is how the unit sounded before these\n"
+            << "settings existed. No method changes the reported latency; audio-rate methods crossfade over 30 ms when\n"
+            << "switched, control-rate ones glide through the unit's own smoothing. Choices are stored in the session\n"
+            << "(not automatable) and presets leave them alone. RESET TO DEFAULTS at the bottom of a panel puts all of\n"
+            << "a unit's settings back.\n";
+        for (int unit : m::unitsInRackOrder)
         {
-            juce::String unit;
-            for (int i = 0; i < count; ++i)
+            const auto list = m::stagesForUnit (unit);
+            if (list.count == 0)
+                continue;
+            out << "\n## " << s (list.stages[0].unit) << "\n";
+            for (int i = 0; i < list.count; ++i)
             {
-                const auto& st = list[i];
-                if (s (st.unit) != unit)
-                {
-                    unit = s (st.unit);
-                    out << "\n## " << unit << "\n";
-                }
-                out << "\n### " << s (st.name) << " - " << s (st.question) << "\n\n";
-                out << (st.param.empty() ? juce::String ("One method so far.") : "Parameter `" + s (st.param) + "`.") << "\n\n";
+                const auto& st = list.stages[i];
+                out << "\n### " << s (st.name) << (st.knobParam.empty() ? juce::String() : " (" + s (st.knobParam) + " knob)")
+                    << " - " << s (st.question) << "\n\n";
+                out << s (st.category) << ". Parameter `" << s (st.param) << "`.\n\n";
                 out << "| Method | What it measures / does | How the sound changes | CPU / latency |\n|---|---|---|---|\n";
                 for (int k = 0; k < st.numMethods; ++k)
                 {
@@ -1452,21 +1457,25 @@ namespace
                         << " | " << s (me.measures) << " | " << s (me.sound) << " | " << s (me.cost) << " |\n";
                 }
             }
-        };
-        stages (m::compressorStages.data(), (int) m::compressorStages.size());
+        }
 
         out << "\n## Knob modifiers\n\n"
-            << "A modifier sits between a knob and its processing. It is stored in the session, not as a parameter:\n"
-            << "the host always sees the knob's raw value.\n\n"
-            << "| Knob | Side | Modifier | What it does | How the sound changes | Cost | Settings |\n|---|---|---|---|---|---|---|\n";
-        for (auto& k : m::knobModifiers)
+            << "Every continuous knob has these, between the knob and its processing (in the panel, under KNOBS). They\n"
+            << "are stored in the session, not as parameters: the host always sees the knob's raw value. With all\n"
+            << "three off the knob is exactly as it always was.\n\n"
+            << "| Modifier | What it does | How the sound changes | Cost | Settings |\n|---|---|---|---|---|\n";
+        for (auto& mo : m::modifiers)
         {
             juce::String choices;
-            for (float c : k.input->choices)
-                choices << (choices.isEmpty() ? "" : ", ") << (c == 0.0f ? juce::String ("off") : juce::String (c, 0) + " " + s (k.input->unit));
-            out << "| `" << s (k.param) << "` | input | **" << s (k.input->shortName) << "** " << s (k.input->fullName)
-                << " | " << s (k.input->does) << " | " << s (k.input->sound) << " | " << s (k.input->cost) << " | " << choices << " |\n";
+            for (auto& l : mo.labels)
+                choices << (choices.isEmpty() ? "**" + s (l) + "** (off)" : ", " + s (l));
+            out << "| **" << s (mo.shortName) << "** " << s (mo.fullName) << " | " << s (mo.does) << " | " << s (mo.sound)
+                << " | " << s (mo.cost) << " | " << choices << " |\n";
         }
+        out << "\nKnobs with modifiers: ";
+        for (size_t k = 0; k < enh::dsp::knobFields.size(); ++k)
+            out << (k == 0 ? "" : ", ") << "`" << enh::dsp::knobFields[k].param << "`";
+        out << ".\n";
         return out;
     }
 
@@ -1493,16 +1502,22 @@ namespace
         // automatable, defaults to the first method, and lists the methods in the same order
         {
             bool ok = true;
-            for (auto& st : m::compressorStages)
+            std::array<int, m::numMethodIds> seen {};
+            for (int unit : m::unitsInRackOrder)
+            for (int i = 0; i < m::stagesForUnit (unit).count; ++i)
             {
-                if (st.param.empty()) { ok = ok && st.numMethods == 1; continue; }
+                const auto& st = m::stagesForUnit (unit).stages[i];
+                ok = ok && st.unitIndex == unit && st.id >= 0 && st.id < m::numMethodIds;
+                if (ok) ++seen[(size_t) st.id];
                 const auto* spec = pad::params::findSpec (juce::String (st.param.data(), st.param.size()));
                 ok = ok && spec != nullptr && spec->kind == pad::params::Kind::choice && ! spec->automatable
                         && spec->defaultValue == 0.0f && spec->texts.size() == st.numMethods;
                 for (int k = 0; ok && k < st.numMethods; ++k)
                     ok = spec->texts[k] == juce::String (st.methods[k].shortName.data(), st.methods[k].shortName.size());
             }
-            check (ok, "every stage in the registry has its parameter: a choice, not automatable, default = first method, same order");
+            for (int c : seen)
+                ok = ok && c == 1;
+            check (ok, "every stage in the registry has its parameter: a choice, not automatable, default = first method, same order; every method id once");
         }
         {
             const auto file = methodsDocFile();
@@ -1511,38 +1526,191 @@ namespace
             check (same, "Vault/Reference/Methods.md matches the registry");
         }
 
-        // Every combination through the whole engine: finite, under full scale, same latency, at every
-        // sample rate and at odd block sizes
+        // Every method of every stage through the whole engine, one at a time (everything else at its
+        // default), at 48 kHz and three block sizes: finite, under the ceiling, the same latency, and it
+        // changes the sound (a display setting must not); then every stage at its last method together,
+        // at 44.1 and 96 kHz too
         {
+            auto base = [] (enh::dsp::KnobValues& k)
+            {
+                k.tape = true; k.footstep = true; k.clarityAddMode = true; k.clarityAdd = 6.0f;   // everything in the path
+                k.balAmount = 7.0f; k.balResolution = 5.0f;
+            };
             auto latencyAt = [] (double rate) { EnhEngine e; e.prepare (rate, 128, 2); return e.getLatencySamples(); };
-            bool ok = true, sameLatency = true;
-            int runs = 0;
-            float worstPeak = 0.0f;
-            for (int det = 0; det < DynamicCompressor::numDetectors; ++det)
-                for (int smo = 0; smo < DynamicCompressor::numSmoothings; ++smo)
-                    for (int law = 0; law < 2; ++law)
+            // Scenes that exercise each stage: the game scene; for the SPECTRAL LIMITER a long mix with kicks
+            // and a huge rumble at 8 s (it needs a few seconds to learn what is normal); for the leveler's
+            // LIFT quiet noise (quiet enough to reach its limits)
+            const auto gameScene = makeScene (sr, 2.0, true, true, 11);
+            Scene quietScene;   // quiet pink noise, -34 dBFS, 8 s: the leveler lifts it well past LIFT's limits
+            {
+                juce::Random rnd (4);
+                Pink pk;
+                for (int i = 0; i < (int) (8.0 * sr); ++i)
+                    quietScene.left.push_back (dbfs (-34.0f) * pk.next (rnd) * 4.0f);
+                quietScene.right = quietScene.left;
+            }
+            Scene limiterScene;
+            {
+                const int n = (int) (10.5 * sr);
+                limiterScene.left.resize ((size_t) n);
+                limiterScene.right.resize ((size_t) n);
+                juce::Random rnd (21);
+                Pink pinkL, pinkR;
+                BiquadState eA, eB;
+                const auto rumbleLp = BiquadCoeffs::lowPass (sr, 110.0, 0.8);
+                for (int i = 0; i < n; ++i)
+                {
+                    const double t = i / sr, kt = std::fmod (t, 0.5);
+                    const float kick = dbfs (-10.0f) * (float) (std::sin (twoPi * (58.0 + 40.0 * std::exp (-kt / 0.02)) * kt) * std::exp (-kt / 0.11));
+                    float ev = 0.0f;
+                    if (t >= 8.0 && t < 8.5)
+                        ev = (float) std::min (1.0, (t - 8.0) / 0.01) * (0.75f * (float) std::sin (twoPi * 72.0 * (t - 8.0))
+                                                                       + 1.6f * eA.process (rumbleLp, eB.process (rumbleLp, rnd.nextFloat() * 2.0f - 1.0f)));
+                    limiterScene.left[(size_t) i] = 0.10f * pinkL.next (rnd) + kick + ev;
+                    limiterScene.right[(size_t) i] = 0.10f * pinkR.next (rnd) + kick + ev;
+                }
+            }
+            auto sceneFor = [&] (const m::Stage& st) -> const Scene&
+            {
+                return st.unitIndex == 4 ? limiterScene : st.id == m::levelerLift ? quietScene : gameScene;
+            };
+            std::map<const Scene*, RunResult> references;
+            int runs = 0, failed = 0, placebo = 0;
+            juce::StringArray problems;
+            for (int unit : m::unitsInRackOrder)
+                for (int i = 0; i < m::stagesForUnit (unit).count; ++i)
+                {
+                    const auto& st = m::stagesForUnit (unit).stages[i];
+                    const bool display = st.category == "DISPLAY";
+                    const float ceiling = st.id == m::outputCeiling ? 1.0f : 1.0f;
+                    for (int k = 1; k < st.numMethods; ++k)
                     {
-                        auto k = enh::dsp::KnobValues {};
-                        k.tideDetector = det; k.tideSmoothing = smo; k.tideResponseLaw = law;
-                        k.tideMixPercent = 100.0f; k.tideResponse = 8.0f;
-                        const auto p = enh::dsp::mapKnobs (k);
-                        for (double rate : { 44100.0, 48000.0, 96000.0 })
-                            for (int bs : { 1, 7, 128, 1024 })
-                            {
-                                if (rate != 48000.0 && bs != 128) continue;   // the block sizes at 48 kHz, the rates at 128
-                                const auto scene = makeScene (rate, bs == 1 ? 1.5 : 3.0, true, true, 11);
-                                const auto r = run (scene, rate, bs, p, [&] (const EnhEngine& e)
-                                {
-                                    sameLatency = sameLatency && e.getLatencySamples() == latencyAt (rate);
-                                });
-                                ok = ok && r.finite && r.peak <= 1.0f;
-                                worstPeak = std::max (worstPeak, r.peak);
-                                ++runs;
-                            }
+                        const auto p = presetParameters (presetNamed ("IMMERSIVE GAMES"), [&] (auto& kv) { base (kv); kv.methods[(size_t) st.id] = k; });
+                        const float limit = st.id == m::outputCeiling ? (k == 1 ? 0.96605088f : 0.89125094f) + 1.0e-6f : ceiling;
+                        bool ok = true;
+                        float diff = 0.0f;
+                        const auto& scene = sceneFor (st);
+                        if (references.count (&scene) == 0)
+                            references[&scene] = run (scene, sr, 128, presetParameters (presetNamed ("IMMERSIVE GAMES"), base));
+                        const auto& reference = references[&scene];
+                        for (int bs : { 7, 128, 1024 })
+                        {
+                            bool sameLatency = true;
+                            const auto r = run (scene, sr, bs, p, [&] (const EnhEngine& e) { sameLatency = e.getLatencySamples() == latencyAt (sr); });
+                            ok = ok && r.finite && r.peak <= limit && sameLatency;
+                            if (bs == 128)
+                                for (size_t n = 0; n < r.outL.size(); ++n)
+                                    diff = std::max (diff, std::abs (r.outL[n] - reference.outL[n]));
+                            ++runs;
+                        }
+                        const auto name = juce::String (st.unit.data(), st.unit.size()) + " " + juce::String (st.name.data(), st.name.size())
+                                        + " " + juce::String (st.methods[k].shortName.data(), st.methods[k].shortName.size());
+                        if (! ok) { ++failed; problems.add (name + " (unstable / over / latency)"); }
+                        // GLIDE only shows when LEVEL moves (tested below); a display setting must leave the audio alone
+                        if (display ? diff != 0.0f : (diff < 1.0e-5f && st.id != m::levelGlide)) { ++placebo; problems.add (name + (display ? " (changes the audio)" : " (changes nothing)")); }
                     }
-            std::printf ("  %d runs (2 detectors x 2 smoothings x 2 RESPONSE laws, 3 rates, 4 block sizes): worst peak %.3f\n", runs, worstPeak);
-            check (ok, "every method combination is finite and under full scale at every rate and block size");
-            check (sameLatency, "no method changes the reported latency");
+                }
+            std::printf ("  every method of every stage, one at a time: %d runs (block sizes 7, 128, 1024)\n", runs);
+            for (auto& pr : problems)
+                std::printf ("    %s\n", pr.toRawUTF8());
+            check (failed == 0, "every method is finite, under the ceiling and keeps the latency, at block sizes 7, 128 and 1024");
+            check (placebo == 0, "every processing method changes the sound on the test scene; display settings change nothing");
+
+            // Everything at its last method at once, at every rate
+            bool allOk = true;
+            for (double rate : { 44100.0, 48000.0, 96000.0 })
+            {
+                const auto p = presetParameters (presetNamed ("IMMERSIVE GAMES"), [&] (auto& kv)
+                {
+                    base (kv);
+                    for (int unit : m::unitsInRackOrder)
+                        for (int i = 0; i < m::stagesForUnit (unit).count; ++i)
+                            kv.methods[(size_t) m::stagesForUnit (unit).stages[i].id] = m::stagesForUnit (unit).stages[i].numMethods - 1;
+                });
+                bool sameLatency = true;
+                const auto r = run (makeScene (rate, 2.0, true, true, 12), rate, 128, p,
+                                    [&] (const EnhEngine& e) { sameLatency = e.getLatencySamples() == latencyAt (rate); });
+                allOk = allOk && r.finite && r.peak <= 1.0f && sameLatency;
+            }
+            check (allOk, "every stage at its last method together: stable, under full scale, same latency at 44.1, 48 and 96 kHz");
+        }
+
+        // Switching while the audio runs never steps it: a smooth test signal, the method switched half
+        // way; the biggest sample-to-sample change right after the switch is no bigger than it already was
+        {
+            juce::StringArray stepped;
+            auto switchTest = [&] (int id, int to, std::function<void (enh::dsp::KnobValues&)> setup)
+            {
+                const int n = (int) (1.6 * sr), block = 64;
+                std::vector<float> l ((size_t) n);
+                for (int i = 0; i < n; ++i)
+                    l[(size_t) i] = 0.25f * (float) std::sin (twoPi * 110.0 * i / sr) + 0.12f * (float) std::sin (twoPi * 330.0 * i / sr)
+                                  + (i % (int) (0.25 * sr) < (int) (0.01 * sr) ? 0.2f * (float) std::sin (twoPi * 1000.0 * i / sr) : 0.0f);
+                auto r = l;
+                EnhEngine e;
+                e.prepare (sr, block, 2);
+                auto before = presetParameters (presetNamed ("IMMERSIVE GAMES"), setup);
+                auto after = presetParameters (presetNamed ("IMMERSIVE GAMES"), [&] (auto& kv) { setup (kv); kv.methods[(size_t) id] = to; });
+                juce::AudioBuffer<float> buf (2, block);
+                float prev = 0.0f, stepBefore = 0.0f, stepAfter = 0.0f;
+                for (int pos = 0; pos < n; pos += block)
+                {
+                    const int len = std::min (block, n - pos);
+                    buf.setSize (2, len, false, false, true);
+                    std::copy_n (l.data() + pos, len, buf.getWritePointer (0));
+                    std::copy_n (r.data() + pos, len, buf.getWritePointer (1));
+                    e.process (buf, pos >= n / 2 ? after : before);
+                    for (int i = 0; i < len; ++i)
+                    {
+                        const float y = buf.getSample (0, i);
+                        const float step = std::abs (y - prev);
+                        prev = y;
+                        const int at = pos + i;
+                        if (at > n / 2 - (int) (0.5 * sr) && at < n / 2) stepBefore = std::max (stepBefore, step);
+                        if (at >= n / 2 && at < n / 2 + (int) (0.05 * sr)) stepAfter = std::max (stepAfter, step);
+                    }
+                }
+                if (stepAfter > 1.25f * stepBefore + 1.0e-3f)
+                    stepped.add (juce::String (id) + ": " + juce::String (stepAfter, 4) + " after vs " + juce::String (stepBefore, 4));
+            };
+            auto tape = [] (enh::dsp::KnobValues& k) { k.tape = true; };
+            auto add = [] (enh::dsp::KnobValues& k) { k.clarityAddMode = true; k.clarityAdd = 10.0f; };
+            auto none = [] (enh::dsp::KnobValues&) {};
+            switchTest (m::seraphTape, 1, tape);      switchTest (m::seraphTape, 2, tape);
+            switchTest (m::seraphPreDelay, 1, none);  switchTest (m::seraphPreDelay, 2, none);
+            switchTest (m::enhancerHarmonics, 1, add); switchTest (m::enhancerHarmonics, 2, add);
+            switchTest (m::tideDetector, 2, none);    switchTest (m::tideSideChain, 2, none);
+            switchTest (m::tideGain, 2, none);        switchTest (m::tideSmoothing, 2, none);
+            switchTest (m::outputCeiling, 2, none);   switchTest (m::levelerLift, 2, none);
+            for (auto& s : stepped)
+                std::printf ("    stepped: %s\n", s.toRawUTF8());
+            check (stepped.isEmpty(), "switching a method while audio runs never steps it (tape, pre-delay, harmonics, compressor, ceiling, leveler)");
+        }
+
+        // GLIDE: LEVEL moved 12 dB; how long until it has covered 90 % of the way
+        {
+            auto settle = [&] (int glide)
+            {
+                EnhEngine e;
+                e.prepare (sr, 32, 2);
+                auto p = presetParameters (presetNamed ("TRANSPARENT (ALL OUT)"), [&] (auto& kv) { kv.methods[(size_t) m::levelGlide] = glide; });
+                juce::AudioBuffer<float> buf (2, 32);
+                const int n = (int) (0.6 * sr);
+                int at90 = -1;
+                for (int pos = 0; pos < n; pos += 32)
+                {
+                    buf.setSize (2, 32, false, false, true);
+                    for (int c = 0; c < 2; ++c) for (int i = 0; i < 32; ++i) buf.setSample (c, i, 0.1f);
+                    p.levelDb = pos >= (int) (0.1 * sr) ? -12.0f : 0.0f;
+                    e.process (buf, p);
+                    if (at90 < 0 && pos >= (int) (0.1 * sr) && e.getMeters().levelDb.load() < -10.8f)
+                        at90 = pos - (int) (0.1 * sr);
+                }
+                return 1000.0 * at90 / sr;
+            };
+            const double stdMs = settle (0), fastMs = settle (1), slowMs = settle (2);
+            std::printf ("  GLIDE, LEVEL -12 dB: 90 %% of the way in %.0f ms (STD) / %.0f ms (FST) / %.0f ms (SLW)\n", stdMs, fastMs, slowMs);
+            check (fastMs < stdMs && stdMs < slowMs && slowMs > 200.0, "GLIDE: FST is quicker and SLW slower than the 20 ms default");
         }
 
         // The compressor alone gives the same output whatever the block size, for every combination
@@ -1645,10 +1813,11 @@ namespace
 
         // RESPONSE's law: EXP spends more of the travel at the slow end, same ends
         {
-            auto resp = [] (float knob, int law) { enh::dsp::KnobValues k; k.tideResponse = knob; k.tideResponseLaw = law; return enh::dsp::mapKnobs (k).tide.response; };
-            std::printf ("  RESPONSE 5: LIN %.2f, EXP %.2f\n", resp (5.0f, 0), resp (5.0f, 1));
-            check (resp (0.0f, 1) == 0.0f && std::abs (resp (10.0f, 1) - 1.0f) < 1.0e-6f && resp (5.0f, 1) < 0.35f && resp (5.0f, 0) == 0.5f,
-                   "RESPONSE LAW: LIN is the travel, EXP has the same ends and more travel at the slow end");
+            auto resp = [] (float knob, int law) { enh::dsp::KnobValues k; k.tideResponse = knob; k.methods[(size_t) m::tideResponseLaw] = law; return enh::dsp::mapKnobs (k).tide.response; };
+            std::printf ("  RESPONSE 5: LIN %.2f, EXP %.2f, LOG %.2f\n", resp (5.0f, 0), resp (5.0f, 1), resp (5.0f, 2));
+            check (resp (0.0f, 1) == 0.0f && std::abs (resp (10.0f, 1) - 1.0f) < 1.0e-6f && resp (5.0f, 1) < 0.35f && resp (5.0f, 0) == 0.5f
+                   && std::abs (resp (0.0f, 2)) < 1.0e-6f && std::abs (resp (10.0f, 2) - 1.0f) < 1.0e-6f && resp (5.0f, 2) > 0.65f,
+                   "RESPONSE LAW: LIN is the travel, EXP and LOG have the same ends and more travel at the slow / fast end");
         }
 
         // SMO: the same glide at every sample rate and block size (it is worked out in seconds)
@@ -1672,6 +1841,30 @@ namespace
             pad::KnobSmoother off;
             off.process (2.0f, 0.0f, 64, sr);
             check (off.process (7.0f, 0.0f, 64, sr) == 7.0f, "SMO off passes the knob straight through");
+        }
+
+        // CRV and LIM on a knob's travel; all three off leaves the value exactly as it was
+        {
+            juce::NormalisableRange<float> range (30.0f, 600.0f);
+            range.setSkewForCentre (150.0f);   // like RELEASE: skewed
+            bool identity = true, ends = true;
+            for (float v : { 30.0f, 77.7f, 150.0f, 333.3f, 600.0f })
+            {
+                pad::KnobSmoother s;
+                identity = identity && pad::applyKnobModifiers (v, range, s, 0.0f, 0, 100.0f, 64, sr) == v;
+            }
+            for (int curve = 0; curve < 4; ++curve)
+            {
+                pad::KnobSmoother a, b;
+                ends = ends && std::abs (pad::applyKnobModifiers (30.0f, range, a, 0.0f, curve, 100.0f, 64, sr) - 30.0f) < 1.0e-3f
+                            && std::abs (pad::applyKnobModifiers (600.0f, range, b, 0.0f, curve, 100.0f, 64, sr) - 600.0f) < 1.0e-2f;
+            }
+            pad::KnobSmoother c, d;
+            const float half = pad::applyKnobModifiers (600.0f, range, c, 0.0f, 0, 50.0f, 64, sr);    // full travel -> half way
+            const float low = pad::applyKnobModifiers (150.0f, range, d, 0.0f, 1, 100.0f, 64, sr);    // LOW: the middle comes down
+            std::printf ("  modifiers on a skewed knob: LIM 50 %% at full travel %.1f (the travel's middle is 150), CRV LOW at the middle %.1f\n", half, low);
+            check (identity, "a knob with every modifier off is passed through unchanged, to the bit");
+            check (ends && std::abs (half - 150.0f) < 0.5f && low < 100.0f, "CRV keeps the ends; LIM 50 % stops the knob half way along its travel");
         }
     }
 

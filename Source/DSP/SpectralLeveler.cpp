@@ -45,8 +45,12 @@ namespace enh::dsp
 
         // Per-band target: the low band is deliberately allowed less lift than the midrange,
         // because lifting quiet bass is what makes a mix sound woolly.
-        constexpr std::array<float, numBands> bandOffset { -4.0f, 0.0f, -1.5f };
-        constexpr std::array<float, numBands> maxGain { 9.0f, 18.0f, 14.0f };
+        // BAND BALANCE, LIFT and GATE methods (the defaults are the leveler's own numbers)
+        constexpr std::array<float, numBands> voiced { -4.0f, 0.0f, -1.5f }, midFocus { -7.0f, 0.0f, -3.0f }, flat { 0.0f, 0.0f, 0.0f };
+        const auto& bandOffset = s.balance == 1 ? midFocus : s.balance == 2 ? flat : voiced;
+        constexpr std::array<float, numBands> standardLift { 9.0f, 18.0f, 14.0f }, gentleLift { 5.4f, 10.8f, 8.4f }, bigLift { 11.7f, 23.4f, 18.2f };
+        const auto& maxGain = s.lift == 1 ? gentleLift : s.lift == 2 ? bigLift : standardLift;
+        const float gateDb = s.gate == 1 ? 66.0f : s.gate == 2 ? 50.0f : 58.0f;
 
         float sum = 0.0f, active = 0.0f;
 
@@ -73,7 +77,7 @@ namespace enh::dsp
             // Two gates, both measured rather than set:
             //  - absolute: hiss and silence are never worth lifting;
             //  - modulation: a band that never moves is room tone, not programme material.
-            const float absGate = std::clamp ((levelDb + 58.0f) / 8.0f, 0.0f, 1.0f);
+            const float absGate = std::clamp ((levelDb + gateDb) / 8.0f, 0.0f, 1.0f);
             const float modGate = std::clamp ((st.loudDb - st.floorDb - 1.5f) / 3.5f, 0.0f, 1.0f);
             const float gate = absGate * (0.3f + 0.7f * modGate);
 

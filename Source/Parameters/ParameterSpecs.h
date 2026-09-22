@@ -28,7 +28,8 @@ namespace pad::params
         inline constexpr const char* tideMix      = "tideMix";       // wet / dry (%)
         inline constexpr const char* tideResponse = "tideResponse";  // how fast it reacts and adapts (0-10)
         inline constexpr const char* tideActive   = "tideActive";    // IN / OUT (hardware bypass)
-        // Its processing methods (the glass panel; DSP/MethodRegistry.h). Not automatable.
+        // Its processing methods: the glass panel builds these parameters from DSP/MethodRegistry.h (with
+        // every other unit's); the IDs are here because the tests and older code name them.
         inline constexpr const char* tideDetector    = "tideDetector";     // PKR / RMS
         inline constexpr const char* tideSmoothing   = "tideSmoothing";    // DRL / SRL
         inline constexpr const char* tideResponseLaw = "tideResponseLaw";  // LIN / EXP

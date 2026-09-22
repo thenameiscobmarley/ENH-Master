@@ -52,12 +52,17 @@ namespace enh::dsp
             float mix = 0.6f;        // 0..1
             float response = 0.5f;   // 0..1
             int detector = 0;        // Detector (MethodRegistry.h)
+            int sideChain = 0;       // SideChain
+            int gain = 0;            // Gain computer
             int smoothing = 0;       // Smoothing
+            int makeup = 0;          // Make-up (0 auto 65 %, 1 full 90 %, 2 none)
             bool active = false;     // the plugin's parameter default is In; raw settings stay inert
         };
 
-        enum Detector  { detectorPkr = 0, detectorRms, numDetectors };
-        enum Smoothing { smoothingDrl = 0, smoothingSrl, numSmoothings };
+        enum Detector  { detectorPkr = 0, detectorRms, detectorKwt, numDetectors };
+        enum SideChain { sideChain90 = 0, sideChain150, sideChainFull, numSideChains };
+        enum Gain      { gainAdaptive = 0, gainSoft, gainHard, numGains };
+        enum Smoothing { smoothingDrl = 0, smoothingSrl, smoothingOpto, numSmoothings };
 
         struct Readout
         {
@@ -84,6 +89,8 @@ namespace enh::dsp
         /** The methods running now (after any crossfade has finished). */
         int getDetector() const noexcept  { return detector; }
         int getSmoothing() const noexcept { return smoothing; }
+        int getSideChain() const noexcept { return sideChain; }
+        int getGain() const noexcept      { return gain; }
 
     private:
         void updateDetector (float peak, float rms, const Settings&) noexcept;
@@ -91,6 +98,7 @@ namespace enh::dsp
         // The stages' methods
         float detectLevel (int method, float peak, float rms) const noexcept;
         float smooth (int method, float targetGainDb) noexcept;
+        float gainFor (int method, float levelDb) const noexcept;
         void seedSmoothing (int method, float fromGainDb) noexcept;
 
         double sr = 48000.0;
@@ -108,6 +116,15 @@ namespace enh::dsp
         float slowDb = 0.0f, fastDb = 0.0f;   // DRL: average + transient gain reduction
         float singleDb = 0.0f;                // SRL: one follower
         float rmsWindowEnergy = 0.0f, rmsWindowCoeff = 0.0f;   // RMS: its own 50 ms power window
+        float kwtEnergy = 0.0f;                               // KWT: the same, K-weighted
+        BiquadCoeffs kwtShelf;
+        BiquadState kwtState;
+        float optoDb = 0.0f;                                  // OPT: its follower
+        // Side-chain filters per method (H90 uses scHp / scState, as before); FUL passes straight through
+        BiquadCoeffs scHp150;
+        std::array<BiquadState, 2> scState150 {};
+        int sideChain = sideChain90, fadingSideChain = -1, sideChainFadeLeft = 0;
+        int gain = gainAdaptive, fadingGain = -1, gainFadeLeft = 0;
 
         // Method switching: the method that is fading out and how many samples of the fade are left
         int detector = detectorPkr, smoothing = smoothingDrl;

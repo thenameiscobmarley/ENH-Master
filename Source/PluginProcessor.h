@@ -49,9 +49,10 @@ public:
     juce::AudioProcessorValueTreeState& getState() noexcept  { return state; }
     pad::ParameterBridge& getBridge() noexcept               { return bridge; }
 
-    /** Knob modifiers (message thread to set; see Parameters/KnobModifiers.h). */
-    void setKnobInputModifier (int knob, float value)        { knobModifiers.setInput (state.state, knob, value); }
-    float getKnobInputModifier (int knob) const noexcept     { return knobModifiers.getInput (knob); }
+    /** Knob modifiers (message thread to set; see Parameters/KnobModifiers.h). knob: index in
+        enh::dsp::knobFields, kind: methods::ModifierKind. */
+    void setKnobModifier (int knob, int kind, float value)      { knobModifiers.set (state.state, knob, kind, value); }
+    float getKnobModifier (int knob, int kind) const noexcept   { return knobModifiers.get (knob, kind); }
     const enh::dsp::EngineMeters& getMeters() const noexcept { return engine.getMeters(); }
 
     /** Analyser taps. The audio thread only copies samples into these; the editor runs the FFT. */
@@ -66,14 +67,16 @@ private:
     enh::dsp::EnhEngine engine;
     std::atomic<int> currentPreset { 0 };
     pad::KnobModifiers knobModifiers;
-    pad::KnobSmoother responseSmoother;   // tideResponse's SMO (audio thread)
+    std::array<pad::KnobSmoother, pad::KnobModifiers::numKnobs> knobSmoothers;   // SMO per knob (audio thread)
+    std::array<juce::NormalisableRange<float>, pad::KnobModifiers::numKnobs> knobRanges;
+    std::array<std::atomic<float>*, enh::dsp::methods::numMethodIds> methodParams {};
+    void applyKnobModifiers (enh::dsp::KnobValues&, int numSamples) noexcept;
     double currentSampleRate = 48000.0;
     std::atomic<juce::uint32> presetLoads { 0 };
 
     std::atomic<float>* enhMultiply = nullptr, *enhStrength = nullptr, *seraphMultiply = nullptr, *seraphStrength = nullptr;
     std::atomic<float>* heavenHold = nullptr, *heavenLift = nullptr, *heavenMode = nullptr;
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
-    std::atomic<float>* tideDetector = nullptr, *tideSmoothing = nullptr, *tideResponseLaw = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
     std::atomic<float>* spectralRange = nullptr, *spectralRelease = nullptr, *spectralCeiling = nullptr, *spectralActive = nullptr;
     std::atomic<float>* levelGain = nullptr, *balAmount = nullptr, *balSpeed = nullptr, *balTilt = nullptr, *balRange = nullptr, *balActive = nullptr, *balResolution = nullptr;

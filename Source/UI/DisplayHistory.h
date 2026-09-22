@@ -30,6 +30,9 @@ namespace pad
     public:
         void prepare (double sampleRate) { sr = sampleRate > 0.0 ? sampleRate : 48000.0; setSecondsAcross (4.8); }
 
+        /** WAVEFORM display setting: each column's RMS (+3 dB) instead of its peak. */
+        void setRms (bool on) noexcept { rms = on; }
+
         /** How much audio the screen holds, end to end (the MONITOR's SPEED). */
         void setSecondsAcross (double seconds)
         {
@@ -48,8 +51,16 @@ namespace pad
                 const auto k = (size_t) (last & enh::dsp::ScopeFifo::mask);
                 peak = std::max (peak, std::abs (output.samples[k]));
                 peakIn = std::max (peakIn, std::abs (input.samples[k]));
+                sumSq += output.samples[k] * output.samples[k];
+                sumSqIn += input.samples[k] * input.samples[k];
                 if (++count >= samplesPerColumn)
                 {
+                    if (rms)
+                    {
+                        peak = std::sqrt (sumSq / (float) count) * 1.4142f;
+                        peakIn = std::sqrt (sumSqIn / (float) count) * 1.4142f;
+                    }
+                    sumSq = sumSqIn = 0.0f;
                     const int head = out.waveHead.load (std::memory_order_relaxed);
                     const auto c = (size_t) (head % DisplayHistory::waveColumns);
                     out.wavePeak[c].store (std::min (1.0f, peak), std::memory_order_relaxed);
@@ -64,6 +75,7 @@ namespace pad
     private:
         double sr = 48000.0;
         int samplesPerColumn = 480, last = -1, count = 0;
-        float peak = 0.0f, peakIn = 0.0f;
+        float peak = 0.0f, peakIn = 0.0f, sumSq = 0.0f, sumSqIn = 0.0f;
+        bool rms = false;
     };
 }

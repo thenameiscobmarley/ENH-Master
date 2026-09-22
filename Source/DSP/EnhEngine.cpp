@@ -94,7 +94,8 @@ namespace enh::dsp
         // LEVEL, first: every unit after it hears the level it sets (smoothed over ~20 ms)
         {
             const float target = std::pow (10.0f, std::clamp (p.levelDb, -24.0f, 12.0f) / 20.0f);
-            const float k = 1.0f - std::exp (-1.0f / (0.020f * (float) sampleRate));
+            const int glide = p.methods[(size_t) methods::levelGlide];   // GLIDE method: 20 ms, 5 ms or 150 ms
+            const float k = 1.0f - std::exp (-1.0f / ((glide == 1 ? 0.005f : glide == 2 ? 0.150f : 0.020f) * (float) sampleRate));
             const int chans = std::min (2, buffer.getNumChannels());
             auto* const* w = buffer.getArrayOfWritePointers();
             if (std::abs (levelGain - target) > 1.0e-6f || std::abs (levelGain - 1.0f) > 1.0e-6f)
@@ -203,6 +204,7 @@ namespace enh::dsp
         const float* offsetPtrs[2] { write[0] + start, write[chans - 1] + start };
         analog.measureInput (offsetPtrs, chans, n);
         limiter.beginChunk();
+        limiter.setAnalysisMethods (p.methods[(size_t) methods::limiterNormal], p.methods[(size_t) methods::limiterWidth]);
 
         int pos = 0;
         while (pos < n)
@@ -235,7 +237,7 @@ namespace enh::dsp
 
         juce::dsp::AudioBlock<float> block (write, (size_t) chans, (size_t) start, (size_t) n);
         analog.process (block, { boost, transient, p.footstep ? steps.getConfidence() : 0.0f, planner.depth, planner.clarity, strength,
-                                 p.limiter.active && limiter.isHandlingLocalisedEvent() });
+                                 p.limiter.active && limiter.isHandlingLocalisedEvent(), p.methods[(size_t) methods::enhancerHarmonics] });
 
         float* chunk[2] { write[0] + start, write[chans - 1] + start };
 
@@ -256,6 +258,7 @@ namespace enh::dsp
         seraph.process (chunk, chans, n, p.seraph);
 
         // The output limiter: full scale is looked after here, once, cleanly
+        output.setCeilingMethod (p.methods[(size_t) methods::outputCeiling]);
         output.process (chunk, chans, n);
     }
 }

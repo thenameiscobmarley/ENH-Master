@@ -5,17 +5,21 @@ white line. Back to [[00 Start Here]].
 
 ## What it shows
 
-The unit's name, then its settings **one under another** in a column that scrolls with the wheel,
-never side by side:
+The unit's name and how many of its settings are changed, then its settings **one under another** in
+a column that scrolls with the wheel, never side by side, in categories that fold open and shut:
 
-- each **stage** of the unit's processing (how it measures, how it calculates, how it smooths) and
-  its method, from `Source/DSP/MethodRegistry.h`;
-- each **knob modifier** the unit has (the pilot: RESPONSE smoothing);
+- **PROCESSING** - the unit's stages (how it measures, calculates, moves) and their methods;
+- **KNOBS** (folded at first) - per knob: its own law where it has one, then SMOOTHING, CURVE and RANGE,
+  the modifiers between the knob and the processing;
+- **OUTPUT** and **DISPLAY** - on the OUTPUT MONITOR;
+- **RESET TO DEFAULTS** - the whole unit back to how it always sounded;
 - at the bottom, a few lines about whatever is under the pointer: how it changes the sound, what it
   costs.
 
-Click a setting to list its choices under it; click a choice to use it. The full list is [[Methods]].
-Only the ADAPTIVE COMPRESSOR has stages so far (the pilot); the other units show their name.
+Click a setting to list its choices under it (one list open at a time); click a choice to use it.
+A setting that is not at its default carries a small white square, and its category counts them.
+Opening, folding, hover and scrolling ease (`GlassPanel::tick`, 30 times a second while anything
+moves; the print is redrawn only then). Every unit has settings; the full list is [[Methods]].
 
 ## Clicks
 

@@ -265,6 +265,13 @@ namespace enh::dsp
         triodeK = std::min (4.0f, 0.5f + 0.12f * s.warmth);
         triodeMix = strength;
         tapeOn = s.tape;
+        tapeFadeLen = std::max (1, (int) std::lround (0.030 * sr));
+        if (const int want = std::clamp (s.tapeCurve, 0, 2); want != tapeCurve)
+        {
+            fadingTapeCurve = tapeCurve;
+            tapeCurve = want;
+            tapeFadeLeft = tapeFadeLen;
+        }
 
         // Loudness match
         const float inDb = powerToDb (inMs), outDb = powerToDb (outMs);
@@ -272,6 +279,18 @@ namespace enh::dsp
             autoDb = std::clamp (autoDb + (inDb - outDb) * (1.0f - std::exp (-dt / 1.5f)), -9.0f, 9.0f);
         else if (! s.autoGain)
             autoDb *= std::exp (-dt / 0.3f);
+    }
+
+    // TAPE CURVE: slope 1 at the origin and a ceiling of 1.2 for all three, so they differ only in how they bend
+    float SilkStage::tapeShape (int curve, float v) noexcept
+    {
+        switch (curve)
+        {
+            case 1:  return 0.76394373f * std::atan (1.30899694f * v);           // arctangent: (2.4 / pi) atan (pi v / 2.4)
+            case 2:  { const float u = std::clamp (v / 1.8f, -1.0f, 1.0f);       // cubic soft clip, flat from 1.8
+                       return 1.2f * (1.5f * u - 0.5f * u * u * u); }
+            default: return 1.2f * std::tanh (v / 1.2f);                           // tanh (the original)
+        }
     }
 
     void SilkStage::process (float* const* data, int numChannels, int n, const Settings& s, float blendTarget) noexcept
@@ -367,6 +386,8 @@ namespace enh::dsp
             blend = blendTarget + (blend - blendTarget) * blendCoeff;
 
             float outMono = 0.0f;
+            // TAPE CURVE crossfade weight for this sample (1 = the chosen curve only)
+            const float tapeT = tapeFadeLeft > 0 ? 1.0f - (float) --tapeFadeLeft / (float) tapeFadeLen : 1.0f;
             for (int c = 0; c < chans; ++c)
             {
                 auto& st = ch[(size_t) c];
@@ -427,7 +448,13 @@ namespace enh::dsp
                 if (tapeOn)
                 {
                     const float v = st.tapePre.process (tapePre, w);
-                    const float taped = st.tapePost.process (tapePost, 1.2f * std::tanh (v / 1.2f));
+                    float shaped = tapeShape (tapeCurve, v);
+                    if (tapeT < 1.0f)
+                    {
+                        const float old = tapeShape (fadingTapeCurve, v);
+                        shaped = old + (shaped - old) * tapeT;
+                    }
+                    const float taped = st.tapePost.process (tapePost, shaped);
                     w += (taped - w) * triodeMix;
                 }
                 tapeMeter.add (c, x, w - before);
@@ -465,7 +492,8 @@ namespace enh::dsp
             decorrelate[i].line.prepare ((int) decorrelate[i].delay + 4);
         }
 
-        preDelay.prepare ((int) ms (20.0) + 8);
+        preDelay.prepare ((int) ms (40.0) + 8);   // up to the longest PRE-DELAY method (35 ms)
+        preDelayFadeLen = std::max (1, (int) std::lround (0.030 * sr));
         const std::array<double, 8> earlyMs { 7.1, 13.9, 23.3, 31.7, 9.3, 17.1, 26.9, 37.3 };
         for (size_t t = 0; t < earlyTap.size(); ++t)
             earlyTap[t] = ms (earlyMs[t]);
@@ -562,7 +590,14 @@ namespace enh::dsp
         const float twoPiOverSr = (float) (2.0 * pi / sr);
         constexpr float invSqrt8 = 0.35355339f;
         constexpr std::array<float, numLines> inSign { 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f };
-        const float preDelaySamples = (float) (0.018 * sr);
+        if (const int want = std::clamp (s.preDelay, 0, 2); want != preDelayMethod)
+        {
+            fadingPreDelay = preDelayMethod;
+            preDelayMethod = want;
+            preDelayFadeLeft = preDelayFadeLen;
+        }
+        const float preDelaySamples = (float) (preDelaySeconds (preDelayMethod) * sr);
+        const float oldPreDelaySamples = fadingPreDelay >= 0 ? (float) (preDelaySeconds (fadingPreDelay) * sr) : preDelaySamples;
 
         for (int i = 0; i < n; ++i)
         {
@@ -604,6 +639,11 @@ namespace enh::dsp
             networkInputEnergy += (double) (inLpState + shimmerFeed) * (inLpState + shimmerFeed);
             preDelay.push (inLpState + shimmerFeed);
             float x = preDelay.read (preDelaySamples);
+            if (preDelayFadeLeft > 0)   // PRE-DELAY changed: crossfade from the old tap
+            {
+                const float old = preDelay.read (oldPreDelaySamples);
+                x = old + (x - old) * (1.0f - (float) --preDelayFadeLeft / (float) preDelayFadeLen);
+            }
 
             // Early reflections: sparse stereo taps give the space a believable size before the dense tail
             early.push (x);

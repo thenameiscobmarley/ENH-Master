@@ -644,7 +644,9 @@ namespace pad
         monitorLabelTex.bind (1);
         auto& wave = use (shaders::waveScreen);
         wave.set ("uTex2", 1);
-        wave.set ("uParams", monitorLamp, 0.0f, 0.0f, 0.0f);
+        const int toneRange = bridge.indexOf ("displayToneRange");
+        const int toneChoice = toneRange >= 0 ? juce::roundToInt (bridge.getNormalised (toneRange) * 2.0f) : 0;
+        wave.set ("uParams", monitorLamp, toneChoice == 1 ? 6.0f : toneChoice == 2 ? 24.0f : 12.0f, 0.0f, 0.0f);
         draw (meshes.monitorGlass, monitorPanel, {});
 
         balancerDataTex.bind (0);

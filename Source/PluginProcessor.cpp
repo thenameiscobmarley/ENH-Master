@@ -33,9 +33,22 @@ PluginProcessor::PluginProcessor()
     tideMix       = state.getRawParameterValue (id::tideMix);
     tideResponse  = state.getRawParameterValue (id::tideResponse);
     tideActive    = state.getRawParameterValue (id::tideActive);
-    tideDetector    = state.getRawParameterValue (id::tideDetector);
-    tideSmoothing   = state.getRawParameterValue (id::tideSmoothing);
-    tideResponseLaw = state.getRawParameterValue (id::tideResponseLaw);
+    // Every processing method's choice (MethodRegistry.h), by its MethodId
+    for (int unit : enh::dsp::methods::unitsInRackOrder)
+    {
+        const auto list = enh::dsp::methods::stagesForUnit (unit);
+        for (int i = 0; i < list.count; ++i)
+            if (list.stages[i].id >= 0)
+                methodParams[(size_t) list.stages[i].id] = state.getRawParameterValue (juce::String (list.stages[i].param.data(), list.stages[i].param.size()));
+    }
+    // Each modified knob's range, so its modifiers work on the travel (0..1) as the knob is turned
+    for (int i = 0; i < pad::KnobModifiers::numKnobs; ++i)
+        if (const auto* spec = pad::params::findSpec (enh::dsp::knobFields[(size_t) i].param))
+        {
+            knobRanges[(size_t) i] = juce::NormalisableRange<float> (spec->minValue, spec->maxValue);
+            if (spec->skewCentre > 0.0f)
+                knobRanges[(size_t) i].setSkewForCentre (spec->skewCentre);
+        }
     lumenTarget   = state.getRawParameterValue (id::lumenTarget);
     lumenResponse = state.getRawParameterValue (id::lumenResponse);
     lumenActive   = state.getRawParameterValue (id::lumenActive);
@@ -80,7 +93,7 @@ PluginProcessor::PluginProcessor()
 void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate > 0.0 ? sampleRate : 48000.0;
-    responseSmoother = {};
+    knobSmoothers = {};
     engine.prepare (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
     setLatencySamples (engine.getLatencySamples());
 }
@@ -118,12 +131,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.heavenLiftMode = heavenMode->load() > 0.5f;
 
     k.tideMixPercent = tideMix->load();
-    // RESPONSE through its input modifier (SMO); the host still sees the raw value
-    k.tideResponse   = responseSmoother.process (tideResponse->load(), knobModifiers.getInput (0),
-                                                 buffer.getNumSamples(), currentSampleRate);
-    k.tideDetector    = juce::roundToInt (tideDetector->load());
-    k.tideSmoothing   = juce::roundToInt (tideSmoothing->load());
-    k.tideResponseLaw = juce::roundToInt (tideResponseLaw->load());
+    k.tideResponse   = tideResponse->load();
+    for (size_t m = 0; m < k.methods.size(); ++m)
+        k.methods[m] = methodParams[m] != nullptr ? juce::roundToInt (methodParams[m]->load()) : 0;
     k.tideActive     = tideActive->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
@@ -163,8 +173,23 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.seraphMultiply = seraphMultiply->load();
     k.seraphStrength = seraphStrength->load();
 
+    applyKnobModifiers (k, buffer.getNumSamples());   // the host still sees the raw values
     const auto p = enh::dsp::mapKnobs (k);
     engine.process (buffer, p);
+}
+
+/** Each knob through its modifiers (SMO, CRV, LIM), on its travel. A knob with all three off is left
+    exactly as it is. */
+void PluginProcessor::applyKnobModifiers (enh::dsp::KnobValues& k, int numSamples) noexcept
+{
+    using namespace enh::dsp::methods;
+    for (int i = 0; i < pad::KnobModifiers::numKnobs; ++i)
+    {
+        float& v = k.*(enh::dsp::knobFields[(size_t) i].field);
+        v = pad::applyKnobModifiers (v, knobRanges[(size_t) i], knobSmoothers[(size_t) i],
+                                     knobModifiers.get (i, modifierSmoothing), juce::roundToInt (knobModifiers.get (i, modifierCurve)),
+                                     knobModifiers.get (i, modifierRange), numSamples, currentSampleRate);
+    }
 }
 
 int PluginProcessor::getNumPrograms()

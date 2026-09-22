@@ -86,7 +86,12 @@ namespace enh::dsp
     class FinalLimiter
     {
     public:
-        static constexpr float ceiling = 1.0f;     // 0 dBFS: it acts only on real overs
+        /** CEILING method (MethodRegistry.h): 0 dBFS, -0.3 or -1.0 dBFS. The lookahead gains move to a new
+            ceiling at their own attack / release, so a change never steps the audio. */
+        void setCeilingMethod (int method) noexcept
+        {
+            ceiling = method == 1 ? 0.96605088f : method == 2 ? 0.89125094f : 1.0f;
+        }
         static constexpr int numRegions = 4;
 
         void prepare (double sampleRate)
@@ -229,5 +234,6 @@ namespace enh::dsp
         std::array<std::vector<float>, 2> delayA, delayB;
         float reductionDb = 0.0f;
         std::array<float, numRegions> regionCutDb {};
+        float ceiling = 1.0f;     // 0 dBFS: it acts only on real overs (CEILING can set it lower)
     };
 }
