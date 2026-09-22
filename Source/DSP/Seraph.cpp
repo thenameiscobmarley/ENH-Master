@@ -331,12 +331,16 @@ namespace enh::dsp
         constexpr float bias = 0.20f;
         const float tanhBias = std::tanh (bias), sech2 = 1.0f - tanhBias * tanhBias;
 
+        // MATCH's gain only moves on a control tick: work it out then, not with a pow() every sample
+        float gainTarget = dbToGain (autoDb + s.outputDb);
+
         for (int i = 0; i < n; ++i)
         {
             if (--toTick <= 0)
             {
                 controlTick (s);
                 toTick = controlInterval;
+                gainTarget = dbToGain (autoDb + s.outputDb);
             }
 
             // SMOOTH's detector listens above 120 Hz only (24 dB/oct): its band-pass skirts used to pick up
@@ -360,7 +364,7 @@ namespace enh::dsp
                         const float y = line[(size_t) bloomPos[d]];
                         bloomLp[d] += (y - bloomLp[d]) * bloomLpK;
                         line[(size_t) bloomPos[d]] = b + 0.55f * bloomLp[d];
-                        bloomPos[d] = (bloomPos[d] + 1) % bloomLen[d];
+                        if (++bloomPos[d] == bloomLen[d]) bloomPos[d] = 0;
                         out += y;
                     }
                     bloomIn = 0.5f * out;
@@ -421,9 +425,11 @@ namespace enh::dsp
             inMs = msCoeff * inMs + (1.0f - msCoeff) * kin * kin;
             inSlowMs = slowMsCoeff * inSlowMs + (1.0f - slowMsCoeff) * kin * kin;
 
-            const float gainTarget = dbToGain (autoDb + s.outputDb);
             outGain += (gainTarget - outGain) * 0.001f;
             blend = blendTarget + (blend - blendTarget) * blendCoeff;
+
+            // How busy the bass is right now (the bloom only swells in the gaps): once per sample, one log
+            const float busy = saturate01 ((10.0f * std::log10 ((bassFast + 1.0e-12f) / (bassSlow + 1.0e-12f)) + 2.0f) / 6.0f);
 
             float outMono = 0.0f;
             // TAPE CURVE crossfade weight for this sample (1 = the chosen curve only)
@@ -457,7 +463,6 @@ namespace enh::dsp
                     const float u = std::clamp (low / lvl, -1.5f, 1.5f);
                     const float glow = st.glowBand.process (glowBandCoeffs, u * u).band * lvl * 0.5f;
                     w += glow * glowMix;
-                    const float busy = saturate01 ((powerToDb (bassFast) - powerToDb (bassSlow) + 2.0f) / 6.0f);
                     w += bloomIn * bloomMix * (1.0f - busy);
                 }
                 bodyMeter.add (c, x, w - before);
@@ -484,7 +489,12 @@ namespace enh::dsp
                 const float dc = tri - st.triodeDcX + dcCoeff * st.triodeDcY;
                 st.triodeDcX = tri;
                 st.triodeDcY = dc;
-                w += dc * triodeMix;
+                // The bias makes even harmonics, and with them a DC term that rises and falls with every
+                // transient's envelope. A 6 Hz DC blocker let that through as a faint thump under each hit
+                // (a 2 kHz click came out with low end at -55 dB). The curve only sees what lies above
+                // 120 Hz, so nothing it makes below 120 Hz is a harmonic: take it all out, 24 dB/octave.
+                const float added = st.triHp2.process (triSplitCoeffs, st.triHp1.process (triSplitCoeffs, dc).high).high;
+                w += added * triodeMix;
                 warmthMeter.add (c, x, w - before);
 
                 before = w;
@@ -739,23 +749,36 @@ namespace enh::dsp
             const float wetR = 0.5f * (out[1] - out[3] + out[5] - out[7]);
 
             // --- shimmer: +12 st two-tap delay pitch shifter fed back into the network --------
+            // The line is always fed and the phases always run, so turning SHIMMER up starts cleanly; the
+            // pitch shifting itself is only done when it is heard. The two taps' windows are sin^2 half a
+            // period apart, so the second is 1 - the first (one sin a shifter, not two).
             shimmerLine.push (0.5f * (wetL + wetR));
             shimmerPhase += 1.0f / shimmerWindow;
             if (shimmerPhase >= 1.0f) shimmerPhase -= 1.0f;
-            const float phaseB = shimmerPhase + 0.5f >= 1.0f ? shimmerPhase - 0.5f : shimmerPhase + 0.5f;
-            const float gA = std::sin (3.14159265f * shimmerPhase), gB = std::sin (3.14159265f * phaseB);
-            float shifted = shimmerLine.read (1.0f + shimmerWindow * (1.0f - shimmerPhase)) * gA * gA
-                          + shimmerLine.read (1.0f + shimmerWindow * (1.0f - phaseB)) * gB * gB;
-
-            // ... and an octave and a fifth up (x3: the read point sweeps 2 samples a sample), quieter
             fifthPhase += 2.0f / fifthWindow;
             if (fifthPhase >= 1.0f) fifthPhase -= 1.0f;
-            const float fB = fifthPhase + 0.5f >= 1.0f ? fifthPhase - 0.5f : fifthPhase + 0.5f;
-            const float hA = std::sin (3.14159265f * fifthPhase), hB = std::sin (3.14159265f * fB);
-            shifted += 0.45f * (shimmerLine.read (1.0f + fifthWindow * (1.0f - fifthPhase)) * hA * hA
-                              + shimmerLine.read (1.0f + fifthWindow * (1.0f - fB)) * hB * hB);
-            shimmerHpState = shimmerHpK * shimmerHpState + (1.0f - shimmerHpK) * shifted;
-            shimmerFeed = std::min (0.85f, s.shimmer * 0.55f * std::clamp (s.strength, 0.0f, 5.0f)) * (shifted - shimmerHpState);
+
+            const float shimmerAmount = std::min (0.85f, s.shimmer * 0.55f * std::clamp (s.strength, 0.0f, 5.0f));
+            if (shimmerAmount > 0.0f)
+            {
+                const float phaseB = shimmerPhase + 0.5f >= 1.0f ? shimmerPhase - 0.5f : shimmerPhase + 0.5f;
+                const float gA = std::sin (3.14159265f * shimmerPhase), wA = gA * gA;
+                float shifted = shimmerLine.read (1.0f + shimmerWindow * (1.0f - shimmerPhase)) * wA
+                              + shimmerLine.read (1.0f + shimmerWindow * (1.0f - phaseB)) * (1.0f - wA);
+
+                // ... and an octave and a fifth up (x3: the read point sweeps 2 samples a sample), quieter
+                const float fB = fifthPhase + 0.5f >= 1.0f ? fifthPhase - 0.5f : fifthPhase + 0.5f;
+                const float hA = std::sin (3.14159265f * fifthPhase), vA = hA * hA;
+                shifted += 0.45f * (shimmerLine.read (1.0f + fifthWindow * (1.0f - fifthPhase)) * vA
+                                  + shimmerLine.read (1.0f + fifthWindow * (1.0f - fB)) * (1.0f - vA));
+                shimmerHpState = shimmerHpK * shimmerHpState + (1.0f - shimmerHpK) * shifted;
+                shimmerFeed = shimmerAmount * (shifted - shimmerHpState);
+            }
+            else
+            {
+                shimmerHpState *= shimmerHpK;
+                shimmerFeed = 0.0f;
+            }
 
             // --- ducking: the tail makes room while the programme is busy ---------------------
             // Keyed on the same band the tail is made from (mid, 200 Hz up): a bass note coming and
@@ -781,8 +804,11 @@ namespace enh::dsp
                 {
                     driftPhase += 64.0f * 6.2831853f * 0.05f / (float) sr;
                     if (driftPhase > 6.2831853f) driftPhase -= 6.2831853f;
+                    const float angle = 0.35f * std::sin (driftPhase);   // moves every 64 samples, so worked out then
+                    driftCos = std::cos (angle);
+                    driftSin = std::sin (angle);
                 }
-                const float angle = 0.35f * std::sin (driftPhase), cs = std::cos (angle), sn = std::sin (angle);
+                const float cs = driftCos, sn = driftSin;
                 const float rl = cs * tailL - sn * tailR, rr = sn * tailL + cs * tailR;
                 tailL = rl;
                 tailR = rr;

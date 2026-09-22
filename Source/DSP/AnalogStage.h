@@ -65,6 +65,7 @@ namespace enh::dsp
         {
             SvfState pre1, pre2, post1, post2, top;
             float env = 0.0f;
+            float settled = 0.0f;   // the envelope, slowly: where it is below env, the partial has just begun
         };
 
         struct ExciterCoeffs
@@ -80,7 +81,7 @@ namespace enh::dsp
             float dcX = 0.0f, dcY = 0.0f;
         };
 
-        static inline float excite (Exciter&, const ExciterCoeffs&, float in, float attack, float release, float w2, float w3) noexcept;
+        static inline float excite (Exciter&, const ExciterCoeffs&, float in, float attack, float release, float settle, float w2, float w3) noexcept;
 
         // HARMONICS: the exciters' 2nd / 3rd weights glide to the chosen method's over 30 ms. The output is
         // linear in the weights, so the glide is an exact crossfade between the two methods.
@@ -95,7 +96,7 @@ namespace enh::dsp
         BiquadCoeffs kHp, kShelf, subsonic;
         ExciterCoeffs depthCoeffs, clarityCoeffs;
         float depthHz = 0.0f, clarityHz = 0.0f;
-        float msCoeff = 0.0f, dcCoeff = 0.9995f, envAttack = 0.0f, envRelease = 0.0f;
+        float msCoeff = 0.0f, dcCoeff = 0.9995f, envAttack = 0.0f, envRelease = 0.0f, envSettle = 0.0f;
 
         KWeighting inputK, outputK;
         std::array<BaseChannel, maxChannels> base {};

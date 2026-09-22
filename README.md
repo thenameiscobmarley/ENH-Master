@@ -45,7 +45,8 @@ In this scheme 1.4.1 reads as 1.0.4.1. 1.1.4.1 raised the 2nd part for a big cha
 panels and the swappable processing methods), and 1.2.4.1 raises it again for another (settings on every
 unit, knob modifiers on every knob, and the panel's categories), and 1.3.4.1 once more (the DEEP SUB unit,
 a knob dropdown per knob, and a shorter rack), and 1.4.4.1 again (why the mix ducked under bass, and a
-standalone app that can process everything the PC plays).
+standalone app that can process everything the PC plays), and 1.5.4.1 again (the standalone app becomes a
+router that moves the whole system or chosen apps into the rack and back, and puts it all back after a crash).
 
 ## Build
 
@@ -84,7 +85,7 @@ Installs `~/.vst3/ENH Master.vst3`. Carla: *Add Plugin → Refresh (VST3) → EN
 ## Windows
 
 **Windows is supported from 1.2.4.1.** Each release has a `windows-x64` zip with the VST3 and the
-standalone app.
+standalone app (the router, see below).
 
 To get *any* release on Windows, including the older ones that were Linux-only, download
 **`convert-to-windows.bat`** from this repository and double-click it:
@@ -102,27 +103,53 @@ The same script runs unattended with `ENH_TAG`, `ENH_MODE`, `ENH_OUT` and `ENH_Y
 file). The *Windows converter* workflow runs it on GitHub's Windows machines, converting v1.3.0 from
 source.
 
-### Putting the PC's own audio through it (the standalone app)
+### The standalone app: a router for your PC's audio
 
-The standalone app can take **what the computer is playing** as its input, rather than a microphone.
-In *Options -> Audio/MIDI Settings*, set **Audio device type** to **Windows system audio (loopback)**.
-The input list then holds every playback device on the machine, each marked *(what it is playing)*,
-and the output list holds the same devices as ordinary outputs. Pick the one the game plays to as the
-input and your headset as the output.
+The standalone app (`ENH Master.exe` in the Windows zip, `ENH Master` on Linux) is the rack with a
+**router** above it. It puts the rack *into the path* of audio that is already playing, and takes it
+out again, without you touching the system's sound settings:
 
-One rule the hardware imposes: **the device being captured cannot be the device you are listening
-to.** Loopback captures everything sent to a device, which would include ENH Master's own output -
-a loop that gets louder every time round. The app refuses that combination and says so. So either:
+```
+ SOURCE          RACK INPUT                     LISTEN ON
+ [Whole system]  [ENH Master rack input]        [Headphones]          (o) [ INSERT RACK ]  [...]
+ Rack out. Your audio plays as it did before.
+```
 
-- **Use a second playback device you are not listening to.** Set Windows' playback device (the one
-  the game uses) to an HDMI or monitor output with nothing plugged into it, capture that, and play to
-  your headset. Costs nothing and needs no extra software.
-- **Or install a virtual cable** (VB-CABLE is free): set Windows' playback device to *CABLE Input*,
-  and in ENH Master capture *CABLE Input (what it is playing)* and play to your headset.
+- **SOURCE** - *Whole system*: everything that plays to the default device goes through the rack.
+  *Chosen apps*: only the apps you tick under **Apps...** (the game, Discord, a browser) do; everything
+  else stays where it was. Apps you tick that start later, or open a new stream, follow into the rack.
+- **RACK INPUT** - the device the rack listens to. Your audio is moved onto it, captured, processed and
+  played to **LISTEN ON**. Nobody should be listening to it directly.
+- **LISTEN ON** - your headset or speakers.
+- **INSERT RACK** - opens the rack's audio first (so a failure changes nothing), writes down where
+  everything was, then moves it: the default device (whole system) or each chosen app's device.
+  **REMOVE** puts every one of them back exactly where it was, and so does closing the app.
 
-Latency is the two devices' own buffers plus about 20 ms of slack, which the app needs because the
-capture and playback devices run on separate clocks. It follows that drift continuously rather than
-dropping or repeating blocks, so nothing clicks.
+If the app crashes or is killed with the rack in, a small watchdog (the same executable, started with
+`--enh-restore-watch`) puts the audio back within half a second; if even that is gone (a power cut),
+the next start does it. What was changed is kept in `routing-<pid>.json` next to the settings
+(`%APPDATA%\ENH Master` on Windows, `~/.config/ENH Master` on Linux) until it has been undone.
+
+The **...** menu has *Insert the rack when ENH Master starts* (the Carla-style "always on" setup),
+*Refresh devices and apps*, and the full audio device settings.
+
+**Windows.** The rack input has to be a playback device you do not listen to, because Windows can only
+capture what a device plays (loopback), and capturing the device you listen on would feed back - the
+app refuses that. Either
+- **install a virtual cable** (VB-CABLE is free); the router picks *CABLE Input* by itself, or
+- **use an output with nothing plugged into it** - an HDMI or monitor output works and costs nothing.
+
+Whole-system mode switches the Windows default device (all three roles: console, multimedia,
+communications) and back. Chosen-apps mode uses the per-app device setting from *Settings > System >
+Sound > Volume mixer* (Windows 10 1803 or later); an app playing when you insert usually moves at once,
+a few only move when they restart playback. Latency is the two devices' own buffers plus about 20 ms
+of slack, which the app needs because the capture and playback devices run on separate clocks; it
+follows that drift continuously rather than dropping or repeating blocks, so nothing clicks.
+
+**Linux** (PipeWire or PulseAudio, through `pactl`). The router makes its own rack input, a null sink
+called *ENH Master rack input*, and removes it again on REMOVE. It works like a Carla null-sink setup,
+done for you. `EnhRouterTests` checks the router against the running sound server, with a silent
+stream of its own: chosen apps, whole system, recovery after a crash, and the watchdog.
 
 Building by hand on Windows: Visual Studio 2022 (C++), CMake and Git, then
 
@@ -720,6 +747,30 @@ bass (or everything but the silence) is held still, so anything that moves is th
   instead of 3 and is limited to ±6 dB: it is a trim that stops the unit changing the level, not a
   leveller of its own. The mix's own ducking after a bass passage fell from 2.7 dB to about 1 dB.
 
+### Distortion on held notes, and a thump under every click (the router release)
+
+`EnhAudioLab suite` before and after, same scenes and presets:
+
+- **The enhancer's harmonics distorted held notes.** In ADD mode the exciter makes harmonics in
+  proportion to the partial it finds in its band, whether that partial has just started or has been
+  sounding for seconds. On a held 1 kHz tone at -6 dBFS that was 13 % THD (MUSIC: WARM MASTER) to 28 %
+  (IMMERSIVE GAMES). Harmonics are what make an attack cut through; on a held note they are just
+  distortion. The exciter now keeps all of them while a partial is starting (the first ~100 ms: a
+  footstep, a consonant, a pick) and a quarter once it has settled: 5.7 - 9.8 % on the same tones.
+  In DEEP SUB: SUBMARINE the high band's pumping on the tones fell from 5.8 to 3.0 dB, and DEEP SUB
+  now tracks a steady bass note more cleanly (the spectral limiter keeps what it adds in check).
+- **TONE's triode added a low thump under every transient.** Its bias makes even harmonics, and with
+  them a DC term that rises and falls with each hit's envelope; a 6 Hz DC blocker let that through.
+  The curve only acts above 120 Hz, so nothing it makes below 120 Hz is a harmonic: it is now removed
+  at 24 dB/octave. The low end under isolated 2 kHz clicks fell by about 20 dB (to where it is with
+  TONE & SPACE switched off).
+
+CPU was measured stage by stage too: the rack costs about 20 % of one core at 48 kHz on this machine
+(a Celeron-class CPU). TONE & SPACE is the largest part (TONE 5 %, SPACE 3 %), then the feed-forward
+analysis (about 4 %). Per-sample work that only changes per block was moved out of the sample loops
+and the ring buffers no longer divide, but on this machine the difference is inside the measurement's
+own spread (about ±0.3 %).
+
 ## Signal chain (Source/DSP)
 
 ```
@@ -948,6 +999,7 @@ host delivers mouse events late. Config: `~/.config/ENHMaster/ui-config.json`.
 - `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` – outlines that control as if hovered
 - `PAD_UI_TEST_PANEL_CLOSE=<ms>` – closes the test panel again that long after it opened
 - `PAD_UI_TEST_SLOWMO=<factor>` – slows the glass panel's animation down, to look at it frame by frame
+- `PAD_ROUTER_TEST_INSERT=1` – the standalone inserts the rack 0.6 s after it starts; with `PAD_ROUTER_TEST_SOURCE=system|apps`, `PAD_ROUTER_TEST_APPS=<key>,<key>` and `PAD_ROUTER_TEST_LISTEN=<device id>` it does so without touching the saved choices
 - `PAD_UI_DUMP_ARTWORK=<dir>` – writes every printed panel with its text boxes and the hardware footprints from the layout code, plus `clearances.txt` listing any print that overlaps or crowds hardware, borders or other print
 
 ## Backups

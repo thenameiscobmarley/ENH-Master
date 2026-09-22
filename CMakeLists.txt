@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 1.4.4.1 LANGUAGES C CXX)
+project(EnhMaster VERSION 1.5.4.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,8 +31,8 @@ if(ENH_BUILD_STANDALONE)
     list(APPEND ENH_FORMATS Standalone)
 endif()
 
-# The standalone app is JUCE's, with an audio device type added that captures what the PC is
-# playing (Source/Standalone). JUCE builds ours instead of its own when this is set.
+# The standalone app is ours (Source/Standalone): the rack with a router above it that moves the
+# computer's audio - the whole system or chosen apps - into the rack and back out again.
 
 set(ENH_DSP_SOURCES
     Source/DSP/BandAnalyzer.cpp
@@ -94,8 +94,15 @@ target_compile_definitions(EnhMaster PUBLIC
 if(ENH_BUILD_STANDALONE AND TARGET EnhMaster_Standalone)
     target_sources(EnhMaster_Standalone PRIVATE
         Source/Standalone/StandaloneApp.cpp
-        Source/Standalone/SystemAudioDevice.cpp)
+        Source/Standalone/SystemAudioDevice.cpp
+        Source/Standalone/AudioRouting.cpp
+        Source/Standalone/AudioRoutingLinux.cpp
+        Source/Standalone/AudioRoutingWindows.cpp
+        Source/Standalone/RouterBar.cpp)
     target_compile_definitions(EnhMaster_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
+    if(WIN32)
+        target_link_libraries(EnhMaster_Standalone PRIVATE runtimeobject)   # the per-app device setting (WinRT)
+    endif()
 endif()
 
 target_link_libraries(EnhMaster
@@ -127,6 +134,15 @@ if(ENH_BUILD_TESTS)
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
 endif()
+
+    # The standalone's router against the real sound server (Linux; run by hand, not in CI)
+    if(UNIX AND NOT APPLE)
+        juce_add_console_app(EnhRouterTests PRODUCT_NAME "EnhRouterTests")
+        target_sources(EnhRouterTests PRIVATE Tests/RouterTests.cpp
+                       Source/Standalone/AudioRouting.cpp Source/Standalone/AudioRoutingLinux.cpp)
+        target_compile_definitions(EnhRouterTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        target_link_libraries(EnhRouterTests PRIVATE juce::juce_core PUBLIC juce::juce_recommended_config_flags)
+    endif()
 
 # ------------------------------------------------------------------------------
 # LayoutViz: reads the real layout (DeviceLayout.h) and camera (CameraRig.h) and draws them as an SVG

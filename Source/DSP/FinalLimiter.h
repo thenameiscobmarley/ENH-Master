@@ -36,19 +36,26 @@ namespace enh::dsp
         /** Feed what the audio `lookahead` samples from now needs (<= 1); returns the gain for now. */
         inline float push (float needed) noexcept
         {
+            // Ring indices wrap by comparison, not %: five of these run every sample, and the integer
+            // divisions were most of what the output limiter cost.
             const int cap = (int) minValue.size();
-            while (head != tail && minValue[(size_t) ((tail - 1 + cap) % cap)] >= needed)
-                tail = (tail - 1 + cap) % cap;
+            while (head != tail)
+            {
+                const int last = tail == 0 ? cap - 1 : tail - 1;
+                if (minValue[(size_t) last] < needed)
+                    break;
+                tail = last;
+            }
             minValue[(size_t) tail] = needed;
             minIndex[(size_t) tail] = counter;
-            tail = (tail + 1) % cap;
+            if (++tail == cap) tail = 0;
             while (minIndex[(size_t) head] <= counter - window)
-                head = (head + 1) % cap;
+                if (++head == cap) head = 0;
             const float held = minValue[(size_t) head];
 
             boxSum += (double) held - (double) boxcar[(size_t) pos];
             boxcar[(size_t) pos] = held;
-            pos = (pos + 1) % lookahead;
+            if (++pos == lookahead) pos = 0;
             ++counter;
 
             const float ramped = (float) (boxSum / (double) lookahead);
@@ -208,14 +215,14 @@ namespace enh::dsp
                     }
                     stageA[c] = y;
                 }
-                posA = (posA + 1) % lookahead;
+                if (++posA == lookahead) posA = 0;
 
                 // --- 2. broadband, on what the spectral stage let through: the true peak of the sample
                 // tpDelay behind the newest (its neighbours on both sides are known by now)
                 float peakA = 0.0f;
                 for (int c = 0; c < chans; ++c)
                     peakA = std::max (peakA, truePeak (c, stageA[c]));
-                tpPos = (tpPos + 1) % tpTaps;
+                if (++tpPos == tpTaps) tpPos = 0;
                 const float g = broadband.push (peakA > ceiling ? ceiling / peakA : 1.0f);
                 deepest = std::min (deepest, g);
 
@@ -226,7 +233,7 @@ namespace enh::dsp
                     d[(size_t) posB] = stageA[c];
                     ch[c][i] = std::clamp (out, -ceiling, ceiling);   // guard only: the gain already holds it here
                 }
-                posB = (posB + 1) % (lookahead + tpDelay);
+                if (++posB == lookahead + tpDelay) posB = 0;
             }
 
             reductionDb = -20.0f * std::log10 (std::max (1.0e-3f, deepest));

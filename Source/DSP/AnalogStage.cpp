@@ -19,7 +19,8 @@ namespace enh::dsp
         }
     }
 
-    inline float AnalogStage::excite (Exciter& e, const ExciterCoeffs& c, float in, float attack, float release, float w2, float w3) noexcept
+    inline float AnalogStage::excite (Exciter& e, const ExciterCoeffs& c, float in, float attack, float release, float settle,
+                                      float w2, float w3) noexcept
     {
         const float x = e.pre2.process (c.pre, e.pre1.process (c.pre, in).band).band;
 
@@ -27,6 +28,14 @@ namespace enh::dsp
         const float m = std::abs (x);
         e.env = (m > e.env ? attack : release) * (e.env - m) + m;
         const float amp = e.env + 1.0e-6f;
+
+        // How new the partial is: 1 while it is starting (the slow envelope still below the fast one), 0 once
+        // it has settled. Harmonics are what makes an attack cut through; on a held note or a steady tone they
+        // are simply distortion - at ADD 3 - 4 a sustained 1 kHz tone came out with 13 - 28 % THD. So a settled
+        // partial keeps a quarter of them, and every onset (a footstep, a consonant, a pick) keeps them all.
+        e.settled = e.env > e.settled ? settle * (e.settled - e.env) + e.env : e.env;
+        const float onset = std::clamp ((e.env - e.settled) / amp * 4.0f, 0.0f, 1.0f);
+        const float keep = 0.25f + 0.75f * onset;
 
         // Normalised partial, soft-limited, and held to +-1 where the Chebyshev polynomials are meant to work:
         // a steady partial reaches ~0.83 here, but at an attack the envelope lags and v runs up to ~5, where
@@ -38,7 +47,7 @@ namespace enh::dsp
         // Keep only what lies above the source: DC, the fundamental and IM products below go
         const float hp = e.post2.process (c.post, e.post1.process (c.post, h).high).high;
         const float gate = e.env / (e.env + 1.0e-4f);   // nothing on silence (~ -80 dBFS)
-        return e.top.process (c.top, hp).low * gate;
+        return e.top.process (c.top, hp).low * gate * keep;
     }
 
     void AnalogStage::prepare (double sampleRate, int maxBlockSize, int numChannels)
@@ -66,6 +75,7 @@ namespace enh::dsp
 
         envAttack = onePole (0.001, osr);
         envRelease = onePole (0.060, osr);
+        envSettle = onePole (0.080, osr);
         msCoeff = onePole (0.4, sr);
         dcCoeff = (float) std::exp (-2.0 * pi * 8.0 / osr);
         reset();
@@ -226,8 +236,8 @@ namespace enh::dsp
                         cW2 = weightsFrom.clarityW2 + (weightsTo.clarityW2 - weightsFrom.clarityW2) * t;
                         cW3 = weightsFrom.clarityW3 + (weightsTo.clarityW3 - weightsFrom.clarityW3) * t;
                     }
-                    y += dMix * excite (o.depth, depthCoeffs, in, envAttack, envRelease, dW2, dW3)
-                       + cMix * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease, cW2, cW3);
+                    y += dMix * excite (o.depth, depthCoeffs, in, envAttack, envRelease, envSettle, dW2, dW3)
+                       + cMix * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease, envSettle, cW2, cW3);
                 }
 
                 // Transformer / valve colour

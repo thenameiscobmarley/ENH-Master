@@ -141,7 +141,7 @@ namespace enh::dsp
             auto& h = history[(size_t) c];
             auto& at = historyPos[(size_t) c];
             h[(size_t) at] = h[(size_t) (at + taps)] = x;
-            at = (at + 1) % taps;
+            if (++at == taps) at = 0;
             const float* window = h.data() + at;   // oldest .. newest
             float best = std::abs (x);
             for (int p = 0; p < phases; ++p)

@@ -97,6 +97,7 @@ namespace enh::dsp
             Exciter air, warm;
             float triodeDcX = 0.0f, triodeDcY = 0.0f;
             SvfState triSplit;            // the triode curve acts above 120 Hz only
+            SvfState triHp1, triHp2;      // ... so what it adds below that is not harmonics: it goes
             BiquadState subShelf;         // SUB
             SvfState subLow, glowBand;
             float glowEnv = 1.0e-4f;
@@ -271,6 +272,7 @@ namespace enh::dsp
         float shimmerPhase = 0.0f, shimmerWindow = 2400.0f, shimmerHpK = 0.0f, shimmerHpState = 0.0f, shimmerFeed = 0.0f;
         float fifthPhase = 0.0f, fifthWindow = 2400.0f;
         float driftPhase = 0.0f;   // the tail's slow drift around the stereo field (MOD)
+        float driftCos = 1.0f, driftSin = 0.0f;   // ... its rotation, refreshed when the phase moves
 
         // Early reflections (stereo taps before the dense tail)
         Delay early;
