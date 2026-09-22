@@ -31,6 +31,9 @@ if(ENH_BUILD_STANDALONE)
     list(APPEND ENH_FORMATS Standalone)
 endif()
 
+# The standalone app is JUCE's, with an audio device type added that captures what the PC is
+# playing (Source/Standalone). JUCE builds ours instead of its own when this is set.
+
 set(ENH_DSP_SOURCES
     Source/DSP/BandAnalyzer.cpp
     Source/DSP/SpectralAnalyzer.cpp
@@ -87,6 +90,13 @@ target_compile_definitions(EnhMaster PUBLIC
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0)
+
+if(ENH_BUILD_STANDALONE AND TARGET EnhMaster_Standalone)
+    target_sources(EnhMaster_Standalone PRIVATE
+        Source/Standalone/StandaloneApp.cpp
+        Source/Standalone/SystemAudioDevice.cpp)
+    target_compile_definitions(EnhMaster_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
+endif()
 
 target_link_libraries(EnhMaster
     PRIVATE

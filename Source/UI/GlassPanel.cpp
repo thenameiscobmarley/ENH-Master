@@ -429,7 +429,7 @@ namespace pad
 
         const float s = juce::jlimit (1.0f, 3.0f, pixelScale);
         const int w = juce::roundToInt (panel.getWidth() * s), h = juce::roundToInt (panel.getHeight() * s);
-        juce::Image img (juce::Image::ARGB, w, h, true);
+        juce::Image img (juce::Image::ARGB, w, h, true, juce::SoftwareImageType());
         {
             juce::Graphics g (img);
             g.addTransform (juce::AffineTransform::translation (-panel.getX(), -panel.getY()).scaled (s));

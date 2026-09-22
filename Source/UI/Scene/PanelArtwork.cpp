@@ -20,6 +20,11 @@ namespace pad::artwork
         }
     }
 
+    /* Every image here is drawn with JUCE's own rasteriser (juce::SoftwareImageType), not the platform's.
+       These are printing plates: they are drawn once, their channels are copied out by hand and uploaded
+       as GL textures, so nothing is gained from a GPU-backed image - and on Windows a Direct2D image is
+       an alpha-only Direct2D bitmap that takes fills and strokes but drops glyph runs, which is why the
+       Windows build came out with racks that had no lettering on them at all. */
     static juce::Font makeFont (float heightPx, bool bold, float tracking = 0.0f, bool mono = false)
     {
         auto opts = juce::FontOptions().withHeight (heightPx).withKerningFactor (tracking);
@@ -104,9 +109,9 @@ namespace pad::artwork
         const int h = juce::roundToInt ((float) textureWidth * faceHalfH / faceHalfW);
         const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * faceHalfH) };
 
-        juce::Image ink (juce::Image::SingleChannel, w, h, true);    // white silkscreen
-        juce::Image lines (juce::Image::SingleChannel, w, h, true);  // grey section outlines
-        juce::Image fills (juce::Image::SingleChannel, w, h, true);  // slightly lighter section fields
+        juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());    // white silkscreen
+        juce::Image lines (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());  // grey section outlines
+        juce::Image fills (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());  // slightly lighter section fields
 
         const auto solid = juce::Colours::white;
         const auto centred = juce::Justification::horizontallyCentred;
@@ -220,7 +225,7 @@ namespace pad::artwork
         const int h = juce::roundToInt ((float) textureWidth * tubeHalfH / faceHalfW);
         const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * tubeHalfH), tubeHalfH };
 
-        juce::Image ink (juce::Image::SingleChannel, w, h, true);
+        juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Graphics g (ink);
         g.setColour (juce::Colours::white);
         const auto centred = juce::Justification::horizontallyCentred;
@@ -348,7 +353,7 @@ namespace pad::artwork
         const int h = juce::roundToInt ((float) textureWidth * halfH / faceHalfW);
         const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * halfH), halfH };
 
-        juce::Image ink (juce::Image::SingleChannel, w, h, true);
+        juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Graphics g (ink);
         g.setColour (juce::Colours::white);
         const auto centred = juce::Justification::horizontallyCentred;
@@ -476,8 +481,8 @@ namespace pad::artwork
     {
         const float halfW = vuHalfW (unit);
         const int w = width, h = juce::jmax (8, juce::roundToInt ((float) width * vuHalfH / halfW));
-        juce::Image ink (juce::Image::SingleChannel, w, h, true);
-        juce::Image red (juce::Image::SingleChannel, w, h, true);
+        juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
+        juce::Image red (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
 
         // Full scale: the compressor's GR 0-12, the leveler's lift 0-18, the limiter's spectral cut 0-18
         // (RANGE + headroom protection) and its broadband protection 0-12
@@ -582,7 +587,7 @@ namespace pad::artwork
     {
         const auto& d = unit == monitorUnit ? monitorDisplayRect : balancerDisplayRect;
         const int w = width, h = juce::roundToInt ((float) width * d.hd / d.hw);
-        juce::Image img (juce::Image::SingleChannel, w, h, true);
+        juce::Image img (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
         const float px = (float) w / (2.0f * d.hw);   // pixels per panel unit
@@ -657,7 +662,7 @@ namespace pad::artwork
     {
         const auto& d = seraphDisplayRect;
         const int w = width, h = juce::roundToInt ((float) width * d.hd / d.hw);
-        juce::Image img (juce::Image::SingleChannel, w, h, true);
+        juce::Image img (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
 
@@ -765,7 +770,7 @@ namespace pad::artwork
         const int w = juce::roundToInt (std::max (tw, dw) + 2.0f * pad + 2.0f);
         const int h = juce::roundToInt ((detail.isNotEmpty() ? 64.0f : 42.0f) * ps);
 
-        juce::Image img (juce::Image::ARGB, w, h, true);
+        juce::Image img (juce::Image::ARGB, w, h, true, juce::SoftwareImageType());
         {
             juce::Graphics g (img);
             const auto bounds = juce::Rectangle<float> (0.0f, 0.0f, (float) w, (float) h).reduced (1.5f * ps);
@@ -803,7 +808,7 @@ namespace pad::artwork
     //==============================================================================
     RawTexture renderKnobScale (int size, int maxValue)
     {
-        juce::Image img (juce::Image::SingleChannel, size, size, true);
+        juce::Image img (juce::Image::SingleChannel, size, size, true, juce::SoftwareImageType());
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
 
@@ -847,7 +852,7 @@ namespace pad::artwork
     RawTexture renderDisplayOverlay (const DisplayText& t)
     {
         const int w = displayOverlayWidth, h = displayOverlayHeight;
-        juce::Image img (juce::Image::SingleChannel, w, h, true);
+        juce::Image img (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Graphics g (img);
         g.setColour (juce::Colours::white);
 
