@@ -1521,7 +1521,8 @@ namespace
         }
         {
             const auto file = methodsDocFile();
-            const bool same = file.existsAsFile() && file.loadFileAsString() == methodsDoc();
+            // (line endings aside: git on Windows checks the page out with CRLF)
+            const bool same = file.existsAsFile() && file.loadFileAsString().removeCharacters ("\r") == methodsDoc();
             if (! same) std::printf ("  %s is out of date: run EnhDspTests --methods-doc\n", file.getFullPathName().toRawUTF8());
             check (same, "Vault/Reference/Methods.md matches the registry");
         }
