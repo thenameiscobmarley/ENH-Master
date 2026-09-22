@@ -56,5 +56,24 @@ namespace pad
         std::atomic<float>    calloutX { 0.0f }, calloutZ { 0.0f };   // anchor, panel-local
         std::atomic<float>    calloutPixelScale { 2.0f };           // image pixels per logical pixel
         std::atomic<bool>     calloutHasPill { false };             // a name + value pill under the loupe (controls)
+
+        // Glass panel (GlassPanel.h): which unit is open (-1 = none) and where the glass is, in logical
+        // pixels from the top left. Written by the message thread; the renderer draws it, and ignores
+        // presses inside it so a click on the panel never turns a knob behind it.
+        std::atomic<int>      panelUnit { -1 };
+        std::atomic<float>    panelX { 0.0f }, panelY { 0.0f }, panelW { 0.0f }, panelH { 0.0f };
+        juce::SpinLock        panelLock;
+        artwork::RawTexture   panelPending;       // the panel's print (RGBA), guarded by panelLock
+        juce::uint32          panelVersion = 0;   // guarded by panelLock
+        std::atomic<float>    panelPixelScale { 2.0f };
+
+        // Hover outlines: the unit under the pointer when no control is (render thread writes)
+        std::atomic<int>      hoveredUnit { -1 };
+
+        bool pointInPanel (float x, float y) const noexcept
+        {
+            return panelUnit.load() >= 0 && x >= panelX.load() && y >= panelY.load()
+                && x < panelX.load() + panelW.load() && y < panelY.load() + panelH.load();
+        }
     };
 }

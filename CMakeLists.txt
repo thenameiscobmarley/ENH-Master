@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 1.4.1 LANGUAGES C CXX)
+project(EnhMaster VERSION 1.1.4.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -72,6 +72,7 @@ target_sources(EnhMaster PRIVATE
     ${ENH_DSP_SOURCES}
 
     Source/UI/HardwareView.cpp
+    Source/UI/GlassPanel.cpp
     Source/UI/Scene/GeometryFactory.cpp
     Source/UI/Scene/PanelArtwork.cpp
     Source/UI/Scene/LayoutAudit.cpp

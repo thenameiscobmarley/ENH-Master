@@ -33,6 +33,9 @@ PluginProcessor::PluginProcessor()
     tideMix       = state.getRawParameterValue (id::tideMix);
     tideResponse  = state.getRawParameterValue (id::tideResponse);
     tideActive    = state.getRawParameterValue (id::tideActive);
+    tideDetector    = state.getRawParameterValue (id::tideDetector);
+    tideSmoothing   = state.getRawParameterValue (id::tideSmoothing);
+    tideResponseLaw = state.getRawParameterValue (id::tideResponseLaw);
     lumenTarget   = state.getRawParameterValue (id::lumenTarget);
     lumenResponse = state.getRawParameterValue (id::lumenResponse);
     lumenActive   = state.getRawParameterValue (id::lumenActive);
@@ -76,6 +79,8 @@ PluginProcessor::PluginProcessor()
 
 void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    currentSampleRate = sampleRate > 0.0 ? sampleRate : 48000.0;
+    responseSmoother = {};
     engine.prepare (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
     setLatencySamples (engine.getLatencySamples());
 }
@@ -113,7 +118,12 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.heavenLiftMode = heavenMode->load() > 0.5f;
 
     k.tideMixPercent = tideMix->load();
-    k.tideResponse   = tideResponse->load();
+    // RESPONSE through its input modifier (SMO); the host still sees the raw value
+    k.tideResponse   = responseSmoother.process (tideResponse->load(), knobModifiers.getInput (0),
+                                                 buffer.getNumSamples(), currentSampleRate);
+    k.tideDetector    = juce::roundToInt (tideDetector->load());
+    k.tideSmoothing   = juce::roundToInt (tideSmoothing->load());
+    k.tideResponseLaw = juce::roundToInt (tideResponseLaw->load());
     k.tideActive     = tideActive->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
@@ -217,6 +227,22 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
         if (xml->hasTagName (state.state.getType()))
         {
             state.replaceState (juce::ValueTree::fromXml (*xml));
+
+            // A session saved before a parameter existed has no value for it, and JUCE would keep whatever
+            // this instance had: put the method choices (not automatable, so not in presets either) back
+            // to their defaults, which is how the unit sounded then
+            for (auto& spec : pad::params::allSpecs())
+            {
+                if (spec.automatable || spec.kind != pad::params::Kind::choice)
+                    continue;
+                bool saved = false;
+                for (auto* child : xml->getChildIterator())
+                    saved = saved || child->getStringAttribute ("id") == spec.id;
+                if (! saved)
+                    if (auto* param = state.getParameter (spec.id))
+                        param->setValueNotifyingHost (param->convertTo0to1 (spec.defaultValue));
+            }
+            knobModifiers.loadFrom (state.state);
             currentPreset = juce::jlimit (0, getNumPrograms() - 1, (int) state.state.getProperty ("preset", 0));
         }
 }

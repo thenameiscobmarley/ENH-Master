@@ -4,6 +4,7 @@
 #include "Parameters/ParameterBridge.h"
 #include "DSP/EnhEngine.h"
 #include "DSP/ParameterMapping.h"
+#include "Parameters/KnobModifiers.h"
 
 /*  ENH Master processor: owns the parameters and the DSP engine (Source/DSP). */
 class PluginProcessor final : public juce::AudioProcessor
@@ -47,6 +48,10 @@ public:
 
     juce::AudioProcessorValueTreeState& getState() noexcept  { return state; }
     pad::ParameterBridge& getBridge() noexcept               { return bridge; }
+
+    /** Knob modifiers (message thread to set; see Parameters/KnobModifiers.h). */
+    void setKnobInputModifier (int knob, float value)        { knobModifiers.setInput (state.state, knob, value); }
+    float getKnobInputModifier (int knob) const noexcept     { return knobModifiers.getInput (knob); }
     const enh::dsp::EngineMeters& getMeters() const noexcept { return engine.getMeters(); }
 
     /** Analyser taps. The audio thread only copies samples into these; the editor runs the FFT. */
@@ -60,11 +65,15 @@ private:
     pad::ParameterBridge bridge;
     enh::dsp::EnhEngine engine;
     std::atomic<int> currentPreset { 0 };
+    pad::KnobModifiers knobModifiers;
+    pad::KnobSmoother responseSmoother;   // tideResponse's SMO (audio thread)
+    double currentSampleRate = 48000.0;
     std::atomic<juce::uint32> presetLoads { 0 };
 
     std::atomic<float>* enhMultiply = nullptr, *enhStrength = nullptr, *seraphMultiply = nullptr, *seraphStrength = nullptr;
     std::atomic<float>* heavenHold = nullptr, *heavenLift = nullptr, *heavenMode = nullptr;
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
+    std::atomic<float>* tideDetector = nullptr, *tideSmoothing = nullptr, *tideResponseLaw = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
     std::atomic<float>* spectralRange = nullptr, *spectralRelease = nullptr, *spectralCeiling = nullptr, *spectralActive = nullptr;
     std::atomic<float>* levelGain = nullptr, *balAmount = nullptr, *balSpeed = nullptr, *balTilt = nullptr, *balRange = nullptr, *balActive = nullptr, *balResolution = nullptr;

@@ -14,6 +14,8 @@ namespace enh::dsp
         sr = sampleRate > 0.0 ? sampleRate : 48000.0;
         channels = std::max (1, numChannels);
         scHp = BiquadCoeffs::highPass (sr, 90.0, 0.7071);
+        fadeLength = std::max (1, (int) std::lround (0.030 * sr));
+        rmsWindowCoeff = 1.0f - (float) std::exp (-1.0 / (0.050 * sr));
         reset();
     }
 
@@ -26,7 +28,10 @@ namespace enh::dsp
         onsetRate = lastFlux = 0.0f;
         thresholdDb = -20.0f;
         ratio = 2.0f;
-        gainDb = makeupDb = slowDb = fastDb = 0.0f;
+        gainDb = makeupDb = slowDb = fastDb = singleDb = 0.0f;
+        rmsWindowEnergy = 0.0f;
+        fadingDetector = fadingSmoothing = -1;
+        detectorFadeLeft = smoothingFadeLeft = 0;
         for (auto& st : scState) st.reset();
         controlPhase = 0.0f;
         readout = {};
@@ -106,6 +111,46 @@ namespace enh::dsp
         (void) slowDb;
     }
 
+    //==============================================================================
+    // Stage 1, detector: the level the gain computer sees
+    float DynamicCompressor::detectLevel (int method, float peak, float rms) const noexcept
+    {
+        switch (method)
+        {
+            case detectorRms: return std::sqrt (rmsWindowEnergy) * 1.4f;  // RMS: 50 ms power only (a sine reads as PKR does)
+            default:          return std::max (peak, rms * 1.4f);         // PKR: whichever is higher, peak or RMS
+        }
+    }
+
+    // Stage 3, smoothing: target gain -> applied gain
+    float DynamicCompressor::smooth (int method, float targetGainDb) noexcept
+    {
+        if (method == smoothingSrl)
+        {
+            const float coeff = targetGainDb < singleDb ? attackCoeff : releaseCoeff;
+            singleDb = targetGainDb + (singleDb - targetGainDb) * coeff;
+            return singleDb;
+        }
+
+        // DRL. Slow: the average reduction. Fast: only what a transient needs beyond it, released quickly.
+        slowDb = targetGainDb + (slowDb - targetGainDb) * (targetGainDb < slowDb ? slowAttackCoeff : slowReleaseCoeff);
+        const float residual = std::min (0.0f, targetGainDb - slowDb);
+        fastDb = residual + (fastDb - residual) * (residual < fastDb ? attackCoeff : fastReleaseCoeff);
+        return slowDb + fastDb;
+    }
+
+    // A method coming in starts from the gain being applied, so the switch does not jump
+    void DynamicCompressor::seedSmoothing (int method, float fromGainDb) noexcept
+    {
+        if (method == smoothingSrl)
+            singleDb = fromGainDb;
+        else
+        {
+            slowDb = fromGainDb;
+            fastDb = 0.0f;
+        }
+    }
+
     void DynamicCompressor::process (float* const* data, int numChannels, int numSamples, const Settings& s,
                                      const float* const* key) noexcept
     {
@@ -120,6 +165,26 @@ namespace enh::dsp
             readout.gainReductionDb += (0.0f - readout.gainReductionDb) * 0.2f;
             return;
         }
+
+        // A method changed: the old one fades out over 30 ms while the new one fades in
+        const int wantDetector = std::clamp (s.detector, 0, numDetectors - 1);
+        const int wantSmoothing = dualRelease ? std::clamp (s.smoothing, 0, numSmoothings - 1) : (int) smoothingSrl;
+        if (wantDetector != detector)
+        {
+            if (wantDetector == detectorRms && detector != detectorRms && fadingDetector != detectorRms)
+                rmsWindowEnergy = std::max (0.0f, lowEnergy + highEnergy);   // starts from the level measured now
+            fadingDetector = detector;
+            detector = wantDetector;
+            detectorFadeLeft = fadeLength;
+        }
+        if (wantSmoothing != smoothing)
+        {
+            fadingSmoothing = smoothing;
+            smoothing = wantSmoothing;
+            seedSmoothing (smoothing, gainDb);
+            smoothingFadeLeft = fadeLength;
+        }
+        const float fadeStep = 1.0f / (float) fadeLength;
 
         const float mix = std::clamp (s.mix, 0.0f, 1.0f);
         const float controlStep = (float) (1500.0 / sr);
@@ -146,6 +211,8 @@ namespace enh::dsp
             highState = high;
 
             const float rms = std::sqrt (std::max (1.0e-12f, lowEnergy + highEnergy));
+            if (detector == detectorRms || (detectorFadeLeft > 0 && fadingDetector == detectorRms))
+                rmsWindowEnergy += (mono * mono - rmsWindowEnergy) * rmsWindowCoeff;   // only while RMS is in use
             const float flux = std::max (0.0f, peak - peakEnv);
             lastFlux = std::max (lastFlux, flux);
 
@@ -156,8 +223,15 @@ namespace enh::dsp
                 updateDetector (peak, rms, s);
             }
 
-            // Gain computer, dB domain, soft knee
-            const float levelDb = toDb (std::max (peak, rms * 1.4f));
+            // 1. Detector
+            float levelDb = toDb (detectLevel (detector, peak, rms));
+            if (detectorFadeLeft > 0)
+            {
+                const float old = toDb (detectLevel (fadingDetector, peak, rms));
+                levelDb = old + (levelDb - old) * (1.0f - (float) --detectorFadeLeft * fadeStep);
+            }
+
+            // 2. Gain computer (ADT), dB domain, soft knee
             const float over = levelDb - thresholdDb;
             float targetGainDb = 0.0f;
 
@@ -169,19 +243,12 @@ namespace enh::dsp
                 targetGainDb = -((1.0f - 1.0f / ratio) * t * t) / (2.0f * kneeDb);
             }
 
-            // Ballistics: fast down, programme-dependent up
-            if (dualRelease)
+            // 3. Smoothing: fast down, programme-dependent up
+            gainDb = smooth (smoothing, targetGainDb);
+            if (smoothingFadeLeft > 0)
             {
-                // Slow: the average reduction. Fast: only what a transient needs beyond it, released quickly.
-                slowDb = targetGainDb + (slowDb - targetGainDb) * (targetGainDb < slowDb ? slowAttackCoeff : slowReleaseCoeff);
-                const float residual = std::min (0.0f, targetGainDb - slowDb);
-                fastDb = residual + (fastDb - residual) * (residual < fastDb ? attackCoeff : fastReleaseCoeff);
-                gainDb = slowDb + fastDb;
-            }
-            else
-            {
-                const float coeff = targetGainDb < gainDb ? attackCoeff : releaseCoeff;
-                gainDb = targetGainDb + (gainDb - targetGainDb) * coeff;
+                const float old = smooth (fadingSmoothing, targetGainDb);
+                gainDb = old + (gainDb - old) * (1.0f - (float) --smoothingFadeLeft * fadeStep);
             }
 
             // Auto make-up: give back most of what is being taken, so MIX is level-matched

@@ -7,6 +7,7 @@
 #include "../Config/UIConfig.h"
 #include "../DSP/EngineMeters.h"
 #include "HardwareKit.h"
+#include "GlassPanel.h"
 
 class PluginProcessor;
 
@@ -73,6 +74,11 @@ namespace pad
         void applyTestParams();
         void publishWindowGeometry();
         void updateCallout();
+
+        // The glass panel (GlassPanel.h): opened by clicking a unit, closed by clicking off the rack
+        std::unique_ptr<GlassPanel> glassPanel;
+        void openPanel (int unit);
+        void publishPanel (bool force = false);
         bool updateRenderingState();
 
         PluginProcessor& processor;

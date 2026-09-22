@@ -41,8 +41,9 @@ others; press `Ctrl+G` for the graph view.
 
 - [[HardwareKit]] - the shared 3D hardware library
 - [[The loupe]] - the fisheye magnifier
+- [[Glass panel]] - click a unit: its settings on frosted glass
 - [[Rendering and performance]] - how it stays cheap
 
 ## Reference
 
-- [[Parameters]] · [[Dev hooks]] · [[Backups and restore]]
+- [[Parameters]] · [[Methods]] · [[Dev hooks]] · [[Backups and restore]]

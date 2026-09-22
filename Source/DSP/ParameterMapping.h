@@ -31,6 +31,7 @@ namespace enh::dsp
         // ADAPTIVE COMPRESSOR and UPWARD LEVELER: two knobs each
         float tideMixPercent = 60.0f, tideResponse = 5.0f;
         bool tideActive = true;
+        int tideDetector = 0, tideSmoothing = 0, tideResponseLaw = 0;   // methods (MethodRegistry.h)
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
 
@@ -106,7 +107,13 @@ namespace enh::dsp
 
         // The 1U units have no device master, so their knobs map straight across
         p.tide.mix      = std::clamp (k.tideMixPercent / 100.0f, 0.0f, 1.0f);
-        p.tide.response = std::clamp (k.tideResponse / 10.0f, 0.0f, 1.0f);
+        {
+            // RESPONSE's own processing method: LIN (the travel as it is) or EXP (more of it at the slow end)
+            const float travel = std::clamp (k.tideResponse / 10.0f, 0.0f, 1.0f);
+            p.tide.response = k.tideResponseLaw == 1 ? (std::pow (8.0f, travel) - 1.0f) / 7.0f : travel;
+        }
+        p.tide.detector  = k.tideDetector;
+        p.tide.smoothing = k.tideSmoothing;
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
         p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);

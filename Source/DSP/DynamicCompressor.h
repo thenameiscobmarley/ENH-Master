@@ -34,6 +34,14 @@ namespace enh::dsp
         MIX is a straight wet/dry blend, applied after auto make-up so the blend does not
         change the level.
 
+        Stages (1.1.4.1): the sample path is split into three stages, each with swappable methods
+        (MethodRegistry.h has the names and what each does to the sound):
+          1. detector     what level the gain computer sees      PKR (default), RMS
+          2. gain         threshold / ratio / knee -> target gain  ADT (the adaptive computer above)
+          3. smoothing    target gain -> applied gain           DRL (default), SRL
+        Only the active method runs. A switch crossfades for 30 ms (both run while it does; the new
+        one starts from the gain being applied, so nothing jumps). Every method is zero-latency.
+
         Real-time safe: fixed state, no allocation, no locking.
     */
     class DynamicCompressor
@@ -43,8 +51,13 @@ namespace enh::dsp
         {
             float mix = 0.6f;        // 0..1
             float response = 0.5f;   // 0..1
+            int detector = 0;        // Detector (MethodRegistry.h)
+            int smoothing = 0;       // Smoothing
             bool active = false;     // the plugin's parameter default is In; raw settings stay inert
         };
+
+        enum Detector  { detectorPkr = 0, detectorRms, numDetectors };
+        enum Smoothing { smoothingDrl = 0, smoothingSrl, numSmoothings };
 
         struct Readout
         {
@@ -65,11 +78,20 @@ namespace enh::dsp
 
         const Readout& getReadout() const noexcept { return readout; }
 
-        /** Tests: the single-follower ballistics this unit had before, for comparison. */
+        /** Tests: the single-follower ballistics this unit had before, for comparison (forces SRL). */
         void setDualRelease (bool on) noexcept { dualRelease = on; }
+
+        /** The methods running now (after any crossfade has finished). */
+        int getDetector() const noexcept  { return detector; }
+        int getSmoothing() const noexcept { return smoothing; }
 
     private:
         void updateDetector (float peak, float rms, const Settings&) noexcept;
+
+        // The stages' methods
+        float detectLevel (int method, float peak, float rms) const noexcept;
+        float smooth (int method, float targetGainDb) noexcept;
+        void seedSmoothing (int method, float fromGainDb) noexcept;
 
         double sr = 48000.0;
         int channels = 2;
@@ -83,7 +105,14 @@ namespace enh::dsp
         float onsetRate = 0.0f, lastFlux = 0.0f;
         float thresholdDb = -20.0f, ratio = 2.0f, kneeDb = 6.0f;
         float gainDb = 0.0f, makeupDb = 0.0f;
-        float slowDb = 0.0f, fastDb = 0.0f;   // dual release: average + transient gain reduction
+        float slowDb = 0.0f, fastDb = 0.0f;   // DRL: average + transient gain reduction
+        float singleDb = 0.0f;                // SRL: one follower
+        float rmsWindowEnergy = 0.0f, rmsWindowCoeff = 0.0f;   // RMS: its own 50 ms power window
+
+        // Method switching: the method that is fading out and how many samples of the fade are left
+        int detector = detectorPkr, smoothing = smoothingDrl;
+        int fadingDetector = -1, fadingSmoothing = -1;
+        int detectorFadeLeft = 0, smoothingFadeLeft = 0, fadeLength = 1440;
         BiquadCoeffs scHp;                    // side-chain high-pass
         std::array<BiquadState, 2> scState {};
         float attackCoeff = 0.0f, releaseCoeff = 0.0f, slowAttackCoeff = 0.0f, slowReleaseCoeff = 0.0f, fastReleaseCoeff = 0.0f;

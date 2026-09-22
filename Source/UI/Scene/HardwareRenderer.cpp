@@ -2,6 +2,7 @@
 #include "GeometryFactory.h"
 #include "Picking.h"
 #include "LimiterDemo.h"
+#include "../GlassPanel.h"
 
 using namespace juce::gl;
 
@@ -389,6 +390,10 @@ namespace pad
             tex->release();
         loupeTarget.release();
         sceneTarget.release();
+        blurA.release();
+        blurB.release();
+        panelTex.release();
+        uploadedPanelVersion = 0;
         loupeReady = false;
         seraphLabelTex.release();
         overlayTex.release();
@@ -843,6 +848,260 @@ namespace pad
         glEnable (GL_DEPTH_TEST);
     }
 
+    //==============================================================================
+    // Glass panel
+    void HardwareRenderer::updatePanel (float dt)
+    {
+        // The line draws out from the unit first, then the glass opens at its end. Switching units redraws
+        // the line from the new one while the glass stays; closing folds both away.
+        const int want = shared.panelUnit.load();
+        if (want >= 0)
+        {
+            if (want != panelShown)
+            {
+                panelShown = want;
+                panelLine = 0.0f;
+            }
+            panelLine = anim::approach (panelLine, 1.0f, 16.0f, dt);
+            if (panelLine > 0.55f)
+                panelOpen = anim::approach (panelOpen, 1.0f, 14.0f, dt);
+        }
+        else
+        {
+            panelOpen = anim::approach (panelOpen, 0.0f, 18.0f, dt);
+            panelLine = anim::approach (panelLine, 0.0f, 22.0f, dt);
+            if (panelOpen < 0.005f && panelLine < 0.005f)
+            {
+                panelOpen = panelLine = 0.0f;
+                panelShown = -1;
+            }
+        }
+        if (panelShown >= 0)
+        {
+            if (std::abs (panelOpen - (want >= 0 ? 1.0f : 0.0f)) > 0.002f || panelLine < 0.998f)
+                busyUntilMs = juce::Time::getMillisecondCounterHiRes() + 300.0;   // animate at the full frame rate
+        }
+    }
+
+    void HardwareRenderer::uploadPanelIfChanged()
+    {
+        juce::uint32 version = 0;
+        int w = 0, h = 0;
+        {
+            const juce::SpinLock::ScopedLockType lock (shared.panelLock);
+            if (shared.panelVersion == uploadedPanelVersion || shared.panelPending.pixels.empty())
+                return;
+            std::swap (panelScratch, shared.panelPending.pixels);
+            w = shared.panelPending.width;
+            h = shared.panelPending.height;
+            version = shared.panelVersion;
+        }
+        if (w > 0 && h > 0 && panelScratch.size() == (size_t) (w * h * 4))
+        {
+            panelTex.upload (panelScratch.data(), w, h, 4, false, 1);
+            panelTexW = w;
+            panelTexH = h;
+        }
+        uploadedPanelVersion = version;
+    }
+
+    /** The scene behind the panel, blurred: down to a quarter of the resolution, then two Gaussian passes
+        each way. Only the panel's rectangle (and its glow margin) is touched. Needs the scene in our own
+        buffer; returns false when it is not (the glass is then a plain dark frost). */
+    bool HardwareRenderer::blurBehindPanel (int w, int h)
+    {
+        if (! sceneTarget.isValid())
+            return false;
+        const int sw = sceneTarget.getWidth(), sh = sceneTarget.getHeight();
+        const int qw = juce::jmax (1, sw / 4), qh = juce::jmax (1, sh / 4);
+        if (! blurA.ensureSize (qw, qh, 0) || ! blurB.ensureSize (qw, qh, 0))
+            return false;
+
+        // The panel in quarter-resolution pixels (y up), with a margin for the blur's reach
+        const float lw = (float) juce::jmax (1, shared.viewWidth.load()), lh = (float) juce::jmax (1, shared.viewHeight.load());
+        const float sx = (float) qw / lw, sy = (float) qh / lh;
+        const int margin = 12;
+        const int x0 = juce::jlimit (0, qw, (int) std::floor (shared.panelX.load() * sx) - margin);
+        const int x1 = juce::jlimit (0, qw, (int) std::ceil ((shared.panelX.load() + shared.panelW.load()) * sx) + margin);
+        const int y0 = juce::jlimit (0, qh, (int) std::floor ((lh - shared.panelY.load() - shared.panelH.load()) * sy) - margin);
+        const int y1 = juce::jlimit (0, qh, (int) std::ceil ((lh - shared.panelY.load()) * sy) + margin);
+        if (x1 <= x0 || y1 <= y0)
+            return false;
+
+        glDisable (GL_DEPTH_TEST);
+        glDepthMask (GL_FALSE);
+        glDisable (GL_BLEND);
+        glEnable (GL_SCISSOR_TEST);
+        auto& p = use (shaders::blurPass);
+        p.set ("uViewProj", Mat4::identity());
+        p.set ("uParams2", 1.0f / (float) qw, 1.0f / (float) qh, 0.0f, 0.0f);
+        const auto full = gfx::screenQuad (qw, qh, 0.5f * (float) qw, 0.5f * (float) qh, 0.5f * (float) qw, 0.0f, 0.0f, 0.5f * (float) qh);
+
+        auto pass = [&] (gfx::RenderTarget& into, const gfx::RenderTarget& from, float dx, float dy, float box)
+        {
+            into.bind();
+            glScissor (x0, y0, x1 - x0, y1 - y0);
+            from.bindColour (0);
+            p.set ("uParams", dx, dy, box, 0.0f);
+            draw (meshes.quad, full, {});
+        };
+        pass (blurA, sceneTarget, 1.0f / (float) sw, 1.0f / (float) sh, 1.0f);   // down to a quarter
+        pass (blurB, blurA, 1.0f / (float) qw, 0.0f, 0.0f);                          // Gaussian across
+        pass (blurA, blurB, 0.0f, 1.0f / (float) qh, 0.0f);                          // ... and down
+        pass (blurB, blurA, 2.0f / (float) qw, 0.0f, 0.0f);                          // again, twice as wide
+        pass (blurA, blurB, 0.0f, 2.0f / (float) qh, 0.0f);
+        pass (blurB, blurA, 4.0f / (float) qw, 0.0f, 0.0f);                          // and four times: frosted
+        pass (blurA, blurB, 0.0f, 4.0f / (float) qh, 0.0f);
+
+        glDisable (GL_SCISSOR_TEST);
+        gfx::RenderTarget::unbind();
+        glViewport (0, 0, w, h);
+        return true;
+    }
+
+    /** The line from the unit to the glass: a node on the unit's right edge, out level with it, then an
+        elbow up or down to the panel's header. Drawn out along its length as it opens. */
+    void HardwareRenderer::drawPanelConnector (const CameraRig& camera, int w, int h)
+    {
+        if (panelShown < 0 || panelLine < 0.01f)
+            return;
+        float ax = 0.0f, ay = 0.0f;
+        const auto world = panelToWorld (panelShown).transformPoint ({ faceHalfW, 0.01f, 0.0f });
+        if (! gfx::projectToNdc (camera.viewProj, world, ax, ay))
+            return;
+        const float lh = (float) juce::jmax (1, shared.viewHeight.load());
+        const float px = (float) w / (float) juce::jmax (1, shared.viewWidth.load());
+        const juce::Point<float> a ((ax + 1.0f) * 0.5f * (float) w, (ay + 1.0f) * 0.5f * (float) h);
+        const float panelLeft = shared.panelX.load() * px;
+        const float headerY = (lh - shared.panelY.load() - glass::headerH * 0.5f) * px;
+        const juce::Point<float> end (panelLeft, headerY);
+        // Out level with the unit, then the elbow: a 45-degree run to the header's height
+        const float rise = end.y - a.y;
+        const float kneeX = std::max (a.x + 12.0f * px, end.x - std::abs (rise) - 18.0f * px);
+        const juce::Point<float> knee (kneeX, a.y), knee2 (kneeX + std::abs (rise), end.y);
+        const std::array<juce::Point<float>, 4> pts { a, knee, knee2, end };
+        float total = 0.0f;
+        for (int i = 0; i < 3; ++i)
+            total += pts[(size_t) i].getDistanceFrom (pts[(size_t) i + 1]);
+        if (total < 1.0f)
+            return;
+
+        glDisable (GL_DEPTH_TEST);
+        glDepthMask (GL_FALSE);
+        glEnable (GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        auto& o = use (shaders::callout);
+        o.set ("uViewProj", Mat4::identity());
+
+        auto segment = [&] (juce::Point<float> p0, juce::Point<float> p1, float thickness, float alpha)
+        {
+            const auto d = p1 - p0;
+            const float len = d.getDistanceFromOrigin();
+            if (len < 0.5f)
+                return;
+            const auto c = (p0 + p1) * 0.5f;
+            const float ux = d.x / len, uy = d.y / len;
+            o.set ("uParams", 0.0f, alpha, 0.0f, 0.0f);
+            draw (meshes.quad, gfx::screenQuad (w, h, c.x, c.y, 0.5f * len * ux, 0.5f * len * uy, -0.5f * thickness * uy, 0.5f * thickness * ux), panelColour);
+        };
+
+        const float fade = std::max (panelLine * 0.3f, panelOpen) * (shared.panelUnit.load() >= 0 ? 1.0f : panelLine);
+        float left = total * panelLine;
+        for (int i = 0; i < 3 && left > 0.0f; ++i)
+        {
+            auto p0 = pts[(size_t) i], p1 = pts[(size_t) i + 1];
+            const float len = p0.getDistanceFrom (p1);
+            if (len > left)
+                p1 = p0 + (p1 - p0) * (left / len);
+            left -= len;
+            segment (p0, p1, 1.0f * px, 0.75f * fade);   // a hairline of white
+        }
+        // The node on the unit: a small square with a hairline ring
+        const float s = 2.5f * px;
+        o.set ("uParams", 0.0f, 0.9f * fade, 0.0f, 0.0f);
+        draw (meshes.quad, gfx::screenQuad (w, h, a.x, a.y, s, 0.0f, 0.0f, s), panelColour);
+
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable (GL_BLEND);
+        glDepthMask (GL_TRUE);
+        glEnable (GL_DEPTH_TEST);
+    }
+
+    void HardwareRenderer::drawGlassPanel (int w, int h, bool blurred)
+    {
+        if (panelShown < 0 || panelOpen < 0.01f || shared.panelW.load() <= 0.0f)
+            return;
+        const float lh = (float) juce::jmax (1, shared.viewHeight.load());
+        const float px = (float) w / (float) juce::jmax (1, shared.viewWidth.load());
+        const float hw = 0.5f * shared.panelW.load() * px, hh = 0.5f * shared.panelH.load() * px;
+        const float slide = (1.0f - panelOpen) * 22.0f * px;   // slides in from the right as it opens
+        const float cx = shared.panelX.load() * px + hw + slide;
+        const float cy = (lh - shared.panelY.load()) * px - hh;
+        const float margin = 40.0f * px;   // room for the shadow
+
+        glDisable (GL_DEPTH_TEST);
+        glDepthMask (GL_FALSE);
+        glEnable (GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if (blurred)
+            blurA.bindColour (0);
+        if (panelTex.isValid())
+            panelTex.bind (1);
+        auto& g = use (shaders::glassPanel);
+        g.set ("uViewProj", Mat4::identity());
+        g.set ("uTex2", 1);
+        g.set ("uParams", hw, hh, px, panelOpen);
+        g.set ("uParams2", hw + margin, hh + margin, blurred ? 1.0f : 0.0f, 0.0f);
+        draw (meshes.quad, gfx::screenQuad (w, h, cx, cy, hw + margin, 0.0f, 0.0f, -(hh + margin)), panelColour,
+              { 1.0f / (float) w, 1.0f / (float) h, 0.0f });
+        glActiveTexture (GL_TEXTURE0);
+
+        glDisable (GL_BLEND);
+        glDepthMask (GL_TRUE);
+        glEnable (GL_DEPTH_TEST);
+    }
+
+    /** Hover outlines, cheap: the control under the pointer gets an inverted hull (its own mesh, slightly
+        bigger, front faces culled); otherwise the unit under the pointer gets one silhouette quad over its
+        faceplate. The open panel's unit keeps a steady outline in its own colour. */
+    void HardwareRenderer::drawOutlines (const CameraRig& cam, int)
+    {
+        (void) cam;
+        glEnable (GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask (GL_FALSE);
+
+        if (hullModel != nullptr)
+        {
+            glEnable (GL_CULL_FACE);
+            glCullFace (GL_FRONT);
+            auto& hull = use (shaders::outlineHull);
+            hull.set ("uParams", 0.0f, 0.0f, 0.0f, 0.8f);
+            const auto grow = Mat4::translation ({ 0.0f, -0.003f, 0.0f }) * Mat4::scale (1.06f, 1.03f, 1.06f);
+            for (auto& part : hullModel->parts)
+                draw (part->mesh, (part->rotates ? hullMoving : hullFixed) * grow, { 1.0f, 1.0f, 1.0f });
+            glCullFace (GL_BACK);
+            glDisable (GL_CULL_FACE);
+        }
+
+        auto frame = [&] (int unit, Vec3 colour, float opacity)
+        {
+            auto& f = use (shaders::outlineFrame);
+            const float hw = faceHalfW + 0.012f, hh = unitHalfH (unit) + 0.012f;
+            f.set ("uParams", hw, hh, 1.2f, opacity);
+            draw (meshes.quad, panelToWorld (unit) * Mat4::translation ({ 0.0f, 0.006f, 0.0f }) * Mat4::scale (hw, 1.0f, hh), colour);
+        };
+        const int open = shared.panelUnit.load();
+        if (open >= 0)
+            frame (open, { 1.0f, 1.0f, 1.0f }, 0.55f);
+        const int hovered = shared.hoveredUnit.load();
+        if (hovered >= 0 && hovered != open && hullModel == nullptr)
+            frame (hovered, { 1.0f, 1.0f, 1.0f }, 0.35f);
+
+        glDepthMask (GL_TRUE);
+        glDisable (GL_BLEND);
+    }
+
     void HardwareRenderer::pollPointer() noexcept
     {
         const int w = juce::jmax (1, shared.viewWidth.load()), h = juce::jmax (1, shared.viewHeight.load());
@@ -897,8 +1156,11 @@ namespace pad
 
         const int w = juce::jmax (1, shared.viewWidth.load()), h = juce::jmax (1, shared.viewHeight.load());
 
+        // Presses on the glass panel are the panel's (the message thread handles them): never a knob behind it
+        const bool overPanel = shared.pointInPanel (pointerX, pointerY);
+
         // A press only counts when our window is really the one under the pointer
-        if (pressed && pointerInside && pointer.isTopmostUnderPointer ((unsigned long) shared.nativeWindow.load()))
+        if (pressed && pointerInside && ! overPanel && pointer.isTopmostUnderPointer ((unsigned long) shared.nativeWindow.load()))
         {
             const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount });
             const int hit = pickControl (cam, pointerNdcX, pointerNdcY);
@@ -952,10 +1214,17 @@ namespace pad
             shared.renderDragParam = -1;
         }
 
-        if (dragParam < 0 && pointerInside)
+        if (dragParam < 0 && pointerInside && ! overPanel)
         {
             const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount });
-            shared.hoveredControl = pickControl (cam, pointerNdcX, pointerNdcY);
+            const int control = pickControl (cam, pointerNdcX, pointerNdcY);
+            shared.hoveredControl = control;
+            shared.hoveredUnit = control >= 0 ? -1 : pickUnit (cam, pointerNdcX, pointerNdcY);
+        }
+        else if (dragParam < 0)
+        {
+            shared.hoveredControl = -1;
+            shared.hoveredUnit = -1;
         }
     }
 
@@ -1324,6 +1593,8 @@ namespace pad
         }
 
         updateAnimation (dt);
+        updatePanel (dt);
+        uploadPanelIfChanged();
         uploadOverlayIfChanged();
         uploadCalloutIfChanged();
         uploadLevelLabelsIfChanged();
@@ -1363,6 +1634,14 @@ namespace pad
         else
         {
             drawScene (camera, w, h);
+        }
+
+        // The glass panel over the finished frame: the line from its unit, then the frosted glass
+        if (panelShown >= 0)
+        {
+            drawPanelConnector (camera, w, h);
+            if (panelOpen > 0.01f)
+                drawGlassPanel (w, h, blurBehindPanel (w, h));
         }
         drawLoupe (w, h);
 
@@ -1617,6 +1896,12 @@ namespace pad
             }
         }
 
+        hullModel = nullptr;
+        int hullControl = shared.hoveredControl.load();
+        if (testHoverControl.isNotEmpty())
+            for (int i = 0; i < numControls; ++i)
+                if (testHoverControl == controls[(size_t) i].paramId)
+                    hullControl = i;
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
@@ -1625,6 +1910,15 @@ namespace pad
             const auto& unitPanel = panelFor (c.unit);
             const auto base = unitPanel * Mat4::translation ({ c.x, 0.0f, c.z });
             const bool hovered = shared.hoveredControl.load() == i || shared.activeControl.load() == i;
+            auto captureHull = [&] (const GpuModel& model, const Mat4& moving)
+            {
+                if (i == hullControl)
+                {
+                    hullModel = &model;
+                    hullMoving = moving;
+                    hullFixed = base;
+                }
+            };
 
             if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
             {
@@ -1641,6 +1935,7 @@ namespace pad
                 // Pointer: the model's own paint (white on dark knobs, black on metal); hover lifts it slightly
                 drawModel (*knobModels[(size_t) modelIndex], spin, base, Vec3 { 0.025f, 0.025f, 0.027f } * k.hover,
                            {}, 1.0f, false);
+                captureHull (*knobModels[(size_t) modelIndex], spin);
             }
             else if (c.kind == ControlKind::toggle)
             {
@@ -1649,8 +1944,9 @@ namespace pad
                 const Vec3 lift = hovered ? Vec3 { 0.05f, 0.05f, 0.06f } : Vec3 {};
                 const auto style = (size_t) c.switchStyle;
                 const int detail = detailFor (cam, unitPanel, c.x, c.z, switchOutline (c.switchStyle).halfD, vw);
-                drawModel (switchModels[style][(size_t) detail], base * Mat4::translation ({ 0.0f, switchPivotY[style], 0.0f }) * Mat4::rotationX (tg.angle),
-                           base, lift, { 0.93f, 0.93f, 0.95f });
+                const auto rocked = base * Mat4::translation ({ 0.0f, switchPivotY[style], 0.0f }) * Mat4::rotationX (tg.angle);
+                drawModel (switchModels[style][(size_t) detail], rocked, base, lift, { 0.93f, 0.93f, 0.95f });
+                captureHull (switchModels[style][(size_t) detail], rocked);
             }
             else
             {
@@ -1658,6 +1954,7 @@ namespace pad
                 const auto pressed = base * Mat4::translation ({ 0.0f, -buttonTravel * bt.travel(), 0.0f });
                 const int detail = detailFor (cam, unitPanel, c.x, c.z, buttonHalfW, vw);
                 drawModel (buttonModels[(size_t) c.buttonStyle][(size_t) detail], pressed, base, {}, {}, hovered ? 1.12f : 1.0f);
+                captureHull (buttonModels[(size_t) c.buttonStyle][(size_t) detail], pressed);
 
                 // Each button's LED on its own unit's panel (the LIFT button's used to be drawn on the
                 // enhancer's panel, where it landed inside FOOTSTEP)
@@ -1941,6 +2238,8 @@ namespace pad
             drawVuGlass (monitorUnit, monitorPanel);
             glDepthMask (GL_TRUE);
         }
+
+        drawOutlines (cam, vw);
 
         // The room: shafts of window light and the dust drifting through them, over the frame
         if (vignette > 0.5f)

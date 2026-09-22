@@ -18,6 +18,9 @@ namespace pad::params
             { id::tideMix,      "Compressor Mix", "MIX",      " %", Kind::continuous, 0.0f, 100.0f, 60.0f, 0 },
             { id::tideResponse, "Compressor Response", "RESPONSE", "",   Kind::continuous, 0.0f, 10.0f,  5.0f,  1 },
             { id::tideActive,   "Compressor In", "IN",       "",   Kind::toggle, 0.0f, 1.0f, 1.0f, 0, 0.0f, { "Out", "In" } },
+            { id::tideDetector,    "Compressor Detector",     "DETECTOR",     "", Kind::choice, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "PKR", "RMS" }, false },
+            { id::tideSmoothing,   "Compressor Smoothing",    "SMOOTHING",    "", Kind::choice, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "DRL", "SRL" }, false },
+            { id::tideResponseLaw, "Compressor Response Law", "RESPONSE LAW", "", Kind::choice, 0.0f, 1.0f, 0.0f, 0, 0.0f, { "LIN", "EXP" }, false },
 
             { id::lumenTarget,   "Leveler Target", "TARGET",   " dB", Kind::continuous, -36.0f, -6.0f, -18.0f, 1 },
             { id::lumenResponse, "Leveler Response", "RESPONSE", "",    Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
@@ -108,7 +111,8 @@ namespace pad::params
             }
             else if (spec.kind == Kind::choice)
             {
-                layout.add (std::make_unique<juce::AudioParameterChoice> (pid, spec.name, spec.texts, (int) spec.defaultValue));
+                layout.add (std::make_unique<juce::AudioParameterChoice> (pid, spec.name, spec.texts, (int) spec.defaultValue,
+                                                                          juce::AudioParameterChoiceAttributes().withAutomatable (spec.automatable)));
             }
             else
             {

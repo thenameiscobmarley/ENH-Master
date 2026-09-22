@@ -28,6 +28,10 @@ namespace pad::params
         inline constexpr const char* tideMix      = "tideMix";       // wet / dry (%)
         inline constexpr const char* tideResponse = "tideResponse";  // how fast it reacts and adapts (0-10)
         inline constexpr const char* tideActive   = "tideActive";    // IN / OUT (hardware bypass)
+        // Its processing methods (the glass panel; DSP/MethodRegistry.h). Not automatable.
+        inline constexpr const char* tideDetector    = "tideDetector";     // PKR / RMS
+        inline constexpr const char* tideSmoothing   = "tideSmoothing";    // DRL / SRL
+        inline constexpr const char* tideResponseLaw = "tideResponseLaw";  // LIN / EXP
 
         // UPWARD LEVELER - 1U, three bands: lifts quiet material toward a target
         inline constexpr const char* lumenTarget   = "lumenTarget";   // target level (dBFS)

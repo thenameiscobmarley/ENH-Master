@@ -17,6 +17,13 @@ value stays readable as the mouse moves.
 
 More: [[The loupe]].
 
+## Clicking a unit
+
+Click a unit's faceplate and a frosted glass panel opens at the right, joined to the unit by a thin
+line. It lists the unit's settings one under another; click one to see its choices, and hover any of
+them to read how it changes the sound. Clicking another unit switches panels; clicking off the rack
+closes it. To walk up to a unit, scroll. See [[Glass panel]] and [[Methods]].
+
 ## The displays
 
 **OUTPUT MONITOR** (top): the input against the output as a waveform and a spectrum, the tone change

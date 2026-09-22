@@ -21,6 +21,9 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --golden write|check file
 - **`--units`** - LEVEL, loudness (EBU cases), output limiter, MIX BALANCER (incl. loudness keeper).
 - **`--presets`** - every preset in the preset file through the engine; **`--bass`** THD and pumping;
   **`--limiter`** the anti-duck scenes; **`--cpu`** the benchmark.
+- **`--methods`** - every processing method combination (stability, peak, latency, block size, click-free
+  switching), RESPONSE's law and smoothing, and that [[Methods]] matches the registry;
+  **`--methods-doc`** rewrites that page.
 - **`--golden write|check`** - bit-exact output check, for optimisations that must not change a sample.
 
 ## UI environment variables
@@ -35,10 +38,15 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --golden write|check file
 | `PAD_UI_TEST_DEMO=1` | animates the live displays and meters without audio |
 | `PAD_UI_TEST_FOCUS=<unit>` | starts walked up to a unit: 0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter, 5 level control, 6 mix balancer, 7 output monitor |
 | `PAD_UI_TEST_MAX_DETAIL=<0-3>` | caps the geometry detail level |
+| `PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]]` | opens a unit's glass panel after 1.2 s (optionally a dropdown expanded, a choice hovered) |
+| `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` | outlines that control as if hovered |
 | `PAD_UI_DUMP_ARTWORK=<dir>` | writes every printed panel and `clearances.txt` (print overlapping hardware) |
 | `ENH_MASTER_PRESETS=<file>` | use this preset file instead of `~/.config/ENH Master/presets.json` |
 
-## Screenshots
+## Screenshots and frame time
+
+`build/stats.sh <label> [ENV=…]` runs the standalone for ~22 s with `PAD_UI_TEST_STATS=1` and prints the
+average frame interval, late frames and CPU render time (e.g. `build/stats.sh panel PAD_UI_TEST_PANEL=2`).
 
 `build/shot.sh out.png [ENV=…]` launches the standalone, grabs the window and re-encodes it.
 `build/hovertest.sh name:x,y[,down|,up] …` drives a real pointer over the window (window-relative

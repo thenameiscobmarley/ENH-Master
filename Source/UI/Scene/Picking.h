@@ -39,4 +39,17 @@ namespace pad
 
         return -1;
     }
+
+    /** Which unit's faceplate is under a normalised device coordinate, or -1 (the case, the room). */
+    inline int pickUnit (const CameraRig& cam, float ndcX, float ndcY) noexcept
+    {
+        using namespace layout;
+        for (int unit = 0; unit < numUnits; ++unit)
+        {
+            float lx = 0.0f, lz = 0.0f;
+            if (cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz) && std::abs (lx) <= faceHalfW && std::abs (lz) <= unitHalfH (unit))
+                return unit;
+        }
+        return -1;
+    }
 }

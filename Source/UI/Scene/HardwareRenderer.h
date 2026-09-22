@@ -228,6 +228,28 @@ namespace pad
         float renderScaleFor (int logicalW) const noexcept;
         void presentScene (int screenW, int screenH);
 
+        // Glass panel (GlassPanel.h): what is shown and how far open, the line from its unit, the blur
+        // behind it (a quarter of the resolution, scissored to the panel, only while it is open)
+        int panelShown = -1;
+        float panelOpen = 0.0f, panelLine = 0.0f;
+        gfx::Vec3 panelColour { 1.0f, 1.0f, 1.0f };
+        gfx::Texture2D panelTex;
+        int panelTexW = 0, panelTexH = 0;
+        juce::uint32 uploadedPanelVersion = 0;
+        std::vector<juce::uint8> panelScratch;
+        gfx::RenderTarget blurA, blurB;
+        void updatePanel (float dt);
+        void uploadPanelIfChanged();
+        bool blurBehindPanel (int screenW, int screenH);
+        void drawPanelConnector (const CameraRig&, int screenW, int screenH);
+        void drawGlassPanel (int screenW, int screenH, bool blurred);
+        void drawOutlines (const CameraRig&, int viewportW);
+        /** The hovered control's model and matrices, captured while the controls are drawn (inverted hull). */
+        const GpuModel* hullModel = nullptr;
+        // Dev only: PAD_UI_TEST_HOVER_CONTROL=<parameter ID> outlines that control as if hovered (screenshots)
+        const juce::String testHoverControl = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_HOVER_CONTROL", {});
+        gfx::Mat4 hullMoving, hullFixed;
+
         // Fisheye loupe over hovered print
         gfx::RenderTarget loupeTarget;
         float loupeAlpha = 0.0f, loupeZoom = 1.8f, loupeRadius = 90.0f, loupeCx = 0.0f, loupeCy = 0.0f;

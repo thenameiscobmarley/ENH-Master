@@ -11,6 +11,7 @@ namespace pad::shaders
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
         paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
         waveScreen, balancerDisplay, present, wood,
+        glassPanel, blurPass, outlineFrame, outlineHull,
         numMaterials
     };
 
@@ -309,6 +310,85 @@ namespace pad::shaders
                 + texture (uTex, uv + vec2 (-t.x, t.y)).rgb + texture (uTex, uv + vec2 (t.x, t.y)).rgb);
 )GLSL", "", false };
 
+    /*  The glass panel (GlassPanel.h), one quad over the panel plus a margin for its shadow. Frosted
+        glass and nothing else: the scene behind it blurred and lifted a little toward white, a hard-
+        cornered edge that catches the light (brightest along the top), a soft shadow falling under it,
+        and the panel's white print on top. No tint. Everything is in screen pixels about its centre.
+        vLocal.xz  -1..1 over the quad; uParams  = (panel half width px, half height px, px per logical px, opacity)
+        uParams2   = (quad half width px, quad half height px, have blur 0/1, _)
+        uTex = blurred scene (screen uv); uTex2 = the print (panel uv); uEmissive = (1 / screen w, 1 / screen h, _) */
+    inline const hwk::shaders::Material glassPanelMaterial { "glassPanel", R"GLSL(
+    vec2 p = vLocal.xz * uParams2.xy;                 // px from the panel's centre, y down
+    vec2 half_ = uParams.xy;
+    float s = uParams.z;
+    vec2 q = abs (p) - half_;
+    float d = max (q.x, q.y);                          // hard rectangle: square corners
+    float inside = 1.0 - smoothstep (-0.5, 0.5, d);
+
+    // Frost: the blurred scene, a little brighter and lifted toward white
+    vec2 screenUv = gl_FragCoord.xy * uEmissive.xy;
+    vec3 behind = uParams2.z > 0.5 ? texture (uTex, screenUv).rgb : vec3 (0.10);
+    float t = clamp ((p.y + half_.y) / (2.0 * half_.y), 0.0, 1.0);   // 0 top .. 1 bottom
+    vec3 glassCol = mix (behind * 1.08, vec3 (1.0), mix (0.16, 0.10, t));   // a touch more light at the top
+
+    // The edge: a crisp 1 px line of light just inside, brightest along the top
+    float fromEdge = -d;                                                // px inside
+    float edgeLine = (1.0 - smoothstep (0.0, 1.2 * s, fromEdge)) * inside;
+    float topLight = 1.0 - smoothstep (0.0, 1.5 * s, p.y + half_.y);  // the top edge
+    glassCol = mix (glassCol, vec3 (1.0), edgeLine * mix (0.30, 0.65, topLight));
+
+    // The print
+    vec2 puv = (p + half_) / (2.0 * half_);
+    vec4 ink = texture (uTex2, puv);
+    glassCol = mix (glassCol, ink.rgb, ink.a);
+
+    // Soft shadow under it, offset down, outside the glass only
+    vec2 sq = abs (p - vec2 (0.0, 7.0 * s)) - half_;
+    float sd = length (max (sq, 0.0)) + min (max (sq.x, sq.y), 0.0);
+    float shadow = exp (-max (sd, 0.0) / (14.0 * s)) * 0.45 * (1.0 - inside);
+
+    col = inside > 0.001 ? glassCol : vec3 (0.0);
+    alpha = max (inside, shadow) * uParams.w;
+)GLSL", "", false };
+
+    /*  One pass of the panel's blur, at a quarter of the screen's resolution: a 9-tap Gaussian along
+        uParams.xy (source texel steps); with uParams.z > 0.5 it is instead the 4-tap box that brings the
+        full-resolution scene down. uParams2.xy = 1 / target size. */
+    inline const hwk::shaders::Material blurPassMaterial { "blurPass", R"GLSL(
+    vec2 uv = gl_FragCoord.xy * uParams2.xy;
+    vec2 s = uParams.xy;
+    if (uParams.z > 0.5)
+        col = 0.25 * (texture (uTex, uv + vec2 (-s.x, -s.y)).rgb + texture (uTex, uv + vec2 (s.x, -s.y)).rgb
+                    + texture (uTex, uv + vec2 (-s.x, s.y)).rgb + texture (uTex, uv + vec2 (s.x, s.y)).rgb);
+    else
+        col = texture (uTex, uv).rgb * 0.227
+            + (texture (uTex, uv + s * 1.385).rgb + texture (uTex, uv - s * 1.385).rgb) * 0.316
+            + (texture (uTex, uv + s * 3.231).rgb + texture (uTex, uv - s * 3.231).rgb) * 0.070;
+    alpha = 1.0;
+)GLSL", "", false };
+
+    /*  Hover outline for a unit: one quad over its faceplate, a crisp line on the silhouette and a soft
+        glow inside it, whatever the distance (widths in screen pixels via fwidth).
+        uParams = (half width, half height of the quad in local units, line px, opacity), uBaseColor. */
+    inline const hwk::shaders::Material outlineFrameMaterial { "outlineFrame", R"GLSL(
+    vec2 q = (1.0 - abs (vLocal.xz)) * uParams.xy;      // local distance to each edge
+    float edge = min (q.x, q.y);
+    float px = max (fwidth (edge), 1.0e-6);
+    float e = edge / px;                                 // in screen pixels
+    float line = 1.0 - smoothstep (uParams.z, uParams.z + 1.0, e);
+    float glowIn = exp (-e / 9.0) * 0.30;
+    col = uBaseColor;
+    alpha = (line + glowIn) * uParams.w;
+)GLSL", "", false };
+
+    /*  Hover outline for a control: its own mesh again, scaled up a little about its axis and drawn with
+        front faces culled, so only the rim that sticks out past the silhouette shows (the inverted hull).
+        Flat colour. uParams.w = opacity. */
+    inline const hwk::shaders::Material outlineHullMaterial { "outlineHull", R"GLSL(
+    col = uBaseColor;
+    alpha = uParams.w;
+)GLSL", "", false };
+
     inline const hwk::shaders::Material& materialFor (int m)
     {
         namespace lib = hwk::shaders::library;
@@ -330,6 +410,10 @@ namespace pad::shaders
             case balancerDisplay: return balancerMaterial;
             case present:       return presentMaterial;
             case wood:          return lib::walnut;
+            case glassPanel:    return glassPanelMaterial;
+            case blurPass:      return blurPassMaterial;
+            case outlineFrame:  return outlineFrameMaterial;
+            case outlineHull:   return outlineHullMaterial;
             case brushed:       return lib::brushedFace;
             case vuFace:        return lib::meterFace;
             case vuGlass:       return lib::coverGlass;

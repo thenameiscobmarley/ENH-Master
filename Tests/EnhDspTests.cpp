@@ -11,6 +11,8 @@
 #include "DSP/EnhEngine.h"
 #include "DSP/ParameterMapping.h"
 #include "Parameters/PresetLibrary.h"
+#include "Parameters/KnobModifiers.h"
+#include "DSP/MethodRegistry.h"
 
 using enh::dsp::EnhEngine;
 using enh::dsp::BiquadCoeffs;
@@ -1415,6 +1417,260 @@ namespace
         }
     }
 
+    //==========================================================================
+    /** The method registry as the reference page in the Vault (EnhDspTests --methods-doc writes it). */
+    juce::String methodsDoc()
+    {
+        namespace m = enh::dsp::methods;
+        auto s = [] (std::string_view v) { return juce::String (v.data(), v.size()); };
+        juce::String out;
+        out << "# Processing methods\n\n"
+            << "Generated from `Source/DSP/MethodRegistry.h` by `EnhDspTests --methods-doc`; do not edit by hand\n"
+            << "(the test suite fails when this page and the registry disagree). Back to [[00 Start Here]].\n\n"
+            << "Click a unit on the rack to open its glass panel; each dropdown there is one stage below. The first\n"
+            << "method of every stage is the default, and is how the unit sounded before methods existed. Every\n"
+            << "method is zero-latency, and a switch crossfades over 30 ms. Method choices are stored in the session\n"
+            << "(not automatable) and presets leave them alone.\n";
+        auto stages = [&] (const m::Stage* list, int count)
+        {
+            juce::String unit;
+            for (int i = 0; i < count; ++i)
+            {
+                const auto& st = list[i];
+                if (s (st.unit) != unit)
+                {
+                    unit = s (st.unit);
+                    out << "\n## " << unit << "\n";
+                }
+                out << "\n### " << s (st.name) << " - " << s (st.question) << "\n\n";
+                out << (st.param.empty() ? juce::String ("One method so far.") : "Parameter `" + s (st.param) + "`.") << "\n\n";
+                out << "| Method | What it measures / does | How the sound changes | CPU / latency |\n|---|---|---|---|\n";
+                for (int k = 0; k < st.numMethods; ++k)
+                {
+                    const auto& me = st.methods[k];
+                    out << "| **" << s (me.shortName) << "** " << s (me.fullName) << (k == 0 ? " (default)" : "")
+                        << " | " << s (me.measures) << " | " << s (me.sound) << " | " << s (me.cost) << " |\n";
+                }
+            }
+        };
+        stages (m::compressorStages.data(), (int) m::compressorStages.size());
+
+        out << "\n## Knob modifiers\n\n"
+            << "A modifier sits between a knob and its processing. It is stored in the session, not as a parameter:\n"
+            << "the host always sees the knob's raw value.\n\n"
+            << "| Knob | Side | Modifier | What it does | How the sound changes | Cost | Settings |\n|---|---|---|---|---|---|---|\n";
+        for (auto& k : m::knobModifiers)
+        {
+            juce::String choices;
+            for (float c : k.input->choices)
+                choices << (choices.isEmpty() ? "" : ", ") << (c == 0.0f ? juce::String ("off") : juce::String (c, 0) + " " + s (k.input->unit));
+            out << "| `" << s (k.param) << "` | input | **" << s (k.input->shortName) << "** " << s (k.input->fullName)
+                << " | " << s (k.input->does) << " | " << s (k.input->sound) << " | " << s (k.input->cost) << " | " << choices << " |\n";
+        }
+        return out;
+    }
+
+    juce::File methodsDocFile()
+    {
+        // Tests run from the build folder or the checkout: find Vault/ above the working directory
+        for (auto dir = juce::File::getCurrentWorkingDirectory(); dir.exists() && ! dir.isRoot(); dir = dir.getParentDirectory())
+            if (dir.getChildFile ("Vault").isDirectory())
+                return dir.getChildFile ("Vault/Reference/Methods.md");
+        return {};
+    }
+
+    void runMethodTests (double sr)
+    {
+        namespace m = enh::dsp::methods;
+        using enh::dsp::DynamicCompressor;
+        std::printf ("\n== PROCESSING METHODS (the glass panel's stages) ==\n");
+
+        // The registry and the parameters agree: every stage's parameter exists, is a choice, not
+        // automatable, defaults to the first method, and lists the methods in the same order
+        {
+            bool ok = true;
+            for (auto& st : m::compressorStages)
+            {
+                if (st.param.empty()) { ok = ok && st.numMethods == 1; continue; }
+                const auto* spec = pad::params::findSpec (juce::String (st.param.data(), st.param.size()));
+                ok = ok && spec != nullptr && spec->kind == pad::params::Kind::choice && ! spec->automatable
+                        && spec->defaultValue == 0.0f && spec->texts.size() == st.numMethods;
+                for (int k = 0; ok && k < st.numMethods; ++k)
+                    ok = spec->texts[k] == juce::String (st.methods[k].shortName.data(), st.methods[k].shortName.size());
+            }
+            check (ok, "every stage in the registry has its parameter: a choice, not automatable, default = first method, same order");
+        }
+        {
+            const auto file = methodsDocFile();
+            const bool same = file.existsAsFile() && file.loadFileAsString() == methodsDoc();
+            if (! same) std::printf ("  %s is out of date: run EnhDspTests --methods-doc\n", file.getFullPathName().toRawUTF8());
+            check (same, "Vault/Reference/Methods.md matches the registry");
+        }
+
+        // Every combination through the whole engine: finite, under full scale, same latency, at every
+        // sample rate and at odd block sizes
+        {
+            auto latencyAt = [] (double rate) { EnhEngine e; e.prepare (rate, 128, 2); return e.getLatencySamples(); };
+            bool ok = true, sameLatency = true;
+            int runs = 0;
+            float worstPeak = 0.0f;
+            for (int det = 0; det < DynamicCompressor::numDetectors; ++det)
+                for (int smo = 0; smo < DynamicCompressor::numSmoothings; ++smo)
+                    for (int law = 0; law < 2; ++law)
+                    {
+                        auto k = enh::dsp::KnobValues {};
+                        k.tideDetector = det; k.tideSmoothing = smo; k.tideResponseLaw = law;
+                        k.tideMixPercent = 100.0f; k.tideResponse = 8.0f;
+                        const auto p = enh::dsp::mapKnobs (k);
+                        for (double rate : { 44100.0, 48000.0, 96000.0 })
+                            for (int bs : { 1, 7, 128, 1024 })
+                            {
+                                if (rate != 48000.0 && bs != 128) continue;   // the block sizes at 48 kHz, the rates at 128
+                                const auto scene = makeScene (rate, bs == 1 ? 1.5 : 3.0, true, true, 11);
+                                const auto r = run (scene, rate, bs, p, [&] (const EnhEngine& e)
+                                {
+                                    sameLatency = sameLatency && e.getLatencySamples() == latencyAt (rate);
+                                });
+                                ok = ok && r.finite && r.peak <= 1.0f;
+                                worstPeak = std::max (worstPeak, r.peak);
+                                ++runs;
+                            }
+                    }
+            std::printf ("  %d runs (2 detectors x 2 smoothings x 2 RESPONSE laws, 3 rates, 4 block sizes): worst peak %.3f\n", runs, worstPeak);
+            check (ok, "every method combination is finite and under full scale at every rate and block size");
+            check (sameLatency, "no method changes the reported latency");
+        }
+
+        // The compressor alone gives the same output whatever the block size, for every combination
+        {
+            bool same = true;
+            for (int det = 0; det < DynamicCompressor::numDetectors; ++det)
+                for (int smo = 0; smo < DynamicCompressor::numSmoothings; ++smo)
+                {
+                    auto once = [&] (int bs)
+                    {
+                        DynamicCompressor c;
+                        c.prepare (sr, 2);
+                        DynamicCompressor::Settings s;
+                        s.active = true; s.mix = 1.0f; s.response = 0.7f; s.detector = det; s.smoothing = smo;
+                        const auto scene = makeScene (sr, 2.0, true, true, 4);
+                        auto l = scene.left, r = scene.right;
+                        for (int pos = 0; pos < (int) l.size(); pos += bs)
+                        {
+                            float* ch[2] { l.data() + pos, r.data() + pos };
+                            c.process (ch, 2, std::min (bs, (int) l.size() - pos), s);
+                        }
+                        return l;
+                    };
+                    same = same && once (7) == once (1024);
+                }
+            check (same, "the compressor's output is identical at block sizes 7 and 1024, for every method");
+        }
+
+        // Switching methods while it compresses: the 30 ms crossfade, and the incoming method starting from
+        // the gain being applied, keep the gain moving no faster than it does anyway
+        {
+            DynamicCompressor c;
+            c.prepare (sr, 2);
+            DynamicCompressor::Settings s;
+            s.active = true; s.mix = 1.0f; s.response = 0.7f;
+            // Dense pink noise at -12 dBFS: it is compressing, steadily, when the switch comes
+            const int len = (int) (6.0 * sr);
+            std::vector<float> l ((size_t) len), r;
+            {
+                juce::Random rnd (12);
+                Pink pk;
+                for (auto& x : l) x = dbfs (-12.0f) * pk.next (rnd) * 4.0f;
+                r = l;
+            }
+            float prev = 0.0f, stepBefore = 0.0f, stepAfter = 0.0f, grAtSwitch = 0.0f;
+            for (int i = 0; i < (int) l.size(); ++i)
+            {
+                const double t = i / sr;
+                if (t >= 3.0) { s.detector = DynamicCompressor::detectorRms; s.smoothing = DynamicCompressor::smoothingSrl; }
+                float* ch[2] { l.data() + i, r.data() + i };
+                c.process (ch, 2, 1, s);
+                const float gr = c.getReadout().gainReductionDb;
+                const float step = std::abs (gr - prev);
+                prev = gr;
+                if (t > 2.0 && t < 3.0) stepBefore = std::max (stepBefore, step);
+                if (t >= 3.0 && t < 3.05) stepAfter = std::max (stepAfter, step);
+                if (i == (int) (3.0 * sr) - 1) grAtSwitch = gr;
+            }
+            std::printf ("  switching PKR/DRL -> RMS/SRL while compressing %.1f dB: largest gain step %.4f dB/sample (%.4f in the second before)\n",
+                         grAtSwitch, stepAfter, stepBefore);
+            check (grAtSwitch > 1.0f && stepAfter <= std::max (0.01f, 1.5f * stepBefore), "a method switch does not step the gain (crossfaded)");
+            check (c.getDetector() == DynamicCompressor::detectorRms && c.getSmoothing() == DynamicCompressor::smoothingSrl, "the switch lands on the new methods");
+        }
+
+        // The methods sound different (otherwise the panel would be a placebo)
+        {
+            auto grWith = [&] (int det, int smo)
+            {
+                DynamicCompressor c;
+                c.prepare (sr, 2);
+                DynamicCompressor::Settings s;
+                s.active = true; s.mix = 1.0f; s.response = 0.6f; s.detector = det; s.smoothing = smo;
+                // Sparse loud hits over a quiet bed (high crest factor), as in the TIDE tests
+                const int len = (int) (5.0 * sr);
+                std::vector<float> l ((size_t) len), r;
+                {
+                    juce::Random rnd (13);
+                    Pink pk;
+                    for (int i = 0; i < len; ++i)
+                        l[(size_t) i] = dbfs (-12.0f) * pk.next (rnd) * 4.0f * ((i % (int) (0.4 * sr) < (int) (0.02 * sr)) ? 3.0f : 0.05f);
+                    r = l;
+                }
+                double sum = 0.0; int n = 0;
+                float most = 0.0f;
+                for (int pos = 0; pos < (int) l.size(); pos += 128)
+                {
+                    float* ch[2] { l.data() + pos, r.data() + pos };
+                    c.process (ch, 2, std::min (128, (int) l.size() - pos), s);
+                    if (pos > 2.0 * sr) { sum += c.getReadout().gainReductionDb; ++n; }
+                    if (pos > 2.0 * sr) most = std::max (most, c.getReadout().gainReductionDb);
+                }
+                return std::make_pair ((float) (sum / std::max (1, n)), most);
+            };
+            const auto pkr = grWith (0, 0), rms = grWith (1, 0), srl = grWith (0, 1);
+            std::printf ("  sparse hits, gain reduction on the hits / on average: PKR/DRL %.2f / %.2f dB, RMS/DRL %.2f / %.2f dB, PKR/SRL %.2f / %.2f dB\n",
+                         pkr.second, pkr.first, rms.second, rms.first, srl.second, srl.first);
+            check (rms.second < pkr.second - 0.5f, "RMS takes less off the hits than PKR (transients pass through fuller)");
+            check (std::abs (srl.first - pkr.first) > 0.05f, "SRL moves differently from DRL");
+        }
+
+        // RESPONSE's law: EXP spends more of the travel at the slow end, same ends
+        {
+            auto resp = [] (float knob, int law) { enh::dsp::KnobValues k; k.tideResponse = knob; k.tideResponseLaw = law; return enh::dsp::mapKnobs (k).tide.response; };
+            std::printf ("  RESPONSE 5: LIN %.2f, EXP %.2f\n", resp (5.0f, 0), resp (5.0f, 1));
+            check (resp (0.0f, 1) == 0.0f && std::abs (resp (10.0f, 1) - 1.0f) < 1.0e-6f && resp (5.0f, 1) < 0.35f && resp (5.0f, 0) == 0.5f,
+                   "RESPONSE LAW: LIN is the travel, EXP has the same ends and more travel at the slow end");
+        }
+
+        // SMO: the same glide at every sample rate and block size (it is worked out in seconds)
+        {
+            // Wherever it has got to, it is where a 250 ms one-pole would be after that much time in seconds
+            float worst = 0.0f;
+            for (double rate : { 44100.0, 48000.0, 96000.0 })
+                for (int bs : { 1, 32, 512 })
+                {
+                    pad::KnobSmoother smo;
+                    smo.process (0.0f, 250.0f, bs, rate);          // primes at 0
+                    const int blocks = (int) std::lround (0.25 * rate / bs);
+                    float v = 0.0f;
+                    for (int b = 0; b < blocks; ++b)
+                        v = smo.process (10.0f, 250.0f, bs, rate);
+                    const double seconds = blocks * bs / rate;
+                    worst = std::max (worst, std::abs (v - (float) (10.0 * (1.0 - std::exp (-seconds / 0.25)))));
+                }
+            std::printf ("  SMO 250 ms: largest error against the one-pole in seconds %.2e (3 rates x 3 block sizes)\n", worst);
+            check (worst < 1.0e-3f, "SMO glides the same at every sample rate and block size");
+            pad::KnobSmoother off;
+            off.process (2.0f, 0.0f, 64, sr);
+            check (off.process (7.0f, 0.0f, 64, sr) == 7.0f, "SMO off passes the knob straight through");
+        }
+    }
+
     int runNewUnitsMode (double sr)
     {
         runNewUnitTests (sr);
@@ -1553,6 +1809,22 @@ int main (int argc, char** argv)
 
     if (argc > 1 && juce::String (argv[1]) == "--units")
         return runNewUnitsMode (sr);
+
+    if (argc > 1 && juce::String (argv[1]) == "--methods")
+    {
+        runMethodTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--methods-doc")
+    {
+        const auto file = methodsDocFile();
+        if (file == juce::File() || ! file.replaceWithText (methodsDoc(), false, false, "\n"))
+            return 2;
+        std::printf ("wrote %s\n", file.getFullPathName().toRawUTF8());
+        return 0;
+    }
 
     if (argc > 1 && juce::String (argv[1]) == "--cpu")
     {
@@ -2959,6 +3231,7 @@ int main (int argc, char** argv)
     runPresetTests (sr);
     runLoudBassTests (sr);
     runNewUnitTests (sr);
+    runMethodTests (sr);
 
     runCpuBenchmark();
 

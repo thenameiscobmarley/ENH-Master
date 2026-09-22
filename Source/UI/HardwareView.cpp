@@ -77,6 +77,26 @@ namespace pad
         if (focusTest.isNotEmpty())
             setFocus (juce::jlimit (0, numUnits - 1, focusTest.getIntValue()), 1.0f);
 
+        glassPanel = std::make_unique<GlassPanel> (bridge, processor);
+
+        // Dev-only: PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]] opens a unit's glass panel, optionally
+        // with a dropdown expanded and one of its choices hovered (screenshots, frame-time checks)
+        const auto panelTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PANEL", {});
+        if (panelTest.isNotEmpty())
+        {
+            const auto parts = juce::StringArray::fromTokens (panelTest, ",", {});
+            juce::Component::SafePointer<HardwareView> safe (this);
+            juce::Timer::callAfterDelay (1200, [safe, parts]
+            {
+                if (safe == nullptr)
+                    return;
+                safe->openPanel (juce::jlimit (0, numUnits - 1, parts[0].getIntValue()));
+                if (parts.size() > 1)
+                    safe->glassPanel->setExpanded (parts[1].getIntValue(), parts.size() > 2 ? parts[2].getIntValue() : -1);
+                safe->publishPanel (true);
+            });
+        }
+
         openedAtMs = juce::Time::getMillisecondCounter();
         refreshOverlay();
         startTimerHz (30); // display text + hover callouts
@@ -98,6 +118,49 @@ namespace pad
         shared.viewWidth = juce::jmax (1, getWidth());
         shared.viewHeight = juce::jmax (1, getHeight());
         publishWindowGeometry();
+        if (glassPanel != nullptr)
+        {
+            glassPanel->setViewSize (getLocalBounds().toFloat());
+            publishPanel (true);
+        }
+    }
+
+    //==============================================================================
+    void HardwareView::openPanel (int unit)
+    {
+        // Level with the unit on screen (its centre, projected), so the line from it runs short
+        float anchorY = 0.5f * (float) getHeight();
+        if (unit >= 0)
+        {
+            const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+            const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
+                                               { shared.focusUnit.load(), shared.focusAmount.load() });
+            float ax = 0.0f, ay = 0.0f;
+            if (gfx::projectToNdc (cam.viewProj, panelToWorld (unit).transformPoint ({ 0.0f, 0.0f, 0.0f }), ax, ay))
+                anchorY = (1.0f - ay) * 0.5f * h;
+        }
+        glassPanel->open (unit, anchorY, getLocalBounds().toFloat());
+        publishPanel (true);
+    }
+
+    /** Hands the panel's rectangle and, when it changed, its print to the renderer. */
+    void HardwareView::publishPanel (bool force)
+    {
+        glassPanel->pollValues();
+        const auto r = glassPanel->getLayout().panel;
+        shared.panelX = r.getX();
+        shared.panelY = r.getY();
+        shared.panelW = r.getWidth();
+        shared.panelH = r.getHeight();
+        shared.panelUnit = glassPanel->getUnit();
+        if (! glassPanel->isOpen() || (! force && ! glassPanel->needsRedraw()))
+            return;
+
+        const float scale = juce::jmax (1.0f, shared.platformScale.load()) * 2.0f;   // print at 2x: crisp text
+        auto tex = glassPanel->render (scale);
+        const juce::SpinLock::ScopedLockType lock (shared.panelLock);
+        shared.panelPending = std::move (tex);
+        ++shared.panelVersion;
     }
 
     void HardwareView::publishWindowGeometry()
@@ -170,8 +233,24 @@ namespace pad
     void HardwareView::mouseMove (const juce::MouseEvent& e)
     {
         updateMouse (e.position);
+        if (glassPanel->hitTest (e.position).inside)
+        {
+            // Over the glass: its own hover (the details area explains what is under the pointer), and
+            // nothing on the rack behind it lights up
+            if (glassPanel->hover (e.position))
+                publishPanel();
+            shared.hoveredControl = -1;
+            shared.hoveredUnit = -1;
+            setMouseCursor (glassPanel->hitTest (e.position).row >= 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+            return;
+        }
+        if (glassPanel->hover (e.position))
+            publishPanel();
+
         const int hovered = pickControl (e.position);
         shared.hoveredControl = hovered;
+        if (! shared.renderInteraction.load())
+            shared.hoveredUnit = hovered >= 0 ? -1 : unitUnderPointer (e.position);
 
         if (hovered < 0)
             setMouseCursor (juce::MouseCursor::NormalCursor);
@@ -190,14 +269,28 @@ namespace pad
     void HardwareView::mouseDown (const juce::MouseEvent& e)
     {
         updateMouse (e.position);
+
+        // 1. The glass panel first: a click on it is its own, whatever is behind it
+        if (glassPanel->hitTest (e.position).inside)
+        {
+            glassPanel->click (e.position);
+            publishPanel (true);
+            return;
+        }
+
+        // 2. Controls on the rack work as always, panel open or not
         const int hit = pickControl (e.position);
 
         if (hit < 0)
         {
-            // Clicking the panel itself (not a control) walks up to that unit; the case steps back
+            // 3. A unit's faceplate opens its panel (another unit switches to it, the same one closes it).
+            //    Clicking off the rack closes the panel; with none open it steps back as before.
+            //    Walking up to a unit is the wheel's job now.
             const int unit = unitUnderPointer (e.position);
             if (unit >= 0)
-                setFocus (unit, shared.focusAmount.load() > 0.5f && shared.focusUnit.load() == unit ? 0.0f : 1.0f);
+                openPanel (glassPanel->getUnit() == unit ? -1 : unit);
+            else if (glassPanel->isOpen())
+                openPanel (-1);
             else
                 setFocus (-1, 0.0f);
             return;
@@ -292,6 +385,8 @@ namespace pad
 
     void HardwareView::mouseDoubleClick (const juce::MouseEvent& e)
     {
+        if (glassPanel->hitTest (e.position).inside)
+            return;
         const int hit = pickControl (e.position);
         if (hit < 0 || isSwitchLike (controls[(size_t) hit].kind))
             return;
@@ -312,6 +407,17 @@ namespace pad
 
     void HardwareView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
     {
+        if (glassPanel->hitTest (e.position).inside)
+        {
+            // Over the glass the wheel scrolls its list
+            const float dy = (std::abs (wheel.deltaY) > 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
+            if (glassPanel->scroll (dy * 120.0f))
+            {
+                glassPanel->hover (e.position);
+                publishPanel (true);
+            }
+            return;
+        }
         const int hit = pickControl (e.position);
         const float step = (std::abs (wheel.deltaY) > 0.0f ? wheel.deltaY : wheel.deltaX) * (wheel.isReversed ? -1.0f : 1.0f);
 
@@ -685,6 +791,8 @@ namespace pad
 
         refreshOverlay();
         updateCallout();
+        if (glassPanel->isOpen())
+            publishPanel();   // redraws only when a shown value changed (host, preset) or the hover moved
     }
 
     void HardwareView::updateCallout()
@@ -713,6 +821,9 @@ namespace pad
         };
 
         if (! inside)
+            return hide();
+        // No loupe over the glass panel (it would magnify the rack behind it)
+        if (shared.pointInPanel ((ndcX + 1.0f) * 0.5f * w, (1.0f - ndcY) * 0.5f * h))
             return hide();
 
         const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),

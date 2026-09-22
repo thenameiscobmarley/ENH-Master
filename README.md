@@ -84,14 +84,58 @@ install to tuning, plus notes on the DSP and the renderer. Start at `Vault/00 St
 ## Reading the panels
 
 The units sit on an arc centred on the viewer, so however many are stacked, every panel faces
-the camera head on and nothing is foreshortened. Scroll or click a panel to walk up to a unit;
-click the case to step back to the whole rack.
+the camera head on and nothing is foreshortened.
+
+- **Click a unit** to open its glass panel (see *Glass panels and processing methods*). Clicking
+  another unit switches to its panel, clicking the same unit again closes it, and clicking off the
+  rack closes it too.
+- **Scroll** to walk up to the unit under the pointer, and scroll back to step away.
+- With no panel open, clicking the case steps back to the whole rack.
+- **Hovering** a knob, switch or button outlines it in white; hovering a unit's faceplate outlines the
+  unit.
 
 Hover anything - printed text, a knob, a button - and a **fisheye loupe** appears over it: the scene is re-rendered
 zoomed in (1.8x) behind a glass lens about 155 px across, so the magnified print is genuinely sharp rather than stretched pixels.
 It magnifies about the cursor - what is under the pointer stays under the pointer - is slightly transparent, and
 locks onto a control while you drag it. Controls also show a small name + value pill under the lens, and their
 value arc lights up around the knob.
+
+## Glass panels and processing methods
+
+![The ADAPTIVE COMPRESSOR's glass panel, DETECTOR open](docs/screenshot-panel.png)
+
+Clicking a unit draws a thin white line from it to a frosted glass panel at the right of the window.
+The panel shows the unit's name and its settings, listed one under another in a column that scrolls
+with the wheel. The glass is the rack behind it, blurred; there is no tint, only white text, square
+corners and a soft shadow.
+
+**The ADAPTIVE COMPRESSOR is the pilot.** Its processing is split into swappable stages, each with
+named methods:
+
+| Stage | Methods | What changes |
+|---|---|---|
+| DETECTOR | **PKR** peak or RMS (default), **RMS** 50 ms power | RMS takes about a fifth less off a hit: attacks come through fuller |
+| GAIN | **ADT** adaptive threshold | one method so far |
+| SMOOTHING | **DRL** dual release (default), **SRL** single release | SRL is the classic bus-compressor breathing |
+| RESPONSE LAW | **LIN** linear (default), **EXP** exponential | EXP gives more of the knob's travel to slow, gentle settings |
+| RESPONSE SMOOTHING | OFF (default), 50 / 250 / 1000 ms | glides the RESPONSE knob; the host still sees its raw value |
+
+- Hover any setting and the bottom of the panel explains how it changes the sound and what it costs.
+- Only the method in use runs. Switching crossfades over 30 ms, so it never clicks (tested).
+- No method changes the latency the plugin reports.
+- Method choices are saved with the session, are not automatable, and presets leave them alone.
+  Sessions from before this release load with the defaults, which sound exactly as before (checked
+  sample for sample).
+- The RESPONSE smoothing is stored in the session, not as a parameter.
+- The other units open a panel with their name for now; their stages come after the pilot.
+
+The full list, generated from `Source/DSP/MethodRegistry.h`, is `Vault/Reference/Methods.md`.
+`EnhDspTests --methods` runs every combination through the stability, peak, latency and block-size
+checks, and fails if that page is out of date (`EnhDspTests --methods-doc` rewrites it).
+
+**Cost.** The glass is blurred at a quarter of the resolution, only behind the panel and only while
+it is open. On the J4105, frame times with the panel open, the blur running and a control outlined
+were within the run-to-run noise of the same scenes without them.
 
 ## Presets
 
@@ -710,6 +754,8 @@ host delivers mouse events late. Config: `~/.config/ENHMaster/ui-config.json`.
 - `PAD_UI_TEST_DEMO=1` – animates the displays and meters without audio (TONE & SPACE, the SPECTRAL LIMITER's curtain, the OUTPUT MONITOR and its DUCK readout, the MIX BALANCER)
 - `PAD_UI_TEST_STATS=1` also logs the framebuffer's actual MSAA sample count
 - `PAD_UI_TEST_FOCUS=<unit>` – starts walked up to one unit (0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter, 5 level control, 6 mix balancer, 7 output monitor)
+- `PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]]` – opens a unit's glass panel after 1.2 s, optionally with a dropdown expanded and a choice hovered
+- `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` – outlines that control as if hovered
 - `PAD_UI_DUMP_ARTWORK=<dir>` – writes every printed panel with its text boxes and the hardware footprints from the layout code, plus `clearances.txt` listing any print that overlaps or crowds hardware, borders or other print
 
 ## Backups
