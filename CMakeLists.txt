@@ -103,7 +103,8 @@ if(ENH_BUILD_TESTS)
 
     target_sources(EnhDspTests PRIVATE Tests/EnhDspTests.cpp Source/Parameters/ParameterSpecs.cpp Source/Parameters/PresetLibrary.cpp ${ENH_DSP_SOURCES})
     target_include_directories(EnhDspTests PRIVATE Source)
-    target_compile_definitions(EnhDspTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_compile_definitions(EnhDspTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
+                               ENH_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")   # finds Vault/ from any working directory
     target_link_libraries(EnhDspTests
         PRIVATE
             juce::juce_dsp

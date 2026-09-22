@@ -1472,7 +1472,11 @@ namespace
 
     juce::File methodsDocFile()
     {
-        // Tests run from the build folder or the checkout: find Vault/ above the working directory
+       #ifdef ENH_SOURCE_DIR
+        if (const juce::File source (ENH_SOURCE_DIR); source.getChildFile ("Vault").isDirectory())
+            return source.getChildFile ("Vault/Reference/Methods.md");
+       #endif
+        // Otherwise look for Vault/ above the working directory
         for (auto dir = juce::File::getCurrentWorkingDirectory(); dir.exists() && ! dir.isRoot(); dir = dir.getParentDirectory())
             if (dir.getChildFile ("Vault").isDirectory())
                 return dir.getChildFile ("Vault/Reference/Methods.md");
