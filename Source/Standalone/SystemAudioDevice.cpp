@@ -11,14 +11,44 @@ namespace pad
 
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <mmreg.h>
 #include <functiondiscoverykeys_devpkey.h>
 
 #include <atomic>
+#include <utility>
 #include <vector>
 
 namespace pad
 {
-    using juce::ComSmartPtr;
+    /** A COM pointer. JUCE has one, but not in a header this file can reach. */
+    template <typename T>
+    class ComSmartPtr
+    {
+    public:
+        ComSmartPtr() = default;
+        ComSmartPtr (std::nullptr_t) {}
+        ComSmartPtr (const ComSmartPtr& other) : p (other.p) { if (p != nullptr) p->AddRef(); }
+        ComSmartPtr (ComSmartPtr&& other) noexcept : p (std::exchange (other.p, nullptr)) {}
+        ~ComSmartPtr() { reset(); }
+
+        ComSmartPtr& operator= (const ComSmartPtr& other) { ComSmartPtr copy (other); std::swap (copy.p, p); return *this; }
+        ComSmartPtr& operator= (ComSmartPtr&& other) noexcept { std::swap (other.p, p); return *this; }
+        ComSmartPtr& operator= (std::nullptr_t) { reset(); return *this; }
+
+        T* get() const noexcept        { return p; }
+        T* operator->() const noexcept { return p; }
+        operator T*() const noexcept   { return p; }
+
+        T** resetAndGetPointerAddress() { reset(); return &p; }
+        void reset() { if (auto* q = std::exchange (p, nullptr)) q->Release(); }
+
+    private:
+        T* p = nullptr;
+    };
+
+    /** The subformat an extensible format uses for 32-bit float, spelled out rather than pulled in
+        from ksmedia.h (which is not always where the SDK keeps it). */
+    static const GUID ieeeFloatSubFormat { 0x00000003, 0x0000, 0x0010, { 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71 } };
 
     namespace
     {
@@ -142,7 +172,7 @@ namespace pad
                 if (tag == WAVE_FORMAT_EXTENSIBLE)
                 {
                     auto* ext = reinterpret_cast<const WAVEFORMATEXTENSIBLE*> (f);
-                    tag = (ext->SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT) ? WAVE_FORMAT_IEEE_FLOAT : WAVE_FORMAT_PCM;
+                    tag = (ext->SubFormat == ieeeFloatSubFormat) ? WAVE_FORMAT_IEEE_FLOAT : WAVE_FORMAT_PCM;
                 }
 
                 if (tag == WAVE_FORMAT_IEEE_FLOAT && bits == 32)  kind = float32;
