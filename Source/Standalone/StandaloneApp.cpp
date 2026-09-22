@@ -13,7 +13,14 @@
     Standalone target in CMakeLists.txt).
 */
 
-// Ours first: JUCE's plugin-client headers below #define Component, which breaks juce::Component after them.
+// Order matters twice over. JUCE's modules first: the plugin-client system headers below bring in
+// <windows.h>, whose `small` macro breaks juce_gui_extra if it is parsed after them. Then ours: the
+// plugin-client module header #defines Component, which breaks juce::Component after it.
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_gui_extra/juce_gui_extra.h>
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+
 #include "AudioRouting.h"
 #include "RouterBar.h"
 #include "SystemAudioDevice.h"
