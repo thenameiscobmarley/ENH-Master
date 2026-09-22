@@ -151,6 +151,7 @@ namespace enh::dsp
         BiquadState inHp, inShelf, outHp, outShelf;
         float inMs = 0.0f, outMs = 0.0f, msCoeff = 0.0f, autoDb = 0.0f, outGain = 1.0f;
         float inSlowMs = 0.0f, outSlowMs = 0.0f, slowMsCoeff = 0.0f;   // MATCH's 3 s levels
+        float inRefDb = -60.0f;                                        // ... and what the material is when it plays
 
         float smoothingDb = 0.0f, blend = 0.0f, blendCoeff = 0.0f, meterSmoothing = 0.0f;
         bool tapeOn = false;

@@ -43,7 +43,7 @@ PROCESSING. Parameter `levelerLift`.
 
 | Method | What it measures / does | How the sound changes | CPU / latency |
 |---|---|---|---|
-| **STD** Standard lift (default) | The most each band may lift: 9 dB low, 18 dB mid, 14 dB high. | The original amount of detail recovery. | Control rate, no audio cost (default). |
+| **STD** Standard lift (default) | The most each band may lift: 6 dB low, 12 dB mid, 9 dB high. | The original amount of detail recovery. | Control rate, no audio cost (default). |
 | **GEN** Gentle | 60 % of those limits. | Quiet detail comes up less: more natural dynamics, less noise brought forward. | Control rate, no audio cost. Glides (slew-limited). |
 | **BIG** Big | 1.3 times those limits. | The quietest detail comes right up: maximum audibility, flatter dynamics. | Control rate, no audio cost. Glides (slew-limited). |
 

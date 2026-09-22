@@ -6,26 +6,16 @@
 namespace enh::dsp
 {
     static inline float levelToDb (float x) noexcept { return 20.0f * std::log10 (std::max (1.0e-7f, x)); }
-    static inline float dbToGain (float db) noexcept { return std::pow (10.0f, db * 0.05f); }
-
-    float SpectralLeveler::Crossover::lowpass (float x, float k, bool second) noexcept
-    {
-        auto& st = second ? lpB : lpA;
-        // two cascaded one-poles = 2nd order Butterworth-ish; called twice for LR4
-        st[0] += k * (x - st[0]);
-        st[1] += k * (st[0] - st[1]);
-        return st[1];
-    }
 
     void SpectralLeveler::prepare (double sampleRate, int numChannels)
     {
         sr = sampleRate > 0.0 ? sampleRate : 48000.0;
         channels = std::max (1, numChannels);
 
-        // 200 Hz and 2.2 kHz splits: low weight, midrange detail (where footsteps live), air
-        const auto coeff = [this] (float hz) { return 1.0f - std::exp (-2.0f * 3.14159265f * hz / (float) sr); };
-        lowK = coeff (200.0f);
-        highK = coeff (2200.0f);
+        // 200 Hz and 2.2 kHz splits: low weight, midrange detail (where footsteps live), air.
+        // Butterworth sections (Q = 1/sqrt 2); two of them cascaded make each LR4 half.
+        lowCoeffs = SvfCoeffs::make (sr, 200.0, 0.70710678);
+        highCoeffs = SvfCoeffs::make (sr, 2200.0, 0.70710678);
         reset();
     }
 
@@ -33,6 +23,7 @@ namespace enh::dsp
     {
         for (auto& c : lowSplit) c.reset();
         for (auto& c : highSplit) c.reset();
+        for (auto& c : lowDelay) c.reset();
         for (auto& b : bands) b = {};
         controlPhase = 0.0f;
         readout = {};
@@ -48,7 +39,11 @@ namespace enh::dsp
         // BAND BALANCE, LIFT and GATE methods (the defaults are the leveler's own numbers)
         constexpr std::array<float, numBands> voiced { -4.0f, 0.0f, -1.5f }, midFocus { -7.0f, 0.0f, -3.0f }, flat { 0.0f, 0.0f, 0.0f };
         const auto& bandOffset = s.balance == 1 ? midFocus : s.balance == 2 ? flat : voiced;
-        constexpr std::array<float, numBands> standardLift { 9.0f, 18.0f, 14.0f }, gentleLift { 5.4f, 10.8f, 8.4f }, bigLift { 11.7f, 23.4f, 18.2f };
+        // These are what a band may be lifted by at most. They were set when the "crossover" left most of
+        // the low end in every band, so a lift was always partly a lift of the bass and never reached its
+        // limit. With a real split the bands are clean and the same numbers lift far harder - a bass note's
+        // own harmonics were being brought up with them - so they come down to match.
+        constexpr std::array<float, numBands> standardLift { 6.0f, 12.0f, 9.0f }, gentleLift { 3.6f, 7.2f, 5.4f }, bigLift { 7.8f, 15.6f, 11.7f };
         const auto& maxGain = s.lift == 1 ? gentleLift : s.lift == 2 ? bigLift : standardLift;
         const float gateDb = s.gate == 1 ? 66.0f : s.gate == 2 ? 50.0f : 58.0f;
 
@@ -64,9 +59,10 @@ namespace enh::dsp
             const float down = 1.0f - std::exp (-dt / (2.5f - 1.2f * resp));
             st.loudDb += (levelDb > st.loudDb ? up : down) * (levelDb - st.loudDb);
 
-            // Noise floor: very slow to rise, quick to fall, so it settles on the quiet moments
-            // of the material rather than creeping up to meet a steady signal.
-            const float fUp = 1.0f - std::exp (-dt / 25.0f);
+            // Noise floor: slow to rise, quick to fall, so it settles on the quiet moments of the material.
+            // It rises over seconds rather than half a minute: a band that holds still (hiss, the harmonics
+            // that ride on a steady tone) closes its own modulation gate instead of being lifted for ever.
+            const float fUp = 1.0f - std::exp (-dt / 4.0f);
             const float fDown = 1.0f - std::exp (-dt / 0.3f);
             st.floorDb += (levelDb > st.floorDb ? fUp : fDown) * (levelDb - st.floorDb);
 
@@ -81,15 +77,21 @@ namespace enh::dsp
             const float modGate = std::clamp ((st.loudDb - st.floorDb - 1.5f) / 3.5f, 0.0f, 1.0f);
             const float gate = absGate * (0.3f + 0.7f * modGate);
 
+            // The loudest this band has been lately: up at once, forgotten over ten seconds.
+            st.eventDb = std::max (levelDb, st.eventDb + (levelDb - st.eventDb) * (1.0f - std::exp (-dt / 10.0f)));
+
             // One-sided: lift what is below the target, leave what is above it alone. A band that
             // already has loud passages of its own only gets a fraction of the lift - its quiet
-            // moments are part of the music, not a fault to be corrected.
+            // moments are part of the music, not a fault to be corrected. How big a fraction depends on
+            // how far the band's loud moments sit above where it is now: material that is simply quiet
+            // is lifted in full, while an ambience that an explosion lands on top of is not raised to
+            // the target - that only flattens the explosion and drives it into the limiter.
             float wanted = 0.0f;
             if (levelDb < targetDb)
             {
                 const float deficit = targetDb - levelDb;
-                const float ownHeadroom = std::max (0.0f, st.loudDb - targetDb);
-                const float relative = std::clamp (1.0f - ownHeadroom / 12.0f, 0.25f, 1.0f);
+                const float range = std::max (0.0f, st.eventDb - st.loudDb);
+                const float relative = std::clamp (1.0f - (range - 10.0f) / 15.0f, 0.25f, 1.0f);
                 wanted = std::min (deficit * relative * gate, maxGain[(size_t) b]);
             }
 
@@ -113,6 +115,10 @@ namespace enh::dsp
             readout.gainDb[(size_t) b] = st.gainDb;
             readout.levelDb[(size_t) b] = levelDb;
             readout.quietThreshDb[(size_t) b] = quietDb;
+            readout.loudDb[(size_t) b] = st.loudDb;
+            readout.floorDb[(size_t) b] = st.floorDb;
+            readout.gate[(size_t) b] = gate;
+            readout.wantedDb[(size_t) b] = wanted;
             sum += st.gainDb;
             active = std::max (active, st.gainDb / maxGain[(size_t) b]);
         }
@@ -148,11 +154,13 @@ namespace enh::dsp
             {
                 const float x = data[c][i];
 
-                // LR4 splits: lowpass twice for the band edge, the remainder carries the rest
-                const float low = lowSplit[(size_t) c].lowpass (lowSplit[(size_t) c].lowpass (x, lowK, false), lowK, true);
-                const float rest = x - low;
-                const float mid = highSplit[(size_t) c].lowpass (highSplit[(size_t) c].lowpass (rest, highK, false), highK, true);
-                const float high = rest - mid;
+                // LR4 splits, both halves taken from the filter. The low band goes through the second
+                // split's allpass so that low + mid + high is still flat.
+                const float lowRaw = lowSplit[(size_t) c].low (lowCoeffs, x);
+                const float rest = lowSplit[(size_t) c].high (lowCoeffs, x);
+                const float low = lowDelay[(size_t) c].process (highCoeffs, lowRaw);
+                const float mid = highSplit[(size_t) c].low (highCoeffs, rest);
+                const float high = highSplit[(size_t) c].high (highCoeffs, rest);
 
                 split[(size_t) c] = { low, mid, high };
                 for (int b = 0; b < numBands; ++b)

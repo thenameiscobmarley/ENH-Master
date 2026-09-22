@@ -102,6 +102,7 @@ namespace enh::dsp
         std::array<OsChannel, maxChannels> os {};
 
         float autoGainDb = 0.0f, appliedGain = 1.0f;
+        float inRefDb = -60.0f;   // the input's level when it is playing, for the gap hold
         float depthMix = 0.0f, clarityMix = 0.0f;
         float peakDb = -100.0f;
     };

@@ -13,12 +13,15 @@
       lowend.png          10 - 250 Hz at high resolution, in and out (the sub region: DEEP SUB, SUB, limiters)
       contrib.png         (contrib) what each unit does to each band: the rack with that one unit out, compared
       ducks.png           (ducks) who ducks what, when: each unit's effect on low / mid / high over time
+      trace.png / .txt    (trace) every unit's own gain read from the engine as it runs (10 ms): who moves,
+                          how far, and when - the decisions rather than the result
 
     Commands:
       EnhAudioLab scenes
       EnhAudioLab render  (--scene NAME | --in FILE.wav) [--preset NAME] [--set param=value]... [--seconds S] --out DIR
       EnhAudioLab contrib (--scene NAME | --in FILE.wav) [--preset NAME] [--set param=value]... --out DIR
       EnhAudioLab ducks   (--scene NAME | --in FILE.wav) [--preset NAME] [--set param=value]... --out DIR
+      EnhAudioLab trace   (--scene NAME | --in FILE.wav) [--preset NAME] [--set param=value]... --out DIR
       EnhAudioLab compare A.wav B.wav --out DIR
       EnhAudioLab suite   --out DIR         every scene through a set of presets, with a summary table
 
@@ -200,7 +203,9 @@ namespace lab
     }
 
     struct SceneInfo { const char* name; const char* what; };
-    const std::array<SceneInfo, 12> sceneList {{
+    const std::array<SceneInfo, 14> sceneList {{
+        { "gaps",      "music for 3 s, near silence for 3 s, music again: what the auto gains do in the gaps" },
+        { "bassduck",  "unchanging quiet detail and footsteps throughout, loud bass only from 3 - 5 s: what the bass does to the rest" },
         { "steps",     "ambience and footsteps only, left/right, every 0.45 s: what the rack does to footsteps over time" },
         { "game",      "ambience, footsteps left/right, gunshots, an explosion, a voice" },
         { "music",     "drums, bass line, pad chord and lead at 120 bpm" },
@@ -250,6 +255,45 @@ namespace lab
                 const float kick = 0.4f * (float) (std::sin (twoPi * (48.0 + 80.0 * std::exp (-kt / 0.03)) * kt) * std::exp (-kt / 0.15));
                 b.addSample (0, i, bass + kick);
                 b.addSample (1, i, bass + kick);
+            }
+        }
+        else if (name == "gaps")
+        {
+            auto music = makeBuffer (seconds);
+            addMusic (music, rng, true);
+            addNoiseBed (b, -54.0f, rng);   // a room tone that never stops, so nothing is ever digital silence
+            for (int i = 0; i < b.getNumSamples(); ++i)
+            {
+                const double t = i / sr;
+                const double cycle = std::fmod (t, 6.0);
+                const float on = (float) (cycle < 3.0 ? std::min (1.0, cycle / 0.05) * std::min (1.0, (3.0 - cycle) / 0.05) : 0.0);
+                for (int c = 0; c < 2; ++c)
+                    b.addSample (c, i, on * music.getSample (c, i));
+            }
+        }
+        else if (name == "bassduck")
+        {
+            // The whole point: everything except the bass is the same from start to finish, so any change in
+            // the detail's output level is the rack reacting to the bass and nothing else.
+            addNoiseBed (b, -40.0f, rng);
+            addFootsteps (b, 0.3, seconds, 0.5, -24.0f, rng);
+            Biquad detailL { enh::dsp::BiquadCoeffs::bandPass (sr, 2500.0, 1.2) }, detailR { enh::dsp::BiquadCoeffs::bandPass (sr, 2500.0, 1.2) };
+            const double bassFrom = 3.0, bassTo = 5.0;
+            double phase = 0.0;
+            for (int i = 0; i < b.getNumSamples(); ++i)
+            {
+                const double t = i / sr;
+                b.addSample (0, i, db (-34.0f) * 2.0f * detailL (rng.next()));
+                b.addSample (1, i, db (-34.0f) * 2.0f * detailR (rng.next()));
+                if (t >= bassFrom && t < bassTo)
+                {
+                    const double inNote = std::fmod (t - bassFrom, 0.5);
+                    phase = std::fmod (phase + 50.0 / sr, 1.0);
+                    const float env = (float) (std::min (1.0, inNote / 0.008) * std::exp (-inNote / 0.25));
+                    const float bass = db (-5.0f) * env * (float) std::sin (twoPi * phase);
+                    b.addSample (0, i, bass);
+                    b.addSample (1, i, bass);
+                }
             }
         }
         else if (name == "explosion")
@@ -1186,6 +1230,184 @@ namespace lab
         std::printf ("%s", text.toRawUTF8());
     }
 
+    /** Every unit's own gain, read from the engine while it runs (10 ms): not what the output did, but what
+        each unit decided to do and when. This is how to see which unit moves first when something changes. */
+    void trace (const Job& job)
+    {
+        const auto input = inputFor (job);
+        if (input.getNumSamples() == 0) { std::printf ("no input\n"); return; }
+        job.out.createDirectory();
+
+        struct Row { float t; std::array<float, 27> v {}; };
+        struct Col { const char* name; juce::Colour colour; bool inPicture; };
+        const std::array<Col, 27> cols {{
+            { "LEVELER low",      juce::Colour (0xffc8a060), true },
+            { "LEVELER mid",      juce::Colour (0xffe0c080), true },
+            { "LEVELER high",     juce::Colour (0xfff0e0b0), true },
+            { "BALANCER 70",      juce::Colour (0xfff0e080), false },
+            { "BALANCER 200",     juce::Colour (0xfff0e080), false },
+            { "BALANCER 500",     juce::Colour (0xfff0e080), true },
+            { "BALANCER 1.3k",    juce::Colour (0xffd8c860), true },
+            { "BALANCER 3.5k",    juce::Colour (0xffc0b040), true },
+            { "BALANCER 9k",      juce::Colour (0xfff0e080), false },
+            { "COMPRESSOR GR",    juce::Colour (0xff4fd6d6), true },
+            { "SPECTRAL deepest", juce::Colour (0xffff4f8b), true },
+            { "SPECTRAL broad",   juce::Colour (0xffff90b8), true },
+            { "SPECTRAL makeup",  juce::Colour (0xffff6f9b), false },
+            { "TONE&SPACE MATCH", juce::Colour (0xffb388ff), true },
+            { "TONE&SPACE dip",   juce::Colour (0xffd0b0ff), false },
+            { "OUT LIMITER",      juce::Colour (0xffff5040), true },
+            { "ENH auto gain",    juce::Colour (0xffe8a33c), true },
+            { "ENH sub lift",     juce::Colour (0xff5a7cff), false },
+            { "footstep conf",    juce::Colour (0xff60ff90), false },
+            { "DEEP SUB out",     juce::Colour (0xff5a7cff), false },
+            { "LEVELER lvl low",  juce::Colour (0xff808080), false },   // what the leveler is reading, per band
+            { "LEVELER lvl mid",  juce::Colour (0xff808080), false },
+            { "LEVELER lvl high", juce::Colour (0xff808080), false },
+            { "LEVELER loud mid", juce::Colour (0xff808080), false },   // its own view of the mid band
+            { "LEVELER floor mid",juce::Colour (0xff808080), false },
+            { "LEVELER gate mid", juce::Colour (0xff808080), false },
+            { "LEVELER want mid", juce::Colour (0xff808080), false },
+        }};
+
+        enh::dsp::EnhEngine engine;
+        const int block = 64;
+        engine.prepare (sr, block, 2);
+        const auto params = parametersFor (job.setup);
+        const int n = input.getNumSamples(), hop = (int) (0.01 * sr);
+        Buffer chunk (2, block);
+        std::vector<Row> rows;
+        for (int pos = 0; pos < n; pos += block)
+        {
+            const int len = std::min (block, n - pos);
+            chunk.setSize (2, len, false, false, true);
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < len; ++i)
+                    chunk.setSample (c, i, input.getSample (c, pos + i));
+            engine.process (chunk, params);
+
+            if (pos / hop != (pos + block) / hop)
+            {
+                const auto& m = engine.getMeters();
+                Row row { (float) (pos / sr) };
+                for (int b = 0; b < 3; ++b) row.v[(size_t) b] = m.lumenGainDb[(size_t) b].load();
+                for (int b = 0; b < 6; ++b) row.v[(size_t) (3 + b)] = m.balanceGainDb[(size_t) b].load();
+                row.v[9] = -std::abs (m.tideGrDb.load());
+                row.v[10] = -std::abs (m.limitDeepestDb.load());
+                row.v[11] = -std::abs (m.limitBroadbandDb.load());
+                row.v[12] = m.limitMakeupDb.load();
+                row.v[13] = m.silkMatchDb.load();
+                row.v[14] = -std::abs (m.silkSmoothingDb.load());
+                row.v[15] = -std::abs (m.outputLimitDb.load());
+                row.v[16] = m.autoGainDb.load();
+                row.v[17] = m.subLiftDb.load();
+                row.v[18] = m.footstepConfidence.load();
+                row.v[19] = m.deepGeneratedDb.load();
+                for (int b = 0; b < 3; ++b) row.v[(size_t) (20 + b)] = m.lumenLevelDb[(size_t) b].load();
+                const auto& lum = engine.getLeveler().getReadout();
+                row.v[23] = lum.loudDb[1]; row.v[24] = lum.floorDb[1]; row.v[25] = lum.gate[1]; row.v[26] = lum.wantedDb[1];
+                rows.push_back (row);
+            }
+        }
+
+        // What the rest of the material actually came out at, next to the decisions: the detail band
+        // (2 kHz and up) of the output, so a duck can be matched to whoever caused it.
+        int latency = 0;
+        const auto output = run (input, params, latency);
+        const auto outBands = bandLevels (output), inBands = bandLevels (input);
+
+        juce::String text;
+        text << "What each unit is doing, every 10 ms (dB; negative is taking away)\n"
+             << (job.inFile.isNotEmpty() ? job.inFile : job.scene) << " through " << job.setup.preset << "\n\n"
+             << "     t";
+        for (auto& c : cols) text << juce::String (c.name).paddedLeft (' ', 18);
+        text << "    low out   mid out  high out\n";
+        for (size_t r = 0; r < rows.size(); ++r)
+        {
+            text << fmt (rows[r].t, 2).paddedLeft (' ', 6);
+            for (size_t k = 0; k < cols.size(); ++k) text << fmt (rows[r].v[k], 2).paddedLeft (' ', 18);
+            const size_t band = (size_t) (rows[r].t / 0.05f);
+            for (size_t k = 0; k < 3; ++k)
+                text << (band < outBands[k].size() ? fmt (outBands[k][band], 1) : juce::String ("-")).paddedLeft (' ', 10);
+            text << "\n";
+        }
+
+        // The summary that answers "who did it": for every unit, how far it moved and when it moved most
+        juce::String head;
+        head << "unit                    from      to   biggest move   at\n";
+        for (size_t k = 0; k < cols.size(); ++k)
+        {
+            float lo = 1.0e9f, hi = -1.0e9f, moveAt = 0.0f, prev = rows.empty() ? 0.0f : rows[0].v[k], worst = 0.0f;
+            for (auto& r : rows)
+            {
+                lo = std::min (lo, r.v[k]); hi = std::max (hi, r.v[k]);
+                const float d = r.v[k] - prev;
+                if (std::abs (d) > std::abs (worst)) { worst = d; moveAt = r.t; }
+                prev = r.v[k];
+            }
+            head << juce::String (cols[k].name).paddedRight (' ', 20) << fmt (lo, 2).paddedLeft (' ', 8) << fmt (hi, 2).paddedLeft (' ', 8)
+                 << fmt (worst, 2).paddedLeft (' ', 12) << "   " << fmt (moveAt, 2) << " s\n";
+        }
+        std::printf ("%s", head.toRawUTF8());
+        job.out.getChildFile ("trace.txt").replaceWithText (head + "\n" + text);
+
+        // The picture: the input's detail band as a grey fill for orientation, each unit's gain as a line
+        const int w = 1200, left = 70, top = 40, h = 520;
+        juce::Image img (juce::Image::RGB, w + left + 210, top + h + 40, true);
+        juce::Graphics g (img);
+        g.fillAll (juce::Colour (0xff101014));
+        g.setColour (juce::Colours::white);
+        g.setFont (15.0f);
+        g.drawText ("WHAT EACH UNIT IS DOING  -  " + (job.inFile.isNotEmpty() ? job.inFile : job.scene) + " / " + job.setup.preset,
+                    left, 10, w, 20, juce::Justification::left);
+
+        const float top_ = 12.0f, bottom = -18.0f;    // dB range of the picture
+        const auto yFor = [&] (float db) { return (float) top + (float) h * (top_ - std::clamp (db, bottom, top_)) / (top_ - bottom); };
+        const auto xFor = [&] (float t) { return (float) left + (float) w * t / std::max (0.01f, rows.empty() ? 1.0f : rows.back().t); };
+
+        // The input's low band behind everything: where the bass is
+        juce::Path bassFill;
+        bassFill.startNewSubPath ((float) left, (float) (top + h));
+        for (size_t i = 0; i < inBands[0].size(); ++i)
+            bassFill.lineTo (xFor ((float) i * 0.05f), yFor (std::clamp ((inBands[0][i] + 60.0f) * 0.5f - 18.0f, bottom, top_)));
+        bassFill.lineTo ((float) (left + w), (float) (top + h));
+        bassFill.closeSubPath();
+        g.setColour (juce::Colour (0x22ffffff));
+        g.fillPath (bassFill);
+
+        g.setColour (juce::Colour (0x40ffffff));
+        for (float db = bottom; db <= top_; db += 3.0f)
+        {
+            g.drawHorizontalLine ((int) yFor (db), (float) left, (float) (left + w));
+            g.setFont (11.0f);
+            g.drawText (juce::String ((int) db), 4, (int) yFor (db) - 8, left - 10, 16, juce::Justification::right);
+        }
+        for (float t = 0.0f; t <= (rows.empty() ? 0.0f : rows.back().t); t += 1.0f)
+        {
+            g.drawVerticalLine ((int) xFor (t), (float) top, (float) (top + h));
+            g.drawText (juce::String (t, 0) + " s", (int) xFor (t) - 20, top + h + 4, 40, 16, juce::Justification::centred);
+        }
+
+        int legend = top;
+        for (size_t k = 0; k < cols.size(); ++k)
+        {
+            if (! cols[k].inPicture) continue;
+            juce::Path p;
+            for (size_t r = 0; r < rows.size(); ++r)
+            {
+                const float x = xFor (rows[r].t), y = yFor (rows[r].v[k]);
+                if (r == 0) p.startNewSubPath (x, y); else p.lineTo (x, y);
+            }
+            g.setColour (cols[k].colour);
+            g.strokePath (p, juce::PathStrokeType (1.6f));
+            g.setFont (12.0f);
+            g.drawText (cols[k].name, left + w + 12, legend, 190, 16, juce::Justification::left);
+            legend += 18;
+        }
+        save (img, job.out.getChildFile ("trace.png"));
+        std::printf ("wrote %s\n", job.out.getChildFile ("trace.png").getFullPathName().toRawUTF8());
+    }
+
     /** Who ducks what, when: for each unit, the rack as set against the rack with that unit out, band by band
         over time (50 ms). A unit's curve below zero is it taking that band down at that moment. */
     void ducks (const Job& job)
@@ -1350,7 +1572,7 @@ int main (int argc, char** argv)
     for (int i = 1; i < argc; ++i) args.add (argv[i]);
     if (args.isEmpty() || args[0] == "-h" || args[0] == "--help")
     {
-        std::printf ("EnhAudioLab scenes | render | contrib | ducks | compare | suite   (see the top of Tools/AudioLab.cpp)\n");
+        std::printf ("EnhAudioLab scenes | render | contrib | ducks | trace | compare | suite   (see the top of Tools/AudioLab.cpp)\n");
         return 0;
     }
     const auto command = args[0];
@@ -1389,6 +1611,7 @@ int main (int argc, char** argv)
     }
     if (command == "contrib") { contrib (job); return 0; }
     if (command == "ducks") { ducks (job); return 0; }
+    if (command == "trace") { trace (job); return 0; }
     if (command == "compare" && files.size() >= 2)
     {
         const auto a = readWav (juce::File::getCurrentWorkingDirectory().getChildFile (files[0]));

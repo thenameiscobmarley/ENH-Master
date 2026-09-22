@@ -121,6 +121,7 @@ namespace enh::dsp
         inHp.reset(); inShelf.reset(); outHp.reset(); outShelf.reset();
         inMs = outMs = 0.0f;
         inSlowMs = outSlowMs = 0.0f;
+        inRefDb = -60.0f;
         autoDb = 0.0f;
         outGain = 1.0f;
         smoothingDb = 0.0f;
@@ -285,9 +286,19 @@ namespace enh::dsp
         // on 0.4 s levels the harmonics TONE adds to a big bass hit made the output read louder, and MATCH
         // pulled the whole mix down by up to 4.5 dB for seconds after every one
         const float inDb = powerToDb (inSlowMs), outDb = powerToDb (outSlowMs);
+        // What this material is when it is playing: quick to learn, very slow to forget, so a pause does
+        // not become the new normal. MATCH used to keep integrating through silence - after a three second
+        // gap it came back three decibels down and the music started quiet.
+        inRefDb += (inDb > inRefDb ? 1.0f - std::exp (-dt / 1.0f) : 1.0f - std::exp (-dt / 8.0f)) * (inDb - inRefDb);
         const bool burst = powerToDb (inMs) > inDb + 4.0f;
-        if (s.autoGain && inDb > -60.0f && ! burst)
-            autoDb = std::clamp (autoDb + (inDb - outDb) * (1.0f - std::exp (-dt / 3.0f)), -9.0f, 9.0f);
+        // Only silence holds it, not merely a quieter passage: holding on anything less meant that after a
+        // loud passage MATCH stayed wherever that passage had left it, and the quiet that followed stayed down.
+        const bool gap = powerToDb (inMs) < inRefDb - 20.0f;   // read on the fast level, so a gap holds at once
+        // Ten seconds, and no more than six decibels either way: MATCH is a trim that keeps the unit from
+        // changing the level, not a leveller of its own. At three seconds it followed the programme closely
+        // enough to be heard as the mix ducking a second or two after every loud passage.
+        if (s.autoGain && inDb > -60.0f && ! burst && ! gap)
+            autoDb = std::clamp (autoDb + (inDb - outDb) * (1.0f - std::exp (-dt / 10.0f)), -6.0f, 6.0f);
         else if (! s.autoGain)
             autoDb *= std::exp (-dt / 0.3f);
     }

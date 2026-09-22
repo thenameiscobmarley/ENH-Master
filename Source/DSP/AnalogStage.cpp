@@ -82,6 +82,7 @@ namespace enh::dsp
         for (auto& o : os)   o = OsChannel {};
 
         autoGainDb = 0.0f;
+        inRefDb = -60.0f;
         appliedGain = 1.0f;
         depthMix = clarityMix = 0.0f;
         peakDb = -100.0f;
@@ -119,7 +120,12 @@ namespace enh::dsp
         const float inDb = powerToDb (inputK.meanSquare), outDb = powerToDb (outputK.meanSquare);
         // While the SPECTRAL LIMITER is handling a localised spike, loudness matching does not chase it:
         // it used to turn the whole mix down every time the sub enhancer lifted a bass hit.
-        if (inDb > -60.0f && ! s.holdLevel)
+        // A pause is not a new level to match: while the input is 12 dB or more under what it is when it
+        // plays, the loop holds. Otherwise it walked up through every gap and the next note arrived loud.
+        const float refK = inDb > inRefDb ? 1.0f - std::exp (-(float) n / (float) sr / 1.0f)
+                                          : 1.0f - std::exp (-(float) n / (float) sr / 8.0f);
+        inRefDb += refK * (inDb - inRefDb);
+        if (inDb > -60.0f && ! s.holdLevel && inDb > inRefDb - 20.0f)
         {
             const float k = 1.0f - std::exp (-(float) n / (float) sr / 1.5f);
             // Match loudness (NORM); in ADD mode let full enhancement sit ~2 dB up so it is heard

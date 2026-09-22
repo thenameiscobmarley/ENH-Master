@@ -251,7 +251,7 @@ namespace enh::dsp::methods
     // UPWARD LEVELER
     inline constexpr std::array<Method, 3> levelerLiftMethods {{
         { "STD", "Standard lift",
-          "The most each band may lift: 9 dB low, 18 dB mid, 14 dB high.",
+          "The most each band may lift: 6 dB low, 12 dB mid, 9 dB high.",
           "The original amount of detail recovery.",
           "Control rate, no audio cost (default)." },
         { "GEN", "Gentle",

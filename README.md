@@ -630,12 +630,15 @@ build/EnhAudioLab_artefacts/Release/EnhAudioLab render --scene game --preset "CO
 build/EnhAudioLab_artefacts/Release/EnhAudioLab render --in capture.wav --set deepDepth=7 --set tideDetector=1 --out lab/mine
 build/EnhAudioLab_artefacts/Release/EnhAudioLab contrib --scene music --preset "DEEP SUB: SUBMARINE" --out lab/who
 build/EnhAudioLab_artefacts/Release/EnhAudioLab ducks --scene steps --seconds 30 --preset "COMPETITIVE FOOTSTEPS" --out lab/ducks
+build/EnhAudioLab_artefacts/Release/EnhAudioLab trace --scene bassduck --preset DEFAULT --out lab/trace
 build/EnhAudioLab_artefacts/Release/EnhAudioLab compare a.wav b.wav --out lab/ab
 build/EnhAudioLab_artefacts/Release/EnhAudioLab suite --out lab/suite          # every scene through a set of presets
 ```
 
 - **Scenes:** game, steps, music, drums and bass, a bass line, an explosion, quiet, voice, a sweep,
-  tones (THD and IMD), impulses and pink noise. Any WAV file can be used instead.
+  tones (THD and IMD), impulses and pink noise, plus two that hold everything still but one thing:
+  **bassduck** (the same quiet detail and footsteps from start to finish, loud bass only from 3 to 5 s)
+  and **gaps** (music, silence, music). Any WAV file can be used instead.
 - **Every render writes:**
   - `in.wav` and `out.wav` (latency removed);
   - `report.txt`: levels, BS.1770 loudness, true peak, loudness range, crest, stereo, third-octave
@@ -645,6 +648,11 @@ build/EnhAudioLab_artefacts/Release/EnhAudioLab suite --out lab/suite          #
     over time) and `lowend.png` (10–250 Hz at high resolution).
 - **`contrib`** is what each unit adds or takes away, per band.
 - **`ducks`** is who ducks what, when: each unit's effect on low / mid / high over time.
+- **`trace`** is every unit's own gain, read out of the engine as it runs (every 10 ms): the leveler's
+  lift per band and what it is reading, the balancer's six faders, compressor gain reduction, the
+  spectral limiter's cuts, MATCH, the output limiter, the enhancer's auto gain. `trace.txt` also prints,
+  for each of them, how far it moved and when it moved most. This shows which unit reacted first, which
+  a measurement of the output alone cannot.
 - **`--set`** takes any parameter: knobs in their own units, switches 0 / 1, methods by index.
 
 ### What listening found and fixed (1.3.4.1)
@@ -664,6 +672,30 @@ build/EnhAudioLab_artefacts/Release/EnhAudioLab suite --out lab/suite          #
   harmonics TONE adds to a huge bass hit read as extra loudness, and it turned everything down by up
   to 4.5 dB for seconds. It now measures and follows over 3 s and holds through bursts: -2.1 dB at
   worst.
+
+### Why the mix ducked under bass (1.3.4.1)
+
+Four separate causes, found with `trace` on the **bassduck** and **gaps** scenes, where everything but the
+bass (or everything but the silence) is held still, so anything that moves is the rack reacting.
+
+- **The leveler's crossover was not a crossover.** LUMEN split low / mid / high by lowpassing and then
+  *subtracting* the result from the signal. The filter shifts the phase, so the subtraction did not take
+  the bass out: a 50 Hz note came out of the midrange band 1 dB down, and the leveler read every bass note
+  as a loud midrange. Its lift on detail and footsteps fell from +8.7 dB to nothing and took many seconds
+  to come back — the mix ducked under bass, and on steady material the lift wandered down to zero. It is
+  now a real Linkwitz-Riley 4th-order split, both halves taken from the filter, with the low band passed
+  through the second split's allpass so the three still sum flat (level error 0.07 dB). A 50 Hz note now
+  reads 48 dB down in the midrange band, and the lift holds right through the bass.
+- **The lift limits were recalibrated** (9 / 18 / 14 dB to 6 / 12 / 9) because a real split lifts far
+  harder than a leaking one, and a band that has loud moments of its own is now lifted less than a band
+  that is simply quiet — otherwise an ambience with explosions on top of it is flattened.
+- **The compressor learnt the silence.** Its "how loud is this programme" tracker walked all the way
+  down through a pause, so the first seconds of music after a gap were clamped by up to 20 dB. It now
+  holds that estimate while the material is 20 dB or more below it: 3 dB on re-entry instead of 20.
+- **MATCH and the enhancer's auto gain kept integrating through silence** and came back from a gap
+  several decibels down. Both now hold while there is nothing playing. MATCH also follows over 10 s
+  instead of 3 and is limited to ±6 dB: it is a trim that stops the unit changing the level, not a
+  leveller of its own. The mix's own ducking after a bass passage fell from 2.7 dB to about 1 dB.
 
 ## Signal chain (Source/DSP)
 

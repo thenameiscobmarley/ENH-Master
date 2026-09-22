@@ -60,9 +60,16 @@ namespace enh::dsp
 
         // Percentile-style tracker: creeps up quickly toward loud material and decays slowly,
         // so it ends up sitting on the loud part of the programme rather than its average.
+        // A gap is not programme: while the material is 20 dB or more under what this tracker has
+        // learned, it holds instead of falling. It used to walk all the way down through a pause and
+        // then clamp the music by 20 dB for a second or two when it came back in.
         const float up = 1.0f - std::exp (-dt / (0.15f + 0.25f * (1.0f - resp)));
         const float down = 1.0f - std::exp (-dt / (3.0f - 1.5f * resp));
-        loudEstimateDb += (fastDb > loudEstimateDb ? up : down) * (fastDb - loudEstimateDb);
+        const bool inGap = fastDb < loudEstimateDb - 20.0f;
+        if (fastDb > loudEstimateDb)
+            loudEstimateDb += up * (fastDb - loudEstimateDb);
+        else if (! inGap)
+            loudEstimateDb += down * (fastDb - loudEstimateDb);
         loudEstimateDb = std::clamp (loudEstimateDb, -70.0f, 6.0f);
 
         // Crest: peaky material keeps its transients, dense material gets held down harder.
