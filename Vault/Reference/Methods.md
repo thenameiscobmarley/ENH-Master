@@ -168,9 +168,9 @@ PROCESSING. Parameter `balancerGuard`.
 
 | Method | What it measures / does | How the sound changes | CPU / latency |
 |---|---|---|---|
-| **STD** Guard attacks (default) | A band in a fresh transient (its fast level 2.5 times its average) is not cut yet. | Footsteps and gunshots keep their front edge. The original. | Control rate, no audio cost (default). |
+| **STD** Guard attacks (default) | A band in a fresh transient (its fast level 2.5 times its average) is not cut yet, and while footsteps are being lifted by the enhancer the cuts let go. | Footsteps and gunshots keep their front edge, and the balancer never takes back the footstep lift. The original guard. | Control rate, no audio cost (default). |
 | **STR** Strong guard | The guard trips at 1.8 times the average: more attacks are protected. | Punchier transients; a harsh burst gets a moment longer before it is caught. | Control rate, no audio cost. Glides. |
-| **OFF** No guard | Attacks are cut like anything else. | The tightest control of sudden bursts, at the price of softened attacks. | Control rate, no audio cost. Glides. |
+| **OFF** No guard | Attacks are cut like anything else (footsteps being lifted still release the cuts). | The tightest control of sudden bursts, at the price of softened attacks. | Control rate, no audio cost. Glides. |
 
 ### LOUDNESS KEEPER - What it gives back while cutting
 

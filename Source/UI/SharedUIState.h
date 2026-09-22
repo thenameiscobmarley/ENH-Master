@@ -64,6 +64,8 @@ namespace pad
         std::atomic<float>    panelX { 0.0f }, panelY { 0.0f }, panelW { 0.0f }, panelH { 0.0f };
         juce::SpinLock        panelLock;
         artwork::RawTexture   panelPending;       // the panel's print (RGBA), guarded by panelLock
+        juce::Rectangle<float> panelPendingRect;  // where that print goes (logical px): travels with it, so the
+                                                  // glass is never drawn at one size with the print of another
         juce::uint32          panelVersion = 0;   // guarded by panelLock
         std::atomic<float>    panelPixelScale { 2.0f };
 

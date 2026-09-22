@@ -47,4 +47,4 @@ others; press `Ctrl+G` for the graph view.
 
 ## Reference
 
-- [[Parameters]] · [[Methods]] · [[Dev hooks]] · [[Backups and restore]]
+- [[Parameters]] · [[Methods]] · [[Audio lab]] · [[Dev hooks]] · [[Backups and restore]]

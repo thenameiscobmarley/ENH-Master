@@ -1290,6 +1290,8 @@ namespace
                     float* ch[2] { l.data() + pos, r.data() + pos };
                     b.process (ch, 2, m, s);
                     const double t = pos / sr;
+                    if (std::getenv ("BAL_TRACE") != nullptr && burst && t > 4.9 && t < 6.3 && pos % 4800 < 256)
+                        std::printf ("   t %.2f  500 Hz band %+.2f dB\n", t, b.getGainDb (2));
                     if (t > 5.1 && t < 6.2)
                         for (int k = 0; k < MixBalancer::numBands; ++k)
                             if (std::abs (b.getGainDb (k)) > std::abs (most[(size_t) k]))
@@ -2908,8 +2910,9 @@ int main (int argc, char** argv)
             st.silk.protect = true;
             const float loss = onsetPeak (runSeraph (in, in, st).first) - onsetPeak (in);
             std::printf ("  footstep-like attacks over a whistling 2.5 kHz tone, SMOOTH 10: attack peak %+.1f dB (PROTECT off) vs %+.1f dB (on)\n", lossOff, loss);
-            // Zero latency: the first ~1 ms of an attack passes an existing dip before any detector can react
-            check (loss > -3.5f, "PROTECT keeps attack peaks under a dipped resonance (within 3.5 dB)");
+            // Zero latency: the first ~1 ms of an attack passes an existing dip before any detector can react,
+            // and the dip then fades out over 1 ms (dropping it in one sample clicked): about 4 dB at the peak
+            check (loss > -4.0f && loss > lossOff + 4.0f, "PROTECT keeps attack peaks under a dipped resonance (within 4 dB, and 4 dB better than without it)");
             check (loss > lossOff + 4.0f, "PROTECT recovers most of what the dip would take");
         }
 

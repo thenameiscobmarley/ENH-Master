@@ -97,6 +97,10 @@ namespace pad
                     safe->glassPanel->setExpanded (parts[1].getIntValue(), parts.size() > 2 ? parts[2].getIntValue() : -1);
                 safe->publishPanel (true);
             });
+            // Dev only: PAD_UI_TEST_PANEL_CLOSE=<ms> closes it again that long after it opened
+            const int closeMs = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PANEL_CLOSE", "0").getIntValue();
+            if (closeMs > 0)
+                juce::Timer::callAfterDelay (1200 + closeMs, [safe] { if (safe != nullptr) safe->openPanel (-1); });
         }
 
         openedAtMs = juce::Time::getMillisecondCounter();
@@ -162,6 +166,7 @@ namespace pad
         auto tex = glassPanel->render (scale);
         const juce::SpinLock::ScopedLockType lock (shared.panelLock);
         shared.panelPending = std::move (tex);
+        shared.panelPendingRect = r;
         ++shared.panelVersion;
     }
 

@@ -28,9 +28,11 @@ namespace enh::dsp
         e.env = (m > e.env ? attack : release) * (e.env - m) + m;
         const float amp = e.env + 1.0e-6f;
 
-        // Normalised partial (soft-limited so the polynomials stay bounded on peaks)
+        // Normalised partial, soft-limited, and held to +-1 where the Chebyshev polynomials are meant to work:
+        // a steady partial reaches ~0.83 here, but at an attack the envelope lags and v runs up to ~5, where
+        // T3 is ~100x too big - the harmonics burst out at +66 % of the signal (heard as a crack on every hit)
         const float v = x / amp;
-        const float u = v / (1.0f + 0.2f * std::abs (v));
+        const float u = std::clamp (v / (1.0f + 0.2f * std::abs (v)), -1.0f, 1.0f);
         const float h = (w2 * (2.0f * u * u - 1.0f) + w3 * (4.0f * u * u - 3.0f) * u) * amp;
 
         // Keep only what lies above the source: DC, the fundamental and IM products below go

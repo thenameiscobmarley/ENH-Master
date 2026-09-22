@@ -114,6 +114,7 @@ namespace enh::dsp
         ScopeFifo scopeIn, scopeOut, scopeBalIn, scopeBalOut;
         MixBalancer balancer;
         DeepSub deep;
+        float footstepRecentS = 0.0f;   // time left since the last footstep the enhancer lifted (for the balancer)
         LoudnessMeter loudness;
         std::atomic<bool> loudnessResetPending { false };
         float levelGain = 1.0f, levelDbNow = 0.0f;

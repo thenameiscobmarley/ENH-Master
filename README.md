@@ -234,14 +234,15 @@ one the limiter reduces how much the 2 kHz detail ducks under the hit. Numbers f
 
 | Preset | IN | OUT |
 |---|---|---|
-| DEFAULT | -0.5 dB | -1.3 dB |
-| COMPETITIVE FOOTSTEPS | -0.6 dB | -1.9 dB |
-| IMMERSIVE GAMES | -0.5 dB | -0.8 dB |
-| NIGHT MODE | -0.8 dB | -1.3 dB |
-| BASS HEAVY, PROTECTED | -0.2 dB | -4.3 dB |
-| VOICE & STREAMING | -0.6 dB | -1.2 dB |
-| MUSIC: WARM MASTER | -0.7 dB | -1.0 dB |
-| MUSIC: WIDE & AIRY | -0.4 dB | -0.6 dB |
+| DEFAULT | -0.4 dB | -1.2 dB |
+| COMPETITIVE FOOTSTEPS | -0.4 dB | -1.6 dB |
+| IMMERSIVE GAMES | -0.1 dB | -0.4 dB |
+| NIGHT MODE | -0.5 dB | -1.0 dB |
+| BASS HEAVY, PROTECTED | -0.2 dB | -4.0 dB |
+| VOICE & STREAMING | -0.4 dB | -0.9 dB |
+| MUSIC: WARM MASTER | -0.4 dB | -0.7 dB |
+| MUSIC: WIDE & AIRY | -0.0 dB | -0.2 dB |
+| DEEP SUB: SUBMARINE | -0.1 dB | -0.4 dB |
 
 With the whole rack running, what is left is the rack's output limiter catching a hot mix. The
 spectral limiter alone takes the dip from -1.4 to -0.1 dB.
@@ -366,7 +367,10 @@ The output limiter at the very end is spectral too:
 - A broadband stage then catches only what's left.
 - Nothing under 0 dBFS is touched (tested: bit-exact at −1 dBFS).
 - A clipping bass hit takes its own low end down while a 2 kHz tone above it moves 0.1 dB.
-- Latency: 3 ms, reported to the host.
+- **True peak:** nothing leaves above 0 dBTP either. The broadband stage estimates the peaks between
+  samples (4x, the loudness meter's interpolator), so players and lossy encoders don't clip on them.
+  Before 1.3.4.1 the output could reach +0.8 dBTP.
+- Latency: 3.2 ms (153 samples at 48 kHz), reported to the host.
 
 ### Ducking without losing loudness
 
@@ -614,6 +618,53 @@ and gives it back in about 50 ms. In the test, a steady tone under a kick every 
 off its level on average, against 1.02 dB with the old single release: 32 % less pumping at the
 same average gain reduction.
 
+## Listening with EnhAudioLab
+
+`EnhAudioLab` (built with the other tools) runs audio through the real engine with any preset, knob or
+processing method, and writes what it did as audio, text and pictures. That is how the rack's sound is
+checked beyond the pass/fail tests.
+
+```sh
+build/EnhAudioLab_artefacts/Release/EnhAudioLab scenes                        # the built-in test signals
+build/EnhAudioLab_artefacts/Release/EnhAudioLab render --scene game --preset "COMPETITIVE FOOTSTEPS" --out lab/game
+build/EnhAudioLab_artefacts/Release/EnhAudioLab render --in capture.wav --set deepDepth=7 --set tideDetector=1 --out lab/mine
+build/EnhAudioLab_artefacts/Release/EnhAudioLab contrib --scene music --preset "DEEP SUB: SUBMARINE" --out lab/who
+build/EnhAudioLab_artefacts/Release/EnhAudioLab ducks --scene steps --seconds 30 --preset "COMPETITIVE FOOTSTEPS" --out lab/ducks
+build/EnhAudioLab_artefacts/Release/EnhAudioLab compare a.wav b.wav --out lab/ab
+build/EnhAudioLab_artefacts/Release/EnhAudioLab suite --out lab/suite          # every scene through a set of presets
+```
+
+- **Scenes:** game, steps, music, drums and bass, a bass line, an explosion, quiet, voice, a sweep,
+  tones (THD and IMD), impulses and pink noise. Any WAV file can be used instead.
+- **Every render writes:**
+  - `in.wav` and `out.wav` (latency removed);
+  - `report.txt`: levels, BS.1770 loudness, true peak, loudness range, crest, stereo, third-octave
+    bands in and out, the low end in detail, the gain per band over time (pumping), new clicks, and
+    THD / IMD on the tones;
+  - `spectrogram.png`, `spectrum.png`, `waveform.png` (with momentary loudness and the gain per band
+    over time) and `lowend.png` (10–250 Hz at high resolution).
+- **`contrib`** is what each unit adds or takes away, per band.
+- **`ducks`** is who ducks what, when: each unit's effect on low / mid / high over time.
+- **`--set`** takes any parameter: knobs in their own units, switches 0 / 1, methods by index.
+
+### What listening found and fixed (1.3.4.1)
+
+- **Clicks from TONE & SPACE.** PROTECT dropped a resonance dip out of the signal in one sample, which
+  stepped the waveform. It now fades the dip out over 1 ms. AIR's and BODY's filters clicked whenever
+  their gain moved (a direct-form biquad changed under its own state). They are now state-variable
+  filters, which can change without a click. Tested on sweeps, bass lines and impulses: 0 clicks.
+- **A crack on every hit from the enhancer's ADD harmonics.** At an attack the exciter's normalised
+  partial could run to 5x its range, and the generated harmonics burst out at up to +66 % of the
+  signal. It is now held to its working range, so steady harmonics are unchanged and attacks are clean.
+- **True peak over 0 dBFS**, up to +0.8 dBTP, is now held at 0.0 dBTP (see *Limiting*).
+- **The MIX BALANCER took footsteps back.** The enhancer lifted each step and the balancer took
+  1.5–4.5 dB of it off again. It had learnt a standing cut where the steps live. While footsteps are
+  being lifted, its cuts now let go: its effect on the footsteps went from -3.7 dB to -0.1 dB.
+- **TONE & SPACE's MATCH pulled the whole mix down after big hits.** It measured over 0.4 s, so the
+  harmonics TONE adds to a huge bass hit read as extra loudness, and it turned everything down by up
+  to 4.5 dB for seconds. It now measures and follows over 3 s and holds through bursts: -2.1 dB at
+  worst.
+
 ## Signal chain (Source/DSP)
 
 ```
@@ -840,6 +891,8 @@ host delivers mouse events late. Config: `~/.config/ENHMaster/ui-config.json`.
 - `PAD_UI_TEST_FOCUS=<unit>` – starts walked up to one unit (0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter, 5 level control, 6 mix balancer, 7 output monitor)
 - `PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]]` – opens a unit's glass panel after 1.2 s, optionally with a dropdown expanded and a choice hovered
 - `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` – outlines that control as if hovered
+- `PAD_UI_TEST_PANEL_CLOSE=<ms>` – closes the test panel again that long after it opened
+- `PAD_UI_TEST_SLOWMO=<factor>` – slows the glass panel's animation down, to look at it frame by frame
 - `PAD_UI_DUMP_ARTWORK=<dir>` – writes every printed panel with its text boxes and the hardware footprints from the layout code, plus `clearances.txt` listing any print that overlaps or crowds hardware, borders or other print
 
 ## Backups

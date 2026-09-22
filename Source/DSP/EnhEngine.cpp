@@ -43,6 +43,7 @@ namespace enh::dsp
         seraph.reset();
         balancer.reset();
         deep.reset();
+        footstepRecentS = 0.0f;
         loudness.reset();
 
         samplesToTick = controlInterval;
@@ -257,7 +258,12 @@ namespace enh::dsp
 
         // MIX BALANCER, with taps either side of it for its display
         scopeBalIn.push (chunk, chans, n);
-        balancer.process (chunk, chans, n, p.balancer);
+        // Footsteps being lifted (one in the last second): the balancer lets its cuts go, so it never takes
+        // the lift back
+        footstepRecentS = p.footstep && steps.getConfidence() > 0.25f ? 1.0f : std::max (0.0f, footstepRecentS - (float) n / (float) sampleRate);
+        auto balancerSettings = p.balancer;
+        balancerSettings.holdCuts = footstepRecentS > 0.0f;
+        balancer.process (chunk, chans, n, balancerSettings);
         scopeBalOut.push (chunk, chans, n);
 
         tide.process (chunk, chans, n, p.tide, p.limiter.active ? limiter.key() : nullptr);

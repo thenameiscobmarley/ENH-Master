@@ -79,9 +79,13 @@ namespace enh::dsp
            or a bell), held through the event and released over 150 ms. A kick or an explosion that clips takes
            its own low end down; the footsteps and voices above it stay where they were.
         2. Broadband (1.5 ms lookahead) on what the spectral stage let through: guarantees nothing
-           leaves above 0 dBFS. Gain held 25 ms (longer than a bass cycle), released over 150 ms.
+           leaves above 0 dBFS - true peak included. The peaks between samples (which players and
+           lossy encoders clip) are estimated with a 4x windowed-sinc interpolator, 12 taps, the one the
+           loudness meter uses; the audio waits 6 samples longer for it, so the gain is in place before
+           the peak arrives. Gain held 25 ms (longer than a bass cycle), released over 150 ms.
 
-        Stereo-linked. Latency: both lookaheads (3 ms, reported to the host).
+        Stereo-linked. Latency: both lookaheads plus the interpolator's 6 samples (3.1 ms at 48 kHz,
+        reported to the host).
     */
     class FinalLimiter
     {
@@ -112,7 +116,8 @@ namespace enh::dsp
             regionCoeffs[3] = SvfCoeffs::make (sr, 4000.0, 0.7071);   // high: high-pass (shelf)
 
             for (auto& d : delayA) d.assign ((size_t) lookahead, 0.0f);
-            for (auto& d : delayB) d.assign ((size_t) lookahead, 0.0f);
+            for (auto& d : delayB) d.assign ((size_t) (lookahead + tpDelay), 0.0f);
+            designInterpolator();
             reset();
         }
 
@@ -125,11 +130,13 @@ namespace enh::dsp
             for (auto& c : analysis) for (auto& s : c) s.reset();
             for (auto& c : cutters) for (auto& s : c) s.reset();
             posA = posB = 0;
+            for (auto& h : tpHistory) h.fill (0.0f);
+            tpPos = 0;
             reductionDb = 0.0f;
             regionCutDb = {};
         }
 
-        int getLatencySamples() const noexcept { return 2 * lookahead; }
+        int getLatencySamples() const noexcept { return 2 * lookahead + tpDelay; }
         float getReductionDb() const noexcept  { return reductionDb; }   // broadband, deepest in the last block
         const std::array<float, numRegions>& getRegionCutDb() const noexcept { return regionCutDb; }   // spectral, now
 
@@ -203,8 +210,12 @@ namespace enh::dsp
                 }
                 posA = (posA + 1) % lookahead;
 
-                // --- 2. broadband, on what the spectral stage let through
-                const float peakA = chans == 2 ? std::max (std::abs (stageA[0]), std::abs (stageA[1])) : std::abs (stageA[0]);
+                // --- 2. broadband, on what the spectral stage let through: the true peak of the sample
+                // tpDelay behind the newest (its neighbours on both sides are known by now)
+                float peakA = 0.0f;
+                for (int c = 0; c < chans; ++c)
+                    peakA = std::max (peakA, truePeak (c, stageA[c]));
+                tpPos = (tpPos + 1) % tpTaps;
                 const float g = broadband.push (peakA > ceiling ? ceiling / peakA : 1.0f);
                 deepest = std::min (deepest, g);
 
@@ -215,7 +226,7 @@ namespace enh::dsp
                     d[(size_t) posB] = stageA[c];
                     ch[c][i] = std::clamp (out, -ceiling, ceiling);   // guard only: the gain already holds it here
                 }
-                posB = (posB + 1) % lookahead;
+                posB = (posB + 1) % (lookahead + tpDelay);
             }
 
             reductionDb = -20.0f * std::log10 (std::max (1.0e-3f, deepest));
@@ -224,6 +235,58 @@ namespace enh::dsp
         }
 
     private:
+        // True peak: 4x windowed-sinc interpolation over the last 12 samples (the loudness meter's design)
+        static constexpr int tpPhases = 4, tpTaps = 12, tpDelay = tpTaps / 2;
+        std::array<std::array<float, tpTaps>, tpPhases> tpFir {};
+        std::array<std::array<float, 2 * tpTaps>, 2> tpHistory {};   // mirrored, so the window is contiguous
+        int tpPos = 0;
+
+        void designInterpolator()
+        {
+            auto bessel0 = [] (double x)
+            {
+                double s = 1.0, term = 1.0;
+                for (int k = 1; k < 25; ++k) { term *= (x / (2.0 * k)) * (x / (2.0 * k)); s += term; }
+                return s;
+            };
+            const double beta = 7.0, pi = 3.14159265358979323846;
+            const int n = tpPhases * tpTaps;
+            for (int p = 0; p < tpPhases; ++p)
+                for (int k = 0; k < tpTaps; ++k)
+                {
+                    const int idx = k * tpPhases + p;
+                    const double x = (idx - 0.5 * (n - 1)) / tpPhases;
+                    const double sinc = std::abs (x) < 1.0e-9 ? 1.0 : std::sin (pi * x * 0.92) / (pi * x * 0.92) * 0.92;
+                    const double w = bessel0 (beta * std::sqrt (std::max (0.0, 1.0 - std::pow (2.0 * idx / (n - 1.0) - 1.0, 2.0)))) / bessel0 (beta);
+                    tpFir[(size_t) p][(size_t) k] = (float) (sinc * w);
+                }
+            for (auto& ph : tpFir)
+            {
+                float s = 0.0f;
+                for (float v : ph) s += v;
+                for (float& v : ph) v /= s;   // unity at DC on every phase
+            }
+        }
+
+        /** Stores x and returns the largest of the samples and the interpolated values around the sample
+            tpDelay behind it (the caller advances tpPos once per sample, after every channel). */
+        inline float truePeak (int c, float x) noexcept
+        {
+            auto& h = tpHistory[(size_t) c];
+            h[(size_t) tpPos] = h[(size_t) (tpPos + tpTaps)] = x;
+            const float* window = h.data() + tpPos + 1;   // oldest .. newest
+            float best = std::abs (window[tpTaps - 1 - tpDelay]);
+            for (int p = 0; p < tpPhases; ++p)
+            {
+                const float* f = tpFir[(size_t) p].data();
+                float acc = 0.0f;
+                for (int k = 0; k < tpTaps; ++k)
+                    acc += f[tpTaps - 1 - k] * window[k];
+                best = std::max (best, std::abs (acc));
+            }
+            return best;
+        }
+
         double sr = 48000.0;
         int lookahead = 72, posA = 0, posB = 0;
         LookaheadGain broadband;

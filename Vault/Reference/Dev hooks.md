@@ -24,6 +24,8 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --golden write|check file
 - **`--methods`** - every processing method combination (stability, peak, latency, block size, click-free
   switching), RESPONSE's law and smoothing, and that [[Methods]] matches the registry;
   **`--methods-doc`** rewrites that page.
+- **EnhAudioLab** (a separate tool): renders audio through the engine and writes reports, spectrograms,
+  spectra and duck charts. See [[Audio lab]].
 - **`--golden write|check`** - bit-exact output check, for optimisations that must not change a sample.
 
 ## UI environment variables
@@ -40,6 +42,8 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --golden write|check file
 | `PAD_UI_TEST_MAX_DETAIL=<0-3>` | caps the geometry detail level |
 | `PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]]` | opens a unit's glass panel after 1.2 s (optionally a dropdown expanded, a choice hovered) |
 | `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` | outlines that control as if hovered |
+| `PAD_UI_TEST_PANEL_CLOSE=<ms>` | closes the test panel again that long after it opened |
+| `PAD_UI_TEST_SLOWMO=<factor>` | slows the glass panel's animation down (to look at it frame by frame) |
 | `PAD_UI_DUMP_ARTWORK=<dir>` | writes every printed panel and `clearances.txt` (print overlapping hardware) |
 | `ENH_MASTER_PRESETS=<file>` | use this preset file instead of `~/.config/ENH Master/presets.json` |
 

@@ -122,6 +122,21 @@ endif()
 # LayoutViz: reads the real layout (DeviceLayout.h) and camera (CameraRig.h) and draws them as an SVG
 # for a chosen editor size. Analysis only - it does not touch the plugin. See Tools/LayoutViz.cpp.
 if(ENH_BUILD_TOOLS)
+    # EnhAudioLab: renders audio through the engine and writes reports, spectrograms and spectra (Tools/AudioLab.cpp)
+    juce_add_console_app(EnhAudioLab PRODUCT_NAME "EnhAudioLab")
+    target_sources(EnhAudioLab PRIVATE Tools/AudioLab.cpp Source/Parameters/ParameterSpecs.cpp Source/Parameters/PresetLibrary.cpp ${ENH_DSP_SOURCES})
+    target_include_directories(EnhAudioLab PRIVATE Source)
+    target_compile_definitions(EnhAudioLab PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(EnhAudioLab
+        PRIVATE
+            juce::juce_dsp
+            juce::juce_audio_basics
+            juce::juce_audio_formats
+            juce::juce_audio_processors
+            juce::juce_graphics
+        PUBLIC
+            juce::juce_recommended_config_flags)
+
     juce_add_console_app(LayoutViz PRODUCT_NAME "LayoutViz")
     target_sources(LayoutViz PRIVATE Tools/LayoutViz.cpp Source/Parameters/ParameterSpecs.cpp)
     target_include_directories(LayoutViz PRIVATE Source)

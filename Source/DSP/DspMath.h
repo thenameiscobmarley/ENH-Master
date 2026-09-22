@@ -134,6 +134,48 @@ namespace enh::dsp
         }
     };
 
+    /** An EQ on a TPT state-variable filter (Cytomic's "linear trap" SVF): a bell or a high shelf whose
+        gain can move from block to block without the one-sample spikes a direct-form biquad makes when
+        its coefficients change under it (its state is voltage-like, so it stays valid). The same
+        analogue prototypes as the RBJ bell and shelf. */
+    struct SvfEqCoeffs
+    {
+        float a1 = 1.0f, a2 = 0.0f, a3 = 0.0f, m0 = 1.0f, m1 = 0.0f, m2 = 0.0f;
+
+        static SvfEqCoeffs bell (double sr, double hz, double q, double db) noexcept
+        {
+            const double A = std::pow (10.0, db / 40.0);
+            const double g = std::tan (pi * BiquadCoeffs::clampHz (sr, hz) / sr), k = 1.0 / (q * A);
+            const double a1 = 1.0 / (1.0 + g * (g + k));
+            return { (float) a1, (float) (g * a1), (float) (g * g * a1), 1.0f, (float) (k * (A * A - 1.0)), 0.0f };
+        }
+
+        static SvfEqCoeffs highShelf (double sr, double hz, double q, double db) noexcept
+        {
+            const double A = std::pow (10.0, db / 40.0);
+            const double g = std::tan (pi * BiquadCoeffs::clampHz (sr, hz) / sr) * std::sqrt (A), k = 1.0 / q;
+            const double a1 = 1.0 / (1.0 + g * (g + k));
+            return { (float) a1, (float) (g * a1), (float) (g * g * a1), (float) (A * A), (float) (k * (1.0 - A) * A), (float) (1.0 - A * A) };
+        }
+    };
+
+    struct SvfEqState
+    {
+        float ic1 = 0.0f, ic2 = 0.0f;
+
+        inline float process (const SvfEqCoeffs& c, float v0) noexcept
+        {
+            const float v3 = v0 - ic2;
+            const float v1 = c.a1 * ic1 + c.a2 * v3;
+            const float v2 = ic2 + c.a2 * ic1 + c.a3 * v3;
+            ic1 = 2.0f * v1 - ic1;
+            ic2 = 2.0f * v2 - ic2;
+            return c.m0 * v0 + c.m1 * v1 + c.m2 * v2;
+        }
+
+        void reset() noexcept { ic1 = ic2 = 0.0f; }
+    };
+
     /** Topology-preserving-transform state-variable filter (Cytomic / Zavalishin).
         Stays clean while its frequency moves, so it is used wherever the centre is adaptive. */
     struct SvfCoeffs

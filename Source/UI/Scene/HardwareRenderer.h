@@ -235,6 +235,9 @@ namespace pad
         gfx::Vec3 panelColour { 1.0f, 1.0f, 1.0f };
         gfx::Texture2D panelTex;
         int panelTexW = 0, panelTexH = 0;
+        // Where the glass is drawn: the rectangle that came with the print now on the GPU. It stays while the
+        // panel folds away after closing (the message thread's rectangle is gone by then).
+        juce::Rectangle<float> panelRect;
         juce::uint32 uploadedPanelVersion = 0;
         std::vector<juce::uint8> panelScratch;
         gfx::RenderTarget blurA, blurB;

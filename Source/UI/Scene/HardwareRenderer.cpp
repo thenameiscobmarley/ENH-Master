@@ -859,6 +859,9 @@ namespace pad
     // Glass panel
     void HardwareRenderer::updatePanel (float dt)
     {
+        // Dev only: PAD_UI_TEST_SLOWMO=<factor> slows the panel's animation down, to look at it frame by frame
+        static const float slowmo = juce::jmax (1.0f, juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_SLOWMO", "1").getFloatValue());
+        dt /= slowmo;
         // The line draws out from the unit first, then the glass opens at its end. Switching units redraws
         // the line from the new one while the glass stays; closing folds both away.
         const int want = shared.panelUnit.load();
@@ -894,6 +897,7 @@ namespace pad
     {
         juce::uint32 version = 0;
         int w = 0, h = 0;
+        juce::Rectangle<float> rect;
         {
             const juce::SpinLock::ScopedLockType lock (shared.panelLock);
             if (shared.panelVersion == uploadedPanelVersion || shared.panelPending.pixels.empty())
@@ -901,8 +905,10 @@ namespace pad
             std::swap (panelScratch, shared.panelPending.pixels);
             w = shared.panelPending.width;
             h = shared.panelPending.height;
+            rect = shared.panelPendingRect;
             version = shared.panelVersion;
         }
+        panelRect = rect;
         if (w > 0 && h > 0 && panelScratch.size() == (size_t) (w * h * 4))
         {
             panelTex.upload (panelScratch.data(), w, h, 4, false, 1);
@@ -928,10 +934,10 @@ namespace pad
         const float lw = (float) juce::jmax (1, shared.viewWidth.load()), lh = (float) juce::jmax (1, shared.viewHeight.load());
         const float sx = (float) qw / lw, sy = (float) qh / lh;
         const int margin = 12;
-        const int x0 = juce::jlimit (0, qw, (int) std::floor (shared.panelX.load() * sx) - margin);
-        const int x1 = juce::jlimit (0, qw, (int) std::ceil ((shared.panelX.load() + shared.panelW.load()) * sx) + margin);
-        const int y0 = juce::jlimit (0, qh, (int) std::floor ((lh - shared.panelY.load() - shared.panelH.load()) * sy) - margin);
-        const int y1 = juce::jlimit (0, qh, (int) std::ceil ((lh - shared.panelY.load()) * sy) + margin);
+        const int x0 = juce::jlimit (0, qw, (int) std::floor (panelRect.getX() * sx) - margin);
+        const int x1 = juce::jlimit (0, qw, (int) std::ceil (panelRect.getRight() * sx) + margin);
+        const int y0 = juce::jlimit (0, qh, (int) std::floor ((lh - panelRect.getBottom()) * sy) - margin);
+        const int y1 = juce::jlimit (0, qh, (int) std::ceil ((lh - panelRect.getY()) * sy) + margin);
         if (x1 <= x0 || y1 <= y0)
             return false;
 
@@ -979,8 +985,10 @@ namespace pad
         const float lh = (float) juce::jmax (1, shared.viewHeight.load());
         const float px = (float) w / (float) juce::jmax (1, shared.viewWidth.load());
         const juce::Point<float> a ((ax + 1.0f) * 0.5f * (float) w, (ay + 1.0f) * 0.5f * (float) h);
-        const float panelLeft = shared.panelX.load() * px;
-        const float headerY = (lh - shared.panelY.load() - glass::headerH * 0.5f) * px;
+        if (panelRect.isEmpty())
+            return;
+        const float panelLeft = panelRect.getX() * px;
+        const float headerY = (lh - panelRect.getY() - glass::headerH * 0.5f) * px;
         const juce::Point<float> end (panelLeft, headerY);
         // Out level with the unit, then the elbow: a 45-degree run to the header's height
         const float rise = end.y - a.y;
@@ -1036,14 +1044,14 @@ namespace pad
 
     void HardwareRenderer::drawGlassPanel (int w, int h, bool blurred)
     {
-        if (panelShown < 0 || panelOpen < 0.01f || shared.panelW.load() <= 0.0f)
+        if (panelShown < 0 || panelOpen < 0.01f || panelRect.isEmpty())
             return;
         const float lh = (float) juce::jmax (1, shared.viewHeight.load());
         const float px = (float) w / (float) juce::jmax (1, shared.viewWidth.load());
-        const float hw = 0.5f * shared.panelW.load() * px, hh = 0.5f * shared.panelH.load() * px;
+        const float hw = 0.5f * panelRect.getWidth() * px, hh = 0.5f * panelRect.getHeight() * px;
         const float slide = (1.0f - panelOpen) * 22.0f * px;   // slides in from the right as it opens
-        const float cx = shared.panelX.load() * px + hw + slide;
-        const float cy = (lh - shared.panelY.load()) * px - hh;
+        const float cx = panelRect.getX() * px + hw + slide;
+        const float cy = (lh - panelRect.getY()) * px - hh;
         const float margin = 40.0f * px;   // room for the shadow
 
         glDisable (GL_DEPTH_TEST);

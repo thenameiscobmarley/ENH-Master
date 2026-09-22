@@ -92,7 +92,8 @@ namespace enh::dsp
         struct Channel
         {
             std::array<BiquadState, numBands> dip {};
-            BiquadState airShelf, bodyPeak, tapePre, tapePost;
+            SvfEqState airShelf, bodyPeak;   // SVF: their gains move with the programme without spikes
+            BiquadState tapePre, tapePost;
             Exciter air, warm;
             float triodeDcX = 0.0f, triodeDcY = 0.0f;
             SvfState triSplit;            // the triode curve acts above 120 Hz only
@@ -111,6 +112,11 @@ namespace enh::dsp
         std::array<float, numBands> cutDb {}, bandHz {};
         int dipsDesigned = 0;                            // bands with a dip in the signal path (PROTECT only checks then)
         std::array<int, numBands> onsetHold {};
+        // PROTECT fades a dip out over 1 ms rather than dropping it in one sample (which clicked): how much
+        // of each dip is in the signal (1 = all), and which are fading out
+        std::array<float, numBands> dipMix {};
+        std::array<bool, numBands> dipFading {};
+        float dipFadeStep = 1.0f / 96.0f;
         std::array<PeakingDesigner, numBands> designers {};
         std::array<BiquadCoeffs, numBands> dipCoeffs {};
         std::array<float, numBands> designedDb {};
@@ -119,7 +125,8 @@ namespace enh::dsp
         std::array<float, numBands> longTerm {};
 
         std::array<Channel, 2> ch {};
-        BiquadCoeffs airShelf, bodyPeak, tapePre, tapePost;
+        SvfEqCoeffs airShelf, bodyPeak;
+        BiquadCoeffs tapePre, tapePost;
         SvfCoeffs airBand, airPost, airTop, warmBand, warmPost, warmTop, triSplitCoeffs;
         float triEnvAtt = 0.0f, triEnvRel = 0.0f;
         BiquadCoeffs detectHpCoeffs;
@@ -143,6 +150,7 @@ namespace enh::dsp
         BiquadCoeffs kHp, kShelf;
         BiquadState inHp, inShelf, outHp, outShelf;
         float inMs = 0.0f, outMs = 0.0f, msCoeff = 0.0f, autoDb = 0.0f, outGain = 1.0f;
+        float inSlowMs = 0.0f, outSlowMs = 0.0f, slowMsCoeff = 0.0f;   // MATCH's 3 s levels
 
         float smoothingDb = 0.0f, blend = 0.0f, blendCoeff = 0.0f, meterSmoothing = 0.0f;
         bool tapeOn = false;

@@ -35,6 +35,7 @@ namespace enh::dsp
         sr = sampleRate;
         controlInterval = std::max (8, (int) std::lround (sr / 1500.0));
         const double controlRate = sr / controlInterval;
+        dipFadeStep = 1.0f / (float) std::max (1.0, 0.001 * sr);   // PROTECT's fade: 1 ms (48 samples: no click, the attack still gets through)
 
         for (int k = 0; k < numBands; ++k)
         {
@@ -84,6 +85,7 @@ namespace enh::dsp
         kHp = BiquadCoeffs::highPass (sr, 60.0, 0.7071);
         kShelf = BiquadCoeffs::highShelf (sr, 1500.0, 0.7071, 4.0);
         msCoeff = onePole (0.4, sr);
+        slowMsCoeff = onePole (3.0, sr);
         blendCoeff = onePole (0.020, sr);
         meterSmoothing = onePole (0.12, controlRate);
         reset();
@@ -104,19 +106,21 @@ namespace enh::dsp
         bloomLp = {};
         fast.fill (0.0f); slow.fill (0.0f); longTerm.fill (0.0f);
         cutDb.fill (0.0f); designedDb.fill (0.0f); onsetHold.fill (0);
+        dipMix.fill (1.0f); dipFading.fill (false);
         dipsDesigned = 0;
         for (int k = 0; k < numBands; ++k)
             dipCoeffs[(size_t) k] = designers[(size_t) k].make (0.0f);
 
         for (auto& c : ch) c = Channel {};
-        airShelf = BiquadCoeffs::highShelf (sr, 9500.0, 0.55, 0.0);
-        bodyPeak = BiquadCoeffs::peaking (sr, 180.0, 0.8, 0.0);
+        airShelf = SvfEqCoeffs::highShelf (sr, 9500.0, 0.55, 0.0);
+        bodyPeak = SvfEqCoeffs::bell (sr, 180.0, 0.8, 0.0);
         airShelfDb = bodyDb = 0.0f;
         airMix = warmMix = 0.0f;
         triodeK = 0.6f;
 
         inHp.reset(); inShelf.reset(); outHp.reset(); outShelf.reset();
         inMs = outMs = 0.0f;
+        inSlowMs = outSlowMs = 0.0f;
         autoDb = 0.0f;
         outGain = 1.0f;
         smoothingDb = 0.0f;
@@ -171,10 +175,11 @@ namespace enh::dsp
                     if (fastDb[i] - slowDb[i] > 5.0f && onsetHold[i] == 0)
                     {
                         onsetHold[i] = holdTicks;
-                        cutDb[i] = 0.0f;
-                        // the neighbours share the transient's skirts: release them too
-                        if (k > 0)            cutDb[i - 1] = 0.0f;
-                        if (k + 1 < numBands) cutDb[i + 1] = 0.0f;
+                        // Faded out of the signal over 1 ms (setting it to 0 dB in one step clicked); the
+                        // neighbours share the transient's skirts: they go too
+                        for (int j = std::max (0, k - 1); j <= std::min (numBands - 1, k + 1); ++j)
+                            if (designedDb[(size_t) j] != 0.0f)
+                                dipFading[(size_t) j] = true;
                     }
                     if (bandHz[i] >= 1000.0f && bandHz[i] <= 4500.0f)
                         bandMax *= 0.5f;
@@ -198,6 +203,8 @@ namespace enh::dsp
                 dipCoeffs[i] = designers[i].make (0.0f);
                 for (auto& c : ch)
                     c.dip[i].reset();
+                dipMix[i] = 1.0f;
+                dipFading[i] = false;
             }
             else if (std::abs (cutDb[i] - designedDb[i]) > 0.03f)
             {
@@ -230,7 +237,7 @@ namespace enh::dsp
         const float shelf = std::min (18.0f, s.air * 0.7f * (0.25f + 0.75f * deficit) * (1.0f - 0.5f * harsh) * quietGate * strength);
         if (std::abs (shelf - airShelfDb) > 0.05f)
         {
-            airShelf = BiquadCoeffs::highShelf (sr, std::min (9500.0, 0.4 * sr), 0.55, shelf);
+            airShelf = SvfEqCoeffs::highShelf (sr, std::min (9500.0, 0.4 * sr), 0.55, shelf);
             airShelfDb = shelf;
         }
         airMix = std::min (1.5f, s.air * 0.05f * (0.25f + 0.75f * deficit) * (1.0f - 0.5f * harsh) * strength);
@@ -254,7 +261,7 @@ namespace enh::dsp
         }
         if (std::abs (body - bodyDb) > 0.05f)
         {
-            bodyPeak = BiquadCoeffs::peaking (sr, 180.0, 0.8, body);
+            bodyPeak = SvfEqCoeffs::bell (sr, 180.0, 0.8, body);
             bodyDb = body;
         }
 
@@ -273,10 +280,14 @@ namespace enh::dsp
             tapeFadeLeft = tapeFadeLen;
         }
 
-        // Loudness match
-        const float inDb = powerToDb (inMs), outDb = powerToDb (outMs);
-        if (s.autoGain && inDb > -60.0f)
-            autoDb = std::clamp (autoDb + (inDb - outDb) * (1.0f - std::exp (-dt / 1.5f)), -9.0f, 9.0f);
+        // Loudness match, on 3 s levels either side, following over 3 s, and holding still through a burst (the
+        // input 4 dB or more above its own 3 s level). An explosion is not a reason to change the level policy:
+        // on 0.4 s levels the harmonics TONE adds to a big bass hit made the output read louder, and MATCH
+        // pulled the whole mix down by up to 4.5 dB for seconds after every one
+        const float inDb = powerToDb (inSlowMs), outDb = powerToDb (outSlowMs);
+        const bool burst = powerToDb (inMs) > inDb + 4.0f;
+        if (s.autoGain && inDb > -60.0f && ! burst)
+            autoDb = std::clamp (autoDb + (inDb - outDb) * (1.0f - std::exp (-dt / 3.0f)), -9.0f, 9.0f);
         else if (! s.autoGain)
             autoDb *= std::exp (-dt / 0.3f);
     }
@@ -365,21 +376,39 @@ namespace enh::dsp
             {
                 const auto b = (size_t) k;
 
-                // PROTECT, sample-accurate: a dip in the way of a fresh attack is lifted immediately
+                // PROTECT, sample-accurate: a dip in the way of a fresh attack is lifted at once - faded out
+                // of the signal over 1 ms (dropping it in one sample stepped the waveform: a click)
                 if (designedDb[b] != 0.0f && fast[b] > 3.2f * slow[b] && onsetHold[b] == 0)
                 {
                     onsetHold[b] = std::max (1, (int) std::lround (0.015 * sr / controlInterval));
                     for (int j = std::max (0, k - 1); j <= std::min (numBands - 1, k + 1); ++j)
-                    {
-                        cutDb[(size_t) j] = designedDb[(size_t) j] = 0.0f;
-                        dipCoeffs[(size_t) j] = designers[(size_t) j].make (0.0f);
-                    }
+                        if (designedDb[(size_t) j] != 0.0f)
+                            dipFading[(size_t) j] = true;
+                }
+            }
+
+            // The dips PROTECT is fading out: once silent, out of the signal path (and their state with them)
+            for (int k = 0; dipsDesigned > 0 && k < numBands; ++k)
+            {
+                const auto b = (size_t) k;
+                if (! dipFading[b])
+                    continue;
+                dipMix[b] -= dipFadeStep;
+                if (dipMix[b] <= 0.0f)
+                {
+                    cutDb[b] = designedDb[b] = 0.0f;
+                    dipCoeffs[b] = designers[b].make (0.0f);
+                    for (auto& c : ch)
+                        c.dip[b].reset();
+                    dipMix[b] = 1.0f;
+                    dipFading[b] = false;
                     dipsDesigned = (int) std::count_if (designedDb.begin(), designedDb.end(), [] (float d) { return d != 0.0f; });
                 }
             }
 
             const float kin = inShelf.process (kShelf, inHp.process (kHp, mono));
             inMs = msCoeff * inMs + (1.0f - msCoeff) * kin * kin;
+            inSlowMs = slowMsCoeff * inSlowMs + (1.0f - slowMsCoeff) * kin * kin;
 
             const float gainTarget = dbToGain (autoDb + s.outputDb);
             outGain += (gainTarget - outGain) * 0.001f;
@@ -396,7 +425,10 @@ namespace enh::dsp
 
                 for (int k = 0; k < numBands; ++k)
                     if (designedDb[(size_t) k] != 0.0f)
-                        w = st.dip[(size_t) k].process (dipCoeffs[(size_t) k], w);
+                    {
+                        const float y = st.dip[(size_t) k].process (dipCoeffs[(size_t) k], w);
+                        w = dipFading[(size_t) k] ? w + (y - w) * dipMix[(size_t) k] : y;
+                    }
                 smoothMeter.add (c, x, w - x);
 
                 float before = w;
@@ -468,6 +500,7 @@ namespace enh::dsp
             outMono /= (float) chans;
             const float kout = outShelf.process (kShelf, outHp.process (kHp, outMono));
             outMs = msCoeff * outMs + (1.0f - msCoeff) * kout * kout;
+            outSlowMs = slowMsCoeff * outSlowMs + (1.0f - slowMsCoeff) * kout * kout;
         }
     }
 

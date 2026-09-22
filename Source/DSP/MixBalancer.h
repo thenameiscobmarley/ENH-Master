@@ -25,8 +25,10 @@ namespace enh::dsp
                    are scaled by 1 - RESOLUTION and the 28 by RESOLUTION, in series, so the result is
                    exactly the blend of the two curves (no phasing between parallel paths).
 
-        Attacks are respected: a band's cut is held back while that band is in a fresh transient, so
-        footsteps and gunshots keep their front edge.
+        Attacks are respected: a band's cut is held back while that band is in a fresh transient. While
+        footsteps are being lifted by the enhancer (one detected in the last second) the cuts let go: the two
+        used to fight, the balancer holding a standing cut where the steps live and taking 1.5 - 2 dB back off
+        every step the enhancer had just lifted.
 
         Loudness keeper: where a fader holds a band below what it usually carries (letting go after a
         jump has passed, or a cut deeper than the jump), the mix is quieter than usual and the rest of
@@ -53,6 +55,7 @@ namespace enh::dsp
             int lifts = 0;           // 0 half range, 1 cuts only, 2 full range
             int guard = 0;           // 0 at 2.5x, 1 at 1.8x, 2 off
             int keeper = 0;          // 0 60 %, 1 90 %, 2 off
+            bool holdCuts = false;   // footsteps are being lifted (one in the last second): cuts let go (engine)
             bool active = false;
         };
 
@@ -276,6 +279,8 @@ namespace enh::dsp
                     target = std::clamp (-amount * beyond, -range, liftShare (s) * range);
                     if (target < 0.0f && s.guard != 2 && fineTransient[(size_t) k] > guardRatio (s) * fineFast[(size_t) k])
                         target = std::max (target, fineGainDb[(size_t) k]);
+                    if (target < 0.0f && s.holdCuts)
+                        target = 0.0f;
                 }
                 auto& g = fineGainDb[(size_t) k];
                 const bool movingAway = std::abs (target) > std::abs (g);
@@ -356,6 +361,10 @@ namespace enh::dsp
                     // A band in a fresh attack is not cut yet: the front edge goes through
                     if (target < 0.0f && s.guard != 2 && transient[(size_t) b] > guardRatio (s) * fast[(size_t) b])
                         target = std::max (target, gainDb[(size_t) b]);
+                    // While footsteps are being lifted by the enhancer the cuts let go: the balancer had learnt a
+                    // standing cut where the steps live and took 1.5 - 2 dB back off every one of them
+                    if (target < 0.0f && s.holdCuts)
+                        target = 0.0f;
                 }
 
                 // Cuts come in at the SPEED attack; lifts come in gently (half the release speed),
