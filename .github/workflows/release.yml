@@ -50,3 +50,37 @@ jobs:
         with:
           files: dist/*.zip
           generate_release_notes: true
+
+  windows:
+    runs-on: windows-2022
+    needs: linux   # the Linux job creates the release; this one adds to it
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: plugin }
+
+      - name: Check out HardwareKit
+        uses: actions/checkout@v4
+        with: { repository: thenameiscobmarley/HardwareKit, path: HardwareKit }
+
+      - name: Check out JUCE
+        uses: actions/checkout@v4
+        with: { repository: juce-framework/JUCE, ref: master, path: JUCE }
+
+      - name: Configure
+        run: cmake -S plugin -B build -G "Visual Studio 17 2022" -A x64 -DENH_COPY_PLUGIN=OFF -DENH_BUILD_TOOLS=OFF "-DJUCE_PATH=${{ github.workspace }}/JUCE" "-DHARDWAREKIT_PATH=${{ github.workspace }}/HardwareKit"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Offline DSP tests
+        run: build/EnhDspTests_artefacts/Release/EnhDspTests.exe
+
+      - name: Package
+        run: plugin/scripts/package-release-windows.ps1 -Version "${{ github.ref_name }}" -Build build -Source plugin -Dist dist
+
+      - name: Add to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip

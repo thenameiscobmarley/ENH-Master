@@ -1,6 +1,6 @@
 # ENH Master
 
-Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux),
+Adaptive clarity / footstep / sub-bass enhancer for game audio and music production (VST3, Linux and Windows),
 with a real-time 3D hardware UI. Built with JUCE; tested in Carla on an Intel J4105.
 
 Seven processors and a monitor in one plugin, in signal order:
@@ -76,10 +76,39 @@ build/EnhDspTests_artefacts/Release/EnhDspTests           # offline DSP tests + 
 
 Installs `~/.vst3/ENH Master.vst3`. Carla: *Add Plugin → Refresh (VST3) → ENH Master*.
 
-**Linux/X11 only right now.** `PORTING-TO-WINDOWS.md` lists the two files that need a platform
-version and includes a ready-made prompt you can hand to a coding AI to do the port.
+## Windows
 
-**Documentation:** `Vault/` is an Obsidian vault (open that folder as a vault) with a tutorial from
+**Windows is supported from 1.2.4.1.** Each release has a `windows-x64` zip with the VST3 and the
+standalone app.
+
+To get *any* release on Windows, including the older ones that were Linux-only, download
+**`convert-to-windows.bat`** from this repository and double-click it:
+
+1. It lists every release on GitHub, newest first, and marks the ones with a ready-made Windows build.
+2. Type the number of the one you want.
+3. A release with a Windows build is simply downloaded. An older one is built from its own source for
+   you: the script fetches that release, JUCE, and HardwareKit as it was then plus today's Windows
+   platform files, then builds it with Visual Studio. If Git, CMake or the Visual Studio C++ build tools
+   are missing, it offers to install them with `winget`. A build takes 10-30 minutes.
+4. The result lands in `ENH-Master-<version>-windows` on your Desktop, and it offers to install the
+   plugin into `C:\Program Files\Common Files\VST3` (it asks for administrator rights).
+
+The same script runs unattended with `ENH_TAG`, `ENH_MODE`, `ENH_OUT` and `ENH_YES` (see the top of the
+file). The *Windows converter* workflow runs it on GitHub's Windows machines, converting v1.3.0 from
+source.
+
+Building by hand on Windows: Visual Studio 2022 (C++), CMake and Git, then
+
+```bat
+git clone https://github.com/juce-framework/JUCE ..\JUCE
+git clone https://github.com/thenameiscobmarley/HardwareKit ..\HardwareKit
+cmake -S . -B build -A x64 -DJUCE_PATH=..\JUCE -DENH_COPY_PLUGIN=OFF
+cmake --build build --config Release --parallel
+```
+
+## Documentation
+
+`Vault/` is an Obsidian vault (open that folder as a vault) with a tutorial from
 install to tuning, plus notes on the DSP and the renderer. Start at `Vault/00 Start Here.md`.
 
 ## Reading the panels

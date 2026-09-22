@@ -1,0 +1,45 @@
+name: Windows converter
+
+# Runs convert-to-windows.bat unattended on a Windows machine: by default it converts v1.3.0 (a release
+# from before Windows support) from its source, which is the hard case.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release to convert'
+        default: 'v1.3.0'
+      mode:
+        description: 'source or download'
+        default: 'source'
+  push:
+    branches: [main]
+    paths: ['convert-to-windows.bat', '.github/workflows/windows-converter.yml']
+
+jobs:
+  convert:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convert the release
+        shell: cmd
+        env:
+          ENH_YES: '1'
+          ENH_TAG: ${{ inputs.tag || 'v1.3.0' }}
+          ENH_MODE: ${{ inputs.mode || 'source' }}
+          ENH_OUT: ${{ runner.temp }}\out
+        run: call convert-to-windows.bat
+
+      - name: Check the result
+        shell: pwsh
+        run: |
+          $vst3 = Get-ChildItem "$env:RUNNER_TEMP\out" -Recurse -Directory -Filter 'ENH Master.vst3' | Select-Object -First 1
+          if (-not $vst3) { throw 'no ENH Master.vst3 was produced' }
+          $dll = Get-ChildItem $vst3.FullName -Recurse -Filter '*.vst3' -File | Select-Object -First 1
+          if (-not $dll) { throw 'the bundle has no plugin binary' }
+          Write-Host "OK: $($dll.FullName) ($([math]::Round($dll.Length / 1MB, 1)) MB)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: converted-${{ inputs.tag || 'v1.3.0' }}
+          path: ${{ runner.temp }}\out

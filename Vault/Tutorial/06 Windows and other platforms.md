@@ -1,24 +1,24 @@
 # 06 Windows and other platforms
 
-**Linux / X11:** fully supported, this is where it is developed and tested (Carla, VST3 and
-standalone).
+**Linux / X11:** where it is developed and tested (Carla, VST3 and standalone).
 
-**Windows and macOS:** the plugin does **not** build there as it stands. The DSP, the VST3 target and
-the entire OpenGL renderer are portable; two small helpers in [[HardwareKit]] talk to the X server
-directly and need a platform version:
+**Windows:** supported from 1.2.4.1. Every release has a `windows-x64` zip with the VST3 and the
+standalone app. To get **any** release on Windows, older Linux-only ones included, double-click
+`convert-to-windows.bat` from the repository:
 
-- `input/PointerPoller` - pointer position, left button and modifiers once per frame, plus the
-  "is my window really topmost under the pointer" check that stops clicks in other applications from
-  turning knobs;
-- `input/WindowVisibility` - whether the editor is actually on screen, which is what pauses rendering
-  when the host is minimised.
+1. it lists every release on GitHub and marks the ones with a Windows build;
+2. you type the number of the one you want;
+3. a release with a Windows build is downloaded; an older one is built from its own source (the script
+   fetches that release, JUCE, and [[HardwareKit]] as it was then plus today's Windows platform files, and
+   offers to install Git, CMake and the Visual Studio C++ build tools with `winget` if they are missing);
+4. the plugin lands on your Desktop, and the script offers to install it into
+   `C:\Program Files\Common Files\VST3`.
 
-The repository ships `PORTING-TO-WINDOWS.md` with a table of exactly what to replace (`GetCursorPos`,
-`GetAsyncKeyState`, `WindowFromPoint`, `IsIconic`, …) **and a ready-made prompt** you can paste into a
-coding AI along with the repo to do the port for you.
+What the port changed is in `PORTING-TO-WINDOWS.md`: two small HardwareKit helpers
+(`input/PointerPoller`, `input/WindowVisibility`) got Win32 versions; everything else was already
+portable.
 
-macOS would need the same two files (`NSEvent.mouseLocation`, `-[NSWindow isMiniaturized]`) plus the
-usual JUCE/AU housekeeping, and OpenGL is deprecated there - the renderer runs, but a Metal backend
-would be the real answer.
+**macOS:** not yet. It would need the same two helpers for Cocoa and an AU target, and OpenGL is
+deprecated there, so a Metal backend would be the real answer.
 
 Back to [[00 Start Here]].

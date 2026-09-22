@@ -22,7 +22,9 @@ add_subdirectory(${JUCE_PATH} JUCE EXCLUDE_FROM_ALL)
 # Shared 3D hardware model / material library (reused by other Khris Audio plugins)
 set(HARDWAREKIT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../HardwareKit" CACHE PATH "HardwareKit checkout")
 juce_add_module("${HARDWAREKIT_PATH}/modules/hardwarekit")
-find_package(X11 REQUIRED)
+if(UNIX AND NOT APPLE)
+    find_package(X11 REQUIRED)   # HardwareKit polls the pointer from the X server on Linux
+endif()
 
 set(ENH_FORMATS VST3)
 if(ENH_BUILD_STANDALONE)
@@ -92,7 +94,7 @@ target_link_libraries(EnhMaster
         juce::juce_dsp
         juce::juce_opengl
         hardwarekit
-        X11::X11
+        $<$<PLATFORM_ID:Linux>:X11::X11>
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)

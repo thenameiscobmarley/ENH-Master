@@ -45,3 +45,33 @@ jobs:
         with:
           name: ENH-Master-linux-x64-vst3
           path: build/EnhMaster_artefacts/Release/VST3/
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: plugin }
+
+      - name: Check out HardwareKit
+        uses: actions/checkout@v4
+        with: { repository: thenameiscobmarley/HardwareKit, path: HardwareKit }
+
+      - name: Check out JUCE
+        uses: actions/checkout@v4
+        with: { repository: juce-framework/JUCE, ref: master, path: JUCE }
+
+      - name: Configure
+        run: cmake -S plugin -B build -G "Visual Studio 17 2022" -A x64 -DENH_COPY_PLUGIN=OFF -DENH_BUILD_TOOLS=OFF "-DJUCE_PATH=${{ github.workspace }}/JUCE" "-DHARDWAREKIT_PATH=${{ github.workspace }}/HardwareKit"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Offline DSP tests
+        run: build/EnhDspTests_artefacts/Release/EnhDspTests.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ENH-Master-windows-x64
+          path: |
+            build/EnhMaster_artefacts/Release/VST3/
+            build/EnhMaster_artefacts/Release/Standalone/
