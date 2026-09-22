@@ -44,7 +44,8 @@ From the release after 1.4.1, versions have four parts: **MASSIVE.BIG.SMALL.SMAL
 In this scheme 1.4.1 reads as 1.0.4.1. 1.1.4.1 raised the 2nd part for a big change (the glass info
 panels and the swappable processing methods), and 1.2.4.1 raises it again for another (settings on every
 unit, knob modifiers on every knob, and the panel's categories), and 1.3.4.1 once more (the DEEP SUB unit,
-a knob dropdown per knob, and a shorter rack).
+a knob dropdown per knob, and a shorter rack), and 1.4.4.1 again (why the mix ducked under bass, and a
+standalone app that can process everything the PC plays).
 
 ## Build
 
