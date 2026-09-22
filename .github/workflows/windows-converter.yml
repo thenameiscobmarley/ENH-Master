@@ -28,6 +28,7 @@ jobs:
           ENH_TAG: ${{ inputs.tag || 'v1.3.0' }}
           ENH_MODE: ${{ inputs.mode || 'source' }}
           ENH_OUT: ${{ runner.temp }}\out
+          GITHUB_TOKEN: ${{ github.token }}
         run: call convert-to-windows.bat
 
       - name: Check the result

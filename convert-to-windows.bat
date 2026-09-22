@@ -70,8 +70,10 @@ try
     # --- 1. every release ------------------------------------------------------------------------
     Say 'Looking up the releases on GitHub...'
     $headers = @{ 'User-Agent' = 'ENH-Master-convert-to-windows'; 'Accept' = 'application/vnd.github+json' }
-    $releases = @(Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=100" -Headers $headers |
-                  Where-Object { -not $_.draft } |
+    if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }   # CI: a higher rate limit
+    # (Windows PowerShell 5.1 hands a JSON array down the pipeline as one item: store it, then enumerate)
+    $all = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=100" -Headers $headers
+    $releases = @(@($all | ForEach-Object { $_ }) | Where-Object { -not $_.draft } |
                   Sort-Object -Property { [datetime] $_.published_at } -Descending)
     if ($releases.Count -eq 0) { throw 'No releases were found.' }
 
