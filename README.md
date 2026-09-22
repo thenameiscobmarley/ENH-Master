@@ -101,6 +101,28 @@ The same script runs unattended with `ENH_TAG`, `ENH_MODE`, `ENH_OUT` and `ENH_Y
 file). The *Windows converter* workflow runs it on GitHub's Windows machines, converting v1.3.0 from
 source.
 
+### Putting the PC's own audio through it (the standalone app)
+
+The standalone app can take **what the computer is playing** as its input, rather than a microphone.
+In *Options -> Audio/MIDI Settings*, set **Audio device type** to **Windows system audio (loopback)**.
+The input list then holds every playback device on the machine, each marked *(what it is playing)*,
+and the output list holds the same devices as ordinary outputs. Pick the one the game plays to as the
+input and your headset as the output.
+
+One rule the hardware imposes: **the device being captured cannot be the device you are listening
+to.** Loopback captures everything sent to a device, which would include ENH Master's own output -
+a loop that gets louder every time round. The app refuses that combination and says so. So either:
+
+- **Use a second playback device you are not listening to.** Set Windows' playback device (the one
+  the game uses) to an HDMI or monitor output with nothing plugged into it, capture that, and play to
+  your headset. Costs nothing and needs no extra software.
+- **Or install a virtual cable** (VB-CABLE is free): set Windows' playback device to *CABLE Input*,
+  and in ENH Master capture *CABLE Input (what it is playing)* and play to your headset.
+
+Latency is the two devices' own buffers plus about 20 ms of slack, which the app needs because the
+capture and playback devices run on separate clocks. It follows that drift continuously rather than
+dropping or repeating blocks, so nothing clicks.
+
 Building by hand on Windows: Visual Studio 2022 (C++), CMake and Git, then
 
 ```bat

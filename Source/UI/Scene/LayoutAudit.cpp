@@ -208,7 +208,7 @@ namespace pad::audit
 
         juce::Image toImage (const artwork::RawTexture& t)
         {
-            juce::Image img (juce::Image::RGB, t.width, t.height, true);
+            juce::Image img (juce::Image::RGB, t.width, t.height, true, juce::SoftwareImageType());
             for (int y = 0; y < t.height; ++y)
                 for (int x = 0; x < t.width; ++x)
                 {
