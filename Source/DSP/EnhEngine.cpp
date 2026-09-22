@@ -134,6 +134,7 @@ namespace enh::dsp
         for (int k = 0; k < MixBalancer::numFine; ++k)
             meters.balanceFineGainDb[(size_t) k].store (balancer.getFineGainDb (k), std::memory_order_relaxed);
         meters.balanceResolution.store (p.balancer.resolution, std::memory_order_relaxed);
+        meters.balanceMakeupDb.store (balancer.getMakeupDb(), std::memory_order_relaxed);
         for (int r = 0; r < FinalLimiter::numRegions; ++r)
             meters.outputRegionCutDb[(size_t) r].store (output.getRegionCutDb()[(size_t) r], std::memory_order_relaxed);
         meters.outputLimitDb.store (output.getReductionDb(), std::memory_order_relaxed);
@@ -165,6 +166,7 @@ namespace enh::dsp
         }
         meters.limitDeepestDb.store (limiter.getDeepestCutDb(), std::memory_order_relaxed);
         meters.limitBroadbandDb.store (limiter.getBroadbandDb(), std::memory_order_relaxed);
+        meters.limitMakeupDb.store (limiter.getMakeupDb(), std::memory_order_relaxed);
 
         meters.autoGainDb.store (analog.getAutoGainDb(), std::memory_order_relaxed);
         meters.outputPeakDb.store (analog.getPeakDb(), std::memory_order_relaxed);

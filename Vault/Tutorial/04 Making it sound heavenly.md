@@ -1,6 +1,6 @@
 # 04 Making it sound heavenly
 
-[[SERAPH unit]] is the purple unit on top. **POWER** is a three-way selector:
+[[SERAPH unit]] is the purple unit near the top, just under the OUTPUT MONITOR. **POWER** is a three-way selector:
 
 - **OFF** - true bypass
 - **TONE** - tone and texture only (no space)

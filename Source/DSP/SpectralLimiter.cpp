@@ -78,6 +78,10 @@ namespace enh::dsp
         headroomFeedback = 0.0f;
         broadbandDb = 0.0f;
         broadbandGain = 1.0f;
+        makeupDb = 0.0f;
+        makeupGain = 1.0f;
+        keeperLostDb = 0.0f;
+        keeperStep = 0;
         localised = 1.0f;
     }
 
@@ -254,6 +258,18 @@ namespace enh::dsp
             const float kt = saturate01 (o / 4.0f);
             o = o > 0.0f ? o * kt * kt * (3.0f - 2.0f * kt) : 0.0f;
         }
+
+        // Loudness keeper: what each band carries now and usually (its baseline), ear-weighted, for
+        // controlStep to measure what the cuts take below usual (see there)
+        for (int k = 0; k < n; ++k)
+        {
+            const auto i = (size_t) k;
+            const float w = warm > 0.0f ? loudnessWeight (k) : 0.0f;
+            d.powerK[i] = power[i] * w;
+            d.usualK[i] = std::min (power[i], basePower[i]) * w;
+        }
+        for (int k = n; k < numBands; ++k)
+            d.powerK[(size_t) k] = d.usualK[(size_t) k] = 0.0f;
 
         // --- 3. the offending regions: runs of excessive bands (a one-band gap does not split one)
         struct Region { int lo, hi; float peak, weight, centre, share, excursion; };
@@ -514,6 +530,39 @@ namespace enh::dsp
         }
 
         broadbandDb += (bbTarget > broadbandDb ? 1.0f - std::exp (-dt / 0.001f) : kRelease) * (bbTarget - broadbandDb);
+
+        // Loudness keeper: taking the excess away loses nothing - it was never part of the mix. But where
+        // a cut takes a band below what it usually carries (a wide cut spilling onto its neighbours, a
+        // cut still letting go after the event has passed), the mix is quieter than usual and the rest
+        // of it sounds quieter too, though its level never moved. That loss, ear-weighted, against the
+        // mix's usual loudness (every 8th step: ~190 Hz), and 60 % of it given back to the whole mix,
+        // at most 3 dB, following the cuts, never past the headroom under the ceiling. Only the tonal
+        // cuts count: a cut for clipping has no room to give.
+        if (++keeperStep >= 8)
+        {
+            keeperStep = 0;
+            bool cutting = false;
+            for (const auto& sl : slots)
+                cutting = cutting || sl.depthDb > 0.05f;
+            double usualTotal = 1.0e-20, lost = 0.0;
+            for (int k = 0; k < numBands; ++k)
+            {
+                const auto i = (size_t) k;
+                usualTotal += current.usualK[i];
+                if (cutting && current.usualK[i] > 0.0f)
+                {
+                    const double after = current.powerK[i] * std::pow (10.0, responseDb (slots, (float) BandAnalyzer::centreHz (k)) / 10.0);
+                    lost += std::max (0.0, (double) current.usualK[i] - after);
+                }
+            }
+            keeperLostDb = (float) (-10.0 * std::log10 (std::max (0.05, 1.0 - lost / usualTotal)));
+        }
+        {
+            const float lostDb = keeperLostDb;
+            const float headroomDb = s.ceilingDb - 20.0f * std::log10 (std::max (1.0e-6f, peakEnv)) - 0.5f;
+            const float target = std::clamp (std::min (0.6f * lostDb, headroomDb), 0.0f, 3.0f);
+            makeupDb += (target > makeupDb ? kAttack : kRelease) * (target - makeupDb);
+        }
     }
 
     void SpectralLimiter::process (float* const* data, int numChannels, int numSamples, const Settings& s) noexcept
@@ -535,6 +584,10 @@ namespace enh::dsp
                             f.reset();
                 broadbandDb = 0.0f;
                 broadbandGain = 1.0f;
+                makeupDb = 0.0f;
+                makeupGain = 1.0f;
+                keeperLostDb = 0.0f;
+                keeperStep = 0;
             }
             if (pending > 0)
                 current = schedule[(size_t) pending - 1];
@@ -577,6 +630,7 @@ namespace enh::dsp
             }
 
             broadbandGain += (dbToGain (-broadbandDb) - broadbandGain) * gainGlide;
+            makeupGain += (dbToGain (makeupDb) - makeupGain) * gainGlide;
 
             for (int c = 0; c < 2; ++c)
             {
@@ -586,6 +640,8 @@ namespace enh::dsp
                     if (audioLive[(size_t) k])
                         y = tick (coeffs[(size_t) k], svf[(size_t) c][(size_t) k], y);
                 y *= broadbandGain;
+                const float keyBase = y;   // the compressor's key does not hear the loudness keeper's lift
+                y *= makeupGain;
 
                 if (c < ch)
                     data[c][i] = y;
@@ -593,7 +649,7 @@ namespace enh::dsp
 
                 if (i < keyCapacity)
                 {
-                    float key = y;
+                    float key = keyBase;
                     for (int k = 0; k < numSlots; ++k)
                         if (keyLive[(size_t) k])
                             key = tick (keyCoeffs[(size_t) k], keySvf[(size_t) c][(size_t) k], key);

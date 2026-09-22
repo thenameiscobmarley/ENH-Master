@@ -34,6 +34,7 @@ namespace enh::dsp
         std::array<std::atomic<float>, 3> limitHz {}, limitOctaves {}, limitDepthDb {};
         std::array<std::atomic<int>, 3> limitShape {};
         std::atomic<float> limitDeepestDb { 0.0f }, limitBroadbandDb { 0.0f };
+        std::atomic<float> limitMakeupDb { 0.0f };   // loudness keeper: the lift that holds the rest level (dB)
 
         // SERAPH
         std::atomic<float> silkSmoothingDb { 0.0f };   // deepest resonance dip right now
@@ -59,6 +60,7 @@ namespace enh::dsp
         std::array<std::atomic<float>, 6> balanceGainDb {}, balanceLevelDb {};
         std::array<std::atomic<float>, 28> balanceFineGainDb {};   // spectral mode's third-octave faders (dB, as applied)
         std::atomic<float> balanceResolution { 0.0f };             // 0 = six bands .. 1 = spectral
+        std::atomic<float> balanceMakeupDb { 0.0f };               // loudness keeper's lift (dB)
 
         // Output limiter: spectral cut per region (low, low-mid, mid, high) and broadband (dB)
         std::array<std::atomic<float>, 4> outputRegionCutDb {};

@@ -1,6 +1,6 @@
 # SPECTRAL LIMITER unit
 
-1U, steel-blue plate, between the UPWARD LEVELER and the ADAPTIVE COMPRESSOR (stage 3 of 5).
+1U, steel-blue plate, between the UPWARD LEVELER and the ADAPTIVE COMPRESSOR (stage 4 of the 7 processors).
 Source: `Source/DSP/SpectralLimiter.h/.cpp`. Back to [[00 Start Here]].
 
 ## What problem it solves
@@ -22,6 +22,24 @@ reason to react.
 3. **Headroom threatened** (peak here above CEILING): the same region is cut deeper.
 4. **Broadband and threatening headroom:** only then is the whole signal turned down.
 
+CEILING defaults to 0 dBFS in every preset, so step 3 acts only on real overs. Step 2 is about tone
+(a region out of balance), never about how loud the programme is.
+
+## Loudness keeper
+
+Taking the excess away loses nothing: it was never part of the mix. But where a cut takes a band
+below what it usually carries (a wide cut spilling onto its neighbours, a cut still letting go after
+the event), the mix is quieter than usual and everything else *sounds* quieter although its level
+never moved. The keeper gives 60 % of that loss back to the whole signal:
+- each decision carries every band's power now and its baseline, ear-weighted (`powerK`, `usualK`);
+  every 8th control step (~190 Hz) the cuts' response at each band says how far below usual they
+  take it;
+- the lift follows the cuts' own attack and release, at most 3 dB, and never past the headroom left
+  under CEILING (less 0.5 dB); clipping cuts (`extraDb`) are not made up;
+- it is applied after the compressor's key is taken, so the compressor never hears it.
+
+`getMakeupDb()`, shown as `LOUDNESS KEPT` on the OUTPUT MONITOR.
+
 It also feeds the compressor a *key*: the audio with the flagged region pulled down to its baseline.
 While it handles a localised event, the compressor ignores that event. With nothing flagged the key is
 the plain audio, so the compressor behaves exactly as before.
@@ -37,7 +55,8 @@ the plain audio, so the compressor behaves exactly as before.
 
 Meters: CUT (deepest spectral cut, 0-18 dB) and BROADBAND (0-12 dB); in normal use BROADBAND
 barely moves. On the enhancer's analyser a magenta curtain hangs from the top of the plot where it
-is cutting (amber = broadband), with a `LIMIT -9 dB @ 68 Hz` readout in the header.
+is cutting (amber = broadband), with a `LIMIT -9 dB @ 68 Hz` readout in the header. The OUTPUT
+MONITOR's DUCK readout names it when it is the deepest duck in the rack.
 
 ## Checking it
 

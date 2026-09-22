@@ -7,6 +7,8 @@ build/EnhDspTests_artefacts/Release/EnhDspTests            # everything + CPU be
 build/EnhDspTests_artefacts/Release/EnhDspTests --events crates [seed]
 build/EnhDspTests_artefacts/Release/EnhDspTests --diagnose
 build/EnhDspTests_artefacts/Release/EnhDspTests --analyze file.wav
+build/EnhDspTests_artefacts/Release/EnhDspTests --units | --presets | --bass | --limiter | --cpu
+build/EnhDspTests_artefacts/Release/EnhDspTests --golden write|check file
 ```
 
 - **no arguments** - the full suite: detection accuracy against synthetic scenes (`quiet`, `game`,
@@ -16,6 +18,10 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --analyze file.wav
   truth ([[Footstep detection]]).
 - **`--diagnose`** - the same for live audio, plus the EQ curve and harmonic centres every 5 s.
 - **`--analyze file.wav`** - run a recording through and report.
+- **`--units`** - LEVEL, loudness (EBU cases), output limiter, MIX BALANCER (incl. loudness keeper).
+- **`--presets`** - every preset in the preset file through the engine; **`--bass`** THD and pumping;
+  **`--limiter`** the anti-duck scenes; **`--cpu`** the benchmark.
+- **`--golden write|check`** - bit-exact output check, for optimisations that must not change a sample.
 
 ## UI environment variables
 
@@ -26,7 +32,11 @@ build/EnhDspTests_artefacts/Release/EnhDspTests --analyze file.wav
 | `PAD_UI_TEST_STATS=1` | frame timing on stderr every 5 s, and logs when rendering pauses/resumes |
 | `PAD_UI_TEST_MINIMISE="7,17"` | minimise at 7 s, restore at 17 s |
 | `PAD_UI_TEST_HOVER="x,y"` | shows the hover loupe at that point (anchored, for reproducible screenshots) |
-| `PAD_UI_TEST_DEMO=1` | animates TONE & SPACE's live display without audio |
+| `PAD_UI_TEST_DEMO=1` | animates the live displays and meters without audio |
+| `PAD_UI_TEST_FOCUS=<unit>` | starts walked up to a unit: 0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter, 5 level control, 6 mix balancer, 7 output monitor |
+| `PAD_UI_TEST_MAX_DETAIL=<0-3>` | caps the geometry detail level |
+| `PAD_UI_DUMP_ARTWORK=<dir>` | writes every printed panel and `clearances.txt` (print overlapping hardware) |
+| `ENH_MASTER_PRESETS=<file>` | use this preset file instead of `~/.config/ENH Master/presets.json` |
 
 ## Screenshots
 

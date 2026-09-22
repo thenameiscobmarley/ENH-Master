@@ -74,7 +74,7 @@ the camera head on and nothing is foreshortened. Scroll or click a panel to walk
 click the case to step back to the whole rack.
 
 Hover anything - printed text, a knob, a button - and a **fisheye loupe** appears over it: the scene is re-rendered
-zoomed in (about 1.8x) behind a glass lens (a 78 px lens, 1.25x the size it was), so the magnified print is genuinely sharp rather than stretched pixels.
+zoomed in (1.8x) behind a glass lens about 155 px across, so the magnified print is genuinely sharp rather than stretched pixels.
 It magnifies about the cursor - what is under the pointer stays under the pointer - is slightly transparent, and
 locks onto a control while you drag it. Controls also show a small name + value pill under the lens, and their
 value arc lights up around the knob.
@@ -136,7 +136,7 @@ one the limiter reduces how much the 2 kHz detail ducks under the hit. Numbers f
 | MUSIC: WIDE & AIRY | -0.4 dB | -0.6 dB |
 
 With the whole rack running, what is left is the rack's output limiter catching a hot mix. The
-spectral limiter alone takes the dip from -1.8 to -0.3 dB.
+spectral limiter alone takes the dip from -1.4 to -0.1 dB.
 
 Two level-matching loops now hold still while the SPECTRAL LIMITER is handling a localised spike:
 
@@ -171,6 +171,11 @@ the input in pencil and the output in ink.
   - **INTEGRATED** (gated, since RESET) and **TRUE PEAK** (4x oversampled) printed under the display;
   - **RESET** starts the integrated reading and the true-peak hold again.
   Checked against EBU Tech 3341: a −23 dBFS stereo 1 kHz sine reads −23.0 LUFS.
+- **DUCK** (right, above the tone change) says where a duck is coming from. It names the unit taking
+  the most away anywhere in the rack, where in the spectrum, and how much. For example,
+  `DUCK  SPECTRAL LIMITER  AT 2.5 kHz  -4.2 dB` or `DUCK  COMPRESSOR  (WHOLE MIX)  -3.1 dB`. The
+  deepest duck is held for 1.5 s so a short one can still be read. `LOUDNESS KEPT +1.6 dB` shows the
+  loudness keepers' lift (see *Ducking without losing loudness*).
 
 ## MIX BALANCER (4U)
 
@@ -194,6 +199,8 @@ is taken down; a region that drops out is lifted, gently.
   - In between, the six faders are scaled by 1 − RESOLUTION and the 28 by RESOLUTION, in series, so
     the result is exactly the blend of the two curves, with no phasing.
   - Spectral mode costs 1.7 % of a core extra, and nothing at 0.
+- **Loudness keeper:** while bands are cut, the rest of the mix is lifted to hold the loudness (see
+  *Ducking without losing loudness*).
 
 The display is laid out FabFilter-style, printed on the cream card like every display on the rack:
 - the spectrum going in (filled) and coming out (line);
@@ -218,6 +225,26 @@ The output limiter at the very end is spectral too:
 - Nothing under 0 dBFS is touched (tested: bit-exact at −1 dBFS).
 - A clipping bass hit takes its own low end down while a 2 kHz tone above it moves 0.1 dB.
 - Latency: 3 ms, reported to the host.
+
+### Ducking without losing loudness
+
+Taking away the excess of a region that jumped out loses nothing: that excess was never part of the
+mix. But a cut often takes a region *below* what it usually carries. A wide cut spills onto its
+neighbours, and a cut is still letting go after the event has passed. Then the mix is quieter than
+usual, and everything else *sounds* quieter too, even though its level never moved. That is what
+makes a heavy duck easy to hear.
+
+The SPECTRAL LIMITER and the MIX BALANCER each have a **loudness keeper** for this:
+- They measure how far the cuts take each band below its usual level, ear-weighted (the shape of the
+  K-weighting that LUFS uses, so a bass cut counts for less than a presence cut).
+- They give 60 % of that loss back to the whole mix, following the cuts in and out.
+- The lift is capped at 3 dB and never goes past the headroom left under 0 dBFS.
+- A cut made for clipping is not made up, because there is no room to give back.
+- The compressor's key doesn't hear the lift, so the keeper can't make the compressor duck in turn.
+
+Tested (`EnhDspTests --units`): a 500 Hz burst cut by 5.8 dB gets no make-up while it lasts. As the
+cut lets go afterwards, a tone three octaves up is lifted 0.3 dB. With nothing cut, the keeper does
+nothing. In the bass-hit scene below, the 2 kHz detail now moves −0.1 dB (it was −0.3).
 
 A bug fix makes a big difference here. The UPWARD LEVELER was meant to hold its lift while the
 SPECTRAL LIMITER handles a localised hit, but the hold was never switched on. With it working, the
@@ -272,12 +299,12 @@ Measured (`EnhDspTests --limiter`), with a huge bass hit over a mix with kicks a
 
 | | 2 kHz detail during the hit | compressor gain reduction |
 |---|---|---|
-| limiter OUT | -1.8 dB | 14.6 dB |
-| limiter IN | -0.3 dB | 10.4 dB |
+| limiter OUT | -1.4 dB | 15.2 dB |
+| limiter IN | -0.1 dB | 9.2 dB |
 
-- The hit gets an 8-9 dB cut around 68 Hz; the kicks get 0.00 dB.
+- The hit gets a 6 dB cut around 85 Hz; the kicks get 0.00 dB.
 - The cut releases within 0.7 s.
-- A broadband event gets no spectral cut (0.1 dB), only 2.9 dB of broadband protection.
+- A broadband event gets no spectral cut (0.1 dB), only broadband protection (6.2 dB).
 - The result is identical at block sizes 7, 128 and 1024.
 - Cost: about 1.1 % of one J4105 core at 48 kHz.
 
@@ -320,9 +347,9 @@ Each unit has two small master knobs:
 | MULTIPLY | `enhMultiply` / `seraphMultiply` (TONE & SPACE) | 0-3x. Multiplies every knob on that device before the DSP sees it (1.5x makes CLARITY 20 behave as 30). TONE & SPACE's OUTPUT gain is not multiplied; ENH Master has no gain knob. Values may pass a knob's printed end and are clamped to what the processing can take. |
 | STRENGTH | `enhStrength` / `seraphStrength` | 0-5. How hard that device's processing hits: EQ moves, generated harmonics, sub lift, resonance dips, air, body, width, tail level and shimmer. 0 = the device does nothing; time settings (DECAY, TONE, ADAPT) are not scaled. |
 
-## TONE & SPACE (top unit)
+## TONE & SPACE (last processor, under the OUTPUT MONITOR)
 
-A purple finishing processor at the top of the case, processing everything below it. **LOUDNESS** is
+A purple finishing processor, the last in the chain, processing everything below it. **LOUDNESS** is
 its level policy: one knob with two printed scales and a button to swap them. In HOLD it measures
 what came in and what is going out and works the output back toward the input, so the effect is
 loud enough to hear and never louder than the music. In LIFT + HOLD it adds gain first and then
@@ -370,8 +397,8 @@ adds gain first and then holds *that* steady, for sources that are quiet to begi
 
 LOUDNESS measures K-weighted power (bass counts less, as it does for the ear) over ~2 s and moves its gain
 over ~3 s, so a bass note no longer pulls the whole mix down and lets it back up when it stops (pumping).
-The rack ends in one lookahead output limiter (1.5 ms lookahead, gain held for 25 ms, 150 ms release, ceiling
--0.5 dBFS): its gain never moves inside a bass cycle, so loud bass is not crushed. SPACE also has early reflections (sparse stereo
+The rack ends in the output limiter (see *Limiting*): 0 dBFS, the region responsible cut first, gain
+held for 25 ms so it never moves inside a bass cycle, and loud bass is not crushed. SPACE also has early reflections (sparse stereo
 taps, 7-37 ms) ahead of the dense tail.
 
 **SPACE - space & width**
@@ -475,7 +502,8 @@ input ─► analysis: BandAnalyzer (24 log bands + long-term spectrum), Spectra
   preference for where to lift, not a requirement for detection.
 - **PD control:** every adaptive gain follows its target with value' = (Kp·e + Kd·target') / (1 + Kd).
 - **Latency:** IIR only; the reported latency is the oversampling filters' (a couple of samples).
-- **CPU (J4105, 48 kHz stereo):** 19 % of one core for the whole seven-unit rack. The five-unit rack
+- **CPU (J4105, 48 kHz stereo):** about 19 % of one core for the whole rack (seven processors and
+  the loudness meter; `EnhDspTests --cpu`). The five-unit rack
   used 30 %, and the same five units now use 16.6 %, with output identical to the last bit (a golden
   output check proves it). The savings come from the band analyser, TONE & SPACE's 28-band detector
   and the enhancer's EQ running four bands (or both channels) per instruction.
@@ -508,7 +536,7 @@ prints every accepted / rejected event with its reasons, the EQ curve and the ha
 The 3D side lives in a shared JUCE module, **HardwareKit** (`~/Projects/HardwareKit`), so other plugins can reuse it:
 geometry primitives, hardware models (knob styles, push buttons, bat toggles, jewel lamps, LEDs, rack screws,
 chassis), materials, control animation, X11 pointer / visibility helpers and the fisheye loupe. ENH Master keeps only
-what is specific to it: its layout, its printed panels and the two display shaders. See `HardwareKit/README.md`.
+what is specific to it: its layout, its printed panels and its display shaders. See `HardwareKit/README.md`.
 
 Knob styles in use: every knob is `chickenHeadKnob` (black bakelite, beak ending at the ticks); POWER is a
 `chickenHead` selector (the long-beak version).
@@ -626,9 +654,7 @@ plugin window is really the topmost window under the pointer (so clicking in an 
 
 Rendering pauses completely while the editor window is minimised or hidden (checked a few times a second through
 JUCE's peer state and the X server, so a minimised plugin host is noticed too); audio processing is unaffected.
-Measured on the standalone with all four units running and the analyser live: 23 % of one core
-visible, 8 % minimised (audio only), rendering resumes on restore. The DSP itself is 16.8 % of that
-at 48 kHz; the rest is the renderer, which is draw-call bound rather than fill bound.
+Minimised, only the audio runs; rendering resumes on restore.
 
 **Anti-aliasing is on regardless of the host.** The scene is drawn into the plugin's own 4x
 multisampled buffer and filtered to the screen, so edges are smooth even when a host's window gives no
@@ -667,9 +693,9 @@ host delivers mouse events late. Config: `~/.config/ENHMaster/ui-config.json`.
 - `PAD_UI_TEST_STATS=1` – frame-timing statistics on stderr every 5 s (also logs when rendering pauses / resumes)
 - `PAD_UI_TEST_MINIMISE="7,17"` – minimises the window at 7 s and restores it at 17 s
 - `PAD_UI_TEST_HOVER="x,y"` – shows the hover loupe at that point
-- `PAD_UI_TEST_DEMO=1` – animates TONE & SPACE's live display and the SPECTRAL LIMITER's meters and analyser curtain without audio
+- `PAD_UI_TEST_DEMO=1` – animates the displays and meters without audio (TONE & SPACE, the SPECTRAL LIMITER's curtain, the OUTPUT MONITOR and its DUCK readout, the MIX BALANCER)
 - `PAD_UI_TEST_STATS=1` also logs the framebuffer's actual MSAA sample count
-- `PAD_UI_TEST_FOCUS=<unit>` – starts walked up to one unit (0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter)
+- `PAD_UI_TEST_FOCUS=<unit>` – starts walked up to one unit (0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter, 5 level control, 6 mix balancer, 7 output monitor)
 - `PAD_UI_DUMP_ARTWORK=<dir>` – writes every printed panel with its text boxes and the hardware footprints from the layout code, plus `clearances.txt` listing any print that overlaps or crowds hardware, borders or other print
 
 ## Backups

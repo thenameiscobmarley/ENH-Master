@@ -1,7 +1,7 @@
 # TONE & SPACE unit
 
-The purple unit on top - a "celestial processor", not a compressor. It takes ENH Master's output and
-makes it sound finished. Zero latency.
+The purple unit, last processor in the chain (just under the OUTPUT MONITOR) - a "celestial
+processor", not a compressor. It takes everything the rack below has done and makes it sound finished. Zero latency.
 
 ## Front panel
 
@@ -38,8 +38,10 @@ TONE (tone and texture) then SPACE (width and space). Both are described in [[Se
 
 Up to 1.1 the unit ended in a zero-latency limiter. On loud bass its gain moved inside each bass
 cycle, which is distortion. In 1.2.0 that limiter is gone. The rack ends in one lookahead limiter
-(`FinalLimiter.h`: 1.5 ms lookahead, 25 ms hold, 150 ms release, -0.5 dBFS), so the gain never moves
-inside a cycle.
+(`FinalLimiter.h`), so the gain never moves inside a cycle. Since 1.4.0 it acts only on real overs
+(0 dBFS) and cuts the region pushing the peak over first (low / low-mid / mid / high, solved exactly
+from the same filters it cuts with), with a broadband stage for whatever is left: 1.5 ms + 1.5 ms
+lookahead, 25 ms hold, 150 ms release.
 
 LOUDNESS no longer pumps with the bass. Its level measure is K-weighted (150 Hz high-pass twice, and a
 +4 dB shelf at 1.5 kHz) and averaged over 2 s, its gain moves over 3 s, and SPACE's DUCK and SMOOTH's

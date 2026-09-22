@@ -11,6 +11,9 @@ because of that.
   is worth more than a clever one on this GPU.
 - Procedural low-poly geometry, uploaded once.
 - Analytic SDF contact shadows instead of shadow maps.
+- The scene is drawn into the plugin's own 4x multisampled target and filtered to the screen, so
+  anti-aliasing never depends on the host's window. `renderScale` (0 = auto = 1x) can supersample on
+  GPUs with room to spare; on the UHD 600 1.25x already costs ~13 fps.
 - Panel-local coordinates throughout (x across, z down, y out of the panel), which is why layout
   numbers read like a drawing.
 - Frame pacing on the render thread, locked to vsync: every refresh while interacting or animating,
@@ -20,8 +23,7 @@ because of that.
 
 Rendering **stops completely** when the editor is not visible - checked a few times a second through
 JUCE's peer state and, because plugin editors are embedded in a host window, the X server as well, so
-a minimised *host* is noticed too. Audio is unaffected. Measured on the standalone: 17 % of one core
-visible, 8 % minimised.
+a minimised *host* is noticed too. Audio is unaffected.
 
 ## Input
 
@@ -32,7 +34,8 @@ plugin turned its knobs, which was a real bug found by this project.
 
 ## Numbers
 
-- DSP: 14.06 % / 15.09 % / 28.80 % of one core at 44.1 / 48 / 96 kHz, both units running.
-- Render: ~1.2 ms CPU per frame, loupe open or not ([[The loupe]]).
+- DSP: about 18 % of one J4105 core at 48 kHz for the whole rack (`EnhDspTests --cpu`,
+  `CPU_BREAKDOWN=1` for per-stage numbers).
+- Render: the whole rack at ~57-60 fps on the UHD 600; close-ups are limited by pixel fill.
 
 Related: [[Dev hooks]].

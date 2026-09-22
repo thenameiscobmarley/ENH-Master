@@ -26,7 +26,14 @@ namespace enh::dsp
                    exactly the blend of the two curves (no phasing between parallel paths).
 
         Attacks are respected: a band's cut is held back while that band is in a fresh transient, so
-        footsteps and gunshots keep their front edge. Zero latency; minimum-phase bells and shelves.
+        footsteps and gunshots keep their front edge.
+
+        Loudness keeper: where a fader holds a band below what it usually carries (letting go after a
+        jump has passed, or a cut deeper than the jump), the mix is quieter than usual and the rest of
+        it sounds quieter too, though its level never moved. That loss is measured ear-weighted (the
+        shape of the K-weighting) and 60 % of it is given back to the whole mix, at most 3 dB,
+        following the faders, and never past the headroom under 0 dBFS. Taking a jump away loses
+        nothing: it was never part of the mix. Zero latency; minimum-phase bells and shelves.
         Real-time safe after prepare().
     */
     class MixBalancer
@@ -107,6 +114,7 @@ namespace enh::dsp
             coarseScale = 1.0f; fineScale = 0.0f;
             toTick = tickEvery;
             deepestCutDb = 0.0f;
+            makeupDb = 0.0f; makeupGain = 1.0f; peakEnv = 0.0f;
         }
 
         void process (float* const* data, int numChannels, int n, const Settings& s) noexcept
@@ -129,14 +137,19 @@ namespace enh::dsp
                     for (auto& c : fineFilters) for (auto& f : c) f.reset();
                     fineEngaged = false;
                 }
+                makeupDb = 0.0f; makeupGain = 1.0f;
                 for (int i = 0; i < n; ++i)
                     listen (ch == 2 ? 0.5f * (data[0][i] + data[1][i]) : data[0][i]);
                 return;
             }
 
+            const float peakRelease = std::exp (-1.0f / (0.060f * (float) sr));
+            const float gainGlide = 1.0f - std::exp (-1.0f / (0.002f * (float) sr));
             for (int i = 0; i < n; ++i)
             {
                 listen (ch == 2 ? 0.5f * (data[0][i] + data[1][i]) : data[0][i]);
+                const float peak = ch == 2 ? std::max (std::abs (data[0][i]), std::abs (data[1][i])) : std::abs (data[0][i]);
+                peakEnv = peak > peakEnv ? peak : peakEnv * peakRelease;
                 if (--toTick <= 0)
                 {
                     controlTick (s);
@@ -159,6 +172,14 @@ namespace enh::dsp
                             w = fineFilters[(size_t) c][(size_t) k].process (fineCoeffs[(size_t) k], w);
                         data[c][i] = w;
                     }
+                if (makeupDb > 0.0f || makeupGain != 1.0f)
+                {
+                    makeupGain += (dbToGain (makeupDb) - makeupGain) * gainGlide;
+                    if (makeupDb <= 0.0f && std::abs (makeupGain - 1.0f) < 1.0e-5f)
+                        makeupGain = 1.0f;
+                    for (int c = 0; c < ch; ++c)
+                        data[c][i] *= makeupGain;
+                }
             }
         }
 
@@ -167,6 +188,15 @@ namespace enh::dsp
         float getFineGainDb (int k) const noexcept { return fineGainDb[(size_t) k] * fineScale; }
         float getLevelDb (int band) const noexcept { return powerToDb (fast[(size_t) band]); }
         float getDeepestCutDb() const noexcept     { return deepestCutDb; }
+        float getMakeupDb() const noexcept         { return makeupDb; }   // the loudness keeper's lift
+
+        /** Roughly how much a band counts toward loudness, per unit of its power (the K-weighting's
+            shape: little below 60 Hz, up to +4 dB above 2 kHz). */
+        static float loudnessWeight (float hz) noexcept
+        {
+            const float lowCut = (hz * hz) / (hz * hz + 60.0f * 60.0f);
+            return lowCut * (1.0f + 1.5f * (hz * hz) / (hz * hz + 1500.0f * 1500.0f));
+        }
 
     private:
         inline void listen (float mono) noexcept
@@ -221,6 +251,7 @@ namespace enh::dsp
             auto sorted = moved;
             std::sort (sorted.begin(), sorted.begin() + fineCount);
             const float mixMoved = fineCount > 1 ? 0.5f * (sorted[(size_t) (fineCount / 2 - 1)] + sorted[(size_t) (fineCount / 2)]) : 0.0f;
+            fineMixMoved = mixMoved;
 
             bool any = false;
             for (int k = 0; k < fineCount; ++k)
@@ -327,6 +358,38 @@ namespace enh::dsp
             for (int k = 0; k < fineCount; ++k)
                 deepest = std::min (deepest, fineGainDb[(size_t) k] * fineScale);
             deepestCutDb = -deepest;
+
+            // Loudness keeper: a jump the faders take away was never part of the mix, but where a fader
+            // holds a band below what it usually carries (still letting go after the jump has passed, or
+            // cutting harder than the jump), the mix is quieter than usual and the rest of it sounds
+            // quieter too. Each band's usual level is its slow level moved with the mix; the loss is
+            // ear-weighted (lifts count back), and 60 % of it is given back to the whole mix, within
+            // 3 dB and the headroom.
+            auto keptOf = [] (auto bands, auto fastOf, auto slowOf, auto gainOf, auto hzOf, double usualScale)
+            {
+                double usualTotal = 1.0e-20, kept = 0.0;
+                for (int b = 0; b < bands; ++b)
+                {
+                    const double w = loudnessWeight (hzOf (b));
+                    const double now = fastOf (b), usual = std::min (now, slowOf (b) * usualScale);
+                    usualTotal += usual * w;
+                    kept += std::min (usual, now * std::pow (10.0, gainOf (b) / 10.0)) * w;
+                }
+                return kept / usualTotal;
+            };
+            double kept = keptOf (numBands, [this] (int b) { return fast[(size_t) b]; }, [this] (int b) { return slow[(size_t) b]; },
+                                  [this] (int b) { return gainDb[(size_t) b] * coarseScale; }, [] (int b) { return centreHz[(size_t) b]; },
+                                  std::pow (10.0, mixMoved / 10.0));
+            if (fineOn)
+                kept *= keptOf (fineCount, [this] (int k) { return (double) fineFast[(size_t) k]; }, [this] (int k) { return (double) fineSlow[(size_t) k]; },
+                                [this] (int k) { return fineGainDb[(size_t) k] * fineScale; }, [] (int k) { return fineHz (k); },
+                                std::pow (10.0, fineMixMoved / 10.0));
+            const float lostDb = listening ? (float) (-10.0 * std::log10 (std::max (0.05, kept))) : 0.0f;
+            const float headroomDb = -20.0f * std::log10 (std::max (1.0e-6f, peakEnv)) - 1.0f;
+            const float target = std::clamp (std::min (0.6f * lostDb, headroomDb), 0.0f, 3.0f);
+            makeupDb += (target - makeupDb) * (target > makeupDb ? kAtt : kRel);
+            if (makeupDb < 0.01f && target <= 0.0f)
+                makeupDb = 0.0f;
         }
 
         void design (int b, float db) noexcept
@@ -381,6 +444,7 @@ namespace enh::dsp
         std::array<BiquadCoeffs, numFine> fineCoeffs {};
         std::array<std::array<BiquadState, numFine>, 2> fineFilters {};
         float coarseScale = 1.0f, fineScale = 0.0f;
+        float makeupDb = 0.0f, makeupGain = 1.0f, peakEnv = 0.0f, fineMixMoved = 0.0f;   // loudness keeper
         bool fineOn = false, fineEngaged = false;
     };
 }

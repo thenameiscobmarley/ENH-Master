@@ -1,6 +1,6 @@
 # MIX BALANCER unit
 
-The 4U unit between the SPECTRAL LIMITER and the ADAPTIVE COMPRESSOR. It is mostly a display.
+The 4U unit between the SPECTRAL LIMITER and the ADAPTIVE COMPRESSOR, most of its front a display.
 
 ## What it does
 
@@ -17,6 +17,15 @@ louder as a whole moves nothing, because this is balance, not loudness. Further 
 - bands in a fresh transient aren't cut, so attacks go through;
 - near-empty bands (< 1 % of the mix) are left alone;
 - each band's level follower listens over a few of its own cycles.
+
+## Loudness keeper
+
+While bands are cut, the rest of the mix would sound quieter though its level never moved. The
+balancer measures how much of the ear-weighted loudness its faders took away (the band powers
+weighted by the K-weighting's shape; lifts count back; both fader sets in spectral mode) and gives
+60 % of it back to the whole mix. The lift follows the faders' SPEED, is at most 3 dB and never goes
+past the headroom under 0 dBFS (less 1 dB). `EnhDspTests --units` checks that the rest is lifted
+while a region is cut and that nothing moves when nothing is cut.
 
 ## Controls
 

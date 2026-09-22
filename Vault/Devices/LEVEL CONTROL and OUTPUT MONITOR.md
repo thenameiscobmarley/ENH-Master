@@ -27,5 +27,12 @@ the output in ink.
   - INTEGRATED and TRUE PEAK in the strip under the display;
   - **RESET** starts both again.
   - `EnhDspTests --units` checks the EBU Tech 3341 reference: −23 dBFS stereo 1 kHz reads −23.0 LUFS.
+- **DUCK**, on the right above the tone change: where the deepest duck in the whole rack is coming
+  from right now, which unit, where and how much (`DUCK  MIX BALANCER  AT 500 Hz  -4.0 dB`). It
+  checks the compressor's gain reduction, the SPECTRAL LIMITER's cuts and broadband protection, the
+  MIX BALANCER's six and 28 faders, and the output limiter's region and broadband cuts, every frame.
+  The deepest is held 1.5 s so a short duck can be read (`HardwareView::updateDisplayHistories`).
+  `LOUDNESS KEPT +x dB` is the loudness keepers' lift (see [[SPECTRAL LIMITER unit]] and
+  [[MIX BALANCER unit]]).
 
 Related: [[MIX BALANCER unit]], [[SPECTRAL LIMITER unit]].

@@ -6,7 +6,7 @@ hidden behind menus - everything is on the front.
 ## The loupe
 
 Hover anything - a printed word, a knob, a button - and a round glass magnifier appears **centred on
-your cursor**, showing the scene re-rendered about 2.2x larger behind a fisheye lens. Because it
+your cursor**, showing the scene re-rendered 1.8x larger behind a fisheye lens about 155 px across. Because it
 magnifies about the cursor, the thing under your pointer stays under your pointer: you can read a
 label and then keep moving onto the next one straight through the glass. The glass is slightly
 transparent so you can still see what is underneath.
@@ -19,10 +19,17 @@ More: [[The loupe]].
 
 ## The displays
 
-**ENH Master** (lower): a live curve of what the [[Adaptive EQ]] is doing across 24 bands, with the
+**OUTPUT MONITOR** (top): the input against the output as a waveform and a spectrum, the tone change
+in red, loudness in LUFS, and a **DUCK** line saying which unit is ducking, where, and by how much.
+See [[LEVEL CONTROL and OUTPUT MONITOR]].
+
+**MIX BALANCER**: the band faders as a curve over the spectrum, and the last ten seconds underneath.
+See [[MIX BALANCER unit]].
+
+**ADAPTIVE ENHANCER**: a live curve of what the [[Adaptive EQ]] is doing across 24 bands, with the
 current CLARITY / ADAPT / SUB values printed underneath.
 
-**TONE & SPACE** (upper): one unified front, not a channel strip pair.
+**TONE & SPACE**: one unified front, not a channel strip pair.
 - left half - the resonance dips SMOOTH is applying right now, 150 Hz to 16 kHz;
 - right half - a pair of L/R bars per process (SMOOTH, AIR, WARMTH, BODY, TAPE, LEVEL, WIDTH, SPACE,
   SHIMMER), so you can see what the unit is doing *to each channel* rather than guessing.

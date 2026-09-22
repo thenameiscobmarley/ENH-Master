@@ -7,6 +7,8 @@
 #include "Scene/LimiterDemo.h"
 #include "Controls/ControlBinding.h"
 #include "../PluginProcessor.h"
+#include "../DSP/MixBalancer.h"
+#include "../DSP/FinalLimiter.h"
 
 namespace pad
 {
@@ -551,8 +553,58 @@ namespace pad
             displayHistory.balHead.store (head + 1, std::memory_order_release);
         }
 
-        // The readout under the waveform: integrated loudness and true peak, a few times a second
+        // DUCK: which unit is taking the most away right now, where, and how much; and the loudness
+        // keepers' lift. Checked every frame, the deepest held 1.5 s so a short duck can be read.
         const double now = juce::Time::getMillisecondCounterHiRes();
+        {
+            auto hzText = [] (float hz)
+            {
+                return hz >= 1000.0f ? juce::String (hz / 1000.0f, hz < 10000.0f ? 1 : 0) + " kHz" : juce::String (juce::roundToInt (hz)) + " Hz";
+            };
+            float depth = 0.0f;
+            juce::String what;
+            auto consider = [&] (float db, const juce::String& text)
+            {
+                if (db > depth) { depth = db; what = text; }
+            };
+            auto load = [] (const std::atomic<float>& a) { return a.load (std::memory_order_relaxed); };
+
+            consider (load (meters.tideGrDb), "COMPRESSOR  (WHOLE MIX)");
+            for (size_t s = 0; s < meters.limitDepthDb.size(); ++s)
+            {
+                const int shape = meters.limitShape[s].load (std::memory_order_relaxed);
+                const auto hz = hzText (load (meters.limitHz[s]));
+                consider (load (meters.limitDepthDb[s]), "SPECTRAL LIMITER  " + (shape == 1 ? "BELOW " + hz : shape == 2 ? "ABOVE " + hz : "AT " + hz));
+            }
+            consider (load (meters.limitBroadbandDb), "SPECTRAL LIMITER  (WHOLE MIX)");
+            for (int b = 0; b < enh::dsp::MixBalancer::numBands; ++b)
+            {
+                const float hz = enh::dsp::MixBalancer::centreHz[(size_t) b];
+                consider (-load (meters.balanceGainDb[(size_t) b]),
+                          "MIX BALANCER  " + (b == 0 ? "BELOW 100 Hz" : b == enh::dsp::MixBalancer::numBands - 1 ? "ABOVE 7.0 kHz" : "AT " + hzText (hz)));
+            }
+            for (int k = 0; k < enh::dsp::MixBalancer::numFine; ++k)
+                consider (-load (meters.balanceFineGainDb[(size_t) k]), "MIX BALANCER  AT " + hzText (enh::dsp::MixBalancer::fineHz (k)));
+            static const char* regionName[] { "BELOW 150 Hz", "AT 400 Hz", "AT 1.6 kHz", "ABOVE 4.0 kHz" };
+            for (int r = 0; r < enh::dsp::FinalLimiter::numRegions; ++r)
+                consider (load (meters.outputRegionCutDb[(size_t) r]), juce::String ("OUTPUT LIMITER  ") + regionName[r] + "  (OVER 0 dB)");
+            consider (load (meters.outputLimitDb), "OUTPUT LIMITER  (WHOLE MIX, OVER 0 dB)");
+
+            if (demoScope) { depth = 4.2f; what = "SPECTRAL LIMITER  AT 2.5 kHz"; }
+
+            if (depth >= duckHeldDb || now - duckHeldMs > 1500.0)
+            {
+                duckHeldDb = depth;
+                duckHeldMs = now;
+                const float keep = demoScope ? 1.6f : load (meters.limitMakeupDb) + load (meters.balanceMakeupDb);
+                duckText = depth < 0.5f ? juce::String ("DUCK  NONE")
+                                        : "DUCK  " + what + "   -" + juce::String (depth, 1) + " dB";
+                if (keep >= 0.1f)
+                    duckText << "      LOUDNESS KEPT  +" << juce::String (keep, 1) << " dB";
+            }
+        }
+
+        // The readout under the waveform: integrated loudness and true peak, a few times a second
         if (now - lastReadoutMs < 250.0)
             return;
         lastReadoutMs = now;
@@ -563,7 +615,8 @@ namespace pad
         };
         const float integrated = demoScope ? -16.4f : meters.integratedLufs.load (std::memory_order_relaxed);
         const float peak = demoScope ? -1.2f : meters.truePeakDb.load (std::memory_order_relaxed);
-        const auto text = "INTEGRATED  " + fmt (integrated, "LUFS", -69.9f) + "        TRUE PEAK  " + fmt (peak, "dBTP", -99.0f);
+        const auto text = "INTEGRATED  " + fmt (integrated, "LUFS", -69.9f) + "        TRUE PEAK  " + fmt (peak, "dBTP", -99.0f)
+                          + "\n" + duckText;
         if (text == levelReadout)
             return;
         levelReadout = text;

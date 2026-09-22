@@ -1,10 +1,11 @@
 # ENH Master - Start Here
 
 This is an [Obsidian](https://obsidian.md) vault documenting **ENH Master**, a JUCE/VST3 plugin for
-game audio: a five-unit rack that makes footsteps and detail audible without wrecking the mix. Bottom
-to top, in signal order: the **ADAPTIVE ENHANCER**, the **UPWARD LEVELER**, the **SPECTRAL LIMITER**,
-the **ADAPTIVE COMPRESSOR** and **TONE & SPACE**, a finishing processor that makes the result sound
-wide and beautiful. (Earlier names: ENH MASTER, LUMEN, TIDE, SERAPH. Note titles still use them.)
+game audio: an eight-unit rack in a curved walnut case that makes footsteps and detail audible without
+wrecking the mix. Bottom to top, in signal order: **LEVEL CONTROL**, the **ADAPTIVE ENHANCER**, the
+**UPWARD LEVELER**, the **SPECTRAL LIMITER**, the **MIX BALANCER**, the **ADAPTIVE COMPRESSOR**,
+**TONE & SPACE** (a finishing processor that makes the result sound wide and beautiful) and, on top,
+the **OUTPUT MONITOR**. (Earlier names: ENH MASTER, LUMEN, TIDE, SERAPH. Note titles still use them.)
 
 **To open it:** Obsidian → *Open folder as vault* → pick this `Vault` folder. Every note links to the
 others; press `Ctrl+G` for the graph view.
@@ -12,7 +13,7 @@ others; press `Ctrl+G` for the graph view.
 ## The tutorial, in order
 
 1. [[01 Install and build]] - get it compiled and installed
-2. [[02 Your first sound]] - load it, what the two units do, what to turn
+2. [[02 Your first sound]] - load it, what the units do, what to turn
 3. [[03 Tuning for footsteps]] - the part people actually came for
 4. [[04 Making it sound heavenly]] - TONE & SPACE in practice
 5. [[05 Reading the panel]] - the loupe, meters and live displays
@@ -20,9 +21,12 @@ others; press `Ctrl+G` for the graph view.
 
 ## The devices
 
-- [[ENH Master unit]] - the ADAPTIVE ENHANCER: clarity, sub, footstep priority (bottom, black)
+- [[LEVEL CONTROL and OUTPUT MONITOR]] - the rack's working level (bottom) and what the rack does to
+  the track, with loudness and the DUCK readout (top)
+- [[ENH Master unit]] - the ADAPTIVE ENHANCER: clarity, sub, footstep priority (black)
 - [[SPECTRAL LIMITER unit]] - anti-pumping: cuts abnormal spectral excess where it is (1U, steel blue)
-- [[SERAPH unit]] - TONE & SPACE: tone & space sections, loudness hold (top, purple)
+- [[MIX BALANCER unit]] - rides six (or 28) band faders to keep the balance (4U)
+- [[SERAPH unit]] - TONE & SPACE: tone & space sections, loudness hold (under the monitor, purple)
 - The UPWARD LEVELER and ADAPTIVE COMPRESSOR are described in the README
 
 ## How it works inside

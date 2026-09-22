@@ -622,7 +622,11 @@ namespace pad::artwork
                 // The live readout along the bottom of the card (not a hover target: it changes)
                 auto* keep = registry;
                 registry = nullptr;
-                label (readout, 0.5f, 0.965f, 0.028f, juce::Justification::horizontallyCentred);
+                // Line 1 along the bottom (loudness); line 2, the DUCK readout, above the tone change
+                const auto lines = juce::StringArray::fromLines (readout);
+                label (lines[0], 0.5f, 0.965f, 0.028f, juce::Justification::horizontallyCentred);
+                if (lines.size() > 1)
+                    label (lines[1], 0.99f, 0.54f, 0.026f, juce::Justification::right);
                 registry = keep;
             }
         }

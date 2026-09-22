@@ -92,6 +92,7 @@ namespace enh::dsp
         /** The cuts as applied right now, headroom protection included. */
         std::array<Slot, numSlots> getSlots() const noexcept;
         float getBroadbandDb() const noexcept   { return broadbandDb; }   // >= 0, gain reduction
+        float getMakeupDb() const noexcept      { return makeupDb; }      // >= 0, the loudness keeper's lift
         float getDeepestCutDb() const noexcept;
         float getLocalisation() const noexcept  { return localised; }     // 1 = localised, 0 = broadband
 
@@ -123,6 +124,7 @@ namespace enh::dsp
             std::array<Target, numSlots> targets {};
             float localised = 1.0f;     // 1 = the excess is confined to a region
             bool abnormal = false;
+            std::array<float, numBands> powerK {}, usualK {};   // per band now / usually, ear-weighted (loudness keeper)
         };
 
         struct Svf
@@ -174,6 +176,18 @@ namespace enh::dsp
         std::array<float*, 2> keyPointers {};
         std::array<float, numSlots> extraDb {};        // headroom protection on top of the spectral cut
         float peakEnv = 0.0f, broadbandDb = 0.0f, broadbandGain = 1.0f, localised = 1.0f;
+        float makeupDb = 0.0f, makeupGain = 1.0f;          // the loudness keeper's lift
+        float keeperLostDb = 0.0f;                          // usual loudness the cuts take away (dB)
+        int keeperStep = 0;
+
+        /** Roughly how much a band counts toward loudness (the K-weighting's shape: little below 60 Hz,
+            +4 dB above 2 kHz), per unit of its power. */
+        static float loudnessWeight (int band) noexcept
+        {
+            const float f = (float) BandAnalyzer::centreHz (band);
+            const float lowCut = (f * f) / (f * f + 60.0f * 60.0f);
+            return lowCut * (1.0f + 1.5f * (f * f) / (f * f + 1500.0f * 1500.0f));
+        }
         float peakOutEnv = 0.0f, headroomFeedback = 0.0f;   // what is still over CEILING after the cuts
     };
 }

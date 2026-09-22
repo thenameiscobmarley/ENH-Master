@@ -57,6 +57,10 @@ namespace pad
         WaveformReader waveReader;
         juce::String levelReadout;
         double lastReadoutMs = 0.0;
+        // The DUCK readout: the deepest duck anywhere in the rack, held so it can be read
+        juce::String duckText;
+        float duckHeldDb = 0.0f;
+        double duckHeldMs = 0.0;
         void updateDisplayHistories (float dt);
         double lastScopeMs = 0.0;
         const bool demoScope = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_DEMO", {}).isNotEmpty();

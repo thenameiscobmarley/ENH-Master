@@ -1,11 +1,17 @@
 # 02 Your first sound
 
-Two units are racked on top of each other. Audio goes through the lower one first.
+Eight units are racked in a curved walnut case. Audio goes up through them, bottom to top.
 
 | | Unit | Job |
 |---|---|---|
-| bottom | [[ENH Master unit]] (black) | find what matters in the signal and make it audible: clarity, sub, footsteps |
-| top | [[SERAPH unit]] (purple) | make the result pleasant: texture, air, width, space |
+| 1 (bottom) | [[LEVEL CONTROL and OUTPUT MONITOR\|LEVEL CONTROL]] | how loud the whole rack runs |
+| 2 | [[ENH Master unit]] (black) | find what matters in the signal and make it audible: clarity, sub, footsteps |
+| 3 | UPWARD LEVELER | lift quiet detail, per band |
+| 4 | [[SPECTRAL LIMITER unit]] | cut a region that jumps out, where it is, so the mix doesn't duck |
+| 5 | [[MIX BALANCER unit]] | ride band faders to keep the balance |
+| 6 | ADAPTIVE COMPRESSOR | even out the level, threshold follows the programme |
+| 7 | [[SERAPH unit]] (purple) | make the result pleasant: texture, air, width, space |
+| 8 (top) | [[LEVEL CONTROL and OUTPUT MONITOR\|OUTPUT MONITOR]] | see what the rack is doing: in against out, loudness, who is ducking |
 
 ## Turn these first
 
@@ -36,7 +42,7 @@ They stack, so `MULTIPLY 2x` with `STRENGTH 2` is a lot. Details in [[Parameter 
 
 ## Signal safety
 
-TONE & SPACE ends in a limiter, so even MULTIPLY 3x with STRENGTH 5 on both units cannot clip the output.
+The rack ends in an output limiter at 0 dBFS, so even MULTIPLY 3x with STRENGTH 5 on both units cannot clip the output.
 It will sound wrong long before it clips - that is on you, not the plugin.
 
 Next: [[03 Tuning for footsteps]]

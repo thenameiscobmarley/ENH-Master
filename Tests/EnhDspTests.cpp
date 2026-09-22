@@ -1308,6 +1308,74 @@ namespace
             check (cut > -0.5f && other < 0.5f, "a louder mix overall is not a reason to move (balance, not loudness)");
         }
         {
+            // Loudness keeper: a 500 Hz burst (5-6 s) is taken down. Taking the burst away loses nothing, so
+            // nothing is made up while it lasts; once it stops, the fader is still letting go and holds the
+            // region below its usual level, and then the rest of the mix (a 4 kHz tone) is lifted so the
+            // whole does not sound quieter - by part of the loss, never more than 3 dB
+            auto run = [&] (bool burst, float& restDb, float& keepDb, float& cutDb, float& duringDb)
+            {
+                MixBalancer b;
+                b.prepare (sr, 2);
+                MixBalancer::Settings s;
+                s.active = true; s.amount = 0.8f; s.speed = 0.5f; s.rangeDb = 10.0f;
+                const int n = (int) (8.0 * sr);
+                std::vector<float> l ((size_t) n), in;
+                juce::Random rnd (3);
+                enh::dsp::BiquadCoeffs pink = enh::dsp::BiquadCoeffs::lowPass (sr, 3000.0, 0.5);
+                enh::dsp::BiquadState ps;
+                for (int i = 0; i < n; ++i)
+                {
+                    const double t = i / sr;
+                    l[(size_t) i] = ps.process (pink, rnd.nextFloat() * 2.0f - 1.0f) * 0.2f
+                                  + 0.03f * (float) std::sin (twoPi * 4000.0 * t)   // the rest of the mix, as a probe
+                                  + (burst && t > 5.0 && t < 6.0 ? 0.3f * (float) std::sin (twoPi * 500.0 * t) : 0.0f);
+                }
+                in = l;
+                auto r = l;
+                keepDb = 0.0f; cutDb = 0.0f; duringDb = 0.0f;
+                for (int pos = 0; pos < n; pos += 256)
+                {
+                    const int m = std::min (256, n - pos);
+                    float* ch[2] { l.data() + pos, r.data() + pos };
+                    b.process (ch, 2, m, s);
+                    if (std::getenv ("KEEP_DIAG") != nullptr && pos % 12288 == 0)
+                        std::printf ("   t %.2f keep %.2f gains %+.1f %+.1f %+.1f %+.1f %+.1f %+.1f\n", pos / sr, b.getMakeupDb(),
+                                     b.getGainDb (0), b.getGainDb (1), b.getGainDb (2), b.getGainDb (3), b.getGainDb (4), b.getGainDb (5));
+                    if (pos / sr > 5.3 && pos / sr < 5.95)
+                        duringDb = std::max (duringDb, b.getMakeupDb());
+                    if (pos / sr > 5.0)
+                    {
+                        keepDb = std::max (keepDb, b.getMakeupDb());
+                        cutDb = std::min (cutDb, b.getGainDb (2));
+                    }
+                }
+                // Output against input, in a band well away from the cut, over the second half of the burst
+                auto band = [&] (const std::vector<float>& x)
+                {
+                    auto c = enh::dsp::BiquadCoeffs::bandPass (sr, 4000.0, 8.0);
+                    enh::dsp::BiquadState a, a2;
+                    double e = 0.0;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float y = a2.process (c, a.process (c, x[(size_t) i]));
+                        if (i > (int) (6.05 * sr) && i < (int) (6.6 * sr)) e += (double) y * y;
+                    }
+                    return 10.0 * std::log10 (e + 1e-20);
+                };
+                restDb = (float) (band (l) - band (in));
+            };
+            float rest = 0.0f, keep = 0.0f, cut = 0.0f, during = 0.0f;
+            run (true, rest, keep, cut, during);
+            std::printf ("  loudness keeper: 500 Hz burst cut %.1f dB, keeper %.2f dB while it lasts; as the cut lets go the rest is lifted %+.2f dB (keeper up to %.2f dB)\n",
+                         cut, during, rest, keep);
+            check (cut < -2.0f && during < 0.3f, "taking a burst away is not made up (it was never part of the mix)");
+            check (rest > 0.3f && rest < 3.05f && keep <= 3.0f,
+                   "while a cut holds a region below its usual level the rest is lifted to hold the loudness, by at most 3 dB");
+            run (false, rest, keep, cut, during);
+            std::printf ("  loudness keeper, nothing cut: rest %+.2f dB, keeper %.2f dB\n", rest, keep);
+            check (std::abs (rest) < 0.3f && keep < 0.3f, "with nothing cut the keeper does nothing");
+        }
+        {
             // RESOLUTION at spectral: a narrow 2.5 kHz whistle is cut in its own third-octave, and an octave
             // either side hardly moves
             MixBalancer b;
