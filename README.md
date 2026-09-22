@@ -27,6 +27,20 @@ automation still load; only the names the host and the panels show have changed.
 (clarity, sub, footsteps and the analyser), UPWARD LEVELER, SPECTRAL LIMITER, MIX BALANCER, ADAPTIVE
 COMPRESSOR, TONE & SPACE, OUTPUT MONITOR.*
 
+## Version numbers
+
+From the release after 1.4.1, versions have four parts: **MASSIVE.BIG.SMALL.SMALL**.
+
+| Part | Goes up for | Example |
+|---|---|---|
+| 1st | massive changes (a rethink of the whole plugin) | **2**.0.0.0 |
+| 2nd | big changes (a new system or unit) | 1.**1**.4.1 |
+| 3rd | small changes | 1.1.**5**.1 |
+| 4th | small changes (fixes, tuning) | 1.1.4.**2** |
+
+In this scheme 1.4.1 reads as 1.0.4.1. The next release, 1.1.4.1, raises the 2nd part for a big change:
+the glass info panels and the swappable processing methods.
+
 ## Build
 
 The easy way is the builder script. It checks your tools and offers to download JUCE and
