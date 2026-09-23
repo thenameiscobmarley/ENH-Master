@@ -170,7 +170,13 @@ namespace pad::routing
             for (auto handle : app.handles)
             {
                 if (alreadyMoved (handle))
+                {
+                    // Moved, but not there (a move straight after the rack input was made can be lost,
+                    // and a program can move its own stream back): move it again. Already written down.
+                    if (backend.endpointOfHandle (handle) != rackInput && backend.moveApp (app, handle, rackInput))
+                        ++count;
                     continue;
+                }
 
                 // Record first, then move: the journal must never be behind what was done.
                 auto* m = new juce::DynamicObject();

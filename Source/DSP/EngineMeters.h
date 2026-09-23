@@ -68,6 +68,7 @@ namespace enh::dsp
         // Output limiter: spectral cut per region (low, low-mid, mid, high) and broadband (dB)
         std::array<std::atomic<float>, 4> outputRegionCutDb {};
         std::atomic<float> outputLimitDb { 0.0f };
+        std::atomic<float> targetGainDb { 0.0f };    // LOUDNESS TARGET's gain (0 when off)
         std::array<std::atomic<float>, 28> silkDipDb {};
     };
 }

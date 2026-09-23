@@ -1238,9 +1238,9 @@ namespace lab
         if (input.getNumSamples() == 0) { std::printf ("no input\n"); return; }
         job.out.createDirectory();
 
-        struct Row { float t; std::array<float, 27> v {}; };
+        struct Row { float t; std::array<float, 28> v {}; };
         struct Col { const char* name; juce::Colour colour; bool inPicture; };
-        const std::array<Col, 27> cols {{
+        const std::array<Col, 28> cols {{
             { "LEVELER low",      juce::Colour (0xffc8a060), true },
             { "LEVELER mid",      juce::Colour (0xffe0c080), true },
             { "LEVELER high",     juce::Colour (0xfff0e0b0), true },
@@ -1258,6 +1258,7 @@ namespace lab
             { "TONE&SPACE dip",   juce::Colour (0xffd0b0ff), false },
             { "OUT LIMITER",      juce::Colour (0xffff5040), true },
             { "ENH auto gain",    juce::Colour (0xffe8a33c), true },
+            { "LOUDNESS TARGET",  juce::Colour (0xff90f0ff), true },
             { "ENH sub lift",     juce::Colour (0xff5a7cff), false },
             { "footstep conf",    juce::Colour (0xff60ff90), false },
             { "DEEP SUB out",     juce::Colour (0xff5a7cff), false },
@@ -1300,12 +1301,13 @@ namespace lab
                 row.v[14] = -std::abs (m.silkSmoothingDb.load());
                 row.v[15] = -std::abs (m.outputLimitDb.load());
                 row.v[16] = m.autoGainDb.load();
-                row.v[17] = m.subLiftDb.load();
-                row.v[18] = m.footstepConfidence.load();
-                row.v[19] = m.deepGeneratedDb.load();
-                for (int b = 0; b < 3; ++b) row.v[(size_t) (20 + b)] = m.lumenLevelDb[(size_t) b].load();
+                row.v[17] = m.targetGainDb.load();
+                row.v[18] = m.subLiftDb.load();
+                row.v[19] = m.footstepConfidence.load();
+                row.v[20] = m.deepGeneratedDb.load();
+                for (int b = 0; b < 3; ++b) row.v[(size_t) (21 + b)] = m.lumenLevelDb[(size_t) b].load();
                 const auto& lum = engine.getLeveler().getReadout();
-                row.v[23] = lum.loudDb[1]; row.v[24] = lum.floorDb[1]; row.v[25] = lum.gate[1]; row.v[26] = lum.wantedDb[1];
+                row.v[24] = lum.loudDb[1]; row.v[25] = lum.floorDb[1]; row.v[26] = lum.gate[1]; row.v[27] = lum.wantedDb[1];
                 rows.push_back (row);
             }
         }

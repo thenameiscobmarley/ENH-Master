@@ -110,8 +110,8 @@ namespace pad::routing
 
         bool isInserted() const { return journal.isObject(); }
 
-        /** While inserted: moves any new stream of a chosen app (or, on Linux, of any app that
-            followed the default, in whole-system mode) into the rack. Returns how many moved. */
+        /** While inserted (chosen apps): moves any new stream of a chosen app into the rack, and any
+            stream moved earlier that is no longer there back into it. Returns how many moved. */
         int followNewStreams();
 
         /** A journal left behind by a run that did not finish: undo it. Returns a line for the user,

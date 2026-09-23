@@ -1,5 +1,9 @@
 #include "RouterBar.h"
 
+#if JUCE_WINDOWS
+ #include <juce_core/juce_core.h>
+#endif
+
 namespace pad
 {
     namespace
@@ -125,7 +129,8 @@ namespace pad
 
     //==============================================================================
     RouterBar::RouterBar (juce::AudioDeviceManager& deviceManager, std::function<void (bool)> setInputMuted,
-                          juce::PropertySet* settings, std::function<void()> showAudioSettings)
+                          juce::PropertySet* settings, std::function<void()> showAudioSettings,
+                          juce::AudioProcessor* rack)
         : devices (deviceManager),
           setMuted (std::move (setInputMuted)),
           props (settings),
@@ -135,7 +140,8 @@ namespace pad
           look (std::make_unique<Look>()),
           sourceBox (std::make_unique<RefreshingCombo>()),
           rackInputBox (std::make_unique<RefreshingCombo>()),
-          listenBox (std::make_unique<RefreshingCombo>())
+          listenBox (std::make_unique<RefreshingCombo>()),
+          levelBox (std::make_unique<RefreshingCombo>())
     {
         setLookAndFeel (look.get());
         setOpaque (true);
@@ -155,6 +161,27 @@ namespace pad
             c->beforePopup = [this] { if (! router.isInserted()) refreshLists(); };
             c->onChange = [this] { saveChoices(); updateControls(); };
         }
+
+        // LEVEL: the rack's LOUDNESS TARGET (OUTPUT MONITOR's panel), here too because it is what a
+        // router wants most: every app and game at one loudness
+        if (rack != nullptr)
+            for (auto* p : rack->getParameters())
+                if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (p); ranged != nullptr && ranged->getParameterID() == "outputTarget")
+                    targetParam = ranged;
+
+        levelBox->addItem ("As it is", 1);
+        levelBox->addItem ("-23 LUFS (quiet)", 2);
+        levelBox->addItem ("-18 LUFS (even)", 3);
+        levelBox->addItem ("-14 LUFS (loud)", 4);
+        levelBox->setTooltip ("LOUDNESS TARGET: bring everything that goes through the rack to one loudness, so games, music "
+                              "and calls come out equally loud. Moves slowly and holds through explosions and pauses.");
+        levelBox->onChange = [this]
+        {
+            if (targetParam != nullptr)
+                targetParam->setValueNotifyingHost (targetParam->convertTo0to1 ((float) (levelBox->getSelectedId() - 1)));
+        };
+        levelBox->setVisible (targetParam != nullptr);
+        addChildComponent (*levelBox);
 
         insertButton.setComponentID ("insert");
         insertButton.setClickingTogglesState (false);
@@ -206,7 +233,9 @@ namespace pad
                     safe->insertRack();
             });
 
-        startTimer (1000);
+        inMeter = devices.getInputLevelGetter();
+        outMeter = devices.getOutputLevelGetter();
+        startTimerHz (20);
     }
 
     RouterBar::~RouterBar()
@@ -568,6 +597,9 @@ namespace pad
 
         const bool autoInsert = props != nullptr && props->getBoolValue ("router.autoInsert", false);
         m.addItem (1, "Insert the rack when ENH Master starts", props != nullptr, autoInsert);
+        m.addItem (4, "Closing the window with the rack in keeps it running (tray icon)", props != nullptr,
+                   props == nullptr || props->getBoolValue ("router.closeToTray", true));
+        m.addItem (5, "Start with the computer (in the tray, rack in)", true, isStartingWithComputer());
         m.addItem (2, "Refresh devices and apps", ! router.isInserted());
         m.addSeparator();
         m.addItem (3, "Audio device settings (advanced)...", ! router.isInserted());
@@ -576,6 +608,22 @@ namespace pad
                          [this, autoInsert] (int chosen)
                          {
                              if (chosen == 1 && props != nullptr) props->setValue ("router.autoInsert", ! autoInsert);
+                             if (chosen == 5)
+                             {
+                                 const bool want = ! isStartingWithComputer();
+                                 if (setStartingWithComputer (want))
+                                 {
+                                     if (want && props != nullptr)
+                                         props->setValue ("router.autoInsert", true);   // starting in the tray is for the rack being in
+                                     setStatus (want ? "ENH Master will start with the computer, in the tray, with the rack in."
+                                                     : "ENH Master will no longer start with the computer.");
+                                 }
+                                 else
+                                 {
+                                     setStatus ("Could not change the start-up setting.", true);
+                                 }
+                             }
+                             if (chosen == 4 && props != nullptr) props->setValue ("router.closeToTray", ! props->getBoolValue ("router.closeToTray", true));
                              if (chosen == 2) refreshLists();
                              if (chosen == 3 && openAudioSettings) openAudioSettings();
                          });
@@ -585,28 +633,66 @@ namespace pad
     {
         ++tick;
 
-        // Our own capture must stay on the rack input. If it has slipped (the device was reopened, a
-        // sound server restart), deafen the rack until it is back.
+        // Meters: what reaches the rack, and what it plays (20 times a second, falling gently)
+        const auto in = (float) inMeter->getCurrentLevel();
+        const auto out = (float) outMeter->getCurrentLevel();
+        const auto newIn = std::max (in, inLevel * 0.85f), newOut = std::max (out, outLevel * 0.85f);
+        if (std::abs (newIn - inLevel) > 0.002f || std::abs (newOut - outLevel) > 0.002f)
+        {
+            inLevel = newIn;
+            outLevel = newOut;
+            repaint (getLocalBounds().removeFromBottom (22));
+        }
+
+        // LEVEL follows the rack's own setting (it can be changed in its panel too)
+        if (targetParam != nullptr && tick % 5 == 0)
+        {
+            const int id = juce::roundToInt (targetParam->convertFrom0to1 (targetParam->getValue())) + 1;
+            if (id != levelBox->getSelectedId())
+                levelBox->setSelectedId (id, juce::dontSendNotification);
+        }
+
+        if (tick % 20 != 0)
+            return;
+
+        // Once a second. Our own capture must stay on the rack input. If it has slipped (the device
+        // was reopened, a sound server restart), deafen the rack until it is back.
         if (router.isInserted())
         {
             const auto plan = currentPlan();
-            const auto rack = rackInputInUse;
 
-            if (! backend->ownStreamsConnected (rack, plan.listenId))
+            // The listening device went away (a headset unplugged) or the audio stopped: the audio
+            // would sit on the rack input with nobody hearing it - and on Linux our output would fall
+            // back to the default device, which is the rack input: a loop. Take the rack out.
+            const auto outputsNow = backend->outputs();
+            const bool listenStillThere = std::any_of (outputsNow.begin(), outputsNow.end(),
+                                                       [&] (const routing::Endpoint& e) { return e.id == plan.listenId; });
+            auto* device = devices.getCurrentAudioDevice();
+
+            if (! listenStillThere || device == nullptr || ! device->isPlaying())
+            {
+                const auto why = ! listenStillThere ? nameOfEndpoint (plan.listenId) + " went away"
+                                                    : juce::String ("the audio device stopped");
+                removeRack();
+                setStatus ("Rack out: " + why + ". Your audio is back where it was.", true);
+                return;
+            }
+
+            if (! backend->ownStreamsConnected (rackInputInUse, plan.listenId))
             {
                 setMuted (true);
 
-                if (backend->connectOwnStreams (rack, plan.listenId))
+                if (backend->connectOwnStreams (rackInputInUse, plan.listenId))
                     setMuted (false);
                 else
                     setStatus ("Rack in, but its audio lost its connection. Muted until it is back.", true);
             }
-        }
 
-        // Apps that start (or open a new stream) while the rack is in follow the others into it.
-        if (router.isInserted() && currentPlan().source == routing::Plan::Source::chosenApps && tick % 2 == 0)
-            if (auto n = router.followNewStreams(); n > 0)
-                setStatus ("Rack in. Moved " + juce::String (n) + " new stream" + (n == 1 ? "" : "s") + " into it.");
+            // Apps that start (or open a new stream) while the rack is in follow the others into it.
+            if (plan.source == routing::Plan::Source::chosenApps && tick % 40 == 0)
+                if (auto n = router.followNewStreams(); n > 0)
+                    setStatus ("Rack in. Moved " + juce::String (n) + " new stream" + (n == 1 ? "" : "s") + " into it.");
+        }
 
         // Reap finished watchdogs (asking is what collects them).
         watchdogs.erase (std::remove_if (watchdogs.begin(), watchdogs.end(),
@@ -635,6 +721,7 @@ namespace pad
         caption (*sourceBox, "SOURCE");
         caption (*rackInputBox, "RACK INPUT");
         caption (*listenBox, "LISTEN ON");
+        caption (*levelBox, "LEVEL");
 
         // The lamp on the insert button's left: dark when out, warm when in.
         auto b = insertButton.getBounds().toFloat();
@@ -647,9 +734,28 @@ namespace pad
             g.fillEllipse (lampArea.expanded (3.0f));
         }
 
+        // IN / OUT meters on the right of the status line (dB scale, -60 .. 0)
+        auto meterRow = juce::Rectangle<int> (getWidth() - 12 - 200, getHeight() - 17, 200, 10);
+        auto meter = [&] (juce::Rectangle<int> r, const char* label, float level)
+        {
+            g.setFont (uiFont (9.5f, true));
+            g.setColour (faintInk);
+            g.drawText (label, r.removeFromLeft (28), juce::Justification::centredLeft, false);
+            const auto bar = r.toFloat().reduced (0.0f, 2.0f);
+            g.setColour (fieldFill);
+            g.fillRect (bar);
+            const float db = juce::Decibels::gainToDecibels (level, -60.0f);
+            const float fill = juce::jlimit (0.0f, 1.0f, (db + 60.0f) / 60.0f);
+            g.setColour (db > -1.0f ? problem : amber.withAlpha (0.85f));
+            g.fillRect (bar.withWidth (bar.getWidth() * fill));
+        };
+        meter (meterRow.removeFromLeft (96), "IN", inLevel);
+        meterRow.removeFromLeft (8);
+        meter (meterRow, "OUT", outLevel);
+
         g.setFont (uiFont (11.5f));
         g.setColour (statusIsProblem ? problem : faintInk);
-        g.drawText (status, 12, getHeight() - 20, getWidth() - 24, 16, juce::Justification::centredLeft, true);
+        g.drawText (status, 12, getHeight() - 20, getWidth() - 24 - 212, 16, juce::Justification::centredLeft, true);
     }
 
     void RouterBar::resized()
@@ -661,6 +767,12 @@ namespace pad
         row.removeFromRight (8);
         insertButton.setBounds (row.removeFromRight (juce::jlimit (120, 170, getWidth() / 6)));
         row.removeFromRight (24);   // room for the lamp
+
+        if (levelBox->isVisible())
+        {
+            levelBox->setBounds (row.removeFromRight (juce::jlimit (96, 140, getWidth() / 8)));
+            row.removeFromRight (10);
+        }
 
         sourceBox->setBounds (row.removeFromLeft (juce::jlimit (110, 140, row.getWidth() / 5)));
         row.removeFromLeft (6);
@@ -675,5 +787,52 @@ namespace pad
         rackInputBox->setBounds (row.removeFromLeft (half));
         row.removeFromLeft (10);
         listenBox->setBounds (row);
+    }
+
+    //==============================================================================
+    namespace
+    {
+        juce::String startCommand()
+        {
+            return "\"" + juce::File::getSpecialLocation (juce::File::currentExecutableFile).getFullPathName() + "\" "
+                   + RouterBar::backgroundArgument;
+        }
+
+       #if JUCE_WINDOWS
+        const juce::String runKey = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\ENH Master";
+       #else
+        juce::File autostartFile()
+        {
+            return juce::File::getSpecialLocation (juce::File::userHomeDirectory).getChildFile (".config/autostart/enh-master.desktop");
+        }
+       #endif
+    }
+
+    bool RouterBar::isStartingWithComputer()
+    {
+       #if JUCE_WINDOWS
+        return juce::WindowsRegistry::valueExists (runKey);
+       #else
+        return autostartFile().existsAsFile();
+       #endif
+    }
+
+    bool RouterBar::setStartingWithComputer (bool shouldStart)
+    {
+       #if JUCE_WINDOWS
+        if (shouldStart)
+            return juce::WindowsRegistry::setValue (runKey, startCommand());
+        juce::WindowsRegistry::deleteValue (runKey);
+        return ! isStartingWithComputer();
+       #else
+        auto f = autostartFile();
+        if (! shouldStart)
+            return ! f.exists() || f.deleteFile();
+
+        f.getParentDirectory().createDirectory();
+        return f.replaceWithText ("[Desktop Entry]\nType=Application\nName=ENH Master\n"
+                                  "Comment=The ENH Master rack, in the tray, with the rack in\n"
+                                  "Exec=" + startCommand() + "\nX-GNOME-Autostart-enabled=true\nTerminal=false\n");
+       #endif
     }
 }

@@ -70,6 +70,15 @@ namespace
                 return true;
         return false;
     }
+
+    /** The sound server removes a sink a moment after it is asked to (longer when the machine is busy). */
+    bool sinkGone (Backend& b, const juce::String& id)
+    {
+        for (int i = 0; i < 40; ++i, juce::Thread::sleep (50))
+            if (! sinkExists (b, id))
+                return true;
+        return false;
+    }
 }
 
 int main()
@@ -118,13 +127,15 @@ int main()
         const bool inserted = router.insert (plan, rack.id, token);
         check (inserted, "insert " + router.getLastError());
         check (router.getJournalFile().existsAsFile(), "the journal is written");
+        // As the app does: every so often, follow (and re-check) the chosen apps' streams
+        for (int i = 0; i < 20 && sinkOfApp (*backend, key) != rack.id; ++i, juce::Thread::sleep (100))
+            router.followNewStreams();
         check (sinkOfApp (*backend, key) == rack.id, "the stream plays to the rack input (" + sinkOfApp (*backend, key) + ")");
 
         const bool removed = router.remove();
         check (removed, "remove " + router.getLastError());
         check (sinkOfApp (*backend, key) == before, "the stream is back on " + before + " (" + sinkOfApp (*backend, key) + ")");
-        juce::Thread::sleep (200);
-        check (! sinkExists (*backend, rack.id), "the rack input is gone again");
+        check (sinkGone (*backend, rack.id), "the rack input is gone again");
         check (! router.getJournalFile().existsAsFile(), "the journal is gone");
     }
 
@@ -141,8 +152,7 @@ int main()
         const bool removed = router.remove();
         check (removed, "remove " + router.getLastError());
         check (backend->defaultOutput() == originalDefault, "the default device is back (" + backend->defaultOutput() + ")");
-        juce::Thread::sleep (200);
-        check (! sinkExists (*backend, rack.id), "the rack input is gone again");
+        check (sinkGone (*backend, rack.id), "the rack input is gone again");
     }
 
     {
@@ -170,8 +180,7 @@ int main()
         check (report.isNotEmpty(), "the next start noticed: " + report);
         check (backend->defaultOutput() == originalDefault, "the default device is back");
         check (! leftover.existsAsFile(), "the leftover journal is gone");
-        juce::Thread::sleep (200);
-        check (! sinkExists (*backend, rack.id), "the leftover rack input is gone");
+        check (sinkGone (*backend, rack.id), "the leftover rack input is gone");
     }
 
     {
@@ -199,8 +208,7 @@ int main()
 
         check (backend->defaultOutput() == originalDefault, "the watchdog put the default device back");
         check (! journal.existsAsFile(), "the watchdog removed the journal");
-        juce::Thread::sleep (200);
-        check (! sinkExists (*backend, rack.id), "the watchdog removed the rack input");
+        check (sinkGone (*backend, rack.id), "the watchdog removed the rack input");
     }
 
     // Whatever happened above: leave the machine as it was.

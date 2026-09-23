@@ -39,7 +39,7 @@ namespace enh::dsp::methods
         enhancerHarmonics,
         seraphTape, seraphPreDelay, seraphWindow,
         levelGlide,
-        outputCeiling,
+        outputCeiling, outputTarget,
         displayToneRange, displayDuckHold, displayWaveform,
         deepShape, deepTracking, deepMaterial,
         numMethodIds,
@@ -387,6 +387,24 @@ namespace enh::dsp::methods
           "Room for lossy encoding and sample-rate conversion to overshoot without clipping.",
           "3 ms lookahead, unchanged. Glides with the limiter's release." },
     }};
+    inline constexpr std::array<Method, 4> outputTargetMethods {{
+        { "OFF", "No target",
+          "Nothing: what leaves the rack is as loud as the units made it.",
+          "The original. A quiet game stays quiet and a loud song stays loud.",
+          "No cost (default)." },
+        { "23", "-23 LUFS",
+          "Its own input's loudness (K-weighted, 3 s), and a gain that brings it to -23 LUFS: slowly, holding through bursts and pauses, 12 dB at most either way.",
+          "Everything comes out at one quiet, broadcast level: films, games and voice calls sit together, with lots of room for peaks. For late nights and wide dynamics.",
+          "No latency. One K-weighting filter pair per channel." },
+        { "18", "-18 LUFS",
+          "The same, to -18 LUFS.",
+          "One comfortable level for everything: a game, a song and a call come out equally loud, and explosions still stand out above it.",
+          "No latency. One K-weighting filter pair per channel." },
+        { "14", "-14 LUFS",
+          "The same, to -14 LUFS (the level streaming services play music at).",
+          "Loud and even: quiet games are brought right up. The output limiter works harder on material with big peaks.",
+          "No latency. One K-weighting filter pair per channel." },
+    }};
     inline constexpr std::array<Method, 3> displayToneRangeMethods {{
         { "12", "+-12 dB",
           "The red tone-change curve spans +-12 dB.",
@@ -509,8 +527,9 @@ namespace enh::dsp::methods
     inline constexpr std::array<Stage, 1> levelStages {{
         { "LEVEL CONTROL", 5, "PROCESSING", "GLIDE", "How fast LEVEL moves", "levelGlide", levelGlide, "", levelGlideMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 4> monitorStages {{
+    inline constexpr std::array<Stage, 5> monitorStages {{
         { "OUTPUT MONITOR", 7, "OUTPUT", "CEILING", "The output limiter's ceiling", "outputCeiling", outputCeiling, "", outputCeilingMethods.data(), 3 },
+        { "OUTPUT MONITOR", 7, "OUTPUT", "LOUDNESS TARGET", "How loud everything leaves the rack", "outputTarget", outputTarget, "", outputTargetMethods.data(), 4 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "TONE RANGE", "The tone-change curve's scale", "displayToneRange", displayToneRange, "", displayToneRangeMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "DUCK HOLD", "How long DUCK holds a reading", "displayDuckHold", displayDuckHold, "", displayDuckHoldMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "WAVEFORM", "What each waveform column shows", "displayWaveform", displayWaveform, "", displayWaveformMethods.data(), 2 },

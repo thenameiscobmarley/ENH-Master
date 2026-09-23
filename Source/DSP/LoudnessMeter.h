@@ -6,6 +6,27 @@
 
 namespace enh::dsp
 {
+    /** K-weighting for any sample rate: the analogue prototypes of BS.1770, as libebur128 derives them. */
+    inline void kWeighting (double sr, BiquadCoeffs& pre, BiquadCoeffs& rlb) noexcept
+    {
+        constexpr double pi = 3.14159265358979323846;
+        {
+            const double f0 = 1681.974450955533, G = 3.999843853973347, Q = 0.7071752369554196;
+            const double K = std::tan (pi * f0 / sr);
+            const double Vh = std::pow (10.0, G / 20.0), Vb = std::pow (Vh, 0.4996667741545416);
+            const double a0 = 1.0 + K / Q + K * K;
+            pre = { (float) ((Vh + Vb * K / Q + K * K) / a0), (float) (2.0 * (K * K - Vh) / a0),
+                    (float) ((Vh - Vb * K / Q + K * K) / a0), (float) (2.0 * (K * K - 1.0) / a0),
+                    (float) ((1.0 - K / Q + K * K) / a0) };
+        }
+        {
+            const double f0 = 38.13547087602444, Q = 0.5003270373238773;
+            const double K = std::tan (pi * f0 / sr);
+            const double a0 = 1.0 + K / Q + K * K;
+            rlb = { 1.0f, -2.0f, 1.0f, (float) (2.0 * (K * K - 1.0) / a0), (float) ((1.0 - K / Q + K * K) / a0) };
+        }
+    }
+
     /** Loudness to ITU-R BS.1770-4 / EBU R128: K-weighted, in LUFS.
 
           momentary   400 ms sliding window
@@ -83,25 +104,7 @@ namespace enh::dsp
         float getTruePeakDb() const noexcept     { return 20.0f * std::log10 (std::max (1.0e-6f, truePeak)); }
 
     private:
-        // K-weighting for any sample rate (the analogue prototypes of BS.1770, as libebur128 derives them)
-        void designKWeighting()
-        {
-            {
-                const double f0 = 1681.974450955533, G = 3.999843853973347, Q = 0.7071752369554196;
-                const double K = std::tan (pi * f0 / sr);
-                const double Vh = std::pow (10.0, G / 20.0), Vb = std::pow (Vh, 0.4996667741545416);
-                const double a0 = 1.0 + K / Q + K * K;
-                preCoeffs = { (float) ((Vh + Vb * K / Q + K * K) / a0), (float) (2.0 * (K * K - Vh) / a0),
-                              (float) ((Vh - Vb * K / Q + K * K) / a0), (float) (2.0 * (K * K - 1.0) / a0),
-                              (float) ((1.0 - K / Q + K * K) / a0) };
-            }
-            {
-                const double f0 = 38.13547087602444, Q = 0.5003270373238773;
-                const double K = std::tan (pi * f0 / sr);
-                const double a0 = 1.0 + K / Q + K * K;
-                rlbCoeffs = { 1.0f, -2.0f, 1.0f, (float) (2.0 * (K * K - 1.0) / a0), (float) ((1.0 - K / Q + K * K) / a0) };
-            }
-        }
+        void designKWeighting() { kWeighting (sr, preCoeffs, rlbCoeffs); }
 
         // 4x interpolator: 4 phases x 12 taps, Kaiser-windowed sinc (passband to 20 kHz at 48 kHz)
         static constexpr int phases = 4, taps = 12;

@@ -109,6 +109,8 @@ namespace pad
         WindowVisibility windowVisibility;
         bool renderingActive = true;
         int visibilityCountdown = 0;
+        bool backgroundPaced = false;   // visible, but another app has the focus: 10 frames a second
+        int backgroundTick = 0;
         const bool logPausing = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STATS", {}).isNotEmpty();
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HardwareView)

@@ -601,10 +601,27 @@ namespace pad
         const bool visible = isShowing() && peer != nullptr && ! peer->isMinimised()
                              && windowVisibility.isVisible ((unsigned long) shared.nativeWindow.load());
 
+        // Visible but not in front (a game has the focus, the rack sits behind it): the meters still
+        // move, at 10 frames a second from the timer instead of every vsync. Nobody is looking closely,
+        // and the rack stops costing a third of a core while a game is running.
+        static const bool forceBackground = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_BACKGROUND", {}) == "1";
+        const bool background = visible && (forceBackground || ! juce::Process::isForegroundProcess());
+
+        if (visible && background != backgroundPaced)
+        {
+            backgroundPaced = background;
+            if (renderingActive)
+                glContext.setContinuousRepainting (! backgroundPaced);
+            if (! backgroundPaced)
+                glContext.triggerRepaint();
+            if (logPausing)
+                std::fprintf (stderr, "[enh-stats] rendering %s\n", backgroundPaced ? "at 10 fps (in the background)" : "every frame (in front)");
+        }
+
         if (visible != renderingActive)
         {
             renderingActive = visible;
-            glContext.setContinuousRepainting (visible);
+            glContext.setContinuousRepainting (visible && ! backgroundPaced);
 
             if (visible)
             {
@@ -806,6 +823,9 @@ namespace pad
         publishWindowGeometry();
         if (! updateRenderingState())
             return;   // paused: no GL frames, no overlay or callout work
+
+        if (backgroundPaced && ++backgroundTick % 3 == 0)
+            glContext.triggerRepaint();   // 30 Hz timer / 3
 
         refreshOverlay();
         updateCallout();

@@ -16,6 +16,7 @@
 #include "SpectralLimiter.h"
 #include "SpectrumScope.h"
 #include "FinalLimiter.h"
+#include "LoudnessTarget.h"
 #include "LoudnessMeter.h"
 #include "MixBalancer.h"
 #include "EngineMeters.h"
@@ -121,6 +122,7 @@ namespace enh::dsp
         EngineMeters meters;
 
         /** The one output limiter: lookahead, holds through a bass cycle, never wobbles inside one. */
+        LoudnessTarget target;   // LOUDNESS TARGET, just before the output limiter
         FinalLimiter output;
 
         double sampleRate = 48000.0;

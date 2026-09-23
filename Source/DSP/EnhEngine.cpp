@@ -24,6 +24,7 @@ namespace enh::dsp
         balancer.prepare (sr, numChannels);
         deep.prepare (sr);
         output.prepare (sr);
+        target.prepare (sr);
         loudness.prepare (sr);
         reset();
     }
@@ -49,6 +50,7 @@ namespace enh::dsp
         samplesToTick = controlInterval;
         planCountdown = 0;
         output.reset();
+        target.reset();
         transient = 0.0f;
 
         for (auto& g : meters.bandGainDb) g = 0.0f;
@@ -145,6 +147,7 @@ namespace enh::dsp
         for (int r = 0; r < FinalLimiter::numRegions; ++r)
             meters.outputRegionCutDb[(size_t) r].store (output.getRegionCutDb()[(size_t) r], std::memory_order_relaxed);
         meters.outputLimitDb.store (output.getReductionDb(), std::memory_order_relaxed);
+        meters.targetGainDb.store (target.getGainDb(), std::memory_order_relaxed);
 
         const auto& comp = tide.getReadout();
         meters.tideGrDb.store (comp.gainReductionDb, std::memory_order_relaxed);
@@ -269,7 +272,8 @@ namespace enh::dsp
         tide.process (chunk, chans, n, p.tide, p.limiter.active ? limiter.key() : nullptr);
         seraph.process (chunk, chans, n, p.seraph);
 
-        // The output limiter: full scale is looked after here, once, cleanly
+        // LOUDNESS TARGET, then the output limiter: full scale is looked after here, once, cleanly
+        target.process (chunk, chans, n, p.methods[(size_t) methods::outputTarget]);
         output.setCeilingMethod (p.methods[(size_t) methods::outputCeiling]);
         output.process (chunk, chans, n);
     }

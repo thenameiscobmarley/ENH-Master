@@ -288,6 +288,17 @@ OUTPUT. Parameter `outputCeiling`.
 | **0.3** -0.3 dBFS | Ceiling 0.3 dB under full scale. | A little safety for converters and players that clip slightly early. | 3 ms lookahead, unchanged. Glides with the limiter's release. |
 | **1.0** -1.0 dBFS | Ceiling 1 dB under full scale, the usual target for streaming and encoded files. | Room for lossy encoding and sample-rate conversion to overshoot without clipping. | 3 ms lookahead, unchanged. Glides with the limiter's release. |
 
+### LOUDNESS TARGET - How loud everything leaves the rack
+
+OUTPUT. Parameter `outputTarget`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **OFF** No target (default) | Nothing: what leaves the rack is as loud as the units made it. | The original. A quiet game stays quiet and a loud song stays loud. | No cost (default). |
+| **23** -23 LUFS | Its own input's loudness (K-weighted, 3 s), and a gain that brings it to -23 LUFS: slowly, holding through bursts and pauses, 12 dB at most either way. | Everything comes out at one quiet, broadcast level: films, games and voice calls sit together, with lots of room for peaks. For late nights and wide dynamics. | No latency. One K-weighting filter pair per channel. |
+| **18** -18 LUFS | The same, to -18 LUFS. | One comfortable level for everything: a game, a song and a call come out equally loud, and explosions still stand out above it. | No latency. One K-weighting filter pair per channel. |
+| **14** -14 LUFS | The same, to -14 LUFS (the level streaming services play music at). | Loud and even: quiet games are brought right up. The output limiter works harder on material with big peaks. | No latency. One K-weighting filter pair per channel. |
+
 ### TONE RANGE - The tone-change curve's scale
 
 DISPLAY. Parameter `displayToneRange`.

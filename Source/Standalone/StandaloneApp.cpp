@@ -50,7 +50,8 @@ namespace juce
                        h.getMuteInputValue() = muted;       // and for the holder's saved settings
                    },
                    h.settings.get(),
-                   [&h] { h.showAudioSettingsDialog(); })
+                   [&h] { h.showAudioSettingsDialog(); },
+                   h.processor.get())
         {
             addAndMakeVisible (bar);
 
@@ -106,6 +107,93 @@ namespace juce
     };
 
     //==============================================================================
+    /** The rack's tray icon, while the window is closed with the rack in: click to bring the window
+        back, right-click for a menu. */
+    class EnhTrayIcon final : public SystemTrayIconComponent
+    {
+    public:
+        std::function<void()> onShow;
+        std::function<void (PopupMenu&)> fillMenu;
+
+        EnhTrayIcon()
+        {
+            const auto icon = drawIcon();
+            setIconImage (icon, icon);
+            setIconTooltip ("ENH Master");
+        }
+
+        void mouseDown (const MouseEvent& e) override
+        {
+            if (e.mods.isPopupMenu() && fillMenu)
+            {
+                PopupMenu m;
+                fillMenu (m);
+                m.showMenuAsync (PopupMenu::Options());
+            }
+            else if (onShow)
+            {
+                onShow();
+            }
+        }
+
+    private:
+        /** Three rack units in a dark case, the middle one lit: drawn here, so no image file is needed. */
+        static Image drawIcon()
+        {
+            Image img (Image::ARGB, 64, 64, true);
+            Graphics g (img);
+            g.setColour (Colour (0xff17130f));
+            g.fillRoundedRectangle (4.0f, 4.0f, 56.0f, 56.0f, 8.0f);
+            for (int u = 0; u < 3; ++u)
+            {
+                const auto y = 13.0f + (float) u * 14.0f;
+                g.setColour (u == 1 ? Colour (0xffe0a84a) : Colour (0xff8a8279));
+                g.fillRect (12.0f, y, 40.0f, 9.0f);
+            }
+            return img;
+        }
+    };
+
+    /** One router at a time: starting ENH Master again shows the window that is already running (which
+        may be hidden in the tray) instead of a second copy moving the same audio about. The watchdog
+        is a second copy on purpose and never gets here. */
+    class EnhInstanceLink final : public InterprocessConnection
+    {
+    public:
+        explicit EnhInstanceLink (bool callbacksOnMessageThread = true)
+            : InterprocessConnection (callbacksOnMessageThread) {}
+
+        std::function<void()> onShowRequested;
+        bool isServer = false;
+        WaitableEvent answered;   // the probe's: the running copy said it heard
+
+        static String pipeName() { return "ENH-Master-router-" + SystemStats::getLogonName(); }
+
+        void connectionMade() override {}
+
+        void connectionLost() override
+        {
+            // A pipe serves one caller: open it again for the next one
+            if (isServer)
+                MessageManager::callAsync ([this] { createPipe (pipeName(), -1, false); });
+        }
+
+        void messageReceived (const MemoryBlock& m) override
+        {
+            if (m.toString() == "show")
+            {
+                sendMessage (MemoryBlock ("ok", 2));
+                if (onShowRequested)
+                    onShowRequested();
+            }
+            else if (m.toString() == "ok")
+            {
+                answered.signal();
+            }
+        }
+    };
+
+    //==============================================================================
     class EnhRouterWindow final : public DocumentWindow
     {
     public:
@@ -128,7 +216,8 @@ namespace juce
             holder->getMuteInputValue() = true;
 
             setUsingNativeTitleBar (true);
-            setContentOwned (new EnhRouterContent (*holder), true);
+            content = new EnhRouterContent (*holder);
+            setContentOwned (content, true);
             setResizable (true, false);
             setResizeLimits (560, 320 + pad::RouterBar::preferredHeight, 2560, 1600 + pad::RouterBar::preferredHeight);
 
@@ -139,6 +228,14 @@ namespace juce
                 setTopLeftPosition (x, y);
             else
                 centreWithSize (getWidth(), getHeight());
+
+            // Dev-only: PAD_UI_TEST_CLOSE=<seconds> presses the close button then
+            if (const auto closeAt = SystemStats::getEnvironmentVariable ("PAD_UI_TEST_CLOSE", {}).getDoubleValue(); closeAt > 0.0)
+                Timer::callAfterDelay ((int) (closeAt * 1000.0), [safe = Component::SafePointer<EnhRouterWindow> (this)]
+                {
+                    if (safe != nullptr)
+                        safe->closeButtonPressed();
+                });
         }
 
         ~EnhRouterWindow() override
@@ -154,15 +251,62 @@ namespace juce
             holder = nullptr;
         }
 
+        /** Closing with the rack in keeps it in: the window goes (and with it every frame the rack was
+            drawing) and a tray icon stays. Closing with the rack out quits. */
         void closeButtonPressed() override
         {
-            JUCEApplication::getInstance()->systemRequestedQuit();
+            auto* props = holder->settings.get();
+            const bool toTray = props == nullptr || props->getBoolValue ("router.closeToTray", true);
+
+            if (toTray && content != nullptr && content->getBar().isInserted())
+                hideToTray();
+            else
+                JUCEApplication::getInstance()->systemRequestedQuit();
+        }
+
+        void hideToTray()
+        {
+            if (tray == nullptr)
+            {
+                tray = std::make_unique<EnhTrayIcon>();
+                tray->onShow = [this] { bringBack(); };
+                tray->fillMenu = [this] (PopupMenu& m)
+                {
+                    const bool in = content != nullptr && content->getBar().isInserted();
+                    m.addItem ("Show ENH Master", [this] { bringBack(); });
+                    m.addItem ("Remove the rack", in, false, [this] { if (content != nullptr) content->getBar().removeRack(); updateTray(); });
+                    m.addSeparator();
+                    m.addItem ("Quit (puts your audio back)", [] { JUCEApplication::getInstance()->systemRequestedQuit(); });
+                };
+            }
+
+            updateTray();
+            setVisible (false);
+        }
+
+        void bringBack()
+        {
+            setVisible (true);
+            setMinimised (false);
+            toFront (true);
+            tray = nullptr;
         }
 
         StandalonePluginHolder* getHolder() const { return holder.get(); }
+        bool isRackIn() const { return content != nullptr && content->getBar().isInserted(); }
 
     private:
+        void updateTray()
+        {
+            if (tray != nullptr)
+                tray->setIconTooltip (content != nullptr && content->getBar().isInserted()
+                                          ? "ENH Master: rack in. Click to show."
+                                          : "ENH Master: rack out. Click to show.");
+        }
+
         std::unique_ptr<StandalonePluginHolder> holder;
+        EnhRouterContent* content = nullptr;   // owned by the window
+        std::unique_ptr<EnhTrayIcon> tray;
         TooltipWindow tooltips { nullptr, 600 };
     };
 
@@ -218,12 +362,57 @@ namespace juce
                 return;
             }
 
+            // Already running (perhaps hidden in the tray)? Show that one and leave. It has to answer:
+            // a copy that crashed leaves its pipe behind, and that must not stop this one starting.
+            {
+                EnhInstanceLink probe (false);
+                if (probe.connectToPipe (EnhInstanceLink::pipeName(), 1000)
+                     && probe.sendMessage (MemoryBlock ("show", 4))
+                     && probe.answered.wait (1500))
+                {
+                    probe.disconnect();
+                    quit();
+                    return;
+                }
+                probe.disconnect();
+            }
+
+            instanceLink = std::make_unique<EnhInstanceLink>();
+            instanceLink->isServer = true;
+            instanceLink->onShowRequested = [this] { if (mainWindow != nullptr) mainWindow->bringBack(); };
+            instanceLink->createPipe (EnhInstanceLink::pipeName(), -1, false);
+
             mainWindow = std::make_unique<EnhRouterWindow> (getApplicationName(), appProperties.getUserSettings());
-            mainWindow->setVisible (true);
+
+            // Started with the computer: straight to the tray once the rack is in; if it did not go in,
+            // show the window so the reason can be read.
+            if (args.contains (pad::RouterBar::backgroundArgument))
+            {
+                Timer::callAfterDelay (2500, [this]
+                {
+                    if (mainWindow != nullptr)
+                    {
+                        if (mainWindow->isRackIn())
+                            mainWindow->hideToTray();
+                        else
+                            mainWindow->setVisible (true);
+                    }
+                });
+            }
+            else
+            {
+                mainWindow->setVisible (true);
+            }
         }
 
         void shutdown() override
         {
+            if (instanceLink != nullptr)
+            {
+                instanceLink->isServer = false;
+                instanceLink->disconnect();
+                instanceLink = nullptr;
+            }
             mainWindow = nullptr;
             appProperties.saveIfNeeded();
         }
@@ -250,6 +439,7 @@ namespace juce
 
     private:
         ApplicationProperties appProperties;
+        std::unique_ptr<EnhInstanceLink> instanceLink;
         std::unique_ptr<EnhRouterWindow> mainWindow;
     };
 }

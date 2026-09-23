@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_devices/juce_audio_devices.h>
+#include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "AudioRouting.h"
@@ -26,10 +27,17 @@ namespace pad
         RouterBar (juce::AudioDeviceManager& deviceManager,
                    std::function<void (bool)> setInputMuted,
                    juce::PropertySet* settings,
-                   std::function<void()> showAudioSettings);
+                   std::function<void()> showAudioSettings,
+                   juce::AudioProcessor* rack = nullptr);
         ~RouterBar() override;
 
         static constexpr int preferredHeight = 66;
+
+        /** "Start with the computer": an autostart entry that opens ENH Master in the tray with the
+            rack in (Linux: ~/.config/autostart, Windows: the Run key). */
+        static bool isStartingWithComputer();
+        static bool setStartingWithComputer (bool shouldStart);
+        static constexpr const char* backgroundArgument = "--background";
 
         /** Puts everything back. Called before the app quits (the destructor does it too). */
         void removeRack();
@@ -75,7 +83,10 @@ namespace pad
         juce::String rackInputInUse;                 // while inserted
 
         std::unique_ptr<Look> look;
-        std::unique_ptr<RefreshingCombo> sourceBox, rackInputBox, listenBox;
+        std::unique_ptr<RefreshingCombo> sourceBox, rackInputBox, listenBox, levelBox;
+        juce::RangedAudioParameter* targetParam = nullptr;   // the rack's LOUDNESS TARGET
+        float inLevel = 0.0f, outLevel = 0.0f;
+        juce::AudioDeviceManager::LevelMeter::Ptr inMeter, outMeter;   // held: the device only measures while someone holds them
         juce::TextButton insertButton, appsButton, moreButton;
         juce::String status;
         bool statusIsProblem = false;

@@ -48,6 +48,11 @@ a knob dropdown per knob, and a shorter rack), and 1.4.4.1 again (why the mix du
 standalone app that can process everything the PC plays), and 1.5.4.1 again (the standalone app becomes a
 router that moves the whole system or chosen apps into the rack and back, and puts it all back after a crash).
 
+**2.5.4.1 raises the 1st part.** ENH Master stops being only a rack you open when you want it and becomes
+something that sits in the path of all your audio, all day: one loudness for everything (LOUDNESS TARGET),
+a router that lives in the tray, starts with the computer and takes itself out when your headset goes, and
+a rack that stops drawing at full speed when a game is in front of it. The other parts stay as they were.
+
 ## Build
 
 The easy way is the builder script. It checks your tools and offers to download JUCE and
@@ -130,8 +135,21 @@ If the app crashes or is killed with the rack in, a small watchdog (the same exe
 the next start does it. What was changed is kept in `routing-<pid>.json` next to the settings
 (`%APPDATA%\ENH Master` on Windows, `~/.config/ENH Master` on Linux) until it has been undone.
 
-The **...** menu has *Insert the rack when ENH Master starts* (the Carla-style "always on" setup),
-*Refresh devices and apps*, and the full audio device settings.
+**LEVEL** (from 2.5.4.1) is the rack's LOUDNESS TARGET, here too because it is what a router wants most:
+*-18 LUFS* brings a quiet game, a loud song and a voice call to one loudness (see *LOUDNESS TARGET*
+below). **IN / OUT** on the right show what reaches the rack and what it plays.
+
+The **...** menu has
+- *Insert the rack when ENH Master starts*,
+- *Closing the window with the rack in keeps it running* (on by default): the window goes, a tray icon
+  stays (click: show; right-click: remove the rack, quit), and with no window the rack draws nothing,
+- *Start with the computer*: an autostart entry (`~/.config/autostart/enh-master.desktop` on Linux,
+  the *Run* key on Windows) that starts ENH Master in the tray with the rack in (`--background`),
+- *Refresh devices and apps*, and the full audio device settings.
+
+Starting ENH Master while it is already running (perhaps in the tray) shows the running one rather than
+a second router. If the device you listen on goes away (a headset unplugged) or the audio stops while
+the rack is in, the router takes the rack out and puts your audio back by itself, and says so.
 
 **Windows.** The rack input has to be a playback device you do not listen to, because Windows can only
 capture what a device plays (loopback), and capturing the device you listen on would feed back - the
@@ -771,6 +789,31 @@ analysis (about 4 %). Per-sample work that only changes per block was moved out 
 and the ring buffers no longer divide, but on this machine the difference is inside the measurement's
 own spread (about ±0.3 %).
 
+## LOUDNESS TARGET (2.5.4.1)
+
+In OUTPUT MONITOR's glass panel (OUTPUT > LOUDNESS TARGET), and as LEVEL in the standalone's bar:
+*OFF* (as before), *-23*, *-18* or *-14 LUFS*. Just before the output limiter, the rack measures what
+it is about to send out (K-weighted, BS.1770, on a 3 s window, the way the loudness meter does) and
+sets a gain that brings it to the target: open loop, so it never chases itself. It holds still
+through a burst (an explosion is not a reason to turn the game down for ten seconds) and through a
+pause (a gap never becomes the new normal, and nothing is pumped up out of the noise floor), moves over
+6 s, and at most 12 dB either way; it never lifts material under -50 LUFS. For the first seconds after
+a start it learns quickly, on a level corrected for its window still filling. No latency.
+
+It is a setting, not part of a preset: switching presets leaves it where you put it.
+
+Measured with `EnhAudioLab` (8 s scenes, DEFAULT): with the target off the scenes leave the rack
+between -24.3 and -9.0 LUFS (15.3 LU apart); at -18 between -19.8 and -15.5 (4.3 LU), and over a
+minute of music it settles at -17.5. The quietest scenes (a voice at -39, footsteps at -40) come up by
+the full 12 dB and stop there, on purpose.
+
+## The rack in the background (2.5.4.1)
+
+When another program has the focus (a game in front of the rack), the rack is drawn at 10 frames a
+second instead of every vsync: the meters still move, and the standalone fell from about 31 % of one
+core to 11 % on this machine (the display animating, no audio). In front again, it is every frame at
+once. In a plugin host the same happens when the host is not the program in front.
+
 ## Signal chain (Source/DSP)
 
 ```
@@ -999,6 +1042,8 @@ host delivers mouse events late. Config: `~/.config/ENHMaster/ui-config.json`.
 - `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` – outlines that control as if hovered
 - `PAD_UI_TEST_PANEL_CLOSE=<ms>` – closes the test panel again that long after it opened
 - `PAD_UI_TEST_SLOWMO=<factor>` – slows the glass panel's animation down, to look at it frame by frame
+- `PAD_UI_TEST_BACKGROUND=1` – draws as if another program had the focus (10 frames a second)
+- `PAD_UI_TEST_CLOSE=<seconds>` – the standalone presses its own close button then (with the rack in: to the tray)
 - `PAD_ROUTER_TEST_INSERT=1` – the standalone inserts the rack 0.6 s after it starts; with `PAD_ROUTER_TEST_SOURCE=system|apps`, `PAD_ROUTER_TEST_APPS=<key>,<key>` and `PAD_ROUTER_TEST_LISTEN=<device id>` it does so without touching the saved choices
 - `PAD_UI_DUMP_ARTWORK=<dir>` – writes every printed panel with its text boxes and the hardware footprints from the layout code, plus `clearances.txt` listing any print that overlaps or crowds hardware, borders or other print
 
