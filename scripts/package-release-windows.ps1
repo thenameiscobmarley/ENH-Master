@@ -12,6 +12,7 @@ $ErrorActionPreference = "Stop"
 $bundle = Join-Path $Build "EnhMaster_artefacts/Release/VST3/ENH Master.vst3"
 if (-not (Test-Path $bundle)) { throw "no VST3 bundle at $bundle - build first" }
 $standalone = Join-Path $Build "EnhMaster_artefacts/Release/Standalone/ENH Master.exe"
+if (-not (Test-Path $standalone)) { throw "no standalone app at $standalone - the release needs it (it is the gamers' router)" }
 
 $name = "ENH-Master-$Version-windows-x64"
 $stage = Join-Path $Dist $name
@@ -19,7 +20,7 @@ if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 Copy-Item -Recurse $bundle $stage
-if (Test-Path $standalone) { Copy-Item $standalone $stage }
+Copy-Item $standalone $stage
 foreach ($f in "README.md", "LICENSE", "NOTICE") {
     $p = Join-Path $Source $f
     if (Test-Path $p) { Copy-Item $p $stage }
@@ -37,10 +38,57 @@ ENH Master $Version - installation (Windows, VST3)
 
 2. Rescan plugins in your host (Reaper, FL Studio, Ableton Live, Bitwig, Cubase...).
 
-"ENH Master.exe" is the standalone app: it runs without a host.
+"ENH Master.exe" is the standalone app: the rack with a router above it that puts the rack into
+your PC's own audio (games, Discord, everything) and takes it out again - see QUICK-START-GAMERS.txt.
 
 Requirements: 64-bit Windows 10 or 11 and a GPU with OpenGL 3.2.
 "@ | Set-Content -Encoding UTF8 (Join-Path $stage "INSTALL.txt")
+
+# --- The gamers' app on its own: just the exe and how to use it -----------------------------
+$quick = @"
+ENH Master $Version - the app for gamers (Windows)
+=================================================
+
+ENH Master.exe runs the ENH Master rack on everything your PC plays - no DAW, no plugin host.
+
+ONE-TIME SETUP
+  1. Install VB-CABLE (free, vb-audio.com/Cable). It gives Windows a playback device nobody listens
+     to, which is where the rack picks your audio up. (An HDMI or monitor output with nothing plugged
+     in works too.)
+  2. Start ENH Master.exe (no installation needed; keep it anywhere).
+
+EVERY DAY
+  - SOURCE:     Whole system (everything) or Chosen apps (tick your game / Discord under Apps...).
+  - RACK INPUT: CABLE Input (picked for you when VB-CABLE is installed).
+  - LISTEN ON:  your headset or speakers.
+  - LEVEL:      -18 LUFS makes the game, music and voice chat equally loud (optional).
+  - Press INSERT RACK. Press it again (RACK IN - REMOVE) to put everything back as it was.
+
+  Closing the window with the rack in keeps it running in the tray (click the icon to bring it back).
+  The ... menu has "Start with the computer": it then starts in the tray with the rack in, every time.
+
+SAFE BY DESIGN
+  Your original sound settings are written down before anything changes. Remove, quit, a crash, an
+  unplugged headset: the app (or its watchdog, or the next start) puts your audio back.
+
+Requirements: 64-bit Windows 10 or 11 (per-app routing needs 1803 or later), a GPU with OpenGL 3.2.
+"@
+$quick | Set-Content -Encoding UTF8 (Join-Path $stage "QUICK-START-GAMERS.txt")
+
+$gname = "ENH-Master-$Version-windows-gamer-app"
+$gstage = Join-Path $Dist $gname
+if (Test-Path $gstage) { Remove-Item -Recurse -Force $gstage }
+New-Item -ItemType Directory -Force -Path $gstage | Out-Null
+Copy-Item $standalone $gstage
+$quick | Set-Content -Encoding UTF8 (Join-Path $gstage "QUICK-START-GAMERS.txt")
+foreach ($f in "LICENSE", "NOTICE") {
+    $p = Join-Path $Source $f
+    if (Test-Path $p) { Copy-Item $p $gstage }
+}
+$gzip = Join-Path $Dist "$gname.zip"
+if (Test-Path $gzip) { Remove-Item -Force $gzip }
+Compress-Archive -Path $gstage -DestinationPath $gzip
+Write-Host "Packaged $gzip"
 
 $zip = Join-Path $Dist "$name.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
