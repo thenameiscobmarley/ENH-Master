@@ -97,6 +97,7 @@ namespace enh::dsp
         ExciterCoeffs depthCoeffs, clarityCoeffs;
         float depthHz = 0.0f, clarityHz = 0.0f;
         float msCoeff = 0.0f, dcCoeff = 0.9995f, envAttack = 0.0f, envRelease = 0.0f, envSettle = 0.0f;
+        float colourNow = -1.0f;   // the colour last block (-1: none yet), ramped from
 
         KWeighting inputK, outputK;
         std::array<BaseChannel, maxChannels> base {};

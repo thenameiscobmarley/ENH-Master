@@ -97,6 +97,17 @@ namespace pad::params
         inline constexpr const char* deepPressure = "deepPressure";  // PRESSURE: weight / harmonics (0-10)
         inline constexpr const char* deepActive   = "deepActive";    // IN
 
+        // CHARACTER (2U, after TONE & SPACE): the hardware the rack is made of
+        inline constexpr const char* charModelA = "charModelA";   // A: the first model (choice)
+        inline constexpr const char* charModelB = "charModelB";   // B: the second model (choice)
+        inline constexpr const char* charBlend  = "charBlend";    // BLEND: A .. B (0-100 %)
+        inline constexpr const char* charDrive  = "charDrive";    // DRIVE: how hard they are hit (0-10)
+        inline constexpr const char* charActive = "charActive";   // IN (out by default: old sessions unchanged)
+        inline constexpr const char* charGrit   = "charGrit";     // GRIT: DRIVE may distort (on) or stays clean (off)
+
+        // OUTPUT MONITOR: COMPARE - the input, at the output's loudness (a level-matched A/B)
+        inline constexpr const char* abCompare = "abCompare";
+
         // MONITOR (top)
         inline constexpr const char* monitorSpeed = "monitorSpeed";   // SPEED: how fast the visualiser scrolls (display only)
 

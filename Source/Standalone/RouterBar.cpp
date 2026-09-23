@@ -166,8 +166,12 @@ namespace pad
         // router wants most: every app and game at one loudness
         if (rack != nullptr)
             for (auto* p : rack->getParameters())
+            {
                 if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (p); ranged != nullptr && ranged->getParameterID() == "outputTarget")
                     targetParam = ranged;
+                if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (p); ranged != nullptr && ranged->getParameterID() == "abCompare")
+                    compareParam = ranged;
+            }
 
         levelBox->addItem ("As it is", 1);
         levelBox->addItem ("-23 LUFS (quiet)", 2);
@@ -182,6 +186,18 @@ namespace pad
         };
         levelBox->setVisible (targetParam != nullptr);
         addChildComponent (*levelBox);
+
+        // COMPARE: the input as it came in, at the rack's loudness - what the rack is doing, fairly
+        compareButton.setButtonText ("A/B");
+        compareButton.setTooltip ("COMPARE: hear the audio without the rack, at the same loudness, to hear what the rack does. "
+                                  "Press again to go back.");
+        compareButton.onClick = [this]
+        {
+            if (compareParam != nullptr)
+                compareParam->setValueNotifyingHost (compareParam->getValue() > 0.5f ? 0.0f : 1.0f);
+        };
+        compareButton.setVisible (compareParam != nullptr);
+        addChildComponent (compareButton);
 
         insertButton.setComponentID ("insert");
         insertButton.setClickingTogglesState (false);
@@ -644,6 +660,10 @@ namespace pad
             repaint (getLocalBounds().removeFromBottom (22));
         }
 
+        // COMPARE is lit while the input is playing (it can be pressed on the rack too)
+        if (compareParam != nullptr && tick % 5 == 0)
+            compareButton.setToggleState (compareParam->getValue() > 0.5f, juce::dontSendNotification);
+
         // LEVEL follows the rack's own setting (it can be changed in its panel too)
         if (targetParam != nullptr && tick % 5 == 0)
         {
@@ -767,6 +787,12 @@ namespace pad
         row.removeFromRight (8);
         insertButton.setBounds (row.removeFromRight (juce::jlimit (120, 170, getWidth() / 6)));
         row.removeFromRight (24);   // room for the lamp
+
+        if (compareButton.isVisible())
+        {
+            compareButton.setBounds (row.removeFromRight (46));
+            row.removeFromRight (8);
+        }
 
         if (levelBox->isVisible())
         {

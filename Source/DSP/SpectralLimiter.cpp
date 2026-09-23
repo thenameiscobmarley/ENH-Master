@@ -65,6 +65,9 @@ namespace enh::dsp
         current = {};
         slots = {};
         extraDb = {};
+        coeffs = {};
+        applied = {};
+        coeffStep.fill (noStep);
         keyDb = {};
         for (int s = 0; s < numSlots; ++s)
             design (s);
@@ -401,6 +404,8 @@ namespace enh::dsp
                 break;
         }
 
+        c.g = g;
+        c.k = k;
         c.a1 = 1.0f / (1.0f + g * (g + k));
         c.a2 = g * c.a1;
         c.a3 = g * c.a2;
@@ -412,22 +417,33 @@ namespace enh::dsp
         const auto& sl = slots[i];
         const float audio = sl.depthDb + extraDb[i], key = audio + keyDb[i];
         designCut (coeffs[i], sl.shape, sl.hz, sl.octaves, audio, sr);
+        const float per = 1.0f / (float) interval;
+        auto& a = applied[i];
+        auto& c = coeffs[i];
+        auto& d = coeffStep[i];
+        d.m0 = (c.m0 - a.m0) * per; d.m1 = (c.m1 - a.m1) * per; d.m2 = (c.m2 - a.m2) * per;
+        d.g = (c.g - a.g) * per;    d.k = (c.k - a.k) * per;
+        // Not live: nothing it does is heard, so it takes its new shape at once (no sweep through the band)
+        if (! (audio > 1.0e-3f))
+        {
+            a = c;
+            d = noStep;
+        }
         designCut (keyCoeffs[i], sl.shape, sl.hz, sl.octaves, keyDb[i], sr);
 
-        // An idle filter is the identity: skip it, and let it start from rest when it is next needed
-        auto liven = [] (bool& live, bool needed, auto& bank, size_t slot)
-        {
-            if (needed && ! live)
-                for (auto& ch : bank)
-                    ch[slot].reset();
-            live = needed;
-        };
-        liven (audioLive[i], audio > 1.0e-3f, svf, i);
-        liven (keyLive[i], key > 1.0e-3f && keyDb[i] > 1.0e-3f, keySvf, i);
+        // An idle filter's output is the identity, so it is not used - but it keeps running on the signal,
+        // so that when it is next needed its state is already the music's. Starting it from rest instead
+        // (with the music flowing) made a one-sample dip each time a cut came in: a click.
+        audioLive[i] = audio > 1.0e-3f;
+        keyLive[i] = key > 1.0e-3f && keyDb[i] > 1.0e-3f;
     }
 
     void SpectralLimiter::controlStep (const Settings& s) noexcept
     {
+        // The last interval's glide has arrived: start the next one from exactly there
+        applied = coeffs;
+        coeffStep.fill (noStep);
+
         const float dt = stepDt;
         const float range = std::clamp (s.rangeDb, 0.0f, 18.0f);
         const float releaseS = std::clamp (s.releaseMs, 20.0f, 2000.0f) * 0.001f;
@@ -504,16 +520,24 @@ namespace enh::dsp
             // Released at the RELEASE speed when the event is over, but at once when it is still going
             // and has turned out to be broadband: that is not this unit's to cut.
             const float kDown = localised < 0.5f ? kDrop : kRelease;
-            auto follow = [&] (float& v, float target) { v += (target > v ? kAttack : kDown) * (target - v); };
+            // A cut comes in no faster than one cycle of what it cuts (up to 25 ms): the attack from RELEASE
+            // alone (1.5 - 8 ms) is under half a cycle of a 100 Hz note, and bending a low wave that fast
+            // inside its own cycle is a click (COMPETITIVE FOOTSTEPS, 3.7 ms, clicked on every new bass note).
+            const float lowestHz = std::max (20.0f, std::min (sl.hz, 1000.0f * std::pow (2.0f, t.octave)));
+            const float kIn = std::min (kAttack, 1.0f - std::exp (-dt / std::min (0.025f, 1.0f / lowestHz)));
+            auto follow = [&] (float& v, float target) { v += (target > v ? kIn : kDown) * (target - v); };
             follow (sl.depthDb, want[(size_t) i]);
             follow (extraDb[(size_t) i], protect[(size_t) i]);
             follow (keyDb[(size_t) i], wantKey[(size_t) i]);
 
-            // Follow the region: glide while cutting, jump while idle (nothing audible moves)
+            // Follow the region: glide while cutting, jump while idle (nothing audible moves). Idle means
+            // the audio cut is really gone (under 0.02 dB): a slot that jumped to a new frequency and shape
+            // while it still cut 0.3 dB of a loud signal made a one-sample dip - a click, each time a new
+            // event took over a slot that was still letting go of the last one.
             const float targetHz = 1000.0f * std::pow (2.0f, t.octave);
             if (t.depthDb > 0.0f)
             {
-                if (sl.depthDb + extraDb[(size_t) i] + keyDb[(size_t) i] < 0.3f)
+                if (sl.depthDb + extraDb[(size_t) i] < 0.02f && keyDb[(size_t) i] < 0.3f)
                 {
                     sl.shape = t.shape;
                     sl.hz = targetHz;
@@ -581,6 +605,8 @@ namespace enh::dsp
                 extraDb = {};
                 keyDb = {};
                 for (int i = 0; i < numSlots; ++i) design (i);
+                applied = coeffs;
+                coeffStep.fill (noStep);
                 for (auto* bank : { &svf, &keySvf })
                     for (auto& c : *bank)
                         for (auto& f : c)
@@ -635,13 +661,28 @@ namespace enh::dsp
             broadbandGain += (dbToGain (-broadbandDb) - broadbandGain) * gainGlide;
             makeupGain += (dbToGain (makeupDb) - makeupGain) * gainGlide;
 
+            for (int k = 0; k < numSlots; ++k)
+            {
+                auto& a = applied[(size_t) k];
+                const auto& d = coeffStep[(size_t) k];
+                if (d.g == 0.0f && d.k == 0.0f && d.m0 == 0.0f && d.m1 == 0.0f && d.m2 == 0.0f)
+                    continue;
+                a.g += d.g; a.k += d.k; a.m0 += d.m0; a.m1 += d.m1; a.m2 += d.m2;
+                a.a1 = 1.0f / (1.0f + a.g * (a.g + a.k));
+                a.a2 = a.g * a.a1;
+                a.a3 = a.g * a.a2;
+            }
+
             for (int c = 0; c < 2; ++c)
             {
                 const int from = std::min (c, ch - 1);
                 float y = data[from][i];
                 for (int k = 0; k < numSlots; ++k)
+                {
+                    const float filtered = tick (applied[(size_t) k], svf[(size_t) c][(size_t) k], y);
                     if (audioLive[(size_t) k])
-                        y = tick (coeffs[(size_t) k], svf[(size_t) c][(size_t) k], y);
+                        y = filtered;
+                }
                 y *= broadbandGain;
                 const float keyBase = y;   // the compressor's key does not hear the loudness keeper's lift
                 y *= makeupGain;
@@ -654,8 +695,11 @@ namespace enh::dsp
                 {
                     float key = keyBase;
                     for (int k = 0; k < numSlots; ++k)
+                    {
+                        const float filtered = tick (keyCoeffs[(size_t) k], keySvf[(size_t) c][(size_t) k], key);
                         if (keyLive[(size_t) k])
-                            key = tick (keyCoeffs[(size_t) k], keySvf[(size_t) c][(size_t) k], key);
+                            key = filtered;
+                    }
                     keyPointers[(size_t) c][i] = key;
                 }
 

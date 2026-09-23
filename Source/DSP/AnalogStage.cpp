@@ -70,6 +70,7 @@ namespace enh::dsp
         depthHz = clarityHz = 0.0f;
         weightsFrom = weightsTo = weightsFor (0);
         harmonicsMethod = 0;
+        colourNow = -1.0f;
         glideLen = std::max (1, (int) std::lround (0.030 * osr));
         glidePos = glideLen;
 
@@ -208,8 +209,11 @@ namespace enh::dsp
         // Transformer / valve colour, scaled by STRENGTH (0 = none). No ceiling here: in floating point a
         // mid-chain clipper protects nothing, it only distorts loud bass. The final limiter at the end of
         // the chain looks after full scale; the guard below only keeps the colour curve from folding over.
+        // ... ramped across the block from where it was (set once a block, STRENGTH turned quickly stepped it)
         const float colour = std::clamp (s.strength, 0.0f, 2.0f);
-        const float c2 = 0.03f * colour, c3 = 0.015f * colour;
+        const float colourFrom = colourNow < 0.0f ? colour : colourNow;
+        colourNow = colour;
+        const float colourStep = (colour - colourFrom) / (float) std::max (1, un);
         constexpr float knee = 1.8f, ceiling = 2.4f;
 
         for (int c = 0; c < chans; ++c)
@@ -241,7 +245,8 @@ namespace enh::dsp
                 }
 
                 // Transformer / valve colour
-                y = y + c2 * y * y - c3 * y * y * y;
+                const float cNow = colourFrom + colourStep * (float) (i + 1);
+                y = y + 0.03f * cNow * y * y - 0.015f * cNow * y * y * y;
 
                 // DC blocker (removes the even-order offset)
                 const float dc = y - o.dcX + dcCoeff * o.dcY;

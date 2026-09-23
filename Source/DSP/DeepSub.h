@@ -45,6 +45,7 @@ namespace enh::dsp
         void prepare (double sampleRate)
         {
             sr = sampleRate > 0.0 ? sampleRate : 48000.0;
+            hullK = onePole (0.010, sr);
             bandLp = BiquadCoeffs::lowPass (sr, 150.0, 0.7071);
             bandHp = BiquadCoeffs::highPass (sr, 25.0, 0.7071);
             trackLp = BiquadCoeffs::lowPass (sr, 110.0, 0.7071);
@@ -67,6 +68,7 @@ namespace enh::dsp
             for (auto& c : shelf) c.reset();
             modes = {};
             env = slowEnv = peakEnv = genMeter = 0.0f;
+            hullNow = 0.0f;
             freq = targetFreq = 55.0f;
             confidence = 0.0f;
             phaseFull = phaseHalf = 0.0f;
@@ -212,7 +214,9 @@ namespace enh::dsp
                 noise = noise * 1664525u + 1013904223u;
                 const float white = (float) (noise >> 8) / 8388608.0f - 1.0f;
                 const float rumbleOut = rumble.process (rumbleLp, white) * slowEnv * 0.9f;
-                const float hullOut = (5.0f * hull + rumbleOut) * hullAmount;
+                // HULL glides (10 ms): turned down in one go it used to cut the ringing off (a click)
+                hullNow = hullAmount + (hullNow - hullAmount) * hullK;
+                const float hullOut = (5.0f * hull + rumbleOut) * hullNow;
 
                 // --- 3. PRESSURE: harmonics that make the generated low end audible on small speakers
                 float gen = subOut + hullOut;
@@ -270,6 +274,7 @@ namespace enh::dsp
         float env = 0.0f, slowEnv = 0.0f, peakEnv = 0.0f, genMeter = 0.0f;
         float freq = 55.0f, targetFreq = 55.0f, confidence = 0.0f, phaseFull = 0.0f, phaseHalf = 0.0f;
         float wet = 0.0f, designedPressure = -1.0f;
+        float hullNow = 0.0f, hullK = 0.999f;   // HULL, gliding
         bool armed = false;
         int sinceCrossing = 0, modeTick = 0, fadeLength = 1440;
         int shape = 0, fadingShape = -1, shapeFadeLeft = 0;

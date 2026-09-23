@@ -249,6 +249,7 @@ namespace pad
         lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         deepVu.upload (hwk::models::vuMeter (deepVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
+        characterVu.upload (hwk::models::vuMeter (characterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         levelVu.upload (hwk::models::vuMeter (levelVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         monitorVu.upload (hwk::models::vuMeter (monitorVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
 
@@ -272,6 +273,7 @@ namespace pad
                               : c.unit == lumenUnit   ? Vec3 { 0.47f, 0.33f, 0.14f }
                               : c.unit == limiterUnit ? Vec3 { 0.42f, 0.08f, 0.12f }
                               : c.unit == deepUnit    ? Vec3 { 0.07f, 0.13f, 0.26f }   // abyss blue
+                              : c.unit == characterUnit ? Vec3 { 0.40f, 0.19f, 0.07f } // cognac
                                                       : Vec3 { 0.55f, 0.56f, 0.60f };
             int first = -1;
             for (size_t k = 0; k < built.size(); ++k)
@@ -334,6 +336,8 @@ namespace pad
         upload (limiterDecalTex, textureData.limiterDecal);
         upload (deepDecalTex, textureData.deepDecal);
         upload (deepLabelTex, textureData.deepVuFace);
+        upload (characterDecalTex, textureData.characterDecal);
+        upload (characterLabelTex, textureData.characterVuFace);
         upload (limiterLabelTex[0], textureData.limiterVuFace[0]);
         upload (limiterLabelTex[1], textureData.limiterVuFace[1]);
         upload (levelDecalTex, textureData.levelDecal);
@@ -384,6 +388,7 @@ namespace pad
         lumenVu.release();
         limiterVu.release();
         deepVu.release();
+        characterVu.release();
         levelVu.release();
         monitorVu.release();
         for (auto& o : outboard)
@@ -391,7 +396,7 @@ namespace pad
         for (auto* tex : { &levelDecalTex, &balancerDecalTex, &monitorDecalTex, &monitorLabelTex, &balancerLabelTex, &levelFaceTex,
                            &monitorFaceTex[0], &monitorFaceTex[1],
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
-                           &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex })
+                           &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex })
             tex->release();
         loupeTarget.release();
         sceneTarget.release();
@@ -1336,7 +1341,8 @@ namespace pad
 
             // An auto mode turns the knob itself (not while you are holding it)
             const float shownValue = active == i ? value : autoTurnedValue (i, value);
-            const float target = c.kind == ControlKind::selector ? selectorAngleForValue (shownValue) : knobAngleForValue (shownValue);
+            const float target = c.kind != ControlKind::selector ? knobAngleForValue (shownValue)
+                                : c.unit == characterUnit ? characterSelectorAngle (shownValue) : selectorAngleForValue (shownValue);
             const bool isHovered = (hovered == i || active == i);
             k.update (target, changed, (int) bridge.getLastSource (p), isHovered, dt);
             busy = busy || ! k.isIdle (target, isHovered);
@@ -1396,6 +1402,8 @@ namespace pad
             const bool limiterOn = bridge.getNormalised (bridge.indexOf (params::id::spectralActive)) > 0.5f;
             const bool balancerOn = bridge.getNormalised (bridge.indexOf (params::id::balActive)) > 0.5f;
             const bool deepOn = bridge.getNormalised (bridge.indexOf (params::id::deepActive)) > 0.5f;
+            const bool characterOn = bridge.getNormalised (bridge.indexOf (params::id::charActive)) > 0.5f;
+            unitLamp[(size_t) characterUnit] = anim::approach (unitLamp[(size_t) characterUnit], characterOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) deepUnit] = anim::approach (unitLamp[(size_t) deepUnit], deepOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) tideUnit] = anim::approach (unitLamp[(size_t) tideUnit], tideOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) lumenUnit] = anim::approach (unitLamp[(size_t) lumenUnit], lumenOn ? 1.0f : 0.15f, 4.0f, dt);
@@ -1449,6 +1457,8 @@ namespace pad
                 saturateUi ((demoMeters ? -20.0f + 2.0f * std::sin ((float) timeSeconds * 0.4f) : meters.shortTermLufs.load()) / 40.0f + 1.0f),
                 // DEEP SUB: what it is adding, -40 .. 0 dBFS RMS
                 saturateUi ((demoMeters ? -14.0f + 6.0f * std::sin ((float) timeSeconds * 0.9f) : (deepOn ? meters.deepGeneratedDb.load() : -120.0f)) / 40.0f + 1.0f),
+                // CHARACTER: the harmonics its models add, against the signal, -60 .. 0 dB
+                saturateUi ((demoMeters ? -34.0f + 8.0f * std::sin ((float) timeSeconds * 0.7f) : (characterOn ? meters.charHarmonicsDb.load() : -120.0f)) / 60.0f + 1.0f),
             };
 
             for (int i = 0; i < numNeedles; ++i)
@@ -1862,13 +1872,14 @@ namespace pad
         const Mat4 lumenPanel = panelToWorld (lumenUnit);
         const Mat4 limiterPanel = panelToWorld (limiterUnit);
         const Mat4 deepPanel = panelToWorld (deepUnit);
+        const Mat4 characterPanel = panelToWorld (characterUnit);
         const Mat4 levelPanel = panelToWorld (levelUnit);
         const Mat4 balancerPanel = panelToWorld (balancerUnit);
         const Mat4 monitorPanel = panelToWorld (monitorUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
-                 : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
+                 : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == characterUnit ? characterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
                  : unit == monitorUnit ? monitorPanel : panel;
         };
 
@@ -2002,6 +2013,7 @@ namespace pad
         drawOneU (limiterUnit, limiterPanel, Vec3 { 0.46f, 0.52f, 0.60f }, limiterDecalTex,
                   { &limiterLabelTex[0], &limiterLabelTex[1] });
         drawOneU (deepUnit, deepPanel, Vec3 { 0.30f, 0.36f, 0.44f }, deepDecalTex, { &deepLabelTex });   // blued steel
+        drawOneU (characterUnit, characterPanel, Vec3 { 0.58f, 0.53f, 0.45f }, characterDecalTex, { &characterLabelTex });   // champagne anodised
 
         // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
         drawOneU (levelUnit, levelPanel, Vec3 { 0.64f, 0.645f, 0.66f }, levelDecalTex, { &levelFaceTex });
@@ -2256,6 +2268,7 @@ namespace pad
             drawVuGlass (lumenUnit, lumenPanel);
             drawVuGlass (limiterUnit, limiterPanel);
             drawVuGlass (deepUnit, deepPanel);
+            drawVuGlass (characterUnit, characterPanel);
             drawVuGlass (levelUnit, levelPanel);
             drawVuGlass (monitorUnit, monitorPanel);
             glDepthMask (GL_TRUE);

@@ -85,9 +85,10 @@ namespace pad
         std::unique_ptr<Look> look;
         std::unique_ptr<RefreshingCombo> sourceBox, rackInputBox, listenBox, levelBox;
         juce::RangedAudioParameter* targetParam = nullptr;   // the rack's LOUDNESS TARGET
+        juce::RangedAudioParameter* compareParam = nullptr;  // the rack's COMPARE (level-matched A/B)
         float inLevel = 0.0f, outLevel = 0.0f;
         juce::AudioDeviceManager::LevelMeter::Ptr inMeter, outMeter;   // held: the device only measures while someone holds them
-        juce::TextButton insertButton, appsButton, moreButton;
+        juce::TextButton insertButton, appsButton, moreButton, compareButton;
         juce::String status;
         bool statusIsProblem = false;
         float lamp = 0.0f;

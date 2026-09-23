@@ -36,6 +36,11 @@ namespace enh::dsp
         // DEEP SUB
         float deepDepth = 0.0f, deepHull = 0.0f, deepSize = 5.0f, deepPressure = 0.0f;   // 0..10
         bool deepActive = true;
+
+        // CHARACTER
+        float charModelA = 3.0f, charModelB = 4.0f, charBlend = 0.0f, charDrive = 5.0f;
+        bool charActive = false, charGrit = true;
+        bool compare = false;   // COMPARE (OUTPUT MONITOR)
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
 
@@ -52,7 +57,7 @@ namespace enh::dsp
     /** Every continuous knob, by parameter ID, and where its value goes: the knob modifiers
         (Parameters/KnobModifiers.h) work on these, before the mapping below. */
     struct KnobField { const char* param; float KnobValues::* field; };
-    inline constexpr std::array<KnobField, 39> knobFields {{
+    inline constexpr std::array<KnobField, 41> knobFields {{
         { "clarityNorm", &KnobValues::clarityNorm },       { "clarityAdd", &KnobValues::clarityAdd },
         { "adaptSpeed", &KnobValues::adaptPercent },       { "sub", &KnobValues::subPercent },
         { "enhMultiply", &KnobValues::enhMultiply },       { "enhStrength", &KnobValues::enhStrength },
@@ -75,6 +80,7 @@ namespace enh::dsp
         { "seraphMultiply", &KnobValues::seraphMultiply }, { "seraphStrength", &KnobValues::seraphStrength },
         { "deepDepth", &KnobValues::deepDepth },           { "deepHull", &KnobValues::deepHull },
         { "deepSize", &KnobValues::deepSize },             { "deepPressure", &KnobValues::deepPressure },
+        { "charBlend", &KnobValues::charBlend },           { "charDrive", &KnobValues::charDrive },
     }};
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -180,6 +186,15 @@ namespace enh::dsp
         p.deep.shape    = mt[deepShape];
         p.deep.tracking = mt[deepTracking];
         p.deep.material = mt[deepMaterial];
+
+        p.character.active     = k.charActive;
+        p.character.modelA     = std::clamp ((int) std::lround (k.charModelA), 0, (int) Character::numModels - 1);
+        p.character.modelB     = std::clamp ((int) std::lround (k.charModelB), 0, (int) Character::numModels - 1);
+        p.character.blend      = std::clamp (k.charBlend / 100.0f, 0.0f, 1.0f);
+        p.character.drive      = std::clamp (k.charDrive, 0.0f, 10.0f);
+        p.character.components = mt[charComponents];
+        p.character.grit       = k.charGrit;
+        p.compare              = k.compare;
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
         p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);

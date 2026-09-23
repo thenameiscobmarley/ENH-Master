@@ -300,7 +300,7 @@ namespace pad::artwork
                         range.setSkewForCentre (spec->skewCentre);
 
                     recorder.clarityScale = c.altParamId != nullptr ? pass : -1;
-                    const float ring = c.altParamId != nullptr ? (pass == 0 ? 0.086f : 0.140f) : 0.086f;
+                    const float ring = c.altParamId != nullptr ? (pass == 0 ? 0.098f : 0.152f) : 0.098f;   // clear of the major ticks
 
                     for (int i = 0; i <= 4; ++i)
                     {
@@ -384,6 +384,7 @@ namespace pad::artwork
             const auto title = unit == tideUnit ? juce::String ("COMPRESSOR") : unit == lumenUnit ? juce::String ("LEVELER")
                              : unit == levelUnit ? juce::String ("LEVEL") : unit == balancerUnit ? juce::String ("BALANCE")
                              : unit == monitorUnit ? juce::String ("MONITOR")
+                             : unit == characterUnit ? juce::String ("CHARACTER")
                                                                                                    : juce::String ("DYNAMIC EQ");
             const auto font = makeFont (m.len (0.024f), true, 0.30f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, title);
@@ -410,11 +411,29 @@ namespace pad::artwork
 
             // Labels one line below the skirt and the lever's reach, above the section border
             recorder.control = (int) (&c - controls.data());
-            const float labelDz = c.kind == ControlKind::knob
+            const float labelDz = c.kind == ControlKind::knob || c.kind == ControlKind::selector
                                 ? std::max (oneULabelDz, hwk::models::knob (c.style, knobBodyRadius (c), {}, 0).footprintRadius + 0.050f)
-                                : oneULabelDz;   // a bigger knob's label moves down with its skirt
+                                : oneULabelDz;   // a bigger knob's (or selector's) label moves down with its skirt
             text (g, m, c.label, c.x, c.z + labelDz, 0.026f, centred, true, 0.16f, 0.40f);
             recorder.control = -1;
+
+            if (c.kind == ControlKind::selector && unit == characterUnit)
+            {
+                // Nine models round three quarters of a turn: a dot for the beak to point at, the name
+                // beyond it, set upright wherever it falls
+                const float beak = knobBodyRadius (c) * 1.6f;
+                for (int k = 0; k < characterModels; ++k)
+                {
+                    const float angle = characterSelectorAngle ((float) k / (float) (characterModels - 1));
+                    const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                    const float rd = beak + 0.014f, rr = beak + 0.078f;
+                    g.fillEllipse (m.rect (c.x + dir.x * rd - 0.009f, c.z + dir.y * rd - 0.009f,
+                                           c.x + dir.x * rd + 0.009f, c.z + dir.y * rd + 0.009f));
+                    text (g, m, characterModelNames[(size_t) k], c.x + dir.x * rr, c.z + dir.y * rr - 0.010f, 0.019f,
+                          centred, true, 0.06f, 0.20f);
+                }
+                continue;
+            }
 
             if (c.kind != ControlKind::knob)
                 continue;
@@ -441,7 +460,7 @@ namespace pad::artwork
                     const float t = (float) i / 4.0f;
                     const float angle = knobAngleForValue (t);
                     const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
-                    const float rr = r + 0.072f;   // clear of the major tick it names
+                    const float rr = r + 0.084f;   // clear of the major tick it names (0.072 left some 0.005 apart)
                     text (g, m, valueText (range.convertFrom0to1 (t)), c.x + dir.x * rr, c.z + dir.y * rr, 0.022f,
                           centred, true, 0.0f, 0.13f);
                 }
@@ -458,6 +477,7 @@ namespace pad::artwork
                              : unit == limiterUnit ? juce::String (limits[i])
                              : unit == monitorUnit ? juce::String (loudness[i])
                              : unit == deepUnit ? juce::String ("SUB ADDED")
+                             : unit == characterUnit ? juce::String ("HARMONICS")
                              : unit == levelUnit ? juce::String ("INPUT") : juce::String (bands[i]);
             text (g, m, label, vuX (unit, i), vuZ (unit, i) + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
         }
@@ -488,6 +508,7 @@ namespace pad::artwork
         // (RANGE + headroom protection) and its broadband protection 0-12
         const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1);
         const bool lufs = unit == monitorUnit || unit == levelUnit || unit == deepUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT and DEEP SUB)
+        const bool sixty = unit == characterUnit;   // -60 .. 0: CHARACTER's harmonics against the signal (-20 = 10 %)
         const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
         const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
         const float arcR = vuHalfH * hwk::models::vuArcRadius * scale;
@@ -515,7 +536,7 @@ namespace pad::artwork
         {
             juce::Graphics g (red);
             g.setColour (juce::Colours::white);
-            band (g, lufs ? 0.775f : twelve ? 0.70f : 0.75f, 1.0f, 0.955f, 1.015f);   // red zone over the top of the scale (LUFS: above -9)
+            band (g, sixty ? 0.667f : lufs ? 0.775f : twelve ? 0.70f : 0.75f, 1.0f, 0.955f, 1.015f);   // red zone over the top of the scale (LUFS: above -9)
         }
 
         juce::Graphics g (ink);
@@ -541,14 +562,14 @@ namespace pad::artwork
         }
 
         // Numbers inside the arc
-        const auto font = makeFont (vuHalfH * 0.30f * scale, true, 0.05f);
+        const auto font = makeFont (vuHalfH * (sixty ? 0.21f : 0.30f) * scale, true, 0.05f);   // four numbers on the -60 dial
         g.setFont (font);
         for (int i = 0; i <= majors; ++i)
         {
             if (lufs && (i % 2) != 0)
                 continue;   // -40, -20 and 0 only: the arc is too short for five numbers
             const float t = (float) i / (float) majors;
-            const auto label = juce::String (juce::roundToInt (lufs ? -40.0f + 40.0f * t : t * (twelve ? 12.0f : 18.0f)));
+            const auto label = juce::String (juce::roundToInt (sixty ? -60.0f + 60.0f * t : lufs ? -40.0f + 40.0f * t : t * (twelve ? 12.0f : 18.0f)));
             const auto at = pointAt (t, 0.845f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, label);
             g.drawText (label, juce::Rectangle<float> (at.x - 0.5f * tw - 2.0f, at.y - font.getHeight() * 0.5f,
@@ -561,6 +582,7 @@ namespace pad::artwork
                            : unit == limiterUnit ? juce::String (meter == 0 ? "CUT   dB" : "BROADBAND   dB")
                            : unit == monitorUnit ? juce::String ("LUFS") : unit == levelUnit ? juce::String ("INPUT   dBFS")
                            : unit == deepUnit ? juce::String ("SUB   dBFS")
+                           : unit == characterUnit ? juce::String ("HARMONICS   dB")
                                                  : juce::String ("LIFT   dB");
         const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
         g.setFont (capFont);
@@ -731,7 +753,7 @@ namespace pad::artwork
 
     void collectKnobScaleText (TextRegistry& items)
     {
-        // Same geometry as renderKnobScale: numbers at 0.212 of a 0.25 ring, scaled to the real ring and knob size
+        // Same geometry as renderKnobScale: numbers at 0.222 of a 0.25 ring, scaled to the real ring and knob size
 
         for (int i = 0; i < numControls; ++i)
         {
@@ -739,7 +761,7 @@ namespace pad::artwork
             if (c.kind != ControlKind::knob || c.unit != enhUnit)
                 continue;
 
-            const float r = 0.212f * (scaleOuter / 0.25f) * c.size;
+            const float r = 0.222f * (scaleOuter / 0.25f) * c.size;
             const auto* spec = pad::params::findSpec (c.paramId);
             const int rangeMax = spec != nullptr ? juce::roundToInt (spec->maxValue) : 10;
 
@@ -826,7 +848,8 @@ namespace pad::artwork
         {
             const float angle = knobAngleForValue ((float) i / (float) maxValue);
             const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
-            const auto box = juce::Rectangle<float> (0.09f * scale, 0.05f * scale).withCentre (centre + dir * (0.212f * scale));
+            // 0.222: clear of the major ticks it names (at 0.212 the audit found them 0.003 - 0.014 apart)
+            const auto box = juce::Rectangle<float> (0.09f * scale, 0.05f * scale).withCentre (centre + dir * (0.222f * scale));
             g.drawText (juce::String (i) + (maxValue == 3 && i == maxValue ? "x" : ""), box, juce::Justification::centred, false);
         }
 

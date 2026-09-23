@@ -157,6 +157,14 @@ namespace enh::dsp
             const double a1 = 1.0 / (1.0 + g * (g + k));
             return { (float) a1, (float) (g * a1), (float) (g * g * a1), (float) (A * A), (float) (k * (1.0 - A) * A), (float) (1.0 - A * A) };
         }
+
+        static SvfEqCoeffs lowShelf (double sr, double hz, double q, double db) noexcept
+        {
+            const double A = std::pow (10.0, db / 40.0);
+            const double g = std::tan (pi * BiquadCoeffs::clampHz (sr, hz) / sr) / std::sqrt (A), k = 1.0 / q;
+            const double a1 = 1.0 / (1.0 + g * (g + k));
+            return { (float) a1, (float) (g * a1), (float) (g * g * a1), 1.0f, (float) (k * (A - 1.0)), (float) (A * A - 1.0) };
+        }
     };
 
     struct SvfEqState

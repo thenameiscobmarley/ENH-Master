@@ -38,6 +38,13 @@ PluginProcessor::PluginProcessor()
     deepSize      = state.getRawParameterValue (id::deepSize);
     deepPressure  = state.getRawParameterValue (id::deepPressure);
     deepActive    = state.getRawParameterValue (id::deepActive);
+    charModelA    = state.getRawParameterValue (id::charModelA);
+    charModelB    = state.getRawParameterValue (id::charModelB);
+    charBlend     = state.getRawParameterValue (id::charBlend);
+    charDrive     = state.getRawParameterValue (id::charDrive);
+    charActive    = state.getRawParameterValue (id::charActive);
+    abCompare     = state.getRawParameterValue (id::abCompare);
+    charGrit      = state.getRawParameterValue (id::charGrit);
     // Every processing method's choice (MethodRegistry.h), by its MethodId
     for (int unit : enh::dsp::methods::unitsInRackOrder)
     {
@@ -145,6 +152,13 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.deepSize       = deepSize->load();
     k.deepPressure   = deepPressure->load();
     k.deepActive     = deepActive->load() > 0.5f;
+    k.charModelA     = charModelA->load();
+    k.charModelB     = charModelB->load();
+    k.charBlend      = charBlend->load();
+    k.charDrive      = charDrive->load();
+    k.charActive     = charActive->load() > 0.5f;
+    k.compare        = abCompare->load() > 0.5f;
+    k.charGrit       = charGrit->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
     k.lumenActive    = lumenActive->load() > 0.5f;

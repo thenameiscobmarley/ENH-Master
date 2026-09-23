@@ -137,7 +137,7 @@ namespace enh::dsp
             void reset() noexcept { ic1 = ic2 = 0.0f; }
         };
 
-        struct Coeffs { float a1 = 1.0f, a2 = 0.0f, a3 = 0.0f, m0 = 1.0f, m1 = 0.0f, m2 = 0.0f; };
+        struct Coeffs { float a1 = 1.0f, a2 = 0.0f, a3 = 0.0f, m0 = 1.0f, m1 = 0.0f, m2 = 0.0f, g = 0.0f, k = 1.0f; };
 
         void controlStep (const Settings&) noexcept;
         void design (int slot) noexcept;
@@ -173,6 +173,12 @@ namespace enh::dsp
         // Processing (stage rate)
         std::array<Slot, numSlots> slots {};
         std::array<Coeffs, numSlots> coeffs {}, keyCoeffs {};
+        // What the audio filters use: they glide to coeffs across each control interval, sample by sample.
+        // Stepped every 32 samples, a cut deepening ~1 dB a step on a loud low tone stepped the waveform: a click.
+        // The glide is of g, k and the mixes (a1..a3 are worked out from them each sample): a straight line
+        // between two sets of a1..a3 is not always a stable filter, a line between two g / k always is.
+        std::array<Coeffs, numSlots> applied {}, coeffStep {};
+        static constexpr Coeffs noStep { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
         std::array<std::array<Svf, numSlots>, 2> svf {}, keySvf {};
         std::array<float, numSlots> keyDb {};           // extra depth in the compressor's key only
         std::array<bool, numSlots> audioLive {}, keyLive {};   // a filter at 0 dB is skipped (and restarts clean)

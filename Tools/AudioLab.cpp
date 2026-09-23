@@ -24,11 +24,16 @@
       EnhAudioLab trace   (--scene NAME | --in FILE.wav) [--preset NAME] [--set param=value]... --out DIR
       EnhAudioLab compare A.wav B.wav --out DIR
       EnhAudioLab suite   --out DIR         every scene through a set of presets, with a summary table
+      EnhAudioLab check   [--update] [--only TEXT] [--threads N] [--baseline FILE] [--out DIR]
+                          the self-test: every factory preset through the scenes, held to hard rules and compared with
+                          Tests/lab-baseline.json; exit code 0 only when everything holds (--update: accept as the new baseline)
 
     --set takes any parameter ID with a value in its own units (knobs), 0 / 1 (switches) or the method's index
     (a processing method, e.g. --set tideDetector=1). Everything runs at 48 kHz stereo, offline.
 */
 
+#include <atomic>
+#include <thread>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_graphics/juce_graphics.h>
 #include <juce_dsp/juce_dsp.h>
@@ -203,7 +208,7 @@ namespace lab
     }
 
     struct SceneInfo { const char* name; const char* what; };
-    const std::array<SceneInfo, 14> sceneList {{
+    const std::array<SceneInfo, 18> sceneList {{
         { "gaps",      "music for 3 s, near silence for 3 s, music again: what the auto gains do in the gaps" },
         { "bassduck",  "unchanging quiet detail and footsteps throughout, loud bass only from 3 - 5 s: what the bass does to the rest" },
         { "steps",     "ambience and footsteps only, left/right, every 0.45 s: what the rack does to footsteps over time" },
@@ -218,6 +223,10 @@ namespace lab
         { "impulses",  "short 2 kHz bursts every 0.5 s over silence: transients, ringing, pre-echo" },
         { "pink",      "-18 dBFS pink noise: the rack's static tone" },
         { "voice",     "a voice over a low bed: intelligibility, the leveler" },
+        { "start",     "1.5 s of digital silence, then steady wide pink noise at -20 dBFS: does anything surge when sound starts" },
+        { "wide",      "a wide ambience (unrelated left and right) with quiet footsteps: is wide material treated as mono would be" },
+        { "antiphase", "footsteps and ambience with the right channel upside down: out-of-phase material" },
+        { "silence",   "music for 2 s, then digital silence: does the output fall silent (no hiss, no endless tails, no drift)" },
     }};
 
     Buffer makeScene (const juce::String& name, double seconds)
@@ -355,6 +364,37 @@ namespace lab
                 }
         }
         else if (name == "pink")  addNoiseBed (b, -18.0f + 12.0f, rng);   // the pink generator sits ~12 dB low
+        else if (name == "start")
+        {
+            addNoiseBed (b, -20.0f + 12.0f, rng);
+            const int quiet = (int) (1.5 * sr);
+            for (int c = 0; c < 2; ++c)
+            {
+                b.clear (c, 0, std::min (quiet, b.getNumSamples()));
+                for (int i = 0; i < (int) (0.02 * sr) && quiet + i < b.getNumSamples(); ++i)   // a 20 ms fade in
+                    b.setSample (c, quiet + i, b.getSample (c, quiet + i) * (float) i / (float) (0.02 * sr));
+            }
+        }
+        else if (name == "wide")
+        {
+            addNoiseBed (b, -34.0f + 12.0f, rng);   // unrelated left and right
+            addFootsteps (b, 0.3, seconds, 0.5, -30.0f, rng);
+        }
+        else if (name == "antiphase")
+        {
+            addNoiseBed (b, -40.0f, rng);
+            addFootsteps (b, 0.3, seconds, 0.45, -24.0f, rng);
+            for (int i = 0; i < b.getNumSamples(); ++i)
+                b.setSample (1, i, -b.getSample (0, i));
+        }
+        else if (name == "silence")
+        {
+            addMusic (b, rng, true);
+            const int from = (int) (2.0 * sr), fade = (int) (0.05 * sr);
+            for (int c = 0; c < 2; ++c)
+                for (int i = from; i < b.getNumSamples(); ++i)
+                    b.setSample (c, i, i < from + fade ? b.getSample (c, i) * (float) (from + fade - i) / (float) fade : 0.0f);
+        }
         else if (name == "voice")
         {
             addNoiseBed (b, -48.0f, rng);
@@ -373,8 +413,17 @@ namespace lab
         std::vector<std::pair<juce::String, float>> sets;
     };
 
+    bool factoryPresetsOnly = false;   // check: the presets as shipped, not the local presets file
+
     const pad::presets::Preset* findPreset (const juce::String& name)
     {
+        if (factoryPresetsOnly)
+        {
+            for (auto& p : pad::presets::factory())
+                if (p.name.equalsIgnoreCase (name))
+                    return &p;
+            return nullptr;
+        }
         static const auto list = pad::presets::library (false);
         for (auto& p : *list)
             if (p.name.equalsIgnoreCase (name))
@@ -416,6 +465,9 @@ namespace lab
             else if (i == id::footstep) k.footstep = on;       else if (i == id::tideActive) k.tideActive = on;
             else if (i == id::lumenActive) k.lumenActive = on; else if (i == id::spectralActive) k.spectralActive = on;
             else if (i == id::balActive) k.balActive = on;     else if (i == id::deepActive) k.deepActive = on;
+            else if (i == id::charActive) k.charActive = on;   else if (i == id::abCompare) k.compare = on;
+            else if (i == id::charGrit) k.charGrit = on;
+            else if (i == id::charModelA) k.charModelA = v;    else if (i == id::charModelB) k.charModelB = v;
             else if (i == id::seraphMode) k.seraphMode = juce::roundToInt (v);
             else if (i == id::silkProtect) k.protect = on;     else if (i == id::silkTape) k.tape = on;
             else if (i == id::silkAuto) k.autoGain = on;       else if (i == id::heavenMode) k.heavenLiftMode = on;
@@ -1093,7 +1145,17 @@ namespace lab
         juce::File out;
     };
 
-    struct Result { Stats in, out; int clicks = 0; float lowDelta = 0, highSpread = 0, lowSpread = 0; float thd1k = 0; };
+    struct Result
+    {
+        Stats in, out;
+        int clicks = 0;
+        float lowDelta = 0, highSpread = 0, lowSpread = 0;
+        float thd1k = 0;
+        bool finite = true;
+        float surgeDb = 0;          // "start": how far the output rises past where it settles, more than the input does
+        float tailDb = -200;        // "silence": the output's level over its last 2 s (the input is digital silence there)
+        float balanceDb = 0;        // left minus right, out against in: does the rack lean to one side
+    };
 
     Buffer inputFor (const Job& job)
     {
@@ -1101,25 +1163,26 @@ namespace lab
                                        : makeScene (job.scene, job.seconds);
     }
 
-    Result render (const Job& job, bool pictures = true)
+    /** Everything measured about one run (the output already aligned to the input). */
+    Result analyse (const Buffer& input, const Buffer& output, const juce::String& scene)
     {
         Result res;
-        const auto input = inputFor (job);
-        if (input.getNumSamples() == 0) { std::printf ("no input (unknown scene '%s' or unreadable file)\n", job.scene.toRawUTF8()); return res; }
-        int latency = 0;
-        const auto output = run (input, parametersFor (job.setup), latency);
-        job.out.createDirectory();
-        writeWav (input, job.out.getChildFile ("in.wav"));
-        writeWav (output, job.out.getChildFile ("out.wav"));
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < output.getNumSamples(); ++i)
+                res.finite = res.finite && std::isfinite (output.getSample (c, i));
         res.in = stats (input);
         res.out = stats (output);
-        const auto spi = averageSpectrum (input), spo = averageSpectrum (output);
-        juce::String title = (job.inFile.isNotEmpty() ? job.inFile : job.scene) + "  through  " + job.setup.preset;
-        for (auto& s : job.setup.sets) title << "  " << s.first << "=" << juce::String (s.second);
-        const auto text = report (title, input, output, latency, res.in, res.out, spi, spo, job.scene);
-        job.out.getChildFile ("report.txt").replaceWithText (text);
         res.clicks = (int) newClicks (input, output).size();
-        res.lowDelta = bandDb (spo, 20.0f, 150.0f) - bandDb (spi, 20.0f, 150.0f);
+        {
+            // Each channel's own spectrum, averaged: the mid signal is empty for out-of-phase material
+            auto channels = [] (const Buffer& b)
+            {
+                Buffer l (2, b.getNumSamples()), r (2, b.getNumSamples());
+                for (int c = 0; c < 2; ++c) { l.copyFrom (c, 0, b, 0, 0, b.getNumSamples()); r.copyFrom (c, 0, b, 1, 0, b.getNumSamples()); }
+                return 0.5f * (bandDb (averageSpectrum (l), 20.0f, 150.0f) + bandDb (averageSpectrum (r), 20.0f, 150.0f));
+            };
+            res.lowDelta = channels (output) - channels (input);
+        }
         {
             const auto bi = bandLevels (input), bo = bandLevels (output);
             auto spread = [&] (size_t k)
@@ -1134,11 +1197,65 @@ namespace lab
             res.lowSpread = spread (0);
             res.highSpread = spread (2);
         }
-        if (job.scene == "tones")
+        if (scene == "tones")
         {
             const double seg = input.getNumSamples() / sr / 4.0;
             res.thd1k = thd (output, 0.3, seg - 0.3, 1000.0f).thdPercent;
         }
+        if (scene == "start")
+        {
+            // Momentary loudness every 100 ms: the most in the 4 s after the sound starts, against the
+            // median of the last 3 s (where it has settled). The input's own figure is taken off.
+            auto rise = [] (const std::vector<float>& m, size_t onset)
+            {
+                if (m.size() < onset + 40) return 0.0f;
+                float most = -200.0f;
+                for (size_t i = onset; i < onset + 40; ++i) most = std::max (most, m[i]);
+                std::vector<float> last (m.end() - 30, m.end());
+                std::nth_element (last.begin(), last.begin() + 15, last.end());
+                return most - last[15];
+            };
+            size_t onset = 0;
+            while (onset < res.in.momentary.size() && res.in.momentary[onset] < -60.0f) ++onset;
+            onset += 4;   // the momentary window (400 ms) is full of sound from here
+            res.surgeDb = rise (res.out.momentary, onset) - rise (res.in.momentary, onset);
+        }
+        if (scene == "silence")
+        {
+            const int from = std::max (0, output.getNumSamples() - (int) (2.0 * sr));
+            double e = 0.0;
+            for (int c = 0; c < 2; ++c)
+                for (int i = from; i < output.getNumSamples(); ++i)
+                    e += (double) output.getSample (c, i) * output.getSample (c, i);
+            res.tailDb = dbOf (e / std::max (1, 2 * (output.getNumSamples() - from)));
+        }
+        {
+            auto channelDb = [] (const Buffer& b, int c)
+            {
+                double e = 0.0;
+                for (int i = 0; i < b.getNumSamples(); ++i) e += (double) b.getSample (c, i) * b.getSample (c, i);
+                return dbOf (e / std::max (1, b.getNumSamples()));
+            };
+            res.balanceDb = (channelDb (output, 0) - channelDb (output, 1)) - (channelDb (input, 0) - channelDb (input, 1));
+        }
+        return res;
+    }
+
+    Result render (const Job& job, bool pictures = true)
+    {
+        const auto input = inputFor (job);
+        if (input.getNumSamples() == 0) { std::printf ("no input (unknown scene '%s' or unreadable file)\n", job.scene.toRawUTF8()); return {}; }
+        int latency = 0;
+        const auto output = run (input, parametersFor (job.setup), latency);
+        job.out.createDirectory();
+        writeWav (input, job.out.getChildFile ("in.wav"));
+        writeWav (output, job.out.getChildFile ("out.wav"));
+        const auto res = analyse (input, output, job.scene);
+        const auto spi = averageSpectrum (input), spo = averageSpectrum (output);
+        juce::String title = (job.inFile.isNotEmpty() ? job.inFile : job.scene) + "  through  " + job.setup.preset;
+        for (auto& s : job.setup.sets) title << "  " << s.first << "=" << juce::String (s.second);
+        const auto text = report (title, input, output, latency, res.in, res.out, spi, spo, job.scene);
+        job.out.getChildFile ("report.txt").replaceWithText (text);
         if (pictures)
         {
             spectrogramImage (input, output, job.out.getChildFile ("spectrogram.png"), title);
@@ -1566,6 +1683,189 @@ namespace lab
     }
 }
 
+namespace lab
+{
+    //==============================================================================
+    /** check: the self-test. Every preset through the scenes that matter for it, measured, held to hard
+        rules (things that must never happen) and compared with the stored baseline (things that must not
+        get worse without anyone noticing). Exit code 0 only when everything holds. */
+    struct CheckRun
+    {
+        juce::String scene, preset, label;
+        std::vector<std::pair<juce::String, float>> sets;
+        Result r;
+        juce::String key() const { return scene + " | " + label; }
+    };
+
+    std::vector<CheckRun> checkPlan()
+    {
+        std::vector<CheckRun> plan;
+        auto add = [&] (const char* scene, const juce::String& preset, std::vector<std::pair<juce::String, float>> sets = {}, juce::String label = {})
+        {
+            plan.push_back ({ scene, preset, label.isEmpty() ? preset : label, std::move (sets), {} });
+        };
+        // Every preset on the scenes every preset must get right
+        for (auto& p : pad::presets::factory())
+            for (auto* scene : { "game", "music", "explosion", "start", "silence", "wide", "antiphase", "gaps" })
+                add (scene, p.name);
+        // The rest of the scenes on the presets they are about
+        for (auto* scene : { "drumsbass", "bassline", "bassduck", "steps", "quiet", "voice", "sweep", "tones", "impulses", "pink" })
+            for (auto* preset : { "DEFAULT", "TRANSPARENT (ALL OUT)", "DEEP SUB: SUBMARINE", "COMPETITIVE FOOTSTEPS", "MASTERING: ANALOG BUS" })
+                add (scene, preset);
+        // CHARACTER: every model, driven hard, with GRIT and without
+        for (int model = 0; model < 9; ++model)
+            for (int grit = 0; grit < 2; ++grit)
+                for (auto* scene : { "music", "tones" })
+                    add (scene, "DEFAULT", { { "charActive", 1.0f }, { "charModelA", (float) model }, { "charModelB", (float) model },
+                                             { "charDrive", 9.0f }, { "charGrit", (float) grit } },
+                         "CHARACTER model " + juce::String (model) + " drive 9" + (grit ? " GRIT" : " clean"));
+        return plan;
+    }
+
+    /** Hard rules: none of these may ever happen, whatever the preset. */
+    juce::StringArray hardRules (const CheckRun& c)
+    {
+        juce::StringArray f;
+        const auto& r = c.r;
+        if (! r.finite) f.add ("output not finite (NaN / inf)");
+        if (r.out.clipped > 0) f.add ("samples over full scale: " + juce::String (r.out.clipped));
+        if (r.out.truePeakDb > 0.3f) f.add ("true peak " + fmt (r.out.truePeakDb, 2) + " dBTP (over 0)");
+        if (r.clicks > 0) f.add (juce::String (r.clicks) + " new click(s)");
+        if (std::abs (r.out.dc) > 1.0e-3f) f.add ("DC offset " + juce::String (r.out.dc, 5));
+        if (c.scene == "start" && r.surgeDb > 2.0f) f.add ("surges " + fmt (r.surgeDb) + " dB past its settled level when sound starts");
+        if (c.scene == "silence" && r.tailDb > -80.0f) f.add ("not silent 4 s after the music stops: " + fmt (r.tailDb) + " dBFS");
+        if (std::abs (r.balanceDb) > 1.5f) f.add ("leans to one side: " + fmt (r.balanceDb) + " dB left minus right");
+        // Mono compatibility: a truly mono input (left = right) stays largely mono, and nothing that went in
+        // in phase comes out out of phase. (A mostly-mono mix is not held to it: a mono explosion taken down
+        // under a wide bed rightly leaves a wide output.)
+        if (r.in.correlation > 0.999f && r.out.correlation < 0.5f) f.add ("mono in, not mono-compatible out (correlation " + fmt (r.out.correlation, 2) + ")");
+        if (r.in.correlation >= 0.0f && r.out.correlation < -0.1f) f.add ("out of phase (correlation " + fmt (r.out.correlation, 2) + ")");
+        if (r.in.lufsI > -40.0f && std::abs (r.out.lufsI - r.in.lufsI) > 9.0f) f.add ("loudness moved " + fmt (r.out.lufsI - r.in.lufsI) + " LU");
+        return f;
+    }
+
+    juce::var metricsOf (const Result& r)
+    {
+        auto* o = new juce::DynamicObject();
+        o->setProperty ("lufs", r.out.lufsI);        o->setProperty ("tp", r.out.truePeakDb);
+        o->setProperty ("lra", r.out.lra);           o->setProperty ("lraIn", r.in.lra);
+        o->setProperty ("pumpLo", r.lowSpread);      o->setProperty ("pumpHi", r.highSpread);
+        o->setProperty ("lowD", r.lowDelta);         o->setProperty ("thd", r.thd1k);
+        o->setProperty ("surge", r.surgeDb);         o->setProperty ("tail", r.tailDb);
+        o->setProperty ("corr", r.out.correlation);  o->setProperty ("balance", r.balanceDb);
+        return juce::var (o);
+    }
+
+    /** Against the baseline: WORSE (fails), CHANGED (fails: someone must look, then --update). */
+    juce::StringArray againstBaseline (const CheckRun& c, const juce::var& base)
+    {
+        juce::StringArray f;
+        if (! base.isObject()) { f.add ("NEW: not in the baseline"); return f; }
+        auto b = [&] (const char* k) { return (float) (double) base.getProperty (k, 0.0); };
+        const auto& r = c.r;
+        if (std::abs (r.out.lufsI - b ("lufs")) > 1.0f)           f.add ("CHANGED loudness " + fmt (b ("lufs")) + " -> " + fmt (r.out.lufsI) + " LUFS");
+        if (r.out.truePeakDb > b ("tp") + 0.5f && r.out.truePeakDb > -1.0f) f.add ("WORSE true peak " + fmt (b ("tp")) + " -> " + fmt (r.out.truePeakDb) + " dBTP");
+        if (r.in.lra >= 2.0f && r.out.lra < b ("lra") - 1.0f)     f.add ("WORSE dynamics (LRA) " + fmt (b ("lra")) + " -> " + fmt (r.out.lra) + " LU");
+        if (r.lowSpread > b ("pumpLo") + 0.5f)                   f.add ("WORSE low-band pumping " + fmt (b ("pumpLo")) + " -> " + fmt (r.lowSpread) + " dB");
+        if (r.highSpread > b ("pumpHi") + 0.5f)                  f.add ("WORSE high-band pumping " + fmt (b ("pumpHi")) + " -> " + fmt (r.highSpread) + " dB");
+        if (std::abs (r.lowDelta - b ("lowD")) > 1.5f)            f.add ("CHANGED low end " + fmt (b ("lowD")) + " -> " + fmt (r.lowDelta) + " dB");
+        if (r.thd1k > b ("thd") + 1.0f)                          f.add ("WORSE THD at 1 kHz " + fmt (b ("thd"), 2) + " -> " + fmt (r.thd1k, 2) + " %");
+        if (r.surgeDb > b ("surge") + 1.0f)                      f.add ("WORSE start surge " + fmt (b ("surge")) + " -> " + fmt (r.surgeDb) + " dB");
+        if (r.out.correlation < b ("corr") - 0.1f)               f.add ("WORSE stereo correlation " + fmt (b ("corr"), 2) + " -> " + fmt (r.out.correlation, 2));
+        if (r.tailDb > b ("tail") + 6.0f && r.tailDb > -100.0f)  f.add ("WORSE tail after silence " + fmt (b ("tail")) + " -> " + fmt (r.tailDb) + " dBFS");
+        return f;
+    }
+
+    int check (const juce::StringArray& args)
+    {
+        factoryPresetsOnly = true;
+        juce::File baselineFile = juce::File::getCurrentWorkingDirectory().getChildFile ("Tests/lab-baseline.json");
+        juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/check");
+        bool update = false;
+        int threads = std::max (1, std::min (3, (int) std::thread::hardware_concurrency() - 1));
+        juce::String only;
+        for (int i = 1; i < args.size(); ++i)
+        {
+            if (args[i] == "--update") update = true;
+            else if (args[i] == "--baseline" && i + 1 < args.size()) baselineFile = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
+            else if (args[i] == "--out" && i + 1 < args.size()) out = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
+            else if (args[i] == "--threads" && i + 1 < args.size()) threads = std::max (1, args[++i].getIntValue());
+            else if (args[i] == "--only" && i + 1 < args.size()) only = args[++i];   // runs whose key contains this
+        }
+
+        auto plan = checkPlan();
+        if (only.isNotEmpty())
+            plan.erase (std::remove_if (plan.begin(), plan.end(), [&] (const CheckRun& c) { return ! c.key().containsIgnoreCase (only); }), plan.end());
+        std::printf ("EnhAudioLab check: %d runs on %d threads (factory presets, 48 kHz, 8 s each)\n", (int) plan.size(), threads);
+
+        std::atomic<int> next { 0 }, done { 0 };
+        std::vector<std::thread> pool;
+        for (int t = 0; t < threads; ++t)
+            pool.emplace_back ([&]
+            {
+                for (int i; (i = next++) < (int) plan.size();)
+                {
+                    auto& c = plan[(size_t) i];
+                    const auto input = makeScene (c.scene, 8.0);
+                    int latency = 0;
+                    const auto output = run (input, parametersFor ({ c.preset, c.sets }), latency);
+                    c.r = analyse (input, output, c.scene);
+                    const int d = ++done;
+                    if (d % 10 == 0 || d == (int) plan.size())
+                    {
+                        std::printf ("  %d / %d\n", d, (int) plan.size());
+                        std::fflush (stdout);
+                    }
+                }
+            });
+        for (auto& t : pool) t.join();
+
+        const auto baseline = baselineFile.existsAsFile() ? juce::JSON::parse (baselineFile) : juce::var();
+        juce::String text;
+        text << "EnhAudioLab check - " << juce::Time::getCurrentTime().toString (true, true) << "\n\n"
+             << "scene      run                                         LUFS in   out    TP out   LRA in  out  pump lo  hi   low d  surge   tail  corr  bal\n";
+        int hard = 0, regress = 0;
+        juce::String failures;
+        auto* newBase = new juce::DynamicObject();
+        for (auto& c : plan)
+        {
+            const auto& r = c.r;
+            text << c.scene.paddedRight (' ', 11) << c.label.substring (0, 42).paddedRight (' ', 42)
+                 << fmt (r.in.lufsI).paddedLeft (' ', 8) << fmt (r.out.lufsI).paddedLeft (' ', 6) << fmt (r.out.truePeakDb, 2).paddedLeft (' ', 9)
+                 << fmt (r.in.lra).paddedLeft (' ', 8) << fmt (r.out.lra).paddedLeft (' ', 5)
+                 << fmt (r.lowSpread).paddedLeft (' ', 8) << fmt (r.highSpread).paddedLeft (' ', 5) << fmt (r.lowDelta).paddedLeft (' ', 7)
+                 << (c.scene == "start" ? fmt (r.surgeDb) : juce::String ("-")).paddedLeft (' ', 7)
+                 << (c.scene == "silence" ? fmt (r.tailDb, 0) : juce::String ("-")).paddedLeft (' ', 7)
+                 << fmt (r.out.correlation, 2).paddedLeft (' ', 6) << fmt (r.balanceDb).paddedLeft (' ', 5) << "\n";
+            newBase->setProperty (c.key(), metricsOf (r));
+            for (auto& f : hardRules (c))       { ++hard;    failures << "  RULE     " << c.key() << ": " << f << "\n"; }
+            if (! update)
+                for (auto& f : againstBaseline (c, baseline.getProperty (c.key(), {})))
+                    { ++regress; failures << "  BASELINE " << c.key() << ": " << f << "\n"; }
+        }
+        text << "\n" << (failures.isEmpty() ? juce::String ("Everything holds.\n") : "Failures:\n" + failures);
+        text << "\nRULES (always): finite; nothing over full scale; true peak <= +0.3 dBTP (0 dBFS ceiling, meter tolerance); no new clicks;\n"
+                "DC under 0.001; 'start' surges no more than 2 dB; 'silence' under -80 dBFS 4 s after the music; left / right\n"
+                "balance within 1.5 dB of the input's; mono in (L = R) stays mono-compatible (correlation >= 0.5) and nothing goes out of\n"
+                "phase; loudness within 9 LU.\n"
+                "BASELINE (Tests/lab-baseline.json; --update after a change you meant): loudness +-1 LU, true peak +0.5 dB, LRA -1 LU,\n"
+                "pumping +0.5 dB, low end +-1.5 dB, THD +1 %, start surge +1 dB, correlation -0.1, tail +6 dB.\n";
+        out.createDirectory();
+        out.getChildFile ("check.txt").replaceWithText (text);
+        std::printf ("\n%s", failures.isEmpty() ? "Everything holds.\n" : ("Failures:\n" + failures).toRawUTF8());
+        std::printf ("\n%d hard-rule failure(s), %d baseline difference(s). Table: %s\n", hard, regress, out.getChildFile ("check.txt").getFullPathName().toRawUTF8());
+
+        if (update)
+        {
+            baselineFile.replaceWithText (juce::JSON::toString (juce::var (newBase), false));
+            std::printf ("baseline written: %s (%d runs)\n", baselineFile.getFullPathName().toRawUTF8(), (int) plan.size());
+        }
+        else
+            delete newBase;
+        return hard > 0 || regress > 0 ? 1 : 0;
+    }
+}
+
 int main (int argc, char** argv)
 {
     using namespace lab;
@@ -1574,7 +1874,7 @@ int main (int argc, char** argv)
     for (int i = 1; i < argc; ++i) args.add (argv[i]);
     if (args.isEmpty() || args[0] == "-h" || args[0] == "--help")
     {
-        std::printf ("EnhAudioLab scenes | render | contrib | ducks | trace | compare | suite   (see the top of Tools/AudioLab.cpp)\n");
+        std::printf ("EnhAudioLab scenes | render | contrib | ducks | trace | compare | suite | check   (see the top of Tools/AudioLab.cpp)\n");
         return 0;
     }
     const auto command = args[0];
@@ -1634,6 +1934,7 @@ int main (int argc, char** argv)
         return 0;
     }
     if (command == "suite") return suite (out);
+    if (command == "check") return check (args);
     std::printf ("unknown command (EnhAudioLab --help)\n");
     return 1;
 }

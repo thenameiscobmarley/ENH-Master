@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <memory>
+#include <vector>
 #include <juce_dsp/juce_dsp.h>
 #include "DspMath.h"
 
@@ -145,6 +148,8 @@ namespace enh::dsp
         std::array<float, 2> bloomLp {};
         float bloomIn = 0.0f;
         float airShelfDb = 1000.0f, bodyDb = 1000.0f, airMix = 0.0f, warmMix = 0.0f, triodeK = 0.6f, triodeMix = 1.0f;
+        float airNow = 0.0f, warmNow = 0.0f, triodeNow = 1.0f, glowNow = 0.0f, bloomNow = 0.0f;   // the mixes, gliding (10 ms)
+        float mixK = 0.0f;
         float envAtt = 0.0f, envRel = 0.0f, dcCoeff = 0.999f;
 
         // Loudness match
@@ -256,6 +261,9 @@ namespace enh::dsp
         float midHpK = 0.0f, midHpState = 0.0f;
         std::array<Allpass, 3> decorrelate {};
         float monoPowerM = 0.0f, monoPowerS = 0.0f, powerK = 0.0f;
+        // BASS MONO: how much of the low end is out of phase (side), measured over 150 ms
+        BiquadState midLowMeter;
+        float lowPowerM = 0.0f, lowPowerS = 0.0f, lowPowerK = 0.0f;
 
         // Reverb
         Delay preDelay;
@@ -282,6 +290,7 @@ namespace enh::dsp
         float dryFast = 0.0f, drySlow = 0.0f, duckGain = 1.0f, fastAtt = 0.0f, fastRel = 0.0f, slowK = 0.0f, duckK = 0.0f;
         float wetPower = 0.0f, dryPower = 0.0f, meterK = 0.0f;
         float haloDb = -60.0f, blend = 0.0f, blendCoeff = 0.0f, widthSmoothed = 1.0f, spaceSmoothed = 0.0f, paramK = 0.0f;
+        float strengthSmoothed = 1.0f;   // STRENGTH, gliding with the other settings
         double shimmerEnergy = 0.0, networkInputEnergy = 0.0;
         float meterSmoothing = 0.0f;
     };
@@ -328,10 +337,18 @@ namespace enh::dsp
             HeavenSettings heaven {};
         };
 
-        void prepare (double sampleRate)
+        void prepare (double sampleRate, int maxBlock = 4096)
         {
             sr = sampleRate > 0.0 ? sampleRate : 48000.0;
-            silk.prepare (sampleRate);
+            // TONE runs twice oversampled: its harmonics (WARMTH, AIR) and curves (triode, TAPE) folded
+            // back into the audio band at the plain rate (-63 dB under a loud 7 kHz tone on the presets)
+            silkOs = std::make_unique<juce::dsp::Oversampling<float>> (2, 1, juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple, true, true);
+            silkOs->initProcessing ((size_t) std::max (1, maxBlock));
+            silkLatency = (int) std::lround (silkOs->getLatencyInSamples());
+            silk.prepare (2.0 * sampleRate);
+            for (auto& d : silkDelay) d.assign ((size_t) std::max (1, silkLatency), 0.0f);
+            for (auto& d : silkScratch) d.assign ((size_t) std::max (1, maxBlock), 0.0f);
+            silkPathStep = 1.0f / (float) std::max (1, (int) std::lround (0.010 * sampleRate));
             halo.prepare (sampleRate);
             limiterRelease = onePole (0.080, sampleRate);
             // LOUDNESS measures K-weighted, like a loudness meter: bass counts for little, so a bass
@@ -345,10 +362,15 @@ namespace enh::dsp
         {
             silk.reset();
             halo.reset();
+            if (silkOs != nullptr)
+                silkOs->reset();
+            for (auto& d : silkDelay) std::fill (d.begin(), d.end(), 0.0f);
+            silkDelayPos = 0;
+            silkPath = 0.0f;
             limiterGain = 1.0f;
             dryLevel = wetLevel = 1.0e-8f;
             for (auto* st : { &dryHp, &dryHp2, &dryShelf, &wetHp, &wetHp2, &wetShelf }) st->reset();
-            heavenGain = 1.0f;
+            heavenGain = appliedHeavenGain = 1.0f;
             heavenDb = 0.0f;
 
             // AUTO starts from a neutral programme, not from nothing
@@ -380,7 +402,7 @@ namespace enh::dsp
                 s.silk.sub     = toward (in.silk.sub, autoChoice.sub);
             }
 
-            silk.process (channels, numChannels, numSamples, s.silk, s.mode >= silkOnly ? 1.0f : 0.0f);
+            processSilk (channels, numChannels, numSamples, s.silk, s.mode >= silkOnly ? 1.0f : 0.0f);
             halo.process (channels, numChannels, numSamples, s.halo, s.mode == heaven ? 1.0f : 0.0f);
             applyHeaven (channels, numChannels, numSamples, s.heaven);
 
@@ -390,6 +412,61 @@ namespace enh::dsp
 
         float getLimiterDb() const noexcept { return gainReductionDb; }
         float getHeavenDb() const noexcept { return heavenDb; }
+        int getLatencySamples() const noexcept { return silkLatency; }   // TONE's oversampling (constant)
+
+    private:
+        /** TONE, twice oversampled. While it is out (and has faded out) the audio takes a plain delay of
+            the same length instead - bit for bit the input, no oversampling cost; going in or out
+            crossfades the two paths over 10 ms. */
+        void processSilk (float* const* channels, int numChannels, int numSamples, const SilkStage::Settings& settings, float blendTarget) noexcept
+        {
+            const int chans = std::min (2, numChannels);
+            const int len = (int) silkDelay[0].size();
+            const bool wantOs = blendTarget > 0.0f || silk.getBlend() > 1.0e-4f;
+
+            // The delayed input, always (it is the OUT path, and the crossfade's other side)
+            const int m = std::min (numSamples, (int) silkScratch[0].size());
+            for (int c = 0; c < chans; ++c)
+            {
+                int p = silkDelayPos;
+                for (int i = 0; i < m; ++i)
+                {
+                    silkScratch[(size_t) c][(size_t) i] = silkDelay[(size_t) c][(size_t) p];
+                    silkDelay[(size_t) c][(size_t) p] = channels[c][i];
+                    if (++p == len) p = 0;
+                }
+            }
+            silkDelayPos = (silkDelayPos + m) % len;
+
+            if (! wantOs && silkPath == 0.0f)
+            {
+                for (int c = 0; c < chans; ++c)
+                    std::copy_n (silkScratch[(size_t) c].data(), m, channels[c]);
+                return;
+            }
+
+            if (silkPath == 0.0f)
+                silkOs->reset();   // starting again from rest; the crossfade covers its first samples
+
+            juce::dsp::AudioBlock<float> block (channels, (size_t) chans, (size_t) m);
+            auto up = silkOs->processSamplesUp (block);
+            float* upPtrs[2] { up.getChannelPointer (0), up.getChannelPointer ((size_t) std::min (1, chans - 1)) };
+            silk.process (upPtrs, chans, (int) up.getNumSamples(), settings, blendTarget);
+            silkOs->processSamplesDown (block);
+
+            const float target = wantOs ? 1.0f : 0.0f;
+            for (int i = 0; i < m; ++i)
+            {
+                silkPath = silkPath < target ? std::min (target, silkPath + silkPathStep) : std::max (target, silkPath - silkPathStep);
+                for (int c = 0; c < chans; ++c)
+                {
+                    const float d = silkScratch[(size_t) c][(size_t) i];
+                    channels[c][i] = d + (channels[c][i] - d) * silkPath;
+                }
+            }
+        }
+
+    public:
 
         const SilkStage& getSilk() const noexcept { return silk; }
         float getAutoBlend() const noexcept { return autoBlend; }   // how far AUTO has taken the knobs (0..1)
@@ -496,8 +573,12 @@ namespace enh::dsp
             const float amount = std::clamp (h.amount, 0.0f, 1.0f) * std::clamp (h.strength, 0.0f, 5.0f);
             if (amount <= 1.0e-4f)
             {
+                // Switched off: glide back to unity - and keep applying it while it does. (It used to stop
+                // being applied at once: a jump from wherever it was to 1, a click, when STRENGTH or the
+                // knob went to 0 in one go.)
                 heavenGain += (1.0f - heavenGain) * 0.02f;
                 heavenDb = 20.0f * std::log10 (std::max (1.0e-3f, heavenGain));
+                rampGain (channels, numChannels, numSamples);
                 return;
             }
 
@@ -517,14 +598,32 @@ namespace enh::dsp
             heavenGain += (blended - heavenGain) * (1.0f - std::exp (-(float) numSamples / (3.0f * (float) sr)));
             heavenDb = 20.0f * std::log10 (std::max (1.0e-3f, heavenGain));
 
+            rampGain (channels, numChannels, numSamples);
+        }
+
+        /** HEAVEN's gain, ramped across the block from what was applied last (never a step). */
+        void rampGain (float* const* channels, int numChannels, int numSamples) noexcept
+        {
             const int chans = std::min (numChannels, 2);
+            const float from = appliedHeavenGain, step = (heavenGain - from) / (float) std::max (1, numSamples);
+            if (std::abs (heavenGain - 1.0f) < 1.0e-6f && std::abs (from - 1.0f) < 1.0e-6f)
+            {
+                appliedHeavenGain = 1.0f;
+                return;
+            }
             for (int c = 0; c < chans; ++c)
                 for (int i = 0; i < numSamples; ++i)
-                    channels[c][i] *= heavenGain;
+                    channels[c][i] *= from + step * (float) (i + 1);
+            appliedHeavenGain = heavenGain;
         }
 
         SilkStage silk;
         HaloStage halo;
+        std::unique_ptr<juce::dsp::Oversampling<float>> silkOs;
+        int silkLatency = 0;
+        std::array<std::vector<float>, 2> silkDelay, silkScratch;
+        int silkDelayPos = 0;
+        float silkPath = 0.0f, silkPathStep = 0.01f;   // 0: the plain delay (TONE out), 1: TONE oversampled
         AutoChoice autoChoice { 0.197f, 2.07f, 0.10f, 0.45f, 1.27f, 3.0f, 1.0f };   // = choose() on a neutral programme
         float autoBlend = 0.0f, aFast = 1.0e-8f, aPeak = 0.0f, crestAcc = 0.0f, crestDb = 12.0f, widthRatio = 0.2f;
         float brightDb = -14.0f, bassBalanceDb = 0.0f, lp8 = 0, lp4 = 0, lp1 = 0, lpB1 = 0, lpB2 = 0;
@@ -532,7 +631,7 @@ namespace enh::dsp
         double sr = 48000.0;
         BiquadCoeffs kHp, kShelf;
         BiquadState dryHp, dryHp2, dryShelf, wetHp, wetHp2, wetShelf;
-        float dryLevel = 1.0e-8f, wetLevel = 1.0e-8f, heavenGain = 1.0f, heavenDb = 0.0f;
+        float dryLevel = 1.0e-8f, wetLevel = 1.0e-8f, heavenGain = 1.0f, heavenDb = 0.0f, appliedHeavenGain = 1.0f;
         float limiterGain = 1.0f, limiterRelease = 0.99f, gainReductionDb = 0.0f;
         float windowSeconds = 2.0f;   // LOUDNESS WINDOW
     };

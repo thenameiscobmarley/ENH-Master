@@ -278,7 +278,11 @@ namespace enh::dsp
             float g = 0.0f;
             for (int c = 0; c < n; ++c)
                 g += solve[(size_t) r][(size_t) c] * controllers[(size_t) c].value;
-            filterGain[(size_t) r] = std::clamp (g, -30.0f, 30.0f);
+            // No band moves more than 0.3 dB a tick (450 dB a second - far faster than the EQ ever adapts):
+            // the filters are direct-form, and a jump of several dB between two ticks (STRENGTH or LEVEL
+            // turned in one go) made a burst of high frequencies
+            const float before = filterGain[(size_t) r];
+            filterGain[(size_t) r] = std::clamp (before + std::clamp (std::clamp (g, -30.0f, 30.0f) - before, -0.3f, 0.3f), -30.0f, 30.0f);
         }
 
         for (int r = 0; r < n; ++r)

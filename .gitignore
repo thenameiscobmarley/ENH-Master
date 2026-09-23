@@ -5,3 +5,4 @@ build-tests.log
 build-*/
 *.raw.png
 dist/
+__pycache__/

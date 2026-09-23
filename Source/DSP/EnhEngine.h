@@ -17,6 +17,7 @@
 #include "SpectrumScope.h"
 #include "FinalLimiter.h"
 #include "LoudnessTarget.h"
+#include "Character.h"
 #include "LoudnessMeter.h"
 #include "MixBalancer.h"
 #include "EngineMeters.h"
@@ -63,13 +64,15 @@ namespace enh::dsp
             MixBalancer::Settings balancer {};    // MIX BALANCER: rides six band faders for the balance
             std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
             DeepSub::Settings deep {};                          // DEEP SUB: sub-harmonic synth and resonant hull
+            Character::Settings character {};                   // CHARACTER: consoles, tape, valves (out by default)
+            bool compare = false;                               // COMPARE: hear the input instead, at the output's loudness
         };
 
         void prepare (double sampleRate, int maxBlockSize, int numChannels);
         void reset();
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
-        int getLatencySamples() const noexcept { return analog.getLatencySamples() + output.getLatencySamples(); }
+        int getLatencySamples() const noexcept { return analog.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + output.getLatencySamples(); }
 
         /** The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again. */
         void resetLoudness() noexcept { loudnessResetPending.store (true, std::memory_order_relaxed); }
@@ -98,6 +101,17 @@ namespace enh::dsp
         const ScopeFifo& getOutputScope() const noexcept { return scopeOut; }
 
     private:
+        /** STEREO (mid/side) around one unit: mode 0 runs it on left and right as ever; 1 on the middle
+            only, 2 on the sides only. The part it does not work on waits `latency` samples (the unit's
+            own) in `keep`, so the two meet again in time. */
+        struct KeepDelay { std::vector<float> line; int pos = 0; };
+        template <typename Fn>
+        void inStereoMode (float* const* chunk, int chans, int n, int mode, int latency, KeepDelay& keep, Fn&& run) noexcept;
+
+        /** COMPARE: the input, delayed to line up and brought to the loudness of the output - before the
+            output limiter, so it is looked after like everything else. `start`: where in the block. */
+        void compareStage (float* const* chunk, int chans, int n, int start, bool on) noexcept;
+
         void controlTick (const Parameters&) noexcept;
         void processChunk (juce::AudioBuffer<float>&, int start, int n, const Parameters&) noexcept;
 
@@ -122,6 +136,24 @@ namespace enh::dsp
         EngineMeters meters;
 
         /** The one output limiter: lookahead, holds through a bass cycle, never wobbles inside one. */
+        Character character;     // CHARACTER, after TONE & SPACE
+
+        std::array<std::vector<float>, 3> msScratch;   // mid/side: the part worked on (two channels), the part kept
+        std::array<KeepDelay, 6> keepDelays;            // one per unit with a STEREO setting
+
+        std::array<std::vector<float>, 2> compareIn, compareLine;   // the block as it came in; the latency delay
+        int comparePos = 0, compareLen = 0;
+        BiquadCoeffs compareKPre, compareKRlb;                        // K-weighting, as loudness is heard
+        std::array<BiquadState, 2> compareInPre {}, compareInRlb {}, compareOutPre {}, compareOutRlb {};
+        double compareInLevel = 0.0, compareOutLevel = 0.0;
+        float compareDb = 0.0f, compareGain = 1.0f, compareMix = 0.0f;
+        bool compareReady = false;   // this block's input was kept (hosts may send more than COMPARE can hold)
+
+        // Speaker and headset protection, always on: DC and sub-sonic (8 Hz high-pass, before the output
+        // limiter), a fade-in after any start or reset, and a last check on what leaves
+        SvfCoeffs protectHp {};
+        std::array<SvfState, 2> protectState {};
+        float startGain = 0.0f, startStep = 1.0f;
         LoudnessTarget target;   // LOUDNESS TARGET, just before the output limiter
         FinalLimiter output;
 

@@ -147,6 +147,26 @@ namespace pad::presets
                   { id::heavenHold, 12.0f }, { id::silkSub, 3.0f },
               } },
 
+            { "MASTERING: ANALOG BUS",
+              "a mix bus through iron and tape: a vintage console into 15 ips tape, gently driven, the rest of the rack light",
+              {
+                  { id::clarityNorm, 10.0f }, { id::adaptSpeed, 30.0f }, { id::sub, 20.0f }, { id::footstep, 0.0f },
+                  { id::lumenActive, 0.0f },
+                  { id::spectralRange, 6.0f }, { id::spectralRelease, 220.0f },
+                  { id::tideMix, 40.0f }, { id::tideResponse, 4.0f },
+                  { id::seraphMode, 1.0f }, { id::silkSmooth, 3.0f }, { id::silkAir, 2.0f }, { id::silkWarmth, 2.0f }, { id::silkBody, 1.0f },
+                  { id::charActive, 1.0f }, { id::charModelA, 3.0f }, { id::charModelB, 4.0f }, { id::charBlend, 40.0f },
+                  { id::charDrive, 5.5f }, { id::charGrit, 1.0f },
+              } },
+
+            { "GAME: ARENA",
+              "footsteps and callouts forward, impact without mud: the game-tuned ARENA character on clean drive",
+              {
+                  { id::clarityNorm, 18.0f }, { id::footstep, 1.0f }, { id::sub, 25.0f },
+                  { id::charActive, 1.0f }, { id::charModelA, 7.0f }, { id::charModelB, 7.0f }, { id::charBlend, 0.0f },
+                  { id::charDrive, 6.0f }, { id::charGrit, 0.0f },
+              } },
+
             { "TRANSPARENT (ALL OUT)",
               "a reference: every unit bypassed, the enhancer at STRENGTH 0 (its subsonic filter and the output safety limiter stay)",
               {

@@ -92,11 +92,14 @@ namespace enh::dsp
         struct BandState
         {
             float rms = 1.0e-6f;
+            float slow = 1.0e-6f;     // the same level over 120 ms: what loud and floor follow
             float loudDb = -30.0f;
             float floorDb = -70.0f;
             float eventDb = -70.0f;   // the loudest this band has been lately
             float gainDb = 0.0f;
+            float recentDb = 0.0f;    // the lift of the last moments, for a hold to go back to
             float holdS = 0.0f;
+            float onsetS = 0.8f;      // just out of silence: the floor is still being found
         };
 
         double sr = 48000.0;
@@ -106,6 +109,8 @@ namespace enh::dsp
         std::array<Allpass, 2> lowDelay {};                   // the low band through the second split's allpass
         std::array<BandState, numBands> bands {};
         float controlPhase = 0.0f;
+        float slowCoeff = 0.0002f;
+        static constexpr float onsetTime = 0.8f;
         Readout readout {};
 
         void updateBands (const Settings&) noexcept;

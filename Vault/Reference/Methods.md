@@ -1,15 +1,12 @@
-# Processing methods
+# Every glass-panel setting
 
-Generated from `Source/DSP/MethodRegistry.h` by `EnhDspTests --methods-doc`; do not edit by hand
-(the test suite fails when this page and the registry disagree). Back to [[00 Start Here]].
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-Click a unit on the rack to open its glass panel. Its settings are grouped in categories: PROCESSING
-(how the unit measures, calculates and moves), KNOBS (each knob's law and modifiers), OUTPUT and
-DISPLAY. The first method of every setting is the default, and is how the unit sounded before these
-settings existed. No method changes the reported latency; audio-rate methods crossfade over 30 ms when
-switched, control-rate ones glide through the unit's own smoothing. Choices are stored in the session
-(not automatable) and presets leave them alone. RESET TO DEFAULTS at the bottom of a panel puts all of
-a unit's settings back.
+Click a unit to open its glass panel. Each setting below has two or three choices; the **first is the
+default** and is the unit's original sound. Switching never clicks and never changes the plugin's delay.
+Settings are saved with your session and presets leave them alone. **RESET TO DEFAULTS** puts a unit back.
+
+*Made from `Source/DSP/MethodRegistry.h` by `EnhDspTests --methods-doc` — don't edit by hand.* Back to [Start here](../00%20Start%20Here.md).
 
 ## LEVEL CONTROL
 
@@ -66,6 +63,16 @@ PROCESSING. Parameter `levelerBalance`.
 | **STD** Voiced (default) | Each band aims a little differently: low 4 dB under the target, high 1.5 dB under. | Lifts favour the midrange, where detail and footsteps live. The original. | Control rate, no audio cost (default). |
 | **MID** Mid focus | Low 7 dB under, high 3 dB under. | Even more of the lift goes to the midrange: voices and steps forward, boom and hiss left alone. | Control rate, no audio cost. Glides (slew-limited). |
 | **FLT** Flat | Every band aims at the target itself. | Lows and highs come up as much as the mids: fuller and brighter, less focused. | Control rate, no audio cost. Glides (slew-limited). |
+
+### STEREO - Which part of the image it works on
+
+STEREO. Parameter `levelerStereo`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
+| **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+| **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
 ## DEEP SUB
 
@@ -131,6 +138,16 @@ PROCESSING. Parameter `limiterKeeper`.
 | **K90** Keep 90 % | Gives back 90 % of that loss. | Holds the loudness almost exactly through a cut; the lift can be a little more noticeable. | Control rate, no audio cost. Glides. |
 | **OFF** Off | No make-up for cuts. | Cuts are heard as they are: the mix dips a little while a region is held down. | No cost. Glides. |
 
+### STEREO - Which part of the image it works on
+
+STEREO. Parameter `limiterStereo`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
+| **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+| **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+
 ## MIX BALANCER
 
 ### REFERENCE - What a band's jump is measured against
@@ -181,6 +198,16 @@ PROCESSING. Parameter `balancerKeeper`.
 | **K60** Keep 60 % (default) | Where a cut takes a band below its usual level, 60 % of the ear-weighted loss is given back to the whole mix (at most 3 dB, within the headroom). | Heavy cuts no longer make the rest of the mix sound quieter. The original setting. | Control rate, no audio cost (default). |
 | **K90** Keep 90 % | Gives back 90 % of that loss. | Holds the loudness almost exactly through a cut; the lift can be a little more noticeable. | Control rate, no audio cost. Glides. |
 | **OFF** Off | No make-up for cuts. | Cuts are heard as they are: the mix dips a little while a region is held down. | No cost. Glides. |
+
+### STEREO - Which part of the image it works on
+
+STEREO. Parameter `balancerStereo`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
+| **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+| **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
 ## ADAPTIVE COMPRESSOR
 
@@ -244,6 +271,16 @@ KNOBS. Parameter `tideResponseLaw`.
 | **EXP** Exponential | More of the knob's travel is spent at the slow, gentle end; the last third goes quickly to fast. | Finer control over slow, smooth compression; the same range overall. | No cost. |
 | **LOG** Logarithmic | More of the travel is spent at the fast end; the first third goes quickly from slow. | Finer control over fast, aggressive settings; the same range overall. | No cost. |
 
+### STEREO - Which part of the image it works on
+
+STEREO. Parameter `tideStereo`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
+| **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+| **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+
 ## TONE & SPACE
 
 ### TAPE CURVE - How TAPE saturates
@@ -275,6 +312,38 @@ PROCESSING. Parameter `seraphWindow`.
 | **W2S** 2 s window (default) | LOUDNESS measures K-weighted level over about 2 s before it moves. | The original: steady, no pumping with the bass. | Control rate, no audio cost (default). |
 | **W1S** 1 s window | Measures over about 1 s. | Follows level changes faster: holds the level tighter, may breathe a little on sparse material. | Control rate, no audio cost. Glides. |
 | **W4S** 4 s window | Measures over about 4 s. | The steadiest: level changes are followed slowly and almost inaudibly. | Control rate, no audio cost. Glides. |
+
+### STEREO - Which part of the image it works on
+
+STEREO. Parameter `seraphStereo`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
+| **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+| **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+
+## CHARACTER
+
+### COMPONENTS - How alike its two channels are
+
+PROCESSING. Parameter `charComponents`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **MAT** Matched (default) | Both channels built from identical parts. | The original: left and right are coloured exactly alike, the image stays exactly where it was. | No cost (default). |
+| **SUB** Subtle tolerance | The right channel's parts a little off, as two channels of real hardware are: 0.4 dB more drive, corners 2.5 % away, bias 12 % stronger. | A faint width and life in the colour: the two sides distort very slightly differently. Mono content stays centred. | No cost. The right channel's parts are redesigned when chosen. |
+| **VIN** Vintage tolerance | The same, three times as far: 1.2 dB, 7.5 %, 36 %. | An old desk: the sides saturate noticeably differently, the colour gets wider and less tidy. | No cost. |
+
+### STEREO - Which part of the image it works on
+
+STEREO. Parameter `charStereo`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
+| **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+| **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
 ## OUTPUT MONITOR
 
@@ -340,4 +409,4 @@ three off the knob is exactly as it always was.
 | **CRV** Curve | Reshapes the knob's travel before it reaches the processing: LOW spends more travel at the bottom of the range (squared), HIGH more at the top (square root), S at both ends (smoothstep). | Finer control where you need it; the knob still covers the same range end to end. | No cost. | **LINEAR** (off), LOW, HIGH, S |
 | **LIM** Range | Limits how far the knob reaches: its full travel covers only the bottom part of its range. | A safety net for live use and presets: the setting can never be pushed past the limit, and the knob gets finer. | No cost. | **FULL** (off), 75 %, 50 %, 25 % |
 
-Knobs with modifiers: `clarityNorm`, `clarityAdd`, `adaptSpeed`, `sub`, `enhMultiply`, `enhStrength`, `heavenHold`, `heavenLift`, `heavenAutoAmount`, `tideMix`, `tideResponse`, `lumenTarget`, `lumenResponse`, `spectralRange`, `spectralRelease`, `spectralCeiling`, `levelGain`, `balAmount`, `balSpeed`, `balTilt`, `balRange`, `balResolution`, `silkSmooth`, `silkAir`, `silkWarmth`, `silkBody`, `silkOutput`, `silkSub`, `haloWidth`, `haloSpace`, `haloDecay`, `haloShimmer`, `haloTone`, `seraphMultiply`, `seraphStrength`, `deepDepth`, `deepHull`, `deepSize`, `deepPressure`.
+Knobs with modifiers: `clarityNorm`, `clarityAdd`, `adaptSpeed`, `sub`, `enhMultiply`, `enhStrength`, `heavenHold`, `heavenLift`, `heavenAutoAmount`, `tideMix`, `tideResponse`, `lumenTarget`, `lumenResponse`, `spectralRange`, `spectralRelease`, `spectralCeiling`, `levelGain`, `balAmount`, `balSpeed`, `balTilt`, `balRange`, `balResolution`, `silkSmooth`, `silkAir`, `silkWarmth`, `silkBody`, `silkOutput`, `silkSub`, `haloWidth`, `haloSpace`, `haloDecay`, `haloShimmer`, `haloTone`, `seraphMultiply`, `seraphStrength`, `deepDepth`, `deepHull`, `deepSize`, `deepPressure`, `charBlend`, `charDrive`.

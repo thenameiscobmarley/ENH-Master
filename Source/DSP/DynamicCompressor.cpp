@@ -26,13 +26,14 @@ namespace enh::dsp
         fastRms = slowRms = peakEnv = 1.0e-6f;
         loudEstimateDb = -18.0f;
         tilt = 0.0f;
-        lowEnergy = highEnergy = lowState = highState = 0.0f;
+        lowEnergy = highEnergy = 0.0f;
+        lowState = {};
         onsetRate = lastFlux = 0.0f;
         thresholdDb = -20.0f;
         ratio = 2.0f;
         gainDb = makeupDb = slowDb = fastDb = singleDb = 0.0f;
         rmsWindowEnergy = kwtEnergy = optoDb = 0.0f;
-        kwtState.reset();
+        for (auto& k : kwtState) k.reset();
         for (auto& st : scState150) st.reset();
         fadingSideChain = fadingGain = -1;
         sideChainFadeLeft = gainFadeLeft = 0;
@@ -237,7 +238,7 @@ namespace enh::dsp
             if (wantDetector == detectorKwt && detector != detectorKwt && fadingDetector != detectorKwt)
             {
                 kwtEnergy = std::max (0.0f, lowEnergy + highEnergy);
-                kwtState.reset();
+                for (auto& k : kwtState) k.reset();
             }
             fadingDetector = detector;
             detector = wantDetector;
@@ -261,8 +262,14 @@ namespace enh::dsp
         {
             // Detector input: the loudest channel, so a hard-panned hit still triggers it, through the
             // side-chain filter (crossfaded from the old one for 30 ms after a switch)
-            float mono = 0.0f, peak = 0.0f;
-            auto sideChainInput = [&] (int method, float& monoOut, float& peakOut)
+            // The level detectors (RMS, K-weighted, the tilt split) read each channel's own power and
+            // average them, as loudness is measured (BS.1770 sums the channels' powers). The sum of the
+            // channels read a wide mix 3 dB under a mono one at the same loudness - it was compressed
+            // less - and anything out of phase not at all. A mono signal reads exactly as before.
+            const int pc = std::min (ch, 2);
+            std::array<float, 2> xs {}, oldXs {};
+            float peak = 0.0f;
+            auto sideChainInput = [&] (int method, std::array<float, 2>& out, float& peakOut)
             {
                 for (int c = 0; c < ch; ++c)
                 {
@@ -270,35 +277,49 @@ namespace enh::dsp
                     const float x = method == sideChain90 ? scState[(size_t) std::min (c, 1)].process (scHp, in)
                                   : method == sideChain150 ? scState150[(size_t) std::min (c, 1)].process (scHp150, in)
                                                            : in;
-                    monoOut += x;
+                    if (c < 2)
+                        out[(size_t) c] = x;
                     peakOut = std::max (peakOut, std::abs (x));
                 }
             };
-            sideChainInput (sideChain, mono, peak);
+            sideChainInput (sideChain, xs, peak);
             if (sideChainFadeLeft > 0)
             {
-                float oldMono = 0.0f, oldPeak = 0.0f;
-                sideChainInput (fadingSideChain, oldMono, oldPeak);
+                float oldPeak = 0.0f;
+                sideChainInput (fadingSideChain, oldXs, oldPeak);
                 const float t = 1.0f - (float) --sideChainFadeLeft * fadeStep;
-                mono = oldMono + (mono - oldMono) * t;
+                for (int c = 0; c < pc; ++c)
+                    xs[(size_t) c] = oldXs[(size_t) c] + (xs[(size_t) c] - oldXs[(size_t) c]) * t;
                 peak = oldPeak + (peak - oldPeak) * t;
             }
-            mono /= (float) ch;
+            const float perChannel = 1.0f / (float) pc;
 
             // Cheap two-band split for tilt, and a flux measure for transient density
-            lowState += (mono - lowState) * 0.02f;             // ~150 Hz at 48k
-            const float high = mono - lowState;
-            lowEnergy += (lowState * lowState - lowEnergy) * 0.001f;
-            highEnergy += (high * high - highEnergy) * 0.001f;
-            highState = high;
+            float lowPower = 0.0f, highPower = 0.0f, power = 0.0f;
+            for (int c = 0; c < pc; ++c)
+            {
+                auto& ls = lowState[(size_t) c];
+                ls += (xs[(size_t) c] - ls) * 0.02f;             // ~150 Hz at 48k
+                const float high = xs[(size_t) c] - ls;
+                lowPower += ls * ls;
+                highPower += high * high;
+                power += xs[(size_t) c] * xs[(size_t) c];
+            }
+            lowEnergy += (lowPower * perChannel - lowEnergy) * 0.001f;
+            highEnergy += (highPower * perChannel - highEnergy) * 0.001f;
 
             const float rms = std::sqrt (std::max (1.0e-12f, lowEnergy + highEnergy));
             if (detector == detectorRms || (detectorFadeLeft > 0 && fadingDetector == detectorRms))
-                rmsWindowEnergy += (mono * mono - rmsWindowEnergy) * rmsWindowCoeff;   // only while RMS is in use
+                rmsWindowEnergy += (power * perChannel - rmsWindowEnergy) * rmsWindowCoeff;   // only while RMS is in use
             if (detector == detectorKwt || (detectorFadeLeft > 0 && fadingDetector == detectorKwt))
             {
-                const float k = kwtState.process (kwtShelf, mono);
-                kwtEnergy += (k * k - kwtEnergy) * rmsWindowCoeff;
+                float kPower = 0.0f;
+                for (int c = 0; c < pc; ++c)
+                {
+                    const float k = kwtState[(size_t) c].process (kwtShelf, xs[(size_t) c]);
+                    kPower += k * k;
+                }
+                kwtEnergy += (kPower * perChannel - kwtEnergy) * rmsWindowCoeff;
             }
             const float flux = std::max (0.0f, peak - peakEnv);
             lastFlux = std::max (lastFlux, flux);

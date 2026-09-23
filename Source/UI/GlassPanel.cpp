@@ -84,7 +84,7 @@ namespace pad
                 };
 
                 // Unit-wide stages, by category (KNOBS' laws come with their knobs below)
-                for (const juce::String cat : { "PROCESSING", "OUTPUT", "DISPLAY" })
+                for (const juce::String cat : { "PROCESSING", "STEREO", "OUTPUT", "DISPLAY" })
                     for (int i = 0; i < list.count; ++i)
                         if (str (list.stages[i].category) == cat && list.stages[i].knobParam.empty())
                         {

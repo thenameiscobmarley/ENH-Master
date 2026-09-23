@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 2.5.4.1 LANGUAGES C CXX)
+project(EnhMaster VERSION 3.6.8.10 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -134,6 +134,12 @@ if(ENH_BUILD_TESTS)
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
 endif()
+
+    # EnhHostCheck: loads the built VST3 the way a host does and plays with every parameter (Tools/HostCheck.cpp)
+    juce_add_console_app(EnhHostCheck PRODUCT_NAME "EnhHostCheck")
+    target_sources(EnhHostCheck PRIVATE Tools/HostCheck.cpp)
+    target_compile_definitions(EnhHostCheck PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_PLUGINHOST_VST3=1)
+    target_link_libraries(EnhHostCheck PRIVATE juce::juce_audio_processors juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)
 
     # The standalone's router against the real sound server (Linux; run by hand, not in CI)
     if(UNIX AND NOT APPLE)

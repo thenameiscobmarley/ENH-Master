@@ -42,6 +42,8 @@ namespace enh::dsp::methods
         outputCeiling, outputTarget,
         displayToneRange, displayDuckHold, displayWaveform,
         deepShape, deepTracking, deepMaterial,
+        charComponents,
+        tideStereo, levelerStereo, limiterStereo, balancerStereo, seraphStereo, charStereo,
         numMethodIds,
         fixedStage = -1
     };
@@ -50,7 +52,7 @@ namespace enh::dsp::methods
     {
         std::string_view unit;        // the unit's name as printed on the rack
         int unitIndex;                // layout::Unit
-        std::string_view category;    // PROCESSING, KNOBS, OUTPUT or DISPLAY
+        std::string_view category;    // PROCESSING, STEREO, KNOBS, OUTPUT or DISPLAY
         std::string_view name;        // the setting's title
         std::string_view question;    // what it answers
         std::string_view param;       // the choice parameter ("" = fixed, one method)
@@ -491,38 +493,60 @@ namespace enh::dsp::methods
 
     //==================================================================================================
     // The stages of each unit, in the order the panel lists them
-    inline constexpr std::array<Stage, 6> compressorStages {{
+    //==================================================================================================
+    // STEREO (mid/side), on the units a mastering engineer would use it on
+    inline constexpr std::array<Method, 3> stereoMethods {{
+        { "L/R", "Left and right",
+          "The unit works on the left and right channels, as it always did.",
+          "The original.",
+          "No cost (default)." },
+        { "MID", "Mid only",
+          "The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched.",
+          "Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide.",
+          "A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears." },
+        { "SID", "Side only",
+          "The unit works on the sides only (L - R); the middle passes untouched.",
+          "Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was.",
+          "A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears." },
+    }};
+
+    inline constexpr std::array<Stage, 7> compressorStages {{
         { "ADAPTIVE COMPRESSOR", 2, "PROCESSING", "DETECTOR", "How it measures the level", "tideDetector", tideDetector, "", tideDetectorMethods.data(), 3 },
         { "ADAPTIVE COMPRESSOR", 2, "PROCESSING", "SIDE-CHAIN", "What the detector hears", "tideSideChain", tideSideChain, "", tideSideChainMethods.data(), 3 },
         { "ADAPTIVE COMPRESSOR", 2, "PROCESSING", "GAIN", "How it calculates the reduction", "tideGain", tideGain, "", tideGainMethods.data(), 3 },
         { "ADAPTIVE COMPRESSOR", 2, "PROCESSING", "SMOOTHING", "How the reduction moves", "tideSmoothing", tideSmoothing, "", tideSmoothingMethods.data(), 3 },
         { "ADAPTIVE COMPRESSOR", 2, "PROCESSING", "MAKE-UP", "How much level it gives back", "tideMakeup", tideMakeup, "", tideMakeupMethods.data(), 3 },
         { "ADAPTIVE COMPRESSOR", 2, "KNOBS", "LAW", "How the knob's travel maps", "tideResponseLaw", tideResponseLaw, "tideResponse", tideResponseLawMethods.data(), 3 },
+        { "ADAPTIVE COMPRESSOR", 2, "STEREO", "STEREO", "Which part of the image it works on", "tideStereo", tideStereo, "", stereoMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 3> limiterStages {{
+    inline constexpr std::array<Stage, 4> limiterStages {{
         { "SPECTRAL LIMITER", 4, "PROCESSING", "NORMAL", "What counts as normal for a band", "limiterNormal", limiterNormal, "", limiterNormalMethods.data(), 3 },
         { "SPECTRAL LIMITER", 4, "PROCESSING", "CUT WIDTH", "How wide each cut is", "limiterWidth", limiterWidth, "", limiterWidthMethods.data(), 3 },
         { "SPECTRAL LIMITER", 4, "PROCESSING", "LOUDNESS KEEPER", "What it gives back while cutting", "limiterKeeper", limiterKeeper, "", keeperMethods.data(), 3 },
+        { "SPECTRAL LIMITER", 4, "STEREO", "STEREO", "Which part of the image it works on", "limiterStereo", limiterStereo, "", stereoMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 5> balancerStages {{
+    inline constexpr std::array<Stage, 6> balancerStages {{
         { "MIX BALANCER", 6, "PROCESSING", "REFERENCE", "What a band's jump is measured against", "balancerReference", balancerReference, "", balancerReferenceMethods.data(), 2 },
         { "MIX BALANCER", 6, "PROCESSING", "DEAD ZONE", "How big a move is ignored", "balancerDeadZone", balancerDeadZone, "", balancerDeadZoneMethods.data(), 3 },
         { "MIX BALANCER", 6, "PROCESSING", "LIFTS", "What it does with a band that drops out", "balancerLifts", balancerLifts, "", balancerLiftsMethods.data(), 3 },
         { "MIX BALANCER", 6, "PROCESSING", "ATTACK GUARD", "How it treats a fresh transient", "balancerGuard", balancerGuard, "", balancerGuardMethods.data(), 3 },
         { "MIX BALANCER", 6, "PROCESSING", "LOUDNESS KEEPER", "What it gives back while cutting", "balancerKeeper", balancerKeeper, "", keeperMethods.data(), 3 },
+        { "MIX BALANCER", 6, "STEREO", "STEREO", "Which part of the image it works on", "balancerStereo", balancerStereo, "", stereoMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 3> levelerStages {{
+    inline constexpr std::array<Stage, 4> levelerStages {{
         { "UPWARD LEVELER", 3, "PROCESSING", "LIFT", "How far quiet material may come up", "levelerLift", levelerLift, "", levelerLiftMethods.data(), 3 },
         { "UPWARD LEVELER", 3, "PROCESSING", "GATE", "What is too quiet to lift", "levelerGate", levelerGate, "", levelerGateMethods.data(), 3 },
         { "UPWARD LEVELER", 3, "PROCESSING", "BAND BALANCE", "Where the lift goes", "levelerBalance", levelerBalance, "", levelerBalanceMethods.data(), 3 },
+        { "UPWARD LEVELER", 3, "STEREO", "STEREO", "Which part of the image it works on", "levelerStereo", levelerStereo, "", stereoMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 1> enhancerStages {{
         { "ADAPTIVE ENHANCER", 0, "PROCESSING", "HARMONICS", "What the exciters generate", "enhancerHarmonics", enhancerHarmonics, "", enhancerHarmonicsMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 3> seraphStages {{
+    inline constexpr std::array<Stage, 4> seraphStages {{
         { "TONE & SPACE", 1, "PROCESSING", "TAPE CURVE", "How TAPE saturates", "seraphTape", seraphTape, "", seraphTapeMethods.data(), 3 },
         { "TONE & SPACE", 1, "PROCESSING", "PRE-DELAY", "When the space begins", "seraphPreDelay", seraphPreDelay, "", seraphPreDelayMethods.data(), 3 },
         { "TONE & SPACE", 1, "PROCESSING", "LOUDNESS WINDOW", "How long LOUDNESS listens", "seraphWindow", seraphWindow, "", seraphWindowMethods.data(), 3 },
+        { "TONE & SPACE", 1, "STEREO", "STEREO", "Which part of the image it works on", "seraphStereo", seraphStereo, "", stereoMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 1> levelStages {{
         { "LEVEL CONTROL", 5, "PROCESSING", "GLIDE", "How fast LEVEL moves", "levelGlide", levelGlide, "", levelGlideMethods.data(), 3 },
@@ -541,6 +565,27 @@ namespace enh::dsp::methods
         { "DEEP SUB", 8, "PROCESSING", "HULL MATERIAL", "How long the hull rings", "deepMaterial", deepMaterial, "", deepMaterialMethods.data(), 3 },
     }};
 
+    //==================================================================================================
+    // CHARACTER
+    inline constexpr std::array<Method, 3> charComponentsMethods {{
+        { "MAT", "Matched",
+          "Both channels built from identical parts.",
+          "The original: left and right are coloured exactly alike, the image stays exactly where it was.",
+          "No cost (default)." },
+        { "SUB", "Subtle tolerance",
+          "The right channel's parts a little off, as two channels of real hardware are: 0.4 dB more drive, corners 2.5 % away, bias 12 % stronger.",
+          "A faint width and life in the colour: the two sides distort very slightly differently. Mono content stays centred.",
+          "No cost. The right channel's parts are redesigned when chosen." },
+        { "VIN", "Vintage tolerance",
+          "The same, three times as far: 1.2 dB, 7.5 %, 36 %.",
+          "An old desk: the sides saturate noticeably differently, the colour gets wider and less tidy.",
+          "No cost." },
+    }};
+    inline constexpr std::array<Stage, 2> characterStages {{
+        { "CHARACTER", 9, "PROCESSING", "COMPONENTS", "How alike its two channels are", "charComponents", charComponents, "", charComponentsMethods.data(), 3 },
+        { "CHARACTER", 9, "STEREO", "STEREO", "Which part of the image it works on", "charStereo", charStereo, "", stereoMethods.data(), 3 },
+    }};
+
     struct StageList { const Stage* stages; int count; };
 
     /** The stages of a unit (by its layout::Unit index). */
@@ -557,12 +602,13 @@ namespace enh::dsp::methods
             case 6: return { balancerStages.data(), (int) balancerStages.size() };
             case 7: return { monitorStages.data(), (int) monitorStages.size() };
             case 8: return { deepStages.data(), (int) deepStages.size() };
+            case 9: return { characterStages.data(), (int) characterStages.size() };
             default: return { nullptr, 0 };
         }
     }
 
     /** The units bottom to top (signal order), for the parameters and the reference page. */
-    inline constexpr std::array<int, 9> unitsInRackOrder { 5, 0, 3, 8, 4, 6, 2, 1, 7 };
+    inline constexpr std::array<int, 10> unitsInRackOrder { 5, 0, 3, 8, 4, 6, 2, 1, 9, 7 };
 
     //==================================================================================================
     // Knob modifiers: on every knob's input side, between the knob and its processing. Stored in the

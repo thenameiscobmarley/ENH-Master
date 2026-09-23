@@ -109,7 +109,7 @@ namespace enh::dsp
         float loudEstimateDb = -18.0f;      // percentile-style estimate of "the loud part"
         float tilt = 0.0f;                  // -1 dark .. +1 bright
         float lowEnergy = 0.0f, highEnergy = 0.0f;
-        float lowState = 0.0f, highState = 0.0f;
+        std::array<float, 2> lowState {};   // per channel
         float onsetRate = 0.0f, lastFlux = 0.0f;
         float thresholdDb = -20.0f, ratio = 2.0f, kneeDb = 6.0f;
         float gainDb = 0.0f, makeupDb = 0.0f;
@@ -118,7 +118,7 @@ namespace enh::dsp
         float rmsWindowEnergy = 0.0f, rmsWindowCoeff = 0.0f;   // RMS: its own 50 ms power window
         float kwtEnergy = 0.0f;                               // KWT: the same, K-weighted
         BiquadCoeffs kwtShelf;
-        BiquadState kwtState;
+        std::array<BiquadState, 2> kwtState {};
         float optoDb = 0.0f;                                  // OPT: its follower
         // Side-chain filters per method (H90 uses scHp / scState, as before); FUL passes straight through
         BiquadCoeffs scHp150;

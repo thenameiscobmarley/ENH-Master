@@ -16,6 +16,7 @@ namespace enh::dsp
         // Butterworth sections (Q = 1/sqrt 2); two of them cascaded make each LR4 half.
         lowCoeffs = SvfCoeffs::make (sr, 200.0, 0.70710678);
         highCoeffs = SvfCoeffs::make (sr, 2200.0, 0.70710678);
+        slowCoeff = (float) (1.0 - std::exp (-1.0 / (0.120 * sr)));
         reset();
     }
 
@@ -45,6 +46,7 @@ namespace enh::dsp
         // own harmonics were being brought up with them - so they come down to match.
         constexpr std::array<float, numBands> standardLift { 6.0f, 12.0f, 9.0f }, gentleLift { 3.6f, 7.2f, 5.4f }, bigLift { 7.8f, 15.6f, 11.7f };
         const auto& maxGain = s.lift == 1 ? gentleLift : s.lift == 2 ? bigLift : standardLift;
+        const float liftScale = s.lift == 1 ? 0.6f : s.lift == 2 ? 1.3f : 1.0f;
         const float gateDb = s.gate == 1 ? 66.0f : s.gate == 2 ? 50.0f : 58.0f;
 
         float sum = 0.0f, active = 0.0f;
@@ -54,17 +56,32 @@ namespace enh::dsp
             auto& st = bands[(size_t) b];
             const float levelDb = levelToDb (st.rms) - s.levelDb;   // as if LEVEL were 0 dB
 
+            // Loud and floor are followed on a 120 ms level. The 10 ms one jumps by several dB on anything
+            // noise-like (rain, wind, an engine, a dense mix): loud caught its peaks, the floor its dips, and
+            // the gap between them read as movement - steady sound was lifted as if it were programme.
+            // A footstep still moves the 120 ms level by most of its height.
+            const float slowDb = levelToDb (st.slow) - s.levelDb;
+
             // What counts as loud in this band, right now: quick to rise, slow to fall.
             const float up = 1.0f - std::exp (-dt / (0.10f + 0.20f * (1.0f - resp)));
             const float down = 1.0f - std::exp (-dt / (2.5f - 1.2f * resp));
-            st.loudDb += (levelDb > st.loudDb ? up : down) * (levelDb - st.loudDb);
+            st.loudDb += (slowDb > st.loudDb ? up : down) * (slowDb - st.loudDb);
 
             // Noise floor: slow to rise, quick to fall, so it settles on the quiet moments of the material.
             // It rises over seconds rather than half a minute: a band that holds still (hiss, the harmonics
             // that ride on a steady tone) closes its own modulation gate instead of being lifted for ever.
-            const float fUp = 1.0f - std::exp (-dt / 4.0f);
+            // Coming out of silence (the start, a pause, the gap between two songs) there is no floor
+            // yet: for the first 0.8 s it follows the level up quickly (80 ms), and no new lift starts
+            // until it has been found. Starting from -70 dB instead, anything steady read as "moving"
+            // for ten seconds and was lifted by the full amount (pink noise +12 dB, the compressor
+            // pulling it back down), then slowly let go: a surge and a drift every time sound started.
+            if (levelDb + gateDb < 0.0f)
+                st.onsetS = onsetTime;
+            else if (st.onsetS > 0.0f)
+                st.onsetS = std::max (0.0f, st.onsetS - dt);
+            const float fUp = 1.0f - std::exp (-dt / (st.onsetS > 0.0f ? 0.08f : 4.0f));
             const float fDown = 1.0f - std::exp (-dt / 0.3f);
-            st.floorDb += (levelDb > st.floorDb ? fUp : fDown) * (levelDb - st.floorDb);
+            st.floorDb += (slowDb > st.floorDb ? fUp : fDown) * (slowDb - st.floorDb);
 
             // What counts as quiet here: under the target, but above the floor and moving.
             const float quietDb = std::min (st.loudDb - 6.0f, s.targetDb + bandOffset[(size_t) b]);
@@ -78,7 +95,9 @@ namespace enh::dsp
             const float gate = absGate * (0.3f + 0.7f * modGate);
 
             // The loudest this band has been lately: up at once, forgotten over ten seconds.
-            st.eventDb = std::max (levelDb, st.eventDb + (levelDb - st.eventDb) * (1.0f - std::exp (-dt / 10.0f)));
+            // On the 120 ms level, as loud is: against the 10 ms one, the first moments of any hit looked
+            // far above loud and the lift backed off for them.
+            st.eventDb = std::max (slowDb, st.eventDb + (slowDb - st.eventDb) * (1.0f - std::exp (-dt / 10.0f)));
 
             // One-sided: lift what is below the target, leave what is above it alone. A band that
             // already has loud passages of its own only gets a fraction of the lift - its quiet
@@ -92,7 +111,9 @@ namespace enh::dsp
                 const float deficit = targetDb - levelDb;
                 const float range = std::max (0.0f, st.eventDb - st.loudDb);
                 const float relative = std::clamp (1.0f - (range - 10.0f) / 15.0f, 0.25f, 1.0f);
-                wanted = std::min (deficit * relative * gate, maxGain[(size_t) b]);
+                // LIFT scales how much of the way it goes, not only how far it may: with the ceiling alone,
+                // BIG did nothing wherever the standard lift did not reach its ceiling. Never past the target.
+                wanted = std::min ({ deficit * relative * gate * liftScale, deficit, maxGain[(size_t) b] });
             }
 
             // Hold after loud material: do not start lifting the moment a loud passage ends.
@@ -101,7 +122,7 @@ namespace enh::dsp
             else
                 st.holdS = std::max (0.0f, st.holdS - dt);
 
-            if (st.holdS > 0.0f)
+            if (st.holdS > 0.0f || st.onsetS > 0.0f)
                 wanted = std::min (wanted, st.gainDb);
 
             // Slew limit in dB per second: this is what keeps it from pumping.
@@ -109,7 +130,18 @@ namespace enh::dsp
             const float slewDown = (5.0f + 16.0f * resp) * dt;
             const float delta = wanted - st.gainDb;
             if (! s.holdGains)
+            {
                 st.gainDb += std::clamp (delta, -slewDown, slewUp);
+                // The lift of the last moments (let go at 4 dB/s): what the hold goes back to
+                st.recentDb = std::max (st.gainDb, st.recentDb - 4.0f * dt);
+            }
+            else
+            {
+                // The limiter has a spike: the lift is what it was just before it. The spike's first
+                // milliseconds, before the limiter had it, may already have pulled the lift down - the
+                // hold used to keep that dip for the whole event; now the lift comes back to where it was.
+                st.gainDb += std::clamp (st.recentDb - st.gainDb, 0.0f, slewUp);
+            }
             st.gainDb = std::clamp (st.gainDb, 0.0f, maxGain[(size_t) b]);
 
             readout.gainDb[(size_t) b] = st.gainDb;
@@ -147,6 +179,9 @@ namespace enh::dsp
 
         for (int i = 0; i < n; ++i)
         {
+            // Each band's level: the average of the channels' own levels, not the level of their sum.
+            // The sum reads wide and uncorrelated material (ambience, reverb, a wide synth) 3 dB under
+            // what it is, and anything out of phase as silence, and lifted it for that.
             std::array<float, numBands> summed { 0.0f, 0.0f, 0.0f };
             std::array<std::array<float, numBands>, 2> split {};
 
@@ -164,14 +199,15 @@ namespace enh::dsp
 
                 split[(size_t) c] = { low, mid, high };
                 for (int b = 0; b < numBands; ++b)
-                    summed[(size_t) b] += split[(size_t) c][(size_t) b];
+                    summed[(size_t) b] += std::abs (split[(size_t) c][(size_t) b]);
             }
 
             for (int b = 0; b < numBands; ++b)
             {
                 const float v = summed[(size_t) b] / (float) std::min (ch, 2);
                 auto& st = bands[(size_t) b];
-                st.rms += (std::abs (v) - st.rms) * 0.002f;
+                st.rms += (v - st.rms) * 0.002f;
+                st.slow += (v - st.slow) * slowCoeff;
             }
 
             controlPhase += controlStep;
