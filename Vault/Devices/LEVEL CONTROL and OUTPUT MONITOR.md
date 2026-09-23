@@ -1,38 +1,29 @@
 # LEVEL CONTROL and OUTPUT MONITOR
 
-## LEVEL CONTROL (1U, bottom of the rack, first in the chain)
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-**LEVEL**, −24 … +12 dB, sets how loud the whole rack runs. Everything after it hears the new level:
-- turned down, the limiters have less to catch, so they stop ducking;
-- turned up, they protect harder.
+## LEVEL CONTROL (bottom, first)
 
-The UPWARD LEVELER reads levels as if LEVEL were at 0 dB, so it never fights the knob
-(`SpectralLeveler::Settings::levelDb`). The **INPUT** meter shows the level going into the rack after
-the knob, −40 … 0 dBFS RMS.
+- **LEVEL** (−24 … +12 dB) — how loud the whole rack runs. Lower = the limiters have less to do.
+  Higher = they protect harder. The UPWARD LEVELER never fights this knob.
+- **INPUT** meter — the level coming in.
 
-## OUTPUT MONITOR (3U, top of the rack, the end of the chain)
+## OUTPUT MONITOR (top, last)
 
-Shows what the rack does to the track. It is printed on the meters' cream card: the input in pencil,
-the output in ink.
+Shows what the rack did to your sound: the input in pencil, the output in ink.
 
-- **Waveform, in against out.** The peak per column scrolls right to left. Where the rack takes
-  something down, the pencil input shows past the ink output. A faded afterimage of the output
-  stays behind (`HardwareRenderer::uploadDisplays`, `waveScreen` shader).
-- **SPEED** (1 … 10) sets how much audio the screen holds: about 20 s at 1, down to 1 s at 10
-  (`WaveformReader::setSecondsAcross`).
-- **Spectrum, in against out.** The analyser's curve, with the tone change (out minus in, ±12 dB) in
-  red.
-- **Loudness** of the output, from `LoudnessMeter.h` (ITU-R BS.1770-4 / EBU R128):
-  - MOMENTARY and SHORT-TERM on the dials;
-  - INTEGRATED and TRUE PEAK in the strip under the display;
-  - **RESET** starts both again.
-  - `EnhDspTests --units` checks the EBU Tech 3341 reference: −23 dBFS stereo 1 kHz reads −23.0 LUFS.
-- **DUCK**, on the right above the tone change: where the deepest duck in the whole rack is coming
-  from right now, which unit, where and how much (`DUCK  MIX BALANCER  AT 500 Hz  -4.0 dB`). It
-  checks the compressor's gain reduction, the SPECTRAL LIMITER's cuts and broadband protection, the
-  MIX BALANCER's six and 28 faders, and the output limiter's region and broadband cuts, every frame.
-  The deepest is held 1.5 s so a short duck can be read (`HardwareView::updateDisplayHistories`).
-  `LOUDNESS KEPT +x dB` is the loudness keepers' lift (see [[SPECTRAL LIMITER unit]] and
-  [[MIX BALANCER unit]]).
+- **Waveform** — before and after, scrolling. Where the rack turned something down, the pencil shows
+  past the ink. **SPEED** sets how much time fits on screen.
+- **Spectrum** — before and after, with the tone change drawn in red.
+- **Loudness** — MOMENTARY and SHORT-TERM on the dials, INTEGRATED and TRUE PEAK underneath. **RESET** starts them again.
+- **DUCK** — names whoever is turning things down right now, where, and by how much,
+  e.g. `DUCK  SPECTRAL LIMITER  AT 2.5 kHz  -4.2 dB`.
+- **COMPARE** — hear the untouched input at the same loudness. See [Mastering tools](../Reference/Mastering%20tools.md).
 
-Related: [[MIX BALANCER unit]], [[SPECTRAL LIMITER unit]].
+## In its glass panel
+
+- **CEILING** — 0, −0.3 or −1 dBFS.
+- **LOUDNESS TARGET** — OFF, −23, −18 or −14 LUFS: brings everything to one loudness. It moves
+  slowly, ignores short bangs and pauses, and never lifts near-silence.
+
+Code: `LoudnessMeter.h`, `LoudnessTarget.h`, `FinalLimiter.h`.

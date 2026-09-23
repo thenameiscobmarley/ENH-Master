@@ -1,59 +1,41 @@
 # Dev hooks
 
-## Offline DSP tests
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-```sh
-build/EnhDspTests_artefacts/Release/EnhDspTests            # everything + CPU benchmark
-build/EnhDspTests_artefacts/Release/EnhDspTests --events crates [seed]
-build/EnhDspTests_artefacts/Release/EnhDspTests --diagnose
-build/EnhDspTests_artefacts/Release/EnhDspTests --analyze file.wav
-build/EnhDspTests_artefacts/Release/EnhDspTests --units | --presets | --bass | --limiter | --cpu
-build/EnhDspTests_artefacts/Release/EnhDspTests --golden write|check file
-```
+For developers. None of these do anything unless you set them.
 
-- **no arguments** - the full suite: detection accuracy against synthetic scenes (`quiet`, `game`,
-  `varied`, `crates`), EQ behaviour, harmonic generation, MULTIPLY/STRENGTH, stability at
-  44.1/48/96 kHz and at block sizes 1, 7, 33, 480, 1024. Ends with `ALL PASSED (0 failures)`.
-- **`--events <scene> [seed]`** - every accepted and rejected event with its reasons, against ground
-  truth ([[Footstep detection]]).
-- **`--diagnose`** - the same for live audio, plus the EQ curve and harmonic centres every 5 s.
-- **`--analyze file.wav`** - run a recording through and report.
-- **`--units`** - LEVEL, loudness (EBU cases), output limiter, MIX BALANCER (incl. loudness keeper).
-- **`--presets`** - every preset in the preset file through the engine; **`--bass`** THD and pumping;
-  **`--limiter`** the anti-duck scenes; **`--cpu`** the benchmark.
-- **`--methods`** - every processing method combination (stability, peak, latency, block size, click-free
-  switching), RESPONSE's law and smoothing, and that [[Methods]] matches the registry;
-  **`--methods-doc`** rewrites that page.
-- **EnhAudioLab** (a separate tool): renders audio through the engine and writes reports, spectrograms,
-  spectra and duck charts. See [[Audio lab]].
-- **`--golden write|check`** - bit-exact output check, for optimisations that must not change a sample.
+## EnhDspTests modes
 
-## UI environment variables
+| Mode | What it does |
+|---|---|
+| *(none)* | everything |
+| `--events <scene>` | every footstep decision, with reasons |
+| `--diagnose` / `--analyze file.wav` | the same for live audio / a recording |
+| `--units` · `--presets` · `--bass` · `--limiter` | parts of the suite |
+| `--character` · `--mastering` · `--methods` | CHARACTER, COMPARE / STEREO / safety, every glass-panel setting |
+| `--zipper` · `--alias` · `--str0` · `--fuzz [s] [seed]` | clicks, harshness, STRENGTH 0, random knobs |
+| `--methods-doc` | rewrites [Methods](Methods.md) |
+| `--golden write\|check file` | bit-exact output check |
+| `--cpu` | CPU benchmark (`CPU_BREAKDOWN=1` per stage) |
+
+## UI settings (environment variables)
 
 | Variable | Effect |
 |---|---|
-| `PAD_UI_TEST_PARAMS="clarity=0.8;footstep=1"` | writes normalised values as host automation after 1.5 s |
-| `PAD_UI_TEST_SIZE=520x250` | initial editor size |
-| `PAD_UI_TEST_STATS=1` | frame timing on stderr every 5 s, and logs when rendering pauses/resumes |
-| `PAD_UI_TEST_MINIMISE="7,17"` | minimise at 7 s, restore at 17 s |
-| `PAD_UI_TEST_HOVER="x,y"` | shows the hover loupe at that point (anchored, for reproducible screenshots) |
-| `PAD_UI_TEST_DEMO=1` | animates the live displays and meters without audio |
-| `PAD_UI_TEST_FOCUS=<unit>` | starts walked up to a unit: 0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 limiter, 5 level control, 6 mix balancer, 7 output monitor |
-| `PAD_UI_TEST_MAX_DETAIL=<0-3>` | caps the geometry detail level |
-| `PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]]` | opens a unit's glass panel after 1.2 s (optionally a dropdown expanded, a choice hovered) |
-| `PAD_UI_TEST_HOVER_CONTROL=<parameter ID>` | outlines that control as if hovered |
-| `PAD_UI_TEST_PANEL_CLOSE=<ms>` | closes the test panel again that long after it opened |
-| `PAD_UI_TEST_SLOWMO=<factor>` | slows the glass panel's animation down (to look at it frame by frame) |
-| `PAD_UI_DUMP_ARTWORK=<dir>` | writes every printed panel and `clearances.txt` (print overlapping hardware) |
-| `ENH_MASTER_PRESETS=<file>` | use this preset file instead of `~/.config/ENH Master/presets.json` |
+| `PAD_UI_TEST_SIZE=1000x740` | window size |
+| `PAD_UI_TEST_DEMO=1` | animates the screens without audio |
+| `PAD_UI_TEST_FOCUS=<n>` | start zoomed on a unit: 0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 spectral limiter, 5 level, 6 balancer, 7 monitor, 8 deep sub, 9 character |
+| `PAD_UI_TEST_PANEL=<unit>[,row[,choice]]` | open a glass panel |
+| `PAD_UI_TEST_HOVER="x,y"` / `PAD_UI_TEST_HOVER_CONTROL=<id>` | show the loupe / outline a control |
+| `PAD_UI_TEST_STATS=1` | frame timing every 5 s |
+| `PAD_UI_TEST_PARAMS="clarity=0.8;footstep=1"` | set values after 1.5 s |
+| `PAD_UI_DUMP_ARTWORK=<dir>` | write every panel's print and the layout audit (`clearances.txt`) |
+| `ENH_MASTER_PRESETS=<file>` | use another preset file |
 
-## Screenshots and frame time
+The full list of every variable, with a link to where it's read, is in the [Searchbar](../../Searchbar.md#dev-settings).
 
-`build/stats.sh <label> [ENV=…]` runs the standalone for ~22 s with `PAD_UI_TEST_STATS=1` and prints the
-average frame interval, late frames and CPU render time (e.g. `build/stats.sh panel PAD_UI_TEST_PANEL=2`).
+## Scripts
 
-`build/shot.sh out.png [ENV=…]` launches the standalone, grabs the window and re-encodes it.
-`build/hovertest.sh name:x,y[,down|,up] …` drives a real pointer over the window (window-relative
-logical pixels) and grabs a shot per step - that is how hover, drag-lock and the loupe were verified.
-
-Related: [[Rendering and performance]], [[The loupe]].
+- `build/shot.sh out.png [ENV=…]` — screenshot the app.
+- `build/stats.sh <label> [ENV=…]` — frame-time numbers.
+- `build/hovertest.sh …` — drive a real mouse over the window.

@@ -1,49 +1,42 @@
 # 02 Your first sound
 
-Nine units are racked in a curved walnut case. Audio goes up through them, bottom to top.
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+The rack has ten units in a walnut case. Sound goes in at the bottom and comes out at the top.
 
 | | Unit | Job |
 |---|---|---|
-| 1 (bottom) | [[LEVEL CONTROL and OUTPUT MONITOR\|LEVEL CONTROL]] | how loud the whole rack runs |
-| 2 | [[ENH Master unit]] (black) | find what matters in the signal and make it audible: clarity, sub, footsteps |
-| 3 | UPWARD LEVELER | lift quiet detail, per band |
-| 4 | [[DEEP SUB unit]] | a sub an octave under the bass, and a steel hull that rings after every hit |
-| 5 | [[SPECTRAL LIMITER unit]] | cut a region that jumps out, where it is, so the mix doesn't duck |
-| 6 | [[MIX BALANCER unit]] | ride band faders to keep the balance |
-| 7 | ADAPTIVE COMPRESSOR | even out the level, threshold follows the programme |
-| 8 | [[SERAPH unit]] (purple) | make the result pleasant: texture, air, width, space |
-| 9 (top) | [[LEVEL CONTROL and OUTPUT MONITOR\|OUTPUT MONITOR]] | see what the rack is doing: in against out, loudness, who is ducking |
+| 1 | [LEVEL CONTROL](../Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) | how loud the rack runs |
+| 2 | [ADAPTIVE ENHANCER](../Devices/ADAPTIVE%20ENHANCER.md) (black) | brings out detail, sub and footsteps |
+| 3 | [UPWARD LEVELER](../Devices/UPWARD%20LEVELER.md) | lifts quiet sounds |
+| 4 | [DEEP SUB](../Devices/DEEP%20SUB.md) | deep sub and a ringing hull |
+| 5 | [SPECTRAL LIMITER](../Devices/SPECTRAL%20LIMITER.md) | takes a loud bang down where it is |
+| 6 | [MIX BALANCER](../Devices/MIX%20BALANCER.md) | keeps the mix in balance |
+| 7 | [ADAPTIVE COMPRESSOR](../Devices/ADAPTIVE%20COMPRESSOR.md) | evens out the level |
+| 8 | [TONE and SPACE](../Devices/TONE%20and%20SPACE.md) (purple) | polish, air, width, room |
+| 9 | [CHARACTER](../Devices/CHARACTER.md) | consoles, tape and valves (off until you switch it IN) |
+| 10 | [OUTPUT MONITOR](../Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) | shows what the rack did |
 
-## Turn these first
+## Start with a preset
 
-**CLARITY** is the main control. It has two modes, picked with the **MODE** button next to it:
+Press **PRESET ◀ ▶** on the black unit. The name shows on its screen. See [Presets](../Reference/Presets.md).
 
-- **NORM** (0-30): normalises detail. It finds where the interesting information is right now and
-  balances it, without adding anything. Big numbers are safe here.
-- **ADD + NORM** (0-10): the same, plus generated harmonics where the source has none to work with.
-  Smaller range because it is doing more. See [[Harmonics and clarity]].
+## Then turn these
 
-**ADAPT** (0-100 %) is how fast the analysis follows the audio. Low = steady and calm, high = reacts
-to every event. 40 % is a good default.
+- **CLARITY** — the main knob. More = clearer detail. The **MODE** button next to it switches between
+  *NORM* (balances detail that's there) and *ADD + NORM* (also creates detail where there's none).
+- **ADAPT** — how fast it follows the sound. Around 40 % is a good start.
+- **SUB** — more low end without mud. **+BOOST** for small speakers.
+- **FOOTSTEP** — footstep priority. Read [Tuning for footsteps](03%20Tuning%20for%20footsteps.md) first.
 
-**SUB** lifts the bottom without muddying the middle; **+BOOST** doubles down for small speakers.
+## The two master knobs on each unit
 
-**FOOTSTEP** switches on footstep priority: read [[03 Tuning for footsteps]] before using it.
+- **MULTIPLY** (0–3x) turns every knob on that unit up or down together.
+- **STRENGTH** (0–5) sets how hard the unit works. 0 = it does nothing.
 
-## The two master knobs
+## You can't hurt anything
 
-Each unit has **MULTIPLY** (0-3x) and **STRENGTH** (0-5) in its MASTER section:
+The rack always ends in a limiter and speaker protection, so it can't clip or blast, whatever you
+turn. It can sound bad if you overdo it, though. See [Safety](../Reference/Safety.md).
 
-- MULTIPLY scales every knob on that device. At 1.5x a CLARITY of 20 behaves as 30. Output gain is
-  never multiplied.
-- STRENGTH scales how hard that device's *processing* hits, not the knob positions. 0 means the unit
-  does nothing at all; 5 is extreme.
-
-They stack, so `MULTIPLY 2x` with `STRENGTH 2` is a lot. Details in [[Parameter mapping]].
-
-## Signal safety
-
-The rack ends in an output limiter at 0 dBFS, so even MULTIPLY 3x with STRENGTH 5 on both units cannot clip the output.
-It will sound wrong long before it clips - that is on you, not the plugin.
-
-Next: [[03 Tuning for footsteps]]
+Next: [Tuning for footsteps](03%20Tuning%20for%20footsteps.md)

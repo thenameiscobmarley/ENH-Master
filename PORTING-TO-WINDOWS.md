@@ -1,22 +1,18 @@
-# Windows
+# Windows port
 
-**ENH Master builds and runs on Windows from 1.2.4.1.** This file used to describe the port; it is done.
+> 🔎 **[Searchbar](Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-What the port changed (all in the HardwareKit module, the plugin itself was already portable):
+ENH Master runs on Windows since 1.2.4.1. Only two small helpers in
+[HardwareKit](https://github.com/thenameiscobmarley/HardwareKit) needed Windows versions; everything
+else (the sound, the 3D renderer, the tests) is the same code on both.
 
-| File | Linux | Windows |
+| Helper | Linux | Windows |
 |---|---|---|
-| `input/PointerPoller` | the pointer, left button and Shift/Ctrl from the X server; "is my window topmost under the pointer" | `input/PointerPoller_win32.cpp`: `GetCursorPos` + `ScreenToClient`, `GetAsyncKeyState`, `WindowFromPoint` compared by `GetAncestor (..., GA_ROOT)` |
-| `input/WindowVisibility` | mapped, and not `_NET_WM_STATE_HIDDEN` | `input/WindowVisibility_win32.cpp`: `IsWindowVisible` and `IsIconic` on the window and its root |
-| module translation units | `hardwarekit_x11.cpp` (only on Linux / BSD) | `hardwarekit_win32.cpp` (only on Windows), `windowsLibs: user32` |
+| `input/PointerPoller` | mouse and "is my window on top" from X11 | `PointerPoller_win32.cpp` (`GetCursorPos`, `WindowFromPoint`) |
+| `input/WindowVisibility` | window shown / minimised from X11 | `WindowVisibility_win32.cpp` (`IsWindowVisible`, `IsIconic`) |
 
-In the plugin, `CMakeLists.txt` looks for X11 only on Linux. Everything else, including the DSP, the
-OpenGL 3.2 renderer, the shaders and the offline tests, is the same code on both platforms.
+Every release is built and tested on Windows by the
+[Release workflow](https://github.com/thenameiscobmarley/ENH-Master/actions/workflows/release.yml).
+Older releases: `convert-to-windows.bat` (see [Windows and other platforms](Vault/Tutorial/06%20Windows%20and%20other%20platforms.md)).
 
-- **Releases:** the Release workflow builds and tests on `windows-2022` too, and attaches
-  `ENH-Master-<version>-windows-x64.zip` to each release.
-- **Older releases:** `convert-to-windows.bat` builds any older release on Windows (see the README's
-  *Windows* section).
-
-**macOS** would need the same two files (`NSEvent.mouseLocation`, `-[NSWindow isMiniaturized]`) and an AU
-target. OpenGL is deprecated there: the renderer would run, but a Metal backend is the real answer.
+**macOS** would need the same two helpers, an AU version, and ideally a Metal renderer.

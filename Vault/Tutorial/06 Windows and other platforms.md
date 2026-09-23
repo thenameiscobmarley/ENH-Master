@@ -1,24 +1,29 @@
 # 06 Windows and other platforms
 
-**Linux / X11:** where it is developed and tested (Carla, VST3 and standalone).
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-**Windows:** supported from 1.2.4.1. Every release has a `windows-x64` zip with the VST3 and the
-standalone app. To get **any** release on Windows, older Linux-only ones included, double-click
-`convert-to-windows.bat` from the repository:
+| System | Status |
+|---|---|
+| Linux (X11) | where it's made and tested: VST3 and the app |
+| Windows | supported since 1.2.4.1: VST3 and the app |
+| macOS | not yet |
 
-1. it lists every release on GitHub and marks the ones with a Windows build;
-2. you type the number of the one you want;
-3. a release with a Windows build is downloaded; an older one is built from its own source (the script
-   fetches that release, JUCE, and [[HardwareKit]] as it was then plus today's Windows platform files, and
-   offers to install Git, CMake and the Visual Studio C++ build tools with `winget` if they are missing);
-4. the plugin lands on your Desktop, and the script offers to install it into
-   `C:\Program Files\Common Files\VST3`.
+## Windows
 
-What the port changed is in `PORTING-TO-WINDOWS.md`: two small HardwareKit helpers
-(`input/PointerPoller`, `input/WindowVisibility`) got Win32 versions; everything else was already
-portable.
+Every release has a `windows-x64` zip. For **any** release, even old Linux-only ones, download
+[`convert-to-windows.bat`](https://github.com/thenameiscobmarley/ENH-Master/blob/main/convert-to-windows.bat)
+and double-click it:
 
-**macOS:** not yet. It would need the same two helpers for Cocoa and an AU target, and OpenGL is
-deprecated there, so a Metal backend would be the real answer.
+1. It lists every release.
+2. Type the number you want.
+3. It downloads it, or builds it for you if there was no Windows version (it can install the tools it
+   needs; a build takes 10–30 minutes).
+4. The result lands on your Desktop, and it offers to install the plugin.
 
-Back to [[00 Start Here]].
+What the Windows port changed: [PORTING-TO-WINDOWS.md](../../PORTING-TO-WINDOWS.md).
+
+## macOS
+
+It would need two small platform files, an AU version, and ideally a Metal renderer.
+
+Next: [The router app](07%20The%20router%20app.md)

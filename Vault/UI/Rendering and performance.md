@@ -1,41 +1,26 @@
 # Rendering and performance
 
-The target machine is an Intel J4105 with UHD 600 graphics - a cheap mini PC. Everything here exists
-because of that.
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-## Shape of the renderer
+It's built to run on a cheap mini PC (Intel J4105 with UHD 600 graphics).
 
-- OpenGL 3.2 core, all drawing on the GL thread; the message thread only prepares textures and reads
-  input.
-- **One shader program per material**, with no per-fragment branching - a branch-free fragment shader
-  is worth more than a clever one on this GPU.
-- Procedural low-poly geometry, uploaded once.
-- Analytic SDF contact shadows instead of shadow maps.
-- The scene is drawn into the plugin's own 4x multisampled target and filtered to the screen, so
-  anti-aliasing never depends on the host's window. `renderScale` (0 = auto = 1x) can supersample on
-  GPUs with room to spare; on the UHD 600 1.25x already costs ~13 fps.
-- Panel-local coordinates throughout (x across, z down, y out of the panel), which is why layout
-  numbers read like a drawing.
-- Frame pacing on the render thread, locked to vsync: every refresh while interacting or animating,
-  every second refresh when idle.
+## How it stays light
 
-## Pausing
-
-Rendering **stops completely** when the editor is not visible - checked a few times a second through
-JUCE's peer state and, because plugin editors are embedded in a host window, the X server as well, so
-a minimised *host* is noticed too. Audio is unaffected.
+- OpenGL 3.2, one simple shader per material, low-poly shapes uploaded once.
+- Soft shadows are calculated, not rendered from shadow maps.
+- Its own anti-aliasing, so it looks the same in every host.
+- Drawing follows the screen's refresh while you interact, half as often when idle, **10 times a
+  second when another program (like a game) is in front**, and **not at all** when the window is hidden
+  or minimised. Audio never stops.
 
 ## Input
 
-The pointer is polled once per frame straight from the X server ([[HardwareKit]]), because hosts pump
-the plugin's event queue at their own uneven rate. Presses are gated on the plugin window really
-being **topmost under the pointer** - without that, clicking in another application that overlaps the
-plugin turned its knobs, which was a real bug found by this project.
+The mouse is read once per frame, straight from the system. Clicks only count when the plugin
+window is really on top — otherwise clicking another app over it could turn its knobs.
 
 ## Numbers
 
-- DSP: about 18 % of one J4105 core at 48 kHz for the whole rack (`EnhDspTests --cpu`,
-  `CPU_BREAKDOWN=1` for per-stage numbers).
-- Render: the whole rack at ~57-60 fps on the UHD 600; close-ups are limited by pixel fill.
+- Sound: about a quarter of one J4105 core for the whole rack (`EnhDspTests --cpu`).
+- Picture: about 57–60 frames a second for the whole rack.
 
-Related: [[Dev hooks]].
+Related: [HardwareKit](HardwareKit.md), [Dev hooks](../Reference/Dev%20hooks.md).

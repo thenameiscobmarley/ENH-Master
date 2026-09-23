@@ -1,38 +1,27 @@
 # Harmonics and clarity
 
-`Source/DSP/SpectralAnalyzer.{h,cpp}`, `Source/DSP/HarmonicPlanner.{h,cpp}`
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-## The two modes
+## Two modes
 
-CLARITY does different work depending on MODE:
+- **NORM** (0–30): balances the detail that's already there.
+- **ADD + NORM** (0–10): also *creates* harmonics — new detail — where the sound has none.
 
-- **NORM** (0-30): normalise what is there. Detail is balanced where the analysis finds it.
-- **ADD + NORM** (0-10): the same, plus harmonics generated from the incoming audio.
+20 in one mode isn't 20 in the other, so the printed scale swaps.
 
-The knob's printed scale swaps with the mode, because 20 in one mode is not 20 in the other.
+## How it decides
 
-## How the planner decides
+It measures how rich in harmonics the sound already is, then works out:
 
-An STFT tonality measure says how harmonically rich the source already is. From that the planner
-computes:
+- **need** — how much help this sound wants;
+- **rescue** — when a sound is already rich, it keeps a little lift going, so the harmonic stage
+  always has something to work with (instead of switching off exactly when it's needed);
+- **amount** — what actually gets made.
 
-- **need** - how much help this source wants;
-- **rescue** - the interesting case: when harmonics are already high, clarity would normally back
-  off, which starves the next stage of material. Instead it *keeps* lifting so the harmonic generator
-  has something to work from, and if the harmonic content starts falling it adds some back;
-- **amount** - what actually gets generated, coupling the two.
+## Making them
 
-This is what "make clarity follow better" meant in practice: it tracks the source instead of
-switching itself off at the moment it is needed.
+The harmonics are made *relative to the sound's own level*, so a quiet passage and a loud one get the
+same character. Where they go follows the sound, not a fixed frequency. Idle bands are skipped, which
+saves most of the CPU.
 
-## Generating them
-
-Envelope-normalised Chebyshev shaping (T2/T3) - the harmonics are generated relative to the envelope,
-so **the result does not depend on how loud the input is**. A quiet passage and a loud one get the
-same character, which is the difference between an effect and an accident. The exciters are skipped
-entirely when the band is idle, which is most of the CPU saving.
-
-Where they go is chosen by the analysis, not by a fixed frequency: the centres move with the source
-and are printed every 5 s by `--diagnose` ([[Dev hooks]]).
-
-Related: [[Adaptive EQ]], [[Seraph stages]].
+Code: `HarmonicPlanner`, `SpectralAnalyzer`, `AnalogStage`. Related: [Adaptive EQ](Adaptive%20EQ.md).

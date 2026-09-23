@@ -1,54 +1,26 @@
 # 05 Reading the panel
 
-The panels are printed at hardware scale, which means the legends are small on purpose. Nothing is
-hidden behind menus - everything is on the front.
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-## The loupe
+The print is small, like on real hardware. You don't need to squint:
 
-Hover anything - a printed word, a knob, a button - and a round glass magnifier appears **centred on
-your cursor**, showing the scene re-rendered 1.8x larger behind a fisheye lens about 155 px across. Because it
-magnifies about the cursor, the thing under your pointer stays under your pointer: you can read a
-label and then keep moving onto the next one straight through the glass. The glass is slightly
-transparent so you can still see what is underneath.
+- **Hover** anything and a round **magnifying glass** appears under your mouse. Knobs also show their
+  name and value. More: [The loupe](../UI/The%20loupe.md).
+- **Scroll** to walk up to a unit; scroll back to step away.
+- **Click** a unit to open its **glass panel** on the right: more settings, each explained when you
+  hover it. Click another unit to switch, click off the rack to close. More: [Glass panel](../UI/Glass%20panel.md).
 
-Controls also get a small pill under the lens with the control's name and current value, and the
-knob's **value arc** lights up. While you are dragging a knob, the loupe locks to that knob so the
-value stays readable as the mouse moves.
+## The screens
 
-More: [[The loupe]].
+- **OUTPUT MONITOR** (top): before and after, loudness, and a **DUCK** line naming whoever is
+  turning things down. [More](../Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md).
+- **ADAPTIVE ENHANCER**: the EQ curve it's using right now.
+- **MIX BALANCER**: its band faders over the spectrum, and the last ten seconds.
+- **TONE and SPACE**: what each effect is doing to the left and right channel.
 
-## Clicking a unit
+## Lights and colours
 
-Click a unit's faceplate and a frosted glass panel opens at the right, joined to the unit by a thin
-line. It lists the unit's settings one under another; click one to see its choices, and hover any of
-them to read how it changes the sound. Clicking another unit switches panels; clicking off the rack
-closes it. To walk up to a unit, scroll. See [[Glass panel]] and [[Methods]].
+- **DETECT** flashes on a recognised footstep; **OUT** and **ENH** show output level and how much it's enhancing.
+- A moving knob's pointer is coloured by who moved it: **amber** you, **blue** automation, **violet** the plugin itself.
 
-## The displays
-
-**OUTPUT MONITOR** (top): the input against the output as a waveform and a spectrum, the tone change
-in red, loudness in LUFS, and a **DUCK** line saying which unit is ducking, where, and by how much.
-See [[LEVEL CONTROL and OUTPUT MONITOR]].
-
-**MIX BALANCER**: the band faders as a curve over the spectrum, and the last ten seconds underneath.
-See [[MIX BALANCER unit]].
-
-**ADAPTIVE ENHANCER**: a live curve of what the [[Adaptive EQ]] is doing across 24 bands, with the
-current CLARITY / ADAPT / SUB values printed underneath.
-
-**TONE & SPACE**: one unified front, not a channel strip pair.
-- left half - the resonance dips SMOOTH is applying right now, 150 Hz to 16 kHz;
-- right half - a pair of L/R bars per process (SMOOTH, AIR, WARMTH, BODY, TAPE, LEVEL, WIDTH, SPACE,
-  SHIMMER), so you can see what the unit is doing *to each channel* rather than guessing.
-
-## The ladders
-
-**OUT** and **ENH** in the METER section show output level and how much enhancement is being applied;
-**DETECT** lights on accepted footstep events ([[Footstep detection]]).
-
-## Colour of a moving knob
-
-While a knob moves, its pointer is tinted by whoever moved it: amber for you, blue for host
-automation, violet for the plugin tuning itself.
-
-Next: [[06 Windows and other platforms]]
+Next: [Windows and other platforms](06%20Windows%20and%20other%20platforms.md)

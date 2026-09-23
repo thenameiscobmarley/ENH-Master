@@ -1,50 +1,43 @@
-# ENH Master - Start Here
+# Start here
 
-This is an [Obsidian](https://obsidian.md) vault documenting **ENH Master**, a JUCE/VST3 plugin for
-game audio: a nine-unit rack in a curved walnut case that makes footsteps and detail audible without
-wrecking the mix. Bottom to top, in signal order: **LEVEL CONTROL**, the **ADAPTIVE ENHANCER**, the
-**UPWARD LEVELER**, **DEEP SUB**, the **SPECTRAL LIMITER**, the **MIX BALANCER**, the **ADAPTIVE COMPRESSOR**,
-**TONE & SPACE** (a finishing processor that makes the result sound wide and beautiful) and, on top,
-the **OUTPUT MONITOR**. (Earlier names: ENH MASTER, LUMEN, TIDE, SERAPH. Note titles still use them.)
+> 🔎 **[Searchbar](../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-**To open it:** Obsidian → *Open folder as vault* → pick this `Vault` folder. Every note links to the
-others; press `Ctrl+G` for the graph view.
+The docs for **ENH Master**, a rack of audio processors drawn as real hardware. They read fine on
+GitHub, or open this `Vault` folder in [Obsidian](https://obsidian.md) as a vault.
 
-## The tutorial, in order
+## Learn it (about 10 minutes)
 
-1. [[01 Install and build]] - get it compiled and installed
-2. [[02 Your first sound]] - load it, what the units do, what to turn
-3. [[03 Tuning for footsteps]] - the part people actually came for
-4. [[04 Making it sound heavenly]] - TONE & SPACE in practice
-5. [[05 Reading the panel]] - the loupe, meters and live displays
-6. [[06 Windows and other platforms]] - what works where
+1. [Install and build](Tutorial/01%20Install%20and%20build.md)
+2. [Your first sound](Tutorial/02%20Your%20first%20sound.md)
+3. [Tuning for footsteps](Tutorial/03%20Tuning%20for%20footsteps.md)
+4. [Making it sound heavenly](Tutorial/04%20Making%20it%20sound%20heavenly.md)
+5. [Reading the panel](Tutorial/05%20Reading%20the%20panel.md)
+6. [Windows and other platforms](Tutorial/06%20Windows%20and%20other%20platforms.md)
+7. [The router app (for gamers)](Tutorial/07%20The%20router%20app.md)
 
-## The devices
+## The units, bottom to top
 
-- [[LEVEL CONTROL and OUTPUT MONITOR]] - the rack's working level (bottom) and what the rack does to
-  the track, with loudness and the DUCK readout (top)
-- [[ENH Master unit]] - the ADAPTIVE ENHANCER: clarity, sub, footstep priority (black)
-- [[DEEP SUB unit]] - an octave-down sub and a resonant steel hull (1U, blued steel)
-- [[SPECTRAL LIMITER unit]] - anti-pumping: cuts abnormal spectral excess where it is (1U, steel blue)
-- [[MIX BALANCER unit]] - rides six (or 28) band faders to keep the balance (3U)
-- [[SERAPH unit]] - TONE & SPACE: tone & space sections, loudness hold (under the monitor, purple)
-- The UPWARD LEVELER and ADAPTIVE COMPRESSOR are described in the README
+- [LEVEL CONTROL and OUTPUT MONITOR](Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) — how loud the rack runs, and what it did
+- [ADAPTIVE ENHANCER](Devices/ADAPTIVE%20ENHANCER.md) — clarity, sub and footsteps
+- [UPWARD LEVELER](Devices/UPWARD%20LEVELER.md) — lifts quiet sounds
+- [DEEP SUB](Devices/DEEP%20SUB.md) — a deep sub and a ringing hull
+- [SPECTRAL LIMITER](Devices/SPECTRAL%20LIMITER.md) — takes loud bangs down where they are
+- [MIX BALANCER](Devices/MIX%20BALANCER.md) — keeps the mix in balance
+- [ADAPTIVE COMPRESSOR](Devices/ADAPTIVE%20COMPRESSOR.md) — evens out the level
+- [TONE and SPACE](Devices/TONE%20and%20SPACE.md) — polish, air, width and room
+- [CHARACTER](Devices/CHARACTER.md) — consoles, tape and valves
 
-## How it works inside
+## Look things up
 
-- [[Footstep detection]] - why a crate lid is not a footstep
-- [[Adaptive EQ]] - a curve derived from the audio, not a preset smile
-- [[Harmonics and clarity]] - generating detail instead of only boosting it
-- [[Seraph stages]] - TONE and SPACE, stage by stage
-- [[Parameter mapping]] - how MULTIPLY and STRENGTH reach every knob
+- [Presets](Reference/Presets.md) · [Safety](Reference/Safety.md) · [Mastering tools](Reference/Mastering%20tools.md)
+- [Every setting in the glass panels](Reference/Methods.md) · [Parameters](Reference/Parameters.md)
+- [Testing and tools](Reference/Audio%20lab.md) · [Dev hooks](Reference/Dev%20hooks.md) · [Backups](Reference/Backups%20and%20restore.md)
 
-## The look
+## How it works inside (for the curious)
 
-- [[HardwareKit]] - the shared 3D hardware library
-- [[The loupe]] - the fisheye magnifier
-- [[Glass panel]] - click a unit: its settings on frosted glass
-- [[Rendering and performance]] - how it stays cheap
+- [Footstep detection](DSP/Footstep%20detection.md) · [Adaptive EQ](DSP/Adaptive%20EQ.md) · [Harmonics and clarity](DSP/Harmonics%20and%20clarity.md)
+- [Inside TONE and SPACE](DSP/Tone%20and%20Space%20inside.md) · [How MULTIPLY and STRENGTH work](DSP/Parameter%20mapping.md)
+- [HardwareKit](UI/HardwareKit.md) · [The loupe](UI/The%20loupe.md) · [Glass panel](UI/Glass%20panel.md) · [Rendering and performance](UI/Rendering%20and%20performance.md)
 
-## Reference
-
-- [[Parameters]] · [[Methods]] · [[Audio lab]] · [[Dev hooks]] · [[Backups and restore]]
+Old names you may still see in code: ENH MASTER = ADAPTIVE ENHANCER, LUMEN = UPWARD LEVELER,
+TIDE = ADAPTIVE COMPRESSOR, SERAPH = TONE & SPACE (SILK = TONE, HALO = SPACE).

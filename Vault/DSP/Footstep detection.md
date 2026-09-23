@@ -1,42 +1,32 @@
 # Footstep detection
 
-`Source/DSP/FootstepDetector.{h,cpp}`
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-A **classifier of events**, not a band booster. Nothing here says "1-4 kHz"; a footstep is recognised
-by its shape in time, and the frequency weighting is derived from the event that was actually found.
+The detector **recognises events**; it doesn't just boost a frequency band. A footstep is found by its
+shape over time.
 
-## The timeline of one event
+## One event, step by step
 
-| Time | What happens |
+| When | What happens |
 |---|---|
-| onset | grouped 3-band spectral flux crosses a threshold with hysteresis (`armed`), so ambient noise cannot re-trigger it |
-| +4 ms | a **provisional** decision, so the lift starts with the attack rather than after it |
-| +42 ms | the real decision, once the decay shape is known |
-| to +160 ms | a retraction window - a wrong provisional accept is taken back before it can do damage |
+| the start | a sudden change in the sound arms it (steady noise can't) |
+| +4 ms | a first guess, so the lift starts with the step, not after it |
+| +42 ms | the real decision, once it's heard how the sound dies away |
+| up to +160 ms | a wrong first guess is taken back before it does harm |
 
-## The seven cues
+## The clues
 
-onset shape · decay (`eventDropDb()`, weighted per band) · noisiness · clutter context · sequence ·
-level · spectral similarity to the previous event.
+How it starts · how it dies away · how noisy it is · how busy things are around it · whether it
+comes in a walking rhythm · how loud it is · how much it sounds like the last one.
 
-Two rules do most of the crate rejection:
+Two rules stop most crate lids: only sharp, ringing sounds count as "clutter", and a sound too close
+to the last one is only rejected if that one was sharp too (otherwise speech cancelled real steps).
 
-- **clutter** counts only impulsive neighbours (`clutterCount += decay`), so a busy but soft scene is
-  not treated as clutter;
-- **"too close" rejection** requires spectral similarity > 0.45 *and* the previous event to have been
-  impulsive - without that second condition, speech syllables cancelled real footsteps.
+## Results on the test scenes
 
-A `suspicion` hold keeps the detector sceptical for a while after a rejected burst.
+- 76–100 % of steps found.
+- Crate scene: 8 of 8 false lifts before → 3 of 8 now; lifted time 54–61 % → 3–4 %.
 
-## Results (synthetic scenes, `--events`)
+The EQ then lifts where *this* step carries its detail and dips what masks it, so every step gets its own EQ.
 
-- steps detected: **76-100 %** depending on the scene;
-- crate scene: **8/8 → 3/8** false lifts versus the old version, lift time **54-61 % → 3-4 %**.
-
-## What it feeds
-
-The [[Adaptive EQ]] gets `footConfidence`, a `dynamicWeight` per band (where this event's information
-is) and a `competitorWeight` (where the things masking it are). The EQ lifts the first and dips the
-second, in proportion to confidence - so the "footstep EQ" is different for every footstep.
-
-Try it: `EnhDspTests --events crates` ([[Dev hooks]]).
+Watch it: `EnhDspTests --events crates`. Code: `FootstepDetector.h/.cpp`.

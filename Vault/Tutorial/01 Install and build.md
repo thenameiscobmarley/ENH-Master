@@ -1,52 +1,68 @@
 # 01 Install and build
 
-You need three things next to each other: **JUCE 8**, **HardwareKit** (the shared UI module) and this
-plugin. A C++20 compiler, CMake and Ninja do the rest.
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-The quickest way is the builder script, run from the plugin's folder. It checks your tools and offers
-to download JUCE and HardwareKit if they're missing. Then it asks how many CPU cores to use (1, all,
-or a number) and whether to **replace** the installed plugin or build a separate **copy** into `dist/`:
+## Just install it
+
+Download the zip for your system from
+[Releases](https://github.com/thenameiscobmarley/ENH-Master/releases/latest), then copy
+`ENH Master.vst3` into your VST3 folder:
+
+- Windows: `C:\Program Files\Common Files\VST3`
+- Linux: `~/.vst3`
+
+Rescan plugins in your DAW. In Carla: *Add Plugin → Refresh → VST3 → ENH Master*.
+
+## Build it (Linux)
 
 ```sh
-git clone https://github.com/thenameiscobmarley/ENH-Master ~/Projects/PvPAdaptiveDynamics
-cd ~/Projects/PvPAdaptiveDynamics
-./build.sh                       # or: ./build.sh --jobs all --mode replace
+git clone https://github.com/thenameiscobmarley/ENH-Master
+cd ENH-Master
+./build.sh
 ```
 
-By hand:
+`build.sh` checks your tools, downloads [JUCE](https://github.com/juce-framework/JUCE) and
+[HardwareKit](https://github.com/thenameiscobmarley/HardwareKit) if needed, then asks:
+
+- **how many CPU cores** (fewer uses less memory), and
+- **replace** the installed plugin, or build a separate **copy** into `dist/`.
+
+Skip the questions with `./build.sh --jobs all --mode replace`. See `./build.sh --help`.
+
+<details><summary>By hand</summary>
 
 ```sh
-git clone https://github.com/juce-framework/JUCE ~/JUCE          # JUCE 8
-git clone https://github.com/thenameiscobmarley/HardwareKit ~/Projects/HardwareKit
+git clone https://github.com/juce-framework/JUCE ~/JUCE
+git clone https://github.com/thenameiscobmarley/HardwareKit ../HardwareKit
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j"$(nproc)"
+cmake --build build -j2
 ```
 
-Two paths are overridable if your checkouts live elsewhere: `-DJUCE_PATH=…` (default `~/JUCE`) and
-`-DHARDWAREKIT_PATH=…` (default `../HardwareKit`). `-DENH_COPY_PLUGIN=OFF` builds without installing.
+Other paths: `-DJUCE_PATH=…`, `-DHARDWAREKIT_PATH=…`. Build without installing: `-DENH_COPY_PLUGIN=OFF`.
+</details>
 
-> [!tip] Cores and memory
-> JUCE translation units are large; each parallel job can want about a gigabyte. With enough swap,
-> all cores is fine even on a small machine (this was developed on an Intel J4105 with 3.7 GB RAM
-> and 16 GB of swap). If a job gets killed for memory, use fewer cores; `build.sh` offers to retry
-> with half as many.
+## Build it (Windows)
 
-The build installs `~/.vst3/ENH Master.vst3` by itself and also produces a standalone app at
-`build/EnhMaster_artefacts/Release/Standalone/ENH Master`, which is the quickest way to look at it.
+Easiest: download `convert-to-windows.bat` from the repo and double-click it
+([Windows and other platforms](06%20Windows%20and%20other%20platforms.md)). By hand, with Visual
+Studio 2022, CMake and Git:
+
+```bat
+git clone https://github.com/juce-framework/JUCE ..\JUCE
+git clone https://github.com/thenameiscobmarley/HardwareKit ..\HardwareKit
+cmake -S . -B build -A x64 -DJUCE_PATH=..\JUCE -DENH_COPY_PLUGIN=OFF
+cmake --build build --config Release --parallel
+```
+
+> [!tip] Low on memory?
+> Each build job can use about 1 GB. On a small machine use 1–2 cores.
 
 ## Check it works
 
 ```sh
-build/EnhDspTests_artefacts/Release/EnhDspTests
+scripts/selftest.sh
 ```
 
-This runs the offline DSP suite - detection accuracy against synthetic scenes, EQ behaviour, harmonic
-generation, stability at 44.1/48/96 kHz and odd block sizes - and prints a CPU benchmark. It should
-end with `ALL PASSED (0 failures)`. See [[Dev hooks]] for its other modes.
+It runs every test and ends with `SELF-TEST PASSED`. More in [Testing and tools](../Reference/Audio%20lab.md).
 
-## Load it in a host
-
-Carla: *Add Plugin → Refresh → VST3 → ENH Master*. Anything that hosts VST3 on Linux works;
-see [[06 Windows and other platforms]] for other systems.
-
-Next: [[02 Your first sound]]
+Next: [Your first sound](02%20Your%20first%20sound.md)

@@ -1,51 +1,30 @@
-# MIX BALANCER unit
+# MIX BALANCER
 
-The 3U unit between the SPECTRAL LIMITER and the ADAPTIVE COMPRESSOR, most of its front a display, its four
-main knobs in a 2 x 2 grid beside it (4U, with a column of knobs, until 1.3.4.1).
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-## What it does
+Keeps the mix in balance, moment to moment. It rides six band faders (lows, 200 Hz, 500 Hz,
+1.3 kHz, 3.5 kHz, highs):
 
-`MixBalancer.h` rides six band faders: low shelf < 100 Hz, bells at 200 Hz, 500 Hz, 1.3 kHz and
-3.5 kHz, and a high shelf > 7 kHz.
+- a band that suddenly jumps out is turned down;
+- a band that drops away is gently turned up;
+- if the whole mix gets louder, nothing moves — that's loudness, not balance.
 
-For each band it compares:
-- how far the band has moved from its usual level (a few seconds, learnt four times slower while
-  the band is being corrected);
-- with how far the whole mix has moved (the median of the six).
+It lets drum attacks through, ignores nearly empty bands, and gives back the loudness its cuts take
+away, so the mix doesn't sound quieter.
 
-A band that jumps is cut; a band that drops out is lifted gently, to half the RANGE. A mix that gets
-louder as a whole moves nothing, because this is balance, not loudness. Further rules:
-- bands in a fresh transient aren't cut, so attacks go through;
-- near-empty bands (< 1 % of the mix) are left alone;
-- each band's level follower listens over a few of its own cycles.
+## Knobs
 
-## Loudness keeper
+| Knob | What it does |
+|---|---|
+| BALANCE | how much of each jump it corrects |
+| SPEED | how fast it rides |
+| TILT | darker (−) or brighter (+) |
+| RANGE | the most any band moves |
+| RESOLUTION | 6 bands, up to 28 fine bands |
+| IN | on or off |
 
-While bands are cut, the rest of the mix would sound quieter though its level never moved. The
-balancer measures how much of the ear-weighted loudness its faders took away (the band powers
-weighted by the K-weighting's shape; lifts count back; both fader sets in spectral mode) and gives
-60 % of it back to the whole mix. The lift follows the faders' SPEED, is at most 3 dB and never goes
-past the headroom under 0 dBFS (less 1 dB). `EnhDspTests --units` checks that the rest is lifted
-while a region is cut and that nothing moves when nothing is cut.
+## Its screen
 
-## Controls
+The spectrum before and after, the faders drawn as a curve, and the last ten seconds underneath with cuts in red.
 
-- **BALANCE:** how much of each jump it corrects.
-- **SPEED:** how quickly it rides.
-- **TILT:** steer darker (−) or brighter (+).
-- **RANGE:** the most any band moves, in dB.
-- **IN.**
-- **RESOLUTION:** from 6 BANDS to SPECTRAL. Spectral mode is 28 third-octave bands (31.5 Hz – 16 kHz),
-  ridden against the median of all 28. The two sets of faders are blended in series (the six scaled
-  by 1 − R, the 28 by R), which is an exact blend of the two curves with no phasing.
-
-## Display
-
-FabFilter-style layout, printed on the cream card like every display (`balancerDisplay` shader):
-- the spectrum in (filled) and out (line);
-- the faders drawn as the curve they make, in the band colours, with a handle per band;
-- a Pro-C-style strip of the last ten seconds underneath: level in, level out, and the cut in red.
-
-The curve and grid are computed per column on the CPU.
-
-Related: [[LEVEL CONTROL and OUTPUT MONITOR]].
+Code: `MixBalancer.h`.

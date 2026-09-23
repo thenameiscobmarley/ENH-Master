@@ -1,38 +1,24 @@
 # HardwareKit
 
-A separate JUCE module (its own repository, checked out next to this one) holding everything about
-the 3D hardware look that is **not** specific to ENH Master, so the next plugin starts from it.
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-```
-modules/hardwarekit/
-  gfx/        GLMath, GLResources (shaders, meshes, textures, RenderTarget/FBO)
-  geo/        geometry primitives: swept rounded rects, boxes, pointer plates, quads
-  models/     hardware: knob styles, push buttons, bat toggles, jewel lamps, LEDs,
-              rack screws, chassis, faceplate edges
-  anim/       KnobAnimator, ButtonAnimator, ToggleAnimator
-  shaders/    material library (plastic, chrome, print, glow, value arc, magnifier lens, …)
-  fx/         Loupe (zoomed view-projection)
-  input/      PointerPoller, WindowVisibility  ← the only platform-specific code
-```
+[HardwareKit](https://github.com/thenameiscobmarley/HardwareKit) is a separate library with
+everything about the 3D hardware look that isn't specific to ENH Master, so future plugins can reuse it.
+It lives next to this repo (`../HardwareKit`).
 
-Namespaces: `hwk::gfx`, `hwk::geo`, `hwk::models`, `hwk::anim`, `hwk::shaders`, `hwk::fx`,
-`hwk::input`.
+| Folder | What's in it |
+|---|---|
+| `gfx/` | OpenGL helpers: maths, shaders, meshes, textures, frame buffers |
+| `geo/` | shapes: rounded boxes, plates, quads |
+| `models/` | the hardware: knobs, buttons, toggles, lamps, LEDs, screws, chassis |
+| `anim/` | knob, button and toggle animation |
+| `shaders/` | materials: plastic, chrome, print, glow, the magnifier lens |
+| `fx/` | the loupe |
+| `input/` | mouse and window helpers — the only per-platform code (X11 and Windows) |
 
-## Knob styles
+**Knob styles:** `proXl`, `fluted`, `chickenHead`, `aluminium`, `softTouch`, `jewelCap`.
 
-`proXl` · `fluted` (Davies-1900 type) · `chickenHead` · `aluminium` · `softTouch` · `jewelCap`.
+**What stays in ENH Master:** the layout (`DeviceLayout.h`), the printed panels (`PanelArtwork`) and a
+few display shaders.
 
-Each returns a `Model`: a list of `Part`s with a mesh, a `Role` (body / accent / metal / pointer),
-whether it rotates, colour, ridge count, polish. A model also carries `footprintRadius` (picking) and,
-separately, `shadowRadius` plus an optional `beakLength` - so a chicken-head knob casts a small round
-shadow for its body **and** a pointer shadow that turns with it, instead of one big disc.
-
-In ENH Master: CLARITY / ADAPT / SUB are `proXl`, the ENH masters `aluminium`, TONE & SPACE's row `fluted`,
-its masters `softTouch` with violet caps, POWER a `chickenHead` selector.
-
-## What stays in the plugin
-
-Layout (`DeviceLayout.h`), printed panels (`PanelArtwork`), and the two display shaders. Everything
-else is library code - and the extraction was verified by screenshot: rendering came out identical.
-
-Related: [[The loupe]], [[Rendering and performance]], [[06 Windows and other platforms]].
+Related: [The loupe](The%20loupe.md), [Rendering and performance](Rendering%20and%20performance.md).

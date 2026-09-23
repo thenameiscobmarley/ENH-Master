@@ -1,39 +1,28 @@
-# ENH Master unit
+# ADAPTIVE ENHANCER
 
-The lower, black unit - a Pro-XL-style rack processor. It processes first, and TONE & SPACE finishes what
-it produces.
+> 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-## Sections
+The black unit, second from the bottom. It listens to the sound and brings out what's missing.
 
-**MASTER** - MULTIPLY (0-3x) and STRENGTH (0-5), see [[Parameter mapping]]. Aluminium knobs.
+## Knobs and buttons
 
-**CLARITY** - CLARITY, ADAPT and the MODE button.
-- MODE NORM: CLARITY runs 0-30 and only *normalises* the detail already present.
-- MODE ADD + NORM: CLARITY runs 0-10 and also *generates* harmonics where the source is short of
-  them ([[Harmonics and clarity]]).
-- The printed scale ring on the knob physically swaps when you change mode, and the knob dips while
-  it does.
-- ADAPT (0-100 %) sets how quickly the analysis follows the audio.
+- **CLARITY** + **MODE** — *NORM* (0–30) balances the detail that's there. *ADD + NORM* (0–10) also
+  creates new detail (harmonics) where there's none. The printed scale changes with the mode.
+- **ADAPT** — how fast it follows the sound (0–100 %).
+- **SUB** + **+BOOST** — more low end.
+- **FOOTSTEP** — lifts recognised footsteps. **DETECT** lights flash when one is found.
+- **MULTIPLY / STRENGTH** — see [Your first sound](../Tutorial/02%20Your%20first%20sound.md).
+- **PRESET ◀ ▶** — steps through the [presets](../Reference/Presets.md).
 
-**SUB** - SUB (0-100 %) and the +BOOST button.
+## Its screen
 
-**FOOTSTEP** - PRIORITY button; the DETECT ladder beside it lights on accepted events
-([[Footstep detection]]).
+The EQ curve it's actually using, live. When the SPECTRAL LIMITER cuts, a magenta curtain shows where.
 
-**METER** - OUT and ENH ladders.
+## What it does, in order
 
-## Display
+1. Measures the sound in 24 bands: what it's like *usually*, and what it's doing *now*.
+2. Builds an EQ curve from that — no fixed "smile" ([Adaptive EQ](../DSP/Adaptive%20EQ.md)).
+3. Adds harmonics in ADD mode ([Harmonics and clarity](../DSP/Harmonics%20and%20clarity.md)).
+4. Adds sub, then keeps the level the same as it came in.
 
-A live 24-band curve of what the [[Adaptive EQ]] is doing right now, with the current values printed
-underneath. The curve is the actual solved filter gain, not a drawing of the knob positions.
-
-## What it does to audio, in order
-
-1. 24-band constant-Q analysis plus a long-term average spectrum, so "what is this source usually
-   like" and "what is it doing right now" are separate.
-2. The [[Adaptive EQ]] derives a target curve from that: balance, local corrections, bursts,
-   footstep weighting.
-3. [[Harmonics and clarity]] adds envelope-normalised harmonics when in ADD mode.
-4. Sub enhancement, then the output ladder.
-
-Related: [[SERAPH unit]], [[Parameters]].
+Code: `AdaptiveEQ`, `AnalogStage`, `SubEnhancer`, `FootstepDetector`, `HarmonicPlanner`.
