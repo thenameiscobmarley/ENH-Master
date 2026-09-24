@@ -122,6 +122,7 @@ namespace pad::routing
                 return false;
             }
 
+            followNewStreams();   // apps set to play on the listening device itself
             return true;
         }
 
@@ -139,14 +140,38 @@ namespace pad::routing
         return true;
     }
 
+    bool Router::retarget (const juce::String& newListenId)
+    {
+        if (! isInserted() || newListenId.isEmpty() || newListenId == journal["rackInput"].toString())
+            return false;
+
+        auto* j = journal.getDynamicObject();
+        j->setProperty ("listen", newListenId);
+        if (isWholeSystem())
+            j->setProperty ("defaultBefore", newListenId);   // taking the rack out leaves them where they chose
+        if (! save())
+            return false;
+
+        if (isWholeSystem() && backend.defaultOutput() != journal["rackInput"].toString()
+             && ! backend.setDefaultOutput (journal["rackInput"].toString()))
+        {
+            error = "Could not make the rack input the default device again: " + backend.getLastError();
+            return false;
+        }
+
+        return true;
+    }
+
     int Router::followNewStreams()
     {
-        if (! isInserted() || journal["source"].toString() != "apps")
+        if (! isInserted())
             return 0;
 
         auto* moved = journal.getDynamicObject()->getProperty ("moved").getArray();
         const auto rackInput = journal["rackInput"].toString();
         const auto keys = journal["appKeys"];
+        const bool wholeSystem = isWholeSystem();
+        const auto listen = journal["listen"].toString();
 
         auto alreadyMoved = [&] (int handle)
         {
@@ -164,11 +189,16 @@ namespace pad::routing
             for (auto& k : *keys.getArray())
                 chosen = chosen || k.toString() == app.key;
 
-            if (! chosen)
+            if (! chosen && ! wholeSystem)
                 continue;
 
             for (auto handle : app.handles)
             {
+                // Whole system: only an app set to play on the listening device itself (Windows' "App volume
+                // and device preferences", a stream moved there by hand) - it would go past the rack
+                if (wholeSystem && ! alreadyMoved (handle) && backend.endpointOfHandle (handle) != listen)
+                    continue;
+
                 if (alreadyMoved (handle))
                 {
                     // Moved, but not there (a move straight after the rack input was made can be lost,

@@ -142,7 +142,7 @@ namespace pad
 
     void HardwareRenderer::queueGlow (const Mat4& space, float x, float z, float size, Vec3 colour, float intensity) noexcept
     {
-        if (intensity < 0.02f || glowCount >= (int) glows.size())
+        if (intensity < 0.002f || glowCount >= (int) glows.size())   // fades all the way out (at 0.02 it popped off)
             return;
         glows[(size_t) glowCount++] = { space * Mat4::translation ({ x, 0.02f, z }) * Mat4::scale (size, 1.0f, size), colour, intensity };
     }
@@ -250,6 +250,7 @@ namespace pad
         limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         deepVu.upload (hwk::models::vuMeter (deepVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         characterVu.upload (hwk::models::vuMeter (characterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
+        radarVu.upload (hwk::models::vuMeter (radarVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         levelVu.upload (hwk::models::vuMeter (levelVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
         monitorVu.upload (hwk::models::vuMeter (monitorVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
 
@@ -274,6 +275,7 @@ namespace pad
                               : c.unit == limiterUnit ? Vec3 { 0.42f, 0.08f, 0.12f }
                               : c.unit == deepUnit    ? Vec3 { 0.07f, 0.13f, 0.26f }   // abyss blue
                               : c.unit == characterUnit ? Vec3 { 0.40f, 0.19f, 0.07f } // cognac
+                              : c.unit == radarUnit   ? Vec3 { 0.06f, 0.22f, 0.20f }   // phosphor teal
                                                       : Vec3 { 0.55f, 0.56f, 0.60f };
             int first = -1;
             for (size_t k = 0; k < built.size(); ++k)
@@ -337,6 +339,8 @@ namespace pad
         upload (deepDecalTex, textureData.deepDecal);
         upload (deepLabelTex, textureData.deepVuFace);
         upload (characterDecalTex, textureData.characterDecal);
+        upload (radarDecalTex, textureData.radarDecal);
+        upload (radarVuFaceTex, textureData.radarVuFace);
         upload (characterLabelTex, textureData.characterVuFace);
         upload (limiterLabelTex[0], textureData.limiterVuFace[0]);
         upload (limiterLabelTex[1], textureData.limiterVuFace[1]);
@@ -389,6 +393,7 @@ namespace pad
         limiterVu.release();
         deepVu.release();
         characterVu.release();
+        radarVu.release();
         levelVu.release();
         monitorVu.release();
         for (auto& o : outboard)
@@ -396,7 +401,8 @@ namespace pad
         for (auto* tex : { &levelDecalTex, &balancerDecalTex, &monitorDecalTex, &monitorLabelTex, &balancerLabelTex, &levelFaceTex,
                            &monitorFaceTex[0], &monitorFaceTex[1],
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
-                           &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex })
+                           &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex,
+                           &radarDecalTex, &radarVuFaceTex })
             tex->release();
         loupeTarget.release();
         sceneTarget.release();
@@ -1403,6 +1409,8 @@ namespace pad
             const bool balancerOn = bridge.getNormalised (bridge.indexOf (params::id::balActive)) > 0.5f;
             const bool deepOn = bridge.getNormalised (bridge.indexOf (params::id::deepActive)) > 0.5f;
             const bool characterOn = bridge.getNormalised (bridge.indexOf (params::id::charActive)) > 0.5f;
+            const bool radarOn = bridge.getNormalised (bridge.indexOf (params::id::footstep)) > 0.5f;
+            unitLamp[(size_t) radarUnit] = anim::approach (unitLamp[(size_t) radarUnit], radarOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) characterUnit] = anim::approach (unitLamp[(size_t) characterUnit], characterOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) deepUnit] = anim::approach (unitLamp[(size_t) deepUnit], deepOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) tideUnit] = anim::approach (unitLamp[(size_t) tideUnit], tideOn ? 1.0f : 0.15f, 4.0f, dt);
@@ -1459,6 +1467,9 @@ namespace pad
                 saturateUi ((demoMeters ? -14.0f + 6.0f * std::sin ((float) timeSeconds * 0.9f) : (deepOn ? meters.deepGeneratedDb.load() : -120.0f)) / 40.0f + 1.0f),
                 // CHARACTER: the harmonics its models add, against the signal, -60 .. 0 dB
                 saturateUi ((demoMeters ? -34.0f + 8.0f * std::sin ((float) timeSeconds * 0.7f) : (characterOn ? meters.charHarmonicsDb.load() : -120.0f)) / 60.0f + 1.0f),
+                // FOOTSTEP RADAR: the lift it is giving a step now, 0 .. 18 dB (the demo: a step every half second)
+                saturateUi ((demoMeters ? 9.0f * std::pow (std::max (0.0f, std::cos ((float) timeSeconds * 6.2832f)), 8.0f)
+                                        : 20.0f * std::log10 (1.0f + 1.5f * meters.radarActivity.load())) / 18.0f),
             };
 
             for (int i = 0; i < numNeedles; ++i)
@@ -1489,18 +1500,30 @@ namespace pad
         for (int b = 0; b < enh::dsp::numBands; ++b)
             displayBands[(size_t) b] += (meters.bandGainDb[(size_t) b].load (std::memory_order_relaxed) - displayBands[(size_t) b]) * meterK;
 
-        stepFlash = std::max (meters.footstepConfidence.load (std::memory_order_relaxed), stepFlash * std::exp (-dt / 0.25f));
-        activityGlow = anim::approach (activityGlow, meters.enhancement.load (std::memory_order_relaxed), 6.0f, dt);
+        // PAD_UI_TEST_DEMO=1: music-like meter movement, so the ladders can be looked at without audio
+        const float demoT = (float) timeSeconds;
+        const float demoPeak = -9.0f + 5.0f * std::sin (demoT * 1.3f) + 3.0f * std::sin (demoT * 7.9f) * std::sin (demoT * 3.1f);
+        stepFlash = std::max (demoMeters ? std::max (0.0f, std::sin (demoT * 2.2f)) : meters.footstepConfidence.load (std::memory_order_relaxed),
+                              stepFlash * std::exp (-dt / 0.25f));
+        activityGlow = anim::approach (activityGlow, demoMeters ? 0.55f + 0.35f * std::sin (demoT * 0.9f)
+                                                                : meters.enhancement.load (std::memory_order_relaxed), 6.0f, dt);
 
-        // LED ladders: instant on, short fade off (like real LED meters with a little lag)
-        const float outDb = meters.outputPeakDb.load (std::memory_order_relaxed);
+        // OUT: peak-meter ballistics - up at once, down at 20 dB a second. The raw peak of each audio
+        // block jumps several dB from block to block, and lit straight from it the segments around the
+        // level flashed on and off every frame.
+        const float outRaw = demoMeters ? demoPeak : meters.outputPeakDb.load (std::memory_order_relaxed);
+        outDbShown = outRaw >= outDbShown ? outRaw : std::max (outRaw, outDbShown - 20.0f * dt);
+        const float outDb = outDbShown;
+
+        // LED ladders: on over ~15 ms, off over ~70 ms, like real LEDs behind a little diffuser (switched
+        // on in a single frame they flashed hard, and their halos popped with them)
         auto ladder = [dt] (std::array<float, ladderSegments>& leds, int segments, auto&& lit)
         {
             for (int k = 0; k < segments; ++k)
             {
                 const float target = lit (k) ? 1.0f : 0.0f;
                 auto& v = leds[(size_t) k];
-                v = target > v ? target : anim::approach (v, target, 14.0f, dt);
+                v = anim::approach (v, target, target > v ? 65.0f : 14.0f, dt);
             }
         };
         ladder (outLeds, outLadder.segments, [outDb] (int k) { return outDb >= (float) outLadderDb[(size_t) k]; });
@@ -1873,6 +1896,7 @@ namespace pad
         const Mat4 limiterPanel = panelToWorld (limiterUnit);
         const Mat4 deepPanel = panelToWorld (deepUnit);
         const Mat4 characterPanel = panelToWorld (characterUnit);
+        const Mat4 radarPanel = panelToWorld (radarUnit);
         const Mat4 levelPanel = panelToWorld (levelUnit);
         const Mat4 balancerPanel = panelToWorld (balancerUnit);
         const Mat4 monitorPanel = panelToWorld (monitorUnit);
@@ -1880,6 +1904,7 @@ namespace pad
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
                  : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == characterUnit ? characterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
+                 : unit == radarUnit ? radarPanel
                  : unit == monitorUnit ? monitorPanel : panel;
         };
 
@@ -1895,7 +1920,7 @@ namespace pad
         glDisable (GL_BLEND);
         glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        const float footOn = footstepControl >= 0 ? buttons[(size_t) footstepControl].led : 0.0f;
+        const float footOn = std::clamp ((unitLamp[(size_t) radarUnit] - 0.15f) / 0.85f, 0.0f, 1.0f);   // the FOOTSTEP RADAR is IN
         const float breath = 0.90f + 0.10f * std::sin (t * 1.6f);
         const Vec3 ventGlow = colours::amber * ((0.05f + 0.45f * activityGlow) * breath) + colours::ledGreen * (stepFlash * footOn * 0.35f);
 
@@ -1999,10 +2024,8 @@ namespace pad
                 }
                 else
                 {
-                    const bool isFootstep = i == footstepControl;
-                    const float on = isFootstep ? bt.led * (0.75f + 0.25f * stepFlash) : bt.led;
                     const auto [ledDx, ledDz] = ledOffset (c);
-                    drawLed (unitPanel, c.x + ledDx, c.z + ledDz, isFootstep ? colours::ledGreen : colours::ledYellow, on);
+                    drawLed (unitPanel, c.x + ledDx, c.z + ledDz, colours::ledYellow, bt.led);
                 }
             }
         }
@@ -2014,6 +2037,7 @@ namespace pad
                   { &limiterLabelTex[0], &limiterLabelTex[1] });
         drawOneU (deepUnit, deepPanel, Vec3 { 0.30f, 0.36f, 0.44f }, deepDecalTex, { &deepLabelTex });   // blued steel
         drawOneU (characterUnit, characterPanel, Vec3 { 0.58f, 0.53f, 0.45f }, characterDecalTex, { &characterLabelTex });   // champagne anodised
+        drawOneU (radarUnit, radarPanel, Vec3 { 0.27f, 0.30f, 0.21f }, radarDecalTex, { &radarVuFaceTex });   // CHARACTER's sister in olive drab anodised
 
         // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
         drawOneU (levelUnit, levelPanel, Vec3 { 0.64f, 0.645f, 0.66f }, levelDecalTex, { &levelFaceTex });
@@ -2269,6 +2293,7 @@ namespace pad
             drawVuGlass (limiterUnit, limiterPanel);
             drawVuGlass (deepUnit, deepPanel);
             drawVuGlass (characterUnit, characterPanel);
+            drawVuGlass (radarUnit, radarPanel);
             drawVuGlass (levelUnit, levelPanel);
             drawVuGlass (monitorUnit, monitorPanel);
             glDepthMask (GL_TRUE);
@@ -2289,7 +2314,14 @@ namespace pad
             glEnable (GL_DEPTH_TEST);
         }
 
-        // LED / lamp halos, additive, on top of everything
+        // LED / lamp halos, additive, on top of everything. Blending is switched on here, not inherited:
+        // the loupe's pass has no window light before this, and the outlines leave blending off, so the
+        // halos were drawn opaque there - every lit LED a solid square of its colour under the lens.
+        // They never write depth: they all lie on one plane over the panel, and where two overlapped, the
+        // second failed the depth test against the first in strips (dark bands and hard edges through a
+        // lit ladder, moving as the LEDs changed). Solid parts in front still hide them.
+        glEnable (GL_BLEND);
+        glDepthMask (GL_FALSE);
         glBlendFunc (GL_SRC_ALPHA, GL_ONE);
         auto& halo = use (shaders::glow);
         for (int g = 0; g < glowCount; ++g)

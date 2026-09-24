@@ -28,7 +28,6 @@ namespace enh::dsp
         {
             float boost = 0.0f;          // ADD mode amount (0 in NORM: nothing is added)
             float transient = 0.0f;      // 0..1, how "attacky" the programme is right now
-            float footstep = 0.0f;       // detector confidence (only when the mode is on)
             HarmonicPlanner::Band depth, clarityBand;
             float strength = 1.0f;       // device STRENGTH (0..5)
             bool holdLevel = false;      // SPECTRAL LIMITER is handling a localised event: auto gain holds

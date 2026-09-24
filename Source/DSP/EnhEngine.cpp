@@ -13,7 +13,6 @@ namespace enh::dsp
 
         analyzer.prepare (sr, controlRate);
         spectrum.prepare (sr);
-        steps.prepare (analyzer, controlRate);
         planner.prepare (analyzer);
         eq.prepare (sr, controlRate, analyzer, numChannels);
         sub.prepare (sr, controlRate);
@@ -27,6 +26,7 @@ namespace enh::dsp
         output.prepare (sr);
         target.prepare (sr);
         character.prepare (sr, maxBlock, numChannels);
+        radar.prepare (sr, maxBlock);
 
         for (auto& v : msScratch)
             v.assign ((size_t) maxBlock, 0.0f);
@@ -35,7 +35,7 @@ namespace enh::dsp
 
         // COMPARE: a delay as long as what the rack adds before its output limiter (which delays both
         // alike), and K-weighting to match by
-        compareLen = std::max (1, analog.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples());
+        compareLen = std::max (1, analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples());
         for (auto& v : compareLine)
             v.assign ((size_t) compareLen, 0.0f);
         for (auto& v : compareIn)
@@ -52,7 +52,6 @@ namespace enh::dsp
     {
         analyzer.reset();
         spectrum.reset();
-        steps.reset();
         planner.reset();
         eq.reset();
         sub.reset();
@@ -71,6 +70,7 @@ namespace enh::dsp
         output.reset();
         target.reset();
         character.reset();
+        radar.reset();
         for (auto& d : keepDelays) { std::fill (d.line.begin(), d.line.end(), 0.0f); d.pos = 0; }
         for (auto& v : compareLine) std::fill (v.begin(), v.end(), 0.0f);
         comparePos = 0;
@@ -97,14 +97,13 @@ namespace enh::dsp
 
         // Long-term spectrum integration follows ADAPT: 6 s (steady) .. 0.8 s (fast)
         analyzer.update (dt, 6.0f * std::pow (0.8f / 6.0f, speed));
-        const float confidence = steps.update (analyzer, spectrum, dt);
         if (--planCountdown <= 0)
         {
             planCountdown = 2;
             planner.update (analyzer, speed, 2.0f * dt);
         }
 
-        eq.update (analyzer, steps, { normalize, boost, std::min (speed, 1.5f), p.footstep, planner.depth, planner.clarity, strength }, dt);
+        eq.update (analyzer, { normalize, boost, std::min (speed, 1.5f), planner.depth, planner.clarity, strength }, dt);
         sub.update ({ subAmount, p.subBoost, std::min (speed, 1.5f), planner.bassHz, strength }, dt);
 
         const float t = saturate01 ((analyzer.fullTransientDb - analyzer.fullShortDb) / 6.0f);
@@ -114,7 +113,7 @@ namespace enh::dsp
         for (int k = 0; k < numBands; ++k)
             meters.bandGainDb[(size_t) k].store (eq.getGainDb (k), std::memory_order_relaxed);
 
-        meters.footstepConfidence.store (p.footstep ? confidence : 0.0f, std::memory_order_relaxed);
+        meters.footstepConfidence.store (p.radar.active ? radar.getActivity() : 0.0f, std::memory_order_relaxed);
         // What is actually being done to the signal right now (EQ movement + harmonics being generated)
         const float harmonics = boost * std::max (planner.depth.amount, planner.clarity.amount) * saturate01 ((analyzer.fullShortDb + 70.0f) / 20.0f);
         meters.enhancement.store (saturate01 (eq.getActivity() + 0.6f * harmonics), std::memory_order_relaxed);
@@ -384,6 +383,45 @@ namespace enh::dsp
         meters.comparing.store (on, std::memory_order_relaxed);
     }
 
+    void EnhEngine::publishRadar() noexcept
+    {
+        constexpr auto relaxed = std::memory_order_relaxed;
+        meters.radarActivity.store (radar.getActivity(), relaxed);
+        meters.radarOnset.store (radar.getOnsetStrength(), relaxed);
+        meters.radarThreshold.store (radar.getThreshold(), relaxed);
+        meters.radarMusicality.store (radar.getMusicality(), relaxed);
+        meters.radarClock.store ((float) radar.getClock(), relaxed);
+        for (int b = 0; b < EngineMeters::radarBands; ++b)
+            meters.radarExcessDb[(size_t) b].store (radar.getBandExcessDb()[(size_t) b], relaxed);
+        for (int t = 0; t < EngineMeters::radarTracks; ++t)
+        {
+            const auto& tr = radar.getTracks()[(size_t) t];
+            meters.radarTrackPan[(size_t) t].store (tr.pan, relaxed);
+            meters.radarTrackDistance[(size_t) t].store (tr.distance, relaxed);
+            meters.radarTrackConfidence[(size_t) t].store (tr.active ? tr.confidence : 0.0f, relaxed);
+            meters.radarTrackPeriod[(size_t) t].store (tr.period, relaxed);
+            meters.radarTrackId[(size_t) t].store (tr.active ? tr.id : 0, relaxed);
+        }
+        const int total = radar.getStepsTotal();
+        const int published = meters.radarStepsTotal.load (relaxed);
+        if (total != published)
+        {
+            for (int k = std::max (published, total - EngineMeters::radarRecent); k < total; ++k)
+            {
+                const auto& st = radar.getRecent()[(size_t) (k % FootstepRadar::recentCapacity)];
+                const auto i = (size_t) (k % EngineMeters::radarRecent);
+                meters.radarStepTime[i].store ((float) st.time, relaxed);
+                meters.radarStepPan[i].store (st.pan, relaxed);
+                meters.radarStepRear[i].store (st.rear, relaxed);
+                meters.radarStepDistance[i].store (st.distance, relaxed);
+                meters.radarStepConfidence[i].store (st.confidence, relaxed);
+                meters.radarStepBoost[i].store (st.boostDb, relaxed);
+                meters.radarStepTrack[i].store (st.track, relaxed);
+            }
+            meters.radarStepsTotal.store (total, std::memory_order_release);
+        }
+    }
+
     void EnhEngine::processChunk (juce::AudioBuffer<float>& buffer, int start, int n, const Parameters& p) noexcept
     {
         const int chans = std::min (buffer.getNumChannels(), 2);
@@ -426,7 +464,7 @@ namespace enh::dsp
         }
 
         juce::dsp::AudioBlock<float> block (write, (size_t) chans, (size_t) start, (size_t) n);
-        analog.process (block, { boost, transient, p.footstep ? steps.getConfidence() : 0.0f, planner.depth, planner.clarity, strength,
+        analog.process (block, { boost, transient, planner.depth, planner.clarity, strength,
                                  p.limiter.active && limiter.isHandlingLocalisedEvent(), p.methods[(size_t) methods::enhancerHarmonics] });
 
         float* chunk[2] { write[0] + start, write[chans - 1] + start };
@@ -446,7 +484,7 @@ namespace enh::dsp
         scopeBalIn.push (chunk, chans, n);
         // Footsteps being lifted (one in the last second): the balancer lets its cuts go, so it never takes
         // the lift back
-        footstepRecentS = p.footstep && steps.getConfidence() > 0.25f ? 1.0f : std::max (0.0f, footstepRecentS - (float) n / (float) sampleRate);
+        footstepRecentS = p.radar.active && radar.getActivity() > 0.1f ? 1.0f : std::max (0.0f, footstepRecentS - (float) n / (float) sampleRate);
         auto balancerSettings = p.balancer;
         balancerSettings.holdCuts = footstepRecentS > 0.0f;
         inStereoMode (chunk, chans, n, p.methods[(size_t) methods::balancerStereo], 0, keepDelays[2],
@@ -455,6 +493,14 @@ namespace enh::dsp
 
         inStereoMode (chunk, chans, n, p.methods[(size_t) methods::tideStereo], 0, keepDelays[3],
                       [&] (float* const* c, int k) { tide.process (c, k, n, p.tide, p.limiter.active ? limiter.key() : nullptr); });
+        // FOOTSTEP RADAR: after the dynamics (it lifts what they have settled), before TONE & SPACE finishes it
+        // It listens to the rack's input (its steps as they came, before the dynamics flattened them) and
+        // lifts them here; the few samples the stages between add are well inside its 2.5 ms lookahead
+        const float* radarKey[2] { compareIn[0].data() + start, compareIn[chans > 1 ? 1 : 0].data() + start };
+        radar.process (chunk, chans, n, p.radar, compareReady ? radarKey : nullptr);
+        meters.radarOn.store (p.radar.active, std::memory_order_relaxed);
+        publishRadar();
+
         inStereoMode (chunk, chans, n, p.methods[(size_t) methods::seraphStereo], seraph.getLatencySamples(), keepDelays[4],
                       [&] (float* const* c, int k) { seraph.process (c, k, n, p.seraph); });
 

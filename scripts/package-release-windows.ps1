@@ -64,6 +64,8 @@ EVERY DAY
   - LEVEL:      -18 LUFS makes the game, music and voice chat equally loud (optional).
   - Press INSERT RACK. Press it again (RACK IN - REMOVE) to put everything back as it was.
 
+  Switching your headset or speakers in Windows while the rack is in is fine: the rack follows you
+  there, and your audio keeps going through it.
   Closing the window with the rack in keeps it running in the tray (click the icon to bring it back).
   The ... menu has "Start with the computer": it then starts in the tray with the rack in, every time.
 

@@ -466,7 +466,7 @@ namespace lab
             else if (i == id::lumenActive) k.lumenActive = on; else if (i == id::spectralActive) k.spectralActive = on;
             else if (i == id::balActive) k.balActive = on;     else if (i == id::deepActive) k.deepActive = on;
             else if (i == id::charActive) k.charActive = on;   else if (i == id::abCompare) k.compare = on;
-            else if (i == id::charGrit) k.charGrit = on;
+            else if (i == id::charGrit) k.charGrit = on;       else if (i == id::radarListen) k.radarListen = on;
             else if (i == id::charModelA) k.charModelA = v;    else if (i == id::charModelB) k.charModelB = v;
             else if (i == id::seraphMode) k.seraphMode = juce::roundToInt (v);
             else if (i == id::silkProtect) k.protect = on;     else if (i == id::silkTape) k.tape = on;

@@ -52,6 +52,8 @@ namespace enh::dsp
             float drive = 5.0f;       // 0 .. 10: -15 .. +15 dB into the models, given back after
             int components = 0;       // COMPONENTS method: 0 matched, 1 subtle, 2 vintage (left and right differ)
             bool grit = true;         // GRIT: DRIVE may grow into distortion (on) or stops short of it (off: clean drive)
+            float colour = 5.0f;      // COLOUR 0 .. 10: how much of each model's character - its voicing and its
+                                      // harmonics at any level - separate from DRIVE (0 = neither, 5 = default)
         };
 
         static constexpr int oversamplingStages = 2;   // 4x (2x aliased at full DRIVE: -23 dB)
@@ -73,6 +75,8 @@ namespace enh::dsp
             kWeighting (sr, preCoeffs, rlbCoeffs);
             guardAtt = (float) std::exp (-1.0 / (0.001 * osr));
             guardRel = (float) std::exp (-1.0 / (0.150 * osr));
+            colourAtt = 0.0f;   // up at once: a lifted peak never passes the sweet spot, even the first after a pause
+            colourRel = (float) std::exp (-1.0 / (0.300 * osr));
             designAll (0);
             reset();
         }
@@ -93,6 +97,7 @@ namespace enh::dsp
             matchGain = 1.0f;
             dryPeak = wetPeak = 0.0f;
             guardEnv = {};
+            colourEnv = {};
             for (auto* f : { &kDryPre, &kDryRlb, &kWetPre, &kWetRlb })
                 for (auto& st : *f)
                     st.reset();
@@ -112,9 +117,17 @@ namespace enh::dsp
             if (nc <= 0 || n <= 0 || os == nullptr)
                 return;
 
-            // COMPONENTS changed: the right channel's parts are redesigned (no allocation)
-            if (s.components != designedComponents)
+            // COLOUR glides (~40 ms); the voicing EQs are redesigned as it moves (a few coefficients per
+            // model, only while it moves). COLOUR 2.5 is the voicing as designed, 5 twice that, 10 four times.
+            const float blockSeconds = (float) n / (float) sr;
+            colourNow += (std::clamp (s.colour, 0.0f, 10.0f) - colourNow) * std::min (1.0f, blockSeconds / 0.040f);
+            const float toneWanted = colourNow / 2.5f;
+            // COMPONENTS changed, or COLOUR moved: the parts are redesigned (no allocation)
+            if (s.components != designedComponents || std::abs (toneWanted - designedTone) > 0.004f)
+            {
+                designedTone = toneWanted;
                 designAll (s.components);
+            }
 
             const float wetTarget = s.active ? 1.0f : 0.0f;
             if (wet == 0.0f && wetTarget == 0.0f)
@@ -156,6 +169,8 @@ namespace enh::dsp
                     voices[v].model = -1;
             }
 
+            // How close to the sweet spot COLOUR takes the music: none at 0, halfway (in level) at 5, all the way at 10
+            colourDepth = colourNow / 10.0f;
             const float driveTarget = dbToGain ((std::clamp (s.drive, 0.0f, 10.0f) - 5.0f) * 3.0f);
             const float driveFrom = driveGain;
             driveGain += (driveTarget - driveGain) * std::min (1.0f, blockS / 0.020f);
@@ -190,6 +205,10 @@ namespace enh::dsp
                     const float a = std::abs (u);
                     guardEnv[(size_t) c] = a > guardEnv[(size_t) c] ? a + guardAtt * (guardEnv[(size_t) c] - a)
                                                                     : a + guardRel * (guardEnv[(size_t) c] - a);
+                    // COLOUR: the music's peak level (up at once, 300 ms down), for the lift into each
+                    // model's sweet spot below
+                    colourEnv[(size_t) c] = a > colourEnv[(size_t) c] ? a + colourAtt * (colourEnv[(size_t) c] - a)
+                                                                      : a + colourRel * (colourEnv[(size_t) c] - a);
 
                     float y = 0.0f;
                     for (size_t v = 0; v < voices.size(); ++v)
@@ -203,9 +222,18 @@ namespace enh::dsp
 
                         float res = 0.0f;
                         const auto& k = coeffs[(size_t) c][(size_t) voice.model];
-                        const float guard = s.grit || guardEnv[(size_t) c] <= k.cleanPeak ? 1.0f : k.cleanPeak / guardEnv[(size_t) c];
-                        y += w * runModel (voice.model, k, voice.state[(size_t) c], u * guard, res) / guard;
-                        residual += (double) (w * res / guard) * (w * res / guard);
+                        // COLOUR's harmonics: the model's non-linear core is fed the music lifted toward the
+                        // model's sweet spot (its clean peak, ~1 % THD) and the lift is taken off again after
+                        // it, so the character is there at any playback level - quiet music too - and not only
+                        // once DRIVE pushes it. Only ever a lift (up to 24 dB): hot music is left to DRIVE.
+                        const float sweet = k.cleanPeak * colourDepth * (s.grit ? 1.8f : 1.0f);
+                        const float env = colourEnv[(size_t) c];
+                        const float lift = env > 1.0e-6f ? std::clamp (sweet / env, 1.0f, 16.0f) : 1.0f;
+                        // GRIT off: what reaches the curves never passes the clean peak, lift included
+                        const float hot = guardEnv[(size_t) c] * lift;
+                        const float guard = s.grit || hot <= k.cleanPeak ? 1.0f : k.cleanPeak / hot;
+                        y += w * runModel (voice.model, k, voice.state[(size_t) c], u, res, lift * guard);
+                        residual += (double) (w * res) * (w * res);
                     }
 
                     signal += (double) u * u;
@@ -409,7 +437,9 @@ namespace enh::dsp
             return x / std::cbrt (1.0f + a * a * a);
         }
 
-        inline float runModel (int model, const Coeffs& k, State& s, float u, float& residual) const noexcept
+        /** nlGain: the gain into the non-linear core (COLOUR's lift, GRIT off's guard), taken off again
+            right after it - only the core sees it, so the voicing EQ around it is never modulated. */
+        inline float runModel (int model, const Coeffs& k, State& s, float u, float& residual, float nlGain) const noexcept
         {
             juce::ignoreUnused (model);
             float x = u * k.inputTrim;
@@ -418,6 +448,7 @@ namespace enh::dsp
                 x = s.pre[(size_t) i].process (k.pre[(size_t) i], x);
 
             const float beforeNl = x;
+            x *= nlGain;
 
             if (k.fluxR > 0.0f)
                 x = fluxStage (x, s.flux, s.fluxRes, k.fluxR, k.fluxInvLimit2, k.fluxBias, k.fluxBiasSat);
@@ -460,6 +491,7 @@ namespace enh::dsp
                 x = y;
             }
 
+            x /= nlGain;
             residual = x - beforeNl;
 
             for (int i = 0; i < k.numPost; ++i)
@@ -487,16 +519,19 @@ namespace enh::dsp
                 const double f = c == 1 ? 1.0 + 0.025 * spread : 1.0;       // corner frequencies
                 const float b = c == 1 ? 1.0f + 0.12f * spread : 1.0f;       // bias
                 for (int m = 0; m < numModels; ++m)
-                    coeffs[(size_t) c][(size_t) m] = design (m, f, b);
+                    coeffs[(size_t) c][(size_t) m] = design (m, f, b, designedTone);
             }
         }
 
-        Coeffs design (int model, double f, float biasScale) const noexcept
+        /** tone: how far each model's voicing EQ goes (COLOUR; 1 = the voicing as designed, at COLOUR 2.5).
+            Only the voicing scales: tape's de-emphasis must stay the exact mirror of its pre-emphasis. */
+        Coeffs design (int model, double f, float biasScale, float tone) const noexcept
         {
             Coeffs k;
             const double o = osr;
             auto r = [&] (double hz) { return (float) std::exp (-2.0 * 3.141592653589793 * hz * f / o); };
             auto post = [&] (SvfEqCoeffs c) { if (k.numPost < (int) k.post.size()) k.post[(size_t) k.numPost++] = c; };
+            auto dB = [tone] (double gain) { return gain * (double) tone; };   // a voicing gain, at this COLOUR
 
             switch (model)
             {
@@ -512,8 +547,8 @@ namespace enh::dsp
                     k.inputTrim = 0.60f;
                     k.amp = 3; k.ampLimit = 1.05f;
                     k.slew = 0.22f;
-                    post (SvfEqCoeffs::highShelf (o, 9500.0 * f, 0.6, 0.6));
-                    post (SvfEqCoeffs::bell (o, 180.0 * f, 0.7, -0.3));
+                    post (SvfEqCoeffs::highShelf (o, 9500.0 * f, 0.6, dB (0.6)));
+                    post (SvfEqCoeffs::bell (o, 180.0 * f, 0.7, dB (-0.3)));
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 12.0 * f, 0.6);
                     break;
 
@@ -523,8 +558,8 @@ namespace enh::dsp
                     k.inputTrim = 0.75f;
                     k.amp = 1; k.ampK = 1.25f; k.ampBias = 0.08f * biasScale;
                     k.flux2R = r (14.0); k.flux2Limit = 0.30f;
-                    post (SvfEqCoeffs::bell (o, 110.0 * f, 0.8, 0.6));
-                    post (SvfEqCoeffs::bell (o, 3000.0 * f, 0.6, 0.35));
+                    post (SvfEqCoeffs::bell (o, 110.0 * f, 0.8, dB (0.6)));
+                    post (SvfEqCoeffs::bell (o, 3000.0 * f, 0.6, dB (0.35)));
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 14.0 * f, 0.6);
                     break;
 
@@ -535,8 +570,8 @@ namespace enh::dsp
                     k.fluxR = r (10.0); k.fluxLimit = 0.16f; k.fluxBias = 0.008f * biasScale;
                     k.amp = 1; k.ampK = 0.95f; k.ampBias = 0.12f * biasScale;
                     k.flux2R = r (16.0); k.flux2Limit = 0.35f;
-                    post (SvfEqCoeffs::lowShelf (o, 75.0 * f, 0.6, 0.6));
-                    post (SvfEqCoeffs::bell (o, 1600.0 * f, 0.5, 0.25));
+                    post (SvfEqCoeffs::lowShelf (o, 75.0 * f, 0.6, dB (1.0)));   // the input iron softens the lows it drives: the shelf makes up for it
+                    post (SvfEqCoeffs::bell (o, 1600.0 * f, 0.5, dB (0.25)));
                     k.hasLowPass = true; k.lowPass = SvfCoeffs::make (o, 23000.0 * f, 0.55);
                     break;
 
@@ -547,8 +582,8 @@ namespace enh::dsp
                     k.pre[0] = SvfEqCoeffs::highShelf (o, 3200.0 * f, 0.6, 6.0); k.numPre = 1;
                     k.amp = 2; k.ampLimit = 0.95f;
                     post (SvfEqCoeffs::highShelf (o, 3200.0 * f, 0.6, -6.0));
-                    post (SvfEqCoeffs::bell (o, 52.0 * f, 1.1, 1.3));
-                    post (SvfEqCoeffs::bell (o, 24.0 * f, 1.3, -0.9));
+                    post (SvfEqCoeffs::bell (o, 52.0 * f, 1.1, dB (1.3)));
+                    post (SvfEqCoeffs::bell (o, 24.0 * f, 1.3, dB (-0.9)));
                     k.hasLowPass = true; k.lowPass = SvfCoeffs::make (o, 17500.0 * f, 0.55);
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 12.0 * f, 0.6);
                     break;
@@ -560,8 +595,8 @@ namespace enh::dsp
                     k.pre[0] = SvfEqCoeffs::highShelf (o, 6000.0 * f, 0.6, 4.0); k.numPre = 1;
                     k.amp = 2; k.ampLimit = 1.05f;
                     post (SvfEqCoeffs::highShelf (o, 6000.0 * f, 0.6, -4.0));
-                    post (SvfEqCoeffs::bell (o, 92.0 * f, 1.0, 0.9));
-                    post (SvfEqCoeffs::bell (o, 42.0 * f, 1.2, -0.5));
+                    post (SvfEqCoeffs::bell (o, 92.0 * f, 1.0, dB (0.9)));
+                    post (SvfEqCoeffs::bell (o, 42.0 * f, 1.2, dB (-0.5)));
                     k.hasLowPass = true; k.lowPass = SvfCoeffs::make (o, 22000.0 * f, 0.6);
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 10.0 * f, 0.6);
                     break;
@@ -574,7 +609,7 @@ namespace enh::dsp
                     k.amp = 1; k.ampK = 1.5f; k.ampBias = 0.16f * biasScale;
                     k.sag = 0.25f; k.envAtt = (float) std::exp (-1.0 / (0.010 * o)); k.envRel = (float) std::exp (-1.0 / (0.150 * o));
                     k.flux2R = r (18.0); k.flux2Limit = 0.40f;
-                    post (SvfEqCoeffs::bell (o, 220.0 * f, 0.7, 0.3));
+                    post (SvfEqCoeffs::bell (o, 220.0 * f, 0.7, dB (0.3)));
                     k.hasLowPass = true; k.lowPass = SvfCoeffs::make (o, 20000.0 * f, 0.5);
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 15.0 * f, 0.6);
                     break;
@@ -584,9 +619,9 @@ namespace enh::dsp
                     // Made for games: tight low end, a clear upper mid for steps and callouts, clean
                     // peaks - impact without mud
                     k.amp = 3; k.ampLimit = 1.1f; k.inputTrim = 0.55f;
-                    post (SvfEqCoeffs::bell (o, 280.0 * f, 0.8, -0.9));
-                    post (SvfEqCoeffs::bell (o, 3200.0 * f, 0.8, 1.1));
-                    post (SvfEqCoeffs::highShelf (o, 11000.0 * f, 0.6, 0.5));
+                    post (SvfEqCoeffs::bell (o, 280.0 * f, 0.8, dB (-0.9)));
+                    post (SvfEqCoeffs::bell (o, 3200.0 * f, 0.8, dB (1.1)));
+                    post (SvfEqCoeffs::highShelf (o, 11000.0 * f, 0.6, dB (0.5)));
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 24.0 * f, 0.7);
                     break;
 
@@ -597,8 +632,8 @@ namespace enh::dsp
                     k.inputTrim = 0.70f;
                     k.fluxR = r (12.0); k.fluxLimit = 0.22f;
                     k.amp = 1; k.ampK = 0.8f; k.ampBias = 0.10f * biasScale;
-                    post (SvfEqCoeffs::lowShelf (o, 65.0 * f, 0.6, 1.0));
-                    post (SvfEqCoeffs::highShelf (o, 9000.0 * f, 0.6, -0.6));
+                    post (SvfEqCoeffs::lowShelf (o, 65.0 * f, 0.6, dB (1.0)));
+                    post (SvfEqCoeffs::highShelf (o, 9000.0 * f, 0.6, dB (-0.6)));
                     k.hasHighPass = true; k.highPass = SvfCoeffs::make (o, 16.0 * f, 0.6);
                     break;
 
@@ -671,6 +706,10 @@ namespace enh::dsp
         float matchDb = 0.0f, matchGain = 1.0f, dryPeak = 0.0f, wetPeak = 0.0f;
         std::array<float, 2> guardEnv {};
         float guardAtt = 0.0f, guardRel = 0.0f;
+        std::array<float, 2> colourEnv {};                 // COLOUR: the music's level, per channel
+        float colourAtt = 0.0f, colourRel = 0.0f;
+        float colourNow = 5.0f, colourDepth = 0.5f;        // COLOUR, glided; how far toward the sweet spot
+        float designedTone = 2.0f;                         // the voicing the coefficients were designed at
         BiquadCoeffs preCoeffs, rlbCoeffs;   // K-weighting, for the loudness match
         std::array<BiquadState, 2> kDryPre {}, kDryRlb {}, kWetPre {}, kWetRlb {};
         float harmonicsDb = -120.0f;

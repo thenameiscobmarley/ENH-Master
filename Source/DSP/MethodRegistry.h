@@ -44,6 +44,7 @@ namespace enh::dsp::methods
         deepShape, deepTracking, deepMaterial,
         charComponents,
         tideStereo, levelerStereo, limiterStereo, balancerStereo, seraphStereo, charStereo,
+        radarDetection, radarRoom,
         numMethodIds,
         fixedStage = -1
     };
@@ -236,8 +237,8 @@ namespace enh::dsp::methods
     }};
     inline constexpr std::array<Method, 3> balancerGuardMethods {{
         { "STD", "Guard attacks",
-          "A band in a fresh transient (its fast level 2.5 times its average) is not cut yet, and while footsteps are being lifted by the enhancer the cuts let go.",
-          "Footsteps and gunshots keep their front edge, and the balancer never takes back the footstep lift. The original guard.",
+          "A band in a fresh transient (its fast level 2.5 times its average) is not cut yet, and while the FOOTSTEP RADAR is lifting a step the cuts let go.",
+          "Footsteps and gunshots keep their front edge, and the balancer never takes back the radar's lift. The original guard.",
           "Control rate, no audio cost (default)." },
         { "STR", "Strong guard",
           "The guard trips at 1.8 times the average: more attacks are protected.",
@@ -586,6 +587,41 @@ namespace enh::dsp::methods
         { "CHARACTER", 9, "STEREO", "STEREO", "Which part of the image it works on", "charStereo", charStereo, "", stereoMethods.data(), 3 },
     }};
 
+    //==================================================================================================
+    // FOOTSTEP RADAR
+    inline constexpr std::array<Method, 3> radarDetectionMethods {{
+        { "STD", "Standard",
+          "Every onset judged on its attack, decay, tonality, loudness and spread, and against the walkers it follows; taken at 45 % sure.",
+          "Finds steps near and far on every surface; look-alikes (clicks, reloads, voices, drums, gunfire) are mostly left alone.",
+          "About 1 % of one core. 2.5 ms latency (the lift lands on the step's attack)." },
+        { "SEN", "Sensitive",
+          "The same, but listening closer: a lower onset threshold and taken at 36 % sure.",
+          "More of the faintest steps, and now and then something that only sounds like one gets a small lift too.",
+          "No extra cost." },
+        { "STR", "Strict",
+          "Only what is clearly a step: a higher threshold, taken at 60 % sure.",
+          "For busy scenes and music: fewer steps lifted, almost nothing else.",
+          "No extra cost." },
+    }};
+    inline constexpr std::array<Method, 3> radarRoomMethods {{
+        { "ROM", "Room",
+          "Far steps get a small room around them: four short lines (17 - 37 ms), a little air taken from the top.",
+          "Distant steps sound distant but close enough to place - like a corridor or the next room.",
+          "No extra cost (default)." },
+        { "HAL", "Hall",
+          "Longer lines (31 - 67 ms), a longer tail.",
+          "A big space: far steps bloom and carry.",
+          "No extra cost." },
+        { "OPN", "Open air",
+          "A few far echoes (47 - 127 ms), little tail, more of the top taken.",
+          "Outdoors: far steps come with a faint slap-back, as across a courtyard.",
+          "No extra cost." },
+    }};
+    inline constexpr std::array<Stage, 2> radarStages {{
+        { "FOOTSTEP RADAR", 10, "PROCESSING", "DETECTION", "How sure it must be", "radarDetection", radarDetection, "", radarDetectionMethods.data(), 3 },
+        { "FOOTSTEP RADAR", 10, "PROCESSING", "ROOM", "The space it gives far steps", "radarRoom", radarRoom, "", radarRoomMethods.data(), 3 },
+    }};
+
     struct StageList { const Stage* stages; int count; };
 
     /** The stages of a unit (by its layout::Unit index). */
@@ -603,12 +639,13 @@ namespace enh::dsp::methods
             case 7: return { monitorStages.data(), (int) monitorStages.size() };
             case 8: return { deepStages.data(), (int) deepStages.size() };
             case 9: return { characterStages.data(), (int) characterStages.size() };
+            case 10: return { radarStages.data(), (int) radarStages.size() };
             default: return { nullptr, 0 };
         }
     }
 
     /** The units bottom to top (signal order), for the parameters and the reference page. */
-    inline constexpr std::array<int, 10> unitsInRackOrder { 5, 0, 3, 8, 4, 6, 2, 1, 9, 7 };
+    inline constexpr std::array<int, 11> unitsInRackOrder { 5, 0, 3, 8, 4, 6, 2, 10, 1, 9, 7 };
 
     //==================================================================================================
     // Knob modifiers: on every knob's input side, between the knob and its processing. Stored in the

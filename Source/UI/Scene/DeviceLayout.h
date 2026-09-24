@@ -71,15 +71,14 @@ namespace pad::layout
     inline constexpr float sectionTop = 0.02f, sectionBottom = 0.84f;
     inline constexpr float sectionCz = 0.5f * (sectionTop + sectionBottom), sectionHd = 0.5f * (sectionBottom - sectionTop);
 
-    /*  Five sections with a clear gutter (>= 0.10) between each. FOOTSTEP is wide enough to hold its
-        button and the DETECT ladder side by side, well inside its own border, so the ladder no longer
-        sits on the FOOTSTEP / METER boundary next to the OUT ladder. */
-    inline constexpr std::array<Section, 5> sections {{
+    /*  Four sections with a clear gutter (>= 0.10) between each. Footsteps have a unit of their own now
+        (the FOOTSTEP RADAR); the METER section took their space, with a STEPS ladder that lights when the
+        radar finds one. */
+    inline constexpr std::array<Section, 4> sections {{
         { { -1.94f,  sectionCz, 0.38f,  sectionHd }, "MASTER" },
         { { -0.72f,  sectionCz, 0.74f,  sectionHd }, "CLARITY" },
         { {  0.51f,  sectionCz, 0.39f,  sectionHd }, "SUB" },
-        { {  1.33f,  sectionCz, 0.33f,  sectionHd }, "FOOTSTEP" },
-        { {  2.06f,  sectionCz, 0.28f,  sectionHd }, "METER" },
+        { {  1.69f,  sectionCz, 0.65f,  sectionHd }, "METER" },
     }};
 
     inline constexpr float sectionTitleZ = sectionTop + 0.065f;   // title printed inside the top of a box
@@ -127,13 +126,14 @@ namespace pad::layout
         and resonant hull).
         The identifiers keep the units' earlier names, as the parameter IDs do. */
     enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, levelUnit = 5, balancerUnit = 6,
-                monitorUnit = 7, deepUnit = 8, characterUnit = 9, numUnits = 10 };
+                monitorUnit = 7, deepUnit = 8, characterUnit = 9, radarUnit = 10, numUnits = 11 };
 
     inline constexpr bool isOneU (int unit) noexcept { return unit == tideUnit || unit == lumenUnit || unit == limiterUnit || unit == deepUnit; }
 
     /** The outboard family: brushed plate, engraved print, knobs in a bordered section, meters or a
         display behind glass. The four 1U units, LEVEL (1U), MIX BALANCER (3U) and the MONITOR (3U). */
-    inline constexpr bool isOutboard (int unit) noexcept { return isOneU (unit) || unit == levelUnit || unit == balancerUnit || unit == monitorUnit || unit == characterUnit; }
+    inline constexpr bool isOutboard (int unit) noexcept { return isOneU (unit) || unit == levelUnit || unit == balancerUnit || unit == monitorUnit || unit == characterUnit
+                                                                  || unit == radarUnit; }
 
     struct ControlDef
     {
@@ -200,6 +200,7 @@ namespace pad::layout
     inline constexpr float monitorHalfH  = 3.0f * oneUHalfH;   // 3U
     inline constexpr float balancerHalfH = 3.0f * oneUHalfH;   // 3U (was 4U: the rack was getting tall)
     inline constexpr float characterHalfH = 2.0f * oneUHalfH;  // 2U: room to engrave nine model names round each selector
+    inline constexpr float radarHalfH = 2.0f * oneUHalfH;      // 2U: CHARACTER's sister - the same plate, its own finish
 
     inline constexpr float arcRadius  = 9.60f;    // viewer to panel
     inline constexpr float arcCentreY = 1.62f;    // the viewer's eye height
@@ -210,12 +211,12 @@ namespace pad::layout
     {
         return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : unit == levelUnit ? levelHalfH
              : unit == balancerUnit ? balancerHalfH : unit == monitorUnit ? monitorHalfH
-             : unit == characterUnit ? characterHalfH : faceHalfH;
+             : unit == characterUnit ? characterHalfH : unit == radarUnit ? radarHalfH : faceHalfH;
     }
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
-    inline constexpr std::array<int, numUnits> rackOrder { levelUnit, enhUnit, lumenUnit, deepUnit, limiterUnit, balancerUnit, tideUnit, tubeUnit,
-                                                           characterUnit, monitorUnit };
+    inline constexpr std::array<int, numUnits> rackOrder { levelUnit, enhUnit, lumenUnit, deepUnit, limiterUnit, balancerUnit, tideUnit, radarUnit,
+                                                           tubeUnit, characterUnit, monitorUnit };
 
     /** Distance along the arc from the bottom of the stack to the centre of a unit. */
     inline constexpr float unitArcPos (int unit) noexcept
@@ -275,16 +276,17 @@ namespace pad::layout
     struct UnitInfo { const char* name; const char* role; int chainPosition; };
 
     inline constexpr std::array<UnitInfo, numUnits> unitInfo {{
-        { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB - FOOTSTEP PRIORITY", 2 },
-        { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   8 },
+        { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB",                     2 },
+        { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   9 },
         { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       7 },
         { "UPWARD LEVELER",      "3-BAND - LIFTS QUIET DETAIL",                              3 },
         { "SPECTRAL LIMITER",    "ANTI-PUMP DYNAMIC EQ",                                     5 },
         { "LEVEL CONTROL",       "THE RACK'S WORKING LEVEL",                                 1 },
         { "MIX BALANCER",        "SIX-BAND DYNAMIC BALANCE",                                 6 },
-        { "OUTPUT MONITOR",      "INPUT AGAINST OUTPUT - LOUDNESS",                         10 },
+        { "OUTPUT MONITOR",      "INPUT AGAINST OUTPUT - LOUDNESS",                         11 },
         { "DEEP SUB",            "SUB-HARMONIC SYNTH - RESONANT HULL",                       4 },
-        { "CHARACTER",           "CONSOLES - TAPE - VALVES - MORPH",                         9 },
+        { "CHARACTER",           "CONSOLES - TAPE - VALVES - MORPH",                        10 },
+        { "FOOTSTEP RADAR",      "FINDS EVERY STEP - NEAR AND FAR",                          8 },
     }};
 
     // --- the case the units are screwed into -------------------------------------------
@@ -379,6 +381,7 @@ namespace pad::layout
              : unit == balancerUnit ? Rect { 1.73f, 0.0f, 0.55f, 0.74f }
              : unit == deepUnit ? Rect { -0.41f, 0.0f, 1.21f, 0.245f }
              : unit == characterUnit ? Rect { -0.10f, -0.02f, 1.46f, 0.47f }
+             : unit == radarUnit ? Rect { -0.10f, -0.02f, 1.46f, 0.47f }
                                     : Rect { -0.99f, 0.0f, 0.66f, 0.245f };
     }
 
@@ -417,20 +420,23 @@ namespace pad::layout
     inline constexpr float deepVuX        = 1.55f;
     inline constexpr float characterVuHalfW = 0.40f;      // CHARACTER: one meter, the harmonics it adds
     inline constexpr float characterVuX     = 1.88f;
+    inline constexpr float radarVuHalfW = 0.40f;          // FOOTSTEP RADAR: the same meter, the lift it gives a step
+    inline constexpr float radarVuX     = 1.88f;
     inline constexpr float monitorVuHalfW = 0.36f;
     inline constexpr float monitorVuX     = 1.83f;        // MOMENTARY above SHORT-TERM
     inline constexpr std::array<float, 2> monitorVuZ { -0.60f, -0.08f };
 
     inline constexpr int numVus (int unit) noexcept
     {
-        return unit == tideUnit || unit == levelUnit || unit == deepUnit || unit == characterUnit ? 1
+        return unit == tideUnit || unit == levelUnit || unit == deepUnit || unit == characterUnit || unit == radarUnit ? 1
              : unit == limiterUnit || unit == monitorUnit ? 2 : unit == lumenUnit ? 3 : 0;
     }
 
     inline constexpr float vuHalfW (int unit) noexcept
     {
         return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : unit == levelUnit ? levelVuHalfW
-             : unit == monitorUnit ? monitorVuHalfW : unit == deepUnit ? deepVuHalfW : unit == characterUnit ? characterVuHalfW : lumenVuHalfW;
+             : unit == monitorUnit ? monitorVuHalfW : unit == deepUnit ? deepVuHalfW : unit == characterUnit ? characterVuHalfW
+             : unit == radarUnit ? radarVuHalfW : lumenVuHalfW;
     }
 
     inline constexpr float vuX (int unit, int index) noexcept
@@ -441,6 +447,7 @@ namespace pad::layout
              : unit == monitorUnit ? monitorVuX
              : unit == deepUnit ? deepVuX
              : unit == characterUnit ? characterVuX
+             : unit == radarUnit ? radarVuX
                                  : lumenVuX + (float) index * lumenVuStep;
     }
 
@@ -454,9 +461,9 @@ namespace pad::layout
     inline constexpr int firstNeedle (int unit) noexcept
     {
         return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : unit == levelUnit ? 6 : unit == monitorUnit ? 7 : unit == deepUnit ? 9
-             : unit == characterUnit ? 10 : 4;
+             : unit == characterUnit ? 10 : unit == radarUnit ? 11 : 4;
     }
-    inline constexpr int numNeedles = 11;
+    inline constexpr int numNeedles = 12;
 
     inline constexpr float oneUDisplayDepth = vuDepth;
 
@@ -479,13 +486,12 @@ namespace pad::layout
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 65> controls {{
+    inline constexpr std::array<ControlDef, 70> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,    0.42f, knobZ,   pid::sub,         "SUB", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::button,  0.79f, buttonZ, pid::subBoost,    "BOOST" },
-        { ControlKind::button,  1.18f, buttonZ, pid::footstep,    "PRIORITY" },
         { ControlKind::knob,   masterKnobX2[0], knobZ, pid::enhMultiply, "MULTIPLY", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::chickenHeadKnob },
         { ControlKind::knob,   masterKnobX2[1], knobZ, pid::enhStrength, "STRENGTH", nullptr, nullptr, enhUnit, "ENHANCER", masterKnobSize, KnobStyle::chickenHeadKnob },
 
@@ -563,11 +569,19 @@ namespace pad::layout
 
         // CHARACTER (2U): A and B selectors with BLEND between them, DRIVE, IN; one meter on the right
         { ControlKind::selector, -1.22f, -0.05f, pid::charModelA, "A",     nullptr, nullptr, characterUnit, "CHARACTER", 1.10f, KnobStyle::chickenHead },
-        { ControlKind::knob,     -0.52f, -0.05f, pid::charBlend,  "BLEND", nullptr, nullptr, characterUnit, "CHARACTER", 1.15f, KnobStyle::chickenHeadKnob },
-        { ControlKind::selector,  0.18f, -0.05f, pid::charModelB, "B",     nullptr, nullptr, characterUnit, "CHARACTER", 1.10f, KnobStyle::chickenHead },
-        { ControlKind::knob,      0.84f, -0.05f, pid::charDrive,  "DRIVE", nullptr, nullptr, characterUnit, "CHARACTER", 1.15f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,     -0.705f, -0.05f, pid::charBlend,  "BLEND", nullptr, nullptr, characterUnit, "CHARACTER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::selector, -0.19f, -0.05f, pid::charModelB, "B",     nullptr, nullptr, characterUnit, "CHARACTER", 1.10f, KnobStyle::chickenHead },
+        { ControlKind::knob,      0.325f, -0.05f, pid::charColour, "COLOUR", nullptr, nullptr, characterUnit, "CHARACTER", 1.0f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,      0.84f, -0.05f, pid::charDrive,  "DRIVE", nullptr, nullptr, characterUnit, "CHARACTER", 1.0f, KnobStyle::chickenHeadKnob },
         { ControlKind::toggle,    1.20f, -0.24f, pid::charActive, "IN",    nullptr, nullptr, characterUnit, "CHARACTER", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
         { ControlKind::toggle,    1.20f,  0.16f, pid::charGrit,   "GRIT",  nullptr, nullptr, characterUnit, "CHARACTER", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+
+        // FOOTSTEP RADAR (2U, CHARACTER's layout): SENSITIVITY, BOOST, SPACE in the box, IN and LISTEN, one meter
+        { ControlKind::knob,     -1.00f, -0.05f, pid::radarSens,  "SENSITIVITY", nullptr, nullptr, radarUnit, "RADAR", 1.25f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,     -0.20f, -0.05f, pid::radarBoost, "BOOST", nullptr, nullptr, radarUnit, "RADAR", 1.25f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob,      0.60f, -0.05f, pid::radarSpace, "SPACE", nullptr, nullptr, radarUnit, "RADAR", 1.25f, KnobStyle::chickenHeadKnob },
+        { ControlKind::toggle,    1.20f, -0.24f, pid::footstep,   "IN",    nullptr, nullptr, radarUnit, "RADAR", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+        { ControlKind::toggle,    1.20f,  0.16f, pid::radarListen, "LISTEN", nullptr, nullptr, radarUnit, "RADAR", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
     }};
 
     inline constexpr int numControls = (int) controls.size();
@@ -606,7 +620,7 @@ namespace pad::layout
 
     struct Ladder { float x; int segments; const char* label; };
 
-    inline constexpr Ladder detectLadder { 1.50f, 6, "DETECT" };   // inside FOOTSTEP, beside PRIORITY
+    inline constexpr Ladder detectLadder { 1.30f, 6, "STEPS" };    // the FOOTSTEP RADAR's finds, in METER
     inline constexpr Ladder outLadder    { 1.93f, 12, "OUT" };
     inline constexpr Ladder enhLadder    { 2.14f, 12, "ENH" };
 

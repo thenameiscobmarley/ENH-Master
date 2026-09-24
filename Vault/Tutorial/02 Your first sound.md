@@ -7,7 +7,7 @@ The rack has ten units in a walnut case. Sound goes in at the bottom and comes o
 | | Unit | Job |
 |---|---|---|
 | 1 | [LEVEL CONTROL](../Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) | how loud the rack runs |
-| 2 | [ADAPTIVE ENHANCER](../Devices/ADAPTIVE%20ENHANCER.md) (black) | brings out detail, sub and footsteps |
+| 2 | [ADAPTIVE ENHANCER](../Devices/ADAPTIVE%20ENHANCER.md) (black) | brings out detail and sub |
 | 3 | [UPWARD LEVELER](../Devices/UPWARD%20LEVELER.md) | lifts quiet sounds |
 | 4 | [DEEP SUB](../Devices/DEEP%20SUB.md) | deep sub and a ringing hull |
 | 5 | [SPECTRAL LIMITER](../Devices/SPECTRAL%20LIMITER.md) | takes a loud bang down where it is |
@@ -27,7 +27,7 @@ Press **PRESET ◀ ▶** on the black unit. The name shows on its screen. See [P
   *NORM* (balances detail that's there) and *ADD + NORM* (also creates detail where there's none).
 - **ADAPT** — how fast it follows the sound. Around 40 % is a good start.
 - **SUB** — more low end without mud. **+BOOST** for small speakers.
-- **FOOTSTEP** — footstep priority. Read [Tuning for footsteps](03%20Tuning%20for%20footsteps.md) first.
+- Footsteps have their own unit, the **FOOTSTEP RADAR**. Read [Tuning for footsteps](03%20Tuning%20for%20footsteps.md).
 
 ## The two master knobs on each unit
 

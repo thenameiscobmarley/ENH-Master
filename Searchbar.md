@@ -11,7 +11,7 @@ Jump to: [GitHub pages](#github-pages) · [Units](#units) · [Presets](#presets)
 
 ## GitHub pages
 
-Releases, downloads, issues, builds, HardwareKit, and every version. (56)
+Releases, downloads, issues, builds, HardwareKit, and every version. (58)
 
 - **ENH Master on GitHub** · GitHub: the repository home page · [github.com/thenameiscobmarley/ENH-Master](https://github.com/thenameiscobmarley/ENH-Master)
 - **Latest release / download** · GitHub: releases (Windows zip for gamers, Linux zip, VST3) · [releases/latest](https://github.com/thenameiscobmarley/ENH-Master/releases/latest)
@@ -47,6 +47,8 @@ Releases, downloads, issues, builds, HardwareKit, and every version. (56)
 - **workflow release.yml** · its source · [.github/workflows/release.yml](.github/workflows/release.yml)
 - **workflow windows-converter.yml** · GitHub Actions: its runs · [actions/workflows/windows-converter.yml](https://github.com/thenameiscobmarley/ENH-Master/actions/workflows/windows-converter.yml)
 - **workflow windows-converter.yml** · its source · [.github/workflows/windows-converter.yml](.github/workflows/windows-converter.yml)
+- **release v3.6.8.10** · GitHub: that version's page and downloads · [releases/tag/v3.6.8.10](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.6.8.10)
+- **source at v3.6.8.10** · GitHub: the code as it was in that version · [tree/v3.6.8.10](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.6.8.10)
 - **release v2.5.4.1** · GitHub: that version's page and downloads · [releases/tag/v2.5.4.1](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v2.5.4.1)
 - **source at v2.5.4.1** · GitHub: the code as it was in that version · [tree/v2.5.4.1](https://github.com/thenameiscobmarley/ENH-Master/tree/v2.5.4.1)
 - **release v1.4.4.1** · GitHub: that version's page and downloads · [releases/tag/v1.4.4.1](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v1.4.4.1)
@@ -117,9 +119,11 @@ Every factory preset, with its description. (13)
 
 ## Docs
 
-Every doc and every section in it. (194)
+Every doc and every section in it. (209)
 
 - **What changed** · doc · [CHANGELOG.md](CHANGELOG.md)
+- **3.7.9.12 — the FOOTSTEP RADAR** · doc section · [CHANGELOG.md › 3.7.9.12 — the FOOTSTEP RADAR](CHANGELOG.md#37912--the-footstep-radar) — in What changed
+- **3.6.9.12 — COLOUR, and two display fixes** · doc section · [CHANGELOG.md › 3.6.9.12 — COLOUR, and two display fixes](CHANGELOG.md#36912--colour-and-two-display-fixes) — in What changed
 - **3.6.8.10 — a real self-test** · doc section · [CHANGELOG.md › 3.6.8.10 — a real self-test](CHANGELOG.md#36810--a-real-self-test) — in What changed
 - **3.6.7.10 — the leveler and compressor listen properly** · doc section · [CHANGELOG.md › 3.6.7.10 — the leveler and compressor listen properly](CHANGELOG.md#36710--the-leveler-and-compressor-listen-properly) — in What changed
 - **3.6.6.1 – 3.6.6.10 — cleaner print and no zipper noise** · doc section · [CHANGELOG.md › 3.6.6.1 – 3.6.6.10 — cleaner print and no zipper noise](CHANGELOG.md#3661--36610--cleaner-print-and-no-zipper-noise) — in What changed
@@ -153,9 +157,12 @@ Every doc and every section in it. (194)
 - **Where the curve comes from** · doc section · [Vault/DSP/Adaptive EQ.md › Where the curve comes from](Vault/DSP/Adaptive%20EQ.md#where-the-curve-comes-from) — in Adaptive EQ
 - **What the tests check** · doc section · [Vault/DSP/Adaptive EQ.md › What the tests check](Vault/DSP/Adaptive%20EQ.md#what-the-tests-check) — in Adaptive EQ
 - **Footstep detection** · doc · [Vault/DSP/Footstep detection.md](Vault/DSP/Footstep%20detection.md)
-- **One event, step by step** · doc section · [Vault/DSP/Footstep detection.md › One event, step by step](Vault/DSP/Footstep%20detection.md#one-event-step-by-step) — in Footstep detection
-- **The clues** · doc section · [Vault/DSP/Footstep detection.md › The clues](Vault/DSP/Footstep%20detection.md#the-clues) — in Footstep detection
-- **Results on the test scenes** · doc section · [Vault/DSP/Footstep detection.md › Results on the test scenes](Vault/DSP/Footstep%20detection.md#results-on-the-test-scenes) — in Footstep detection
+- **1. Listening** · doc section · [Vault/DSP/Footstep detection.md › 1. Listening](Vault/DSP/Footstep%20detection.md#1-listening) — in Footstep detection
+- **2. Something happens** · doc section · [Vault/DSP/Footstep detection.md › 2. Something happens](Vault/DSP/Footstep%20detection.md#2-something-happens) — in Footstep detection
+- **3. Is it a step? (decided 50 ms after it starts)** · doc section · [Vault/DSP/Footstep detection.md › 3. Is it a step? (decided 50 ms after it starts)](Vault/DSP/Footstep%20detection.md#3-is-it-a-step-decided-50-ms-after-it-starts) — in Footstep detection
+- **4. Walkers** · doc section · [Vault/DSP/Footstep detection.md › 4. Walkers](Vault/DSP/Footstep%20detection.md#4-walkers) — in Footstep detection
+- **5. The lift** · doc section · [Vault/DSP/Footstep detection.md › 5. The lift](Vault/DSP/Footstep%20detection.md#5-the-lift) — in Footstep detection
+- **Results (`EnhDspTests --radar table`)** · doc section · [Vault/DSP/Footstep detection.md › Results (`EnhDspTests --radar table`)](Vault/DSP/Footstep%20detection.md#results-enhdsptests---radar-table) — in Footstep detection
 - **Harmonics and clarity** · doc · [Vault/DSP/Harmonics and clarity.md](Vault/DSP/Harmonics%20and%20clarity.md)
 - **Two modes** · doc section · [Vault/DSP/Harmonics and clarity.md › Two modes](Vault/DSP/Harmonics%20and%20clarity.md#two-modes) — in Harmonics and clarity
 - **How it decides** · doc section · [Vault/DSP/Harmonics and clarity.md › How it decides](Vault/DSP/Harmonics%20and%20clarity.md#how-it-decides) — in Harmonics and clarity
@@ -184,6 +191,12 @@ Every doc and every section in it. (194)
 - **Knobs** · doc section · [Vault/Devices/DEEP SUB.md › Knobs](Vault/Devices/DEEP%20SUB.md#knobs) — in DEEP SUB
 - **Safe by design** · doc section · [Vault/Devices/DEEP SUB.md › Safe by design](Vault/Devices/DEEP%20SUB.md#safe-by-design) — in DEEP SUB
 - **In its glass panel** · doc section · [Vault/Devices/DEEP SUB.md › In its glass panel](Vault/Devices/DEEP%20SUB.md#in-its-glass-panel) — in DEEP SUB
+- **FOOTSTEP RADAR** · doc · [Vault/Devices/FOOTSTEP RADAR.md](Vault/Devices/FOOTSTEP%20RADAR.md)
+- **Knobs and buttons** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Knobs and buttons](Vault/Devices/FOOTSTEP%20RADAR.md#knobs-and-buttons) — in FOOTSTEP RADAR
+- **Its meter** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Its meter](Vault/Devices/FOOTSTEP%20RADAR.md#its-meter) — in FOOTSTEP RADAR
+- **What makes it good at this** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › What makes it good at this](Vault/Devices/FOOTSTEP%20RADAR.md#what-makes-it-good-at-this) — in FOOTSTEP RADAR
+- **Glass panel** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Glass panel](Vault/Devices/FOOTSTEP%20RADAR.md#glass-panel) — in FOOTSTEP RADAR
+- **Good to know** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Good to know](Vault/Devices/FOOTSTEP%20RADAR.md#good-to-know) — in FOOTSTEP RADAR
 - **LEVEL CONTROL and OUTPUT MONITOR** · doc · [Vault/Devices/LEVEL CONTROL and OUTPUT MONITOR.md](Vault/Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md)
 - **LEVEL CONTROL (bottom, first)** · doc section · [Vault/Devices/LEVEL CONTROL and OUTPUT MONITOR.md › LEVEL CONTROL (bottom, first)](Vault/Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md#level-control-bottom-first) — in LEVEL CONTROL and OUTPUT MONITOR
 - **OUTPUT MONITOR (top, last)** · doc section · [Vault/Devices/LEVEL CONTROL and OUTPUT MONITOR.md › OUTPUT MONITOR (top, last)](Vault/Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md#output-monitor-top-last) — in LEVEL CONTROL and OUTPUT MONITOR
@@ -251,6 +264,9 @@ Every doc and every section in it. (194)
 - **MAKE-UP - How much level it gives back** · doc section · [Vault/Reference/Methods.md › MAKE-UP - How much level it gives back](Vault/Reference/Methods.md#make-up---how-much-level-it-gives-back) — in Every glass-panel setting
 - **LAW (tideResponse knob) - How the knob's travel maps** · doc section · [Vault/Reference/Methods.md › LAW (tideResponse knob) - How the knob's travel maps](Vault/Reference/Methods.md#law-tideresponse-knob---how-the-knobs-travel-maps) — in Every glass-panel setting
 - **STEREO - Which part of the image it works on** · doc section · [Vault/Reference/Methods.md › STEREO - Which part of the image it works on](Vault/Reference/Methods.md#stereo---which-part-of-the-image-it-works-on-3) — in Every glass-panel setting
+- **FOOTSTEP RADAR** · doc section · [Vault/Reference/Methods.md › FOOTSTEP RADAR](Vault/Reference/Methods.md#footstep-radar) — in Every glass-panel setting
+- **DETECTION - How sure it must be** · doc section · [Vault/Reference/Methods.md › DETECTION - How sure it must be](Vault/Reference/Methods.md#detection---how-sure-it-must-be) — in Every glass-panel setting
+- **ROOM - The space it gives far steps** · doc section · [Vault/Reference/Methods.md › ROOM - The space it gives far steps](Vault/Reference/Methods.md#room---the-space-it-gives-far-steps) — in Every glass-panel setting
 - **TONE & SPACE** · doc section · [Vault/Reference/Methods.md › TONE & SPACE](Vault/Reference/Methods.md#tone--space) — in Every glass-panel setting
 - **TAPE CURVE - How TAPE saturates** · doc section · [Vault/Reference/Methods.md › TAPE CURVE - How TAPE saturates](Vault/Reference/Methods.md#tape-curve---how-tape-saturates) — in Every glass-panel setting
 - **PRE-DELAY - When the space begins** · doc section · [Vault/Reference/Methods.md › PRE-DELAY - When the space begins](Vault/Reference/Methods.md#pre-delay---when-the-space-begins) — in Every glass-panel setting
@@ -297,6 +313,7 @@ Every doc and every section in it. (194)
 - **07 The router app (for gamers)** · doc · [Vault/Tutorial/07 The router app.md](Vault/Tutorial/07%20The%20router%20app.md)
 - **Use it** · doc section · [Vault/Tutorial/07 The router app.md › Use it](Vault/Tutorial/07%20The%20router%20app.md#use-it) — in 07 The router app (for gamers)
 - **The … menu** · doc section · [Vault/Tutorial/07 The router app.md › The … menu](Vault/Tutorial/07%20The%20router%20app.md#the--menu) — in 07 The router app (for gamers)
+- **Changing your headset or speakers** · doc section · [Vault/Tutorial/07 The router app.md › Changing your headset or speakers](Vault/Tutorial/07%20The%20router%20app.md#changing-your-headset-or-speakers) — in 07 The router app (for gamers)
 - **Windows: one thing to set up** · doc section · [Vault/Tutorial/07 The router app.md › Windows: one thing to set up](Vault/Tutorial/07%20The%20router%20app.md#windows-one-thing-to-set-up) — in 07 The router app (for gamers)
 - **Linux** · doc section · [Vault/Tutorial/07 The router app.md › Linux](Vault/Tutorial/07%20The%20router%20app.md#linux) — in 07 The router app (for gamers)
 - **If something goes wrong** · doc section · [Vault/Tutorial/07 The router app.md › If something goes wrong](Vault/Tutorial/07%20The%20router%20app.md#if-something-goes-wrong) — in 07 The router app (for gamers)
@@ -316,7 +333,7 @@ Every doc and every section in it. (194)
 
 ## Parameters
 
-Every automatable knob and switch: its id, panel name and range. Table: [Parameters](Vault/Reference/Parameters.md). (67)
+Every automatable knob and switch: its id, panel name and range. Table: [Parameters](Vault/Reference/Parameters.md). (72)
 
 - **`clarityNorm`** · parameter (CLARITY, "Clarity (Norm)") · [ParameterSpecs.cpp:9](Source/Parameters/ParameterSpecs.cpp#L9) — 0 – 30
 - **`clarityAdd`** · parameter (CLARITY, "Clarity (Add)") · [ParameterSpecs.cpp:10](Source/Parameters/ParameterSpecs.cpp#L10) — 0 – 10
@@ -324,230 +341,244 @@ Every automatable knob and switch: its id, panel name and range. Table: [Paramet
 - **`adaptSpeed`** · parameter (ADAPT, "Adapt Speed") · [ParameterSpecs.cpp:12](Source/Parameters/ParameterSpecs.cpp#L12) — 0 – 100 %
 - **`sub`** · parameter (SUB, "Sub Enhance") · [ParameterSpecs.cpp:13](Source/Parameters/ParameterSpecs.cpp#L13) — 0 – 100 %
 - **`subBoost`** · parameter (+BOOST, "Sub Boost") · [ParameterSpecs.cpp:14](Source/Parameters/ParameterSpecs.cpp#L14) — 0 – 1
-- **`footstep`** · parameter (FOOTSTEP, "Footstep Priority") · [ParameterSpecs.cpp:15](Source/Parameters/ParameterSpecs.cpp#L15) — 0 – 1
-- **`enhMultiply`** · parameter (MULTIPLY, "Enhancer Multiply") · [ParameterSpecs.cpp:16](Source/Parameters/ParameterSpecs.cpp#L16) — 0 – 3 x
-- **`enhStrength`** · parameter (STRENGTH, "Enhancer Strength") · [ParameterSpecs.cpp:17](Source/Parameters/ParameterSpecs.cpp#L17) — 0 – 5
-- **`tideMix`** · parameter (MIX, "Compressor Mix") · [ParameterSpecs.cpp:19](Source/Parameters/ParameterSpecs.cpp#L19) — 0 – 100 %
-- **`tideResponse`** · parameter (RESPONSE, "Compressor Response") · [ParameterSpecs.cpp:20](Source/Parameters/ParameterSpecs.cpp#L20) — 0 – 10
-- **`tideActive`** · parameter (IN, "Compressor In") · [ParameterSpecs.cpp:21](Source/Parameters/ParameterSpecs.cpp#L21) — Out / In
-- **`lumenTarget`** · parameter (TARGET, "Leveler Target") · [ParameterSpecs.cpp:23](Source/Parameters/ParameterSpecs.cpp#L23) — -36 – -6 dB
-- **`lumenResponse`** · parameter (RESPONSE, "Leveler Response") · [ParameterSpecs.cpp:24](Source/Parameters/ParameterSpecs.cpp#L24) — 0 – 10
-- **`spectralRange`** · parameter (RANGE, "Spectral Limiter Range") · [ParameterSpecs.cpp:25](Source/Parameters/ParameterSpecs.cpp#L25) — 0 – 18 dB
-- **`spectralRelease`** · parameter (RELEASE, "Spectral Limiter Release") · [ParameterSpecs.cpp:26](Source/Parameters/ParameterSpecs.cpp#L26) — 30 – 600 ms
-- **`spectralCeiling`** · parameter (CEILING, "Spectral Limiter Ceiling") · [ParameterSpecs.cpp:27](Source/Parameters/ParameterSpecs.cpp#L27) — -12 – 0 dB
-- **`spectralActive`** · parameter (IN, "Spectral Limiter In") · [ParameterSpecs.cpp:28](Source/Parameters/ParameterSpecs.cpp#L28) — Out / In
-- **`lumenActive`** · parameter (IN, "Leveler In") · [ParameterSpecs.cpp:30](Source/Parameters/ParameterSpecs.cpp#L30) — Out / In
-- **`seraphMode`** · parameter (POWER, "Tone & Space Mode") · [ParameterSpecs.cpp:32](Source/Parameters/ParameterSpecs.cpp#L32) — Off / Tone / Tone + Space
-- **`seraphMultiply`** · parameter (MULTIPLY, "Tone & Space Multiply") · [ParameterSpecs.cpp:33](Source/Parameters/ParameterSpecs.cpp#L33) — 0 – 3 x
-- **`seraphStrength`** · parameter (STRENGTH, "Tone & Space Strength") · [ParameterSpecs.cpp:34](Source/Parameters/ParameterSpecs.cpp#L34) — 0 – 5
-- **`silkSmooth`** · parameter (SMOOTH, "Tone Smooth") · [ParameterSpecs.cpp:36](Source/Parameters/ParameterSpecs.cpp#L36) — 0 – 10
-- **`silkAir`** · parameter (AIR, "Tone Air") · [ParameterSpecs.cpp:37](Source/Parameters/ParameterSpecs.cpp#L37) — 0 – 10
-- **`silkWarmth`** · parameter (WARMTH, "Tone Warmth") · [ParameterSpecs.cpp:38](Source/Parameters/ParameterSpecs.cpp#L38) — 0 – 10
-- **`silkBody`** · parameter (BODY, "Tone Body") · [ParameterSpecs.cpp:39](Source/Parameters/ParameterSpecs.cpp#L39) — 0 – 10
-- **`silkOutput`** · parameter (OUTPUT, "Tone Output") · [ParameterSpecs.cpp:40](Source/Parameters/ParameterSpecs.cpp#L40) — -12 – 12 dB
-- **`silkProtect`** · parameter (PROTECT, "Tone Protect") · [ParameterSpecs.cpp:41](Source/Parameters/ParameterSpecs.cpp#L41) — 0 – 1
-- **`silkTape`** · parameter (TAPE, "Tone Tape") · [ParameterSpecs.cpp:42](Source/Parameters/ParameterSpecs.cpp#L42) — 0 – 1
-- **`silkAuto`** · parameter (MATCH, "Tone Level Match") · [ParameterSpecs.cpp:43](Source/Parameters/ParameterSpecs.cpp#L43) — 0 – 1
-- **`silkSub`** · parameter (SUB, "Tone Sub") · [ParameterSpecs.cpp:44](Source/Parameters/ParameterSpecs.cpp#L44) — 0 – 10
-- **`heavenHold`** · parameter (LOUDNESS, "Loudness Hold") · [ParameterSpecs.cpp:46](Source/Parameters/ParameterSpecs.cpp#L46) — 0 – 30
-- **`heavenLift`** · parameter (LOUDNESS, "Loudness Lift") · [ParameterSpecs.cpp:47](Source/Parameters/ParameterSpecs.cpp#L47) — 0 – 10
-- **`heavenMode`** · parameter (LIFT, "Loudness Mode") · [ParameterSpecs.cpp:48](Source/Parameters/ParameterSpecs.cpp#L48) — Hold / Lift + Hold
-- **`heavenAuto`** · parameter (AUTO, "Auto Heaven") · [ParameterSpecs.cpp:49](Source/Parameters/ParameterSpecs.cpp#L49) — 0 – 1
-- **`heavenAutoAmount`** · parameter (HEAVEN, "Auto Heaven Amount") · [ParameterSpecs.cpp:50](Source/Parameters/ParameterSpecs.cpp#L50) — 0 – 10
-- **`haloWidth`** · parameter (WIDTH, "Space Width") · [ParameterSpecs.cpp:52](Source/Parameters/ParameterSpecs.cpp#L52) — 0 – 200 %
-- **`haloSpace`** · parameter (REVERB, "Space Reverb") · [ParameterSpecs.cpp:53](Source/Parameters/ParameterSpecs.cpp#L53) — 0 – 10
-- **`haloDecay`** · parameter (DECAY, "Space Decay") · [ParameterSpecs.cpp:54](Source/Parameters/ParameterSpecs.cpp#L54) — 0.3 – 8 s
-- **`haloShimmer`** · parameter (SHIMMER, "Space Shimmer") · [ParameterSpecs.cpp:55](Source/Parameters/ParameterSpecs.cpp#L55) — 0 – 10
-- **`haloTone`** · parameter (TONE, "Space Tone") · [ParameterSpecs.cpp:56](Source/Parameters/ParameterSpecs.cpp#L56) — 0 – 10
-- **`haloDuck`** · parameter (DUCK, "Space Duck") · [ParameterSpecs.cpp:57](Source/Parameters/ParameterSpecs.cpp#L57) — 0 – 1
-- **`haloBassMono`** · parameter (BASS MONO, "Space Bass Mono") · [ParameterSpecs.cpp:58](Source/Parameters/ParameterSpecs.cpp#L58) — 0 – 1
-- **`haloMod`** · parameter (MOD, "Space Mod") · [ParameterSpecs.cpp:59](Source/Parameters/ParameterSpecs.cpp#L59) — 0 – 1
-- **`levelGain`** · parameter (LEVEL, "Level") · [ParameterSpecs.cpp:61](Source/Parameters/ParameterSpecs.cpp#L61) — -24 – 12 dB
-- **`loudnessReset`** · parameter (RESET, "Loudness Reset") · [ParameterSpecs.cpp:62](Source/Parameters/ParameterSpecs.cpp#L62) — 0 – 1
-- **`balAmount`** · parameter (BALANCE, "Balancer Balance") · [ParameterSpecs.cpp:64](Source/Parameters/ParameterSpecs.cpp#L64) — 0 – 10
-- **`balSpeed`** · parameter (SPEED, "Balancer Speed") · [ParameterSpecs.cpp:65](Source/Parameters/ParameterSpecs.cpp#L65) — 0 – 10
-- **`balTilt`** · parameter (TILT, "Balancer Tilt") · [ParameterSpecs.cpp:66](Source/Parameters/ParameterSpecs.cpp#L66) — -5 – 5
-- **`balRange`** · parameter (RANGE, "Balancer Range") · [ParameterSpecs.cpp:67](Source/Parameters/ParameterSpecs.cpp#L67) — 0 – 12 dB
-- **`balActive`** · parameter (IN, "Balancer In") · [ParameterSpecs.cpp:68](Source/Parameters/ParameterSpecs.cpp#L68) — Out / In
-- **`balResolution`** · parameter (RESOLUTION, "Balancer Resolution") · [ParameterSpecs.cpp:69](Source/Parameters/ParameterSpecs.cpp#L69) — 0 – 10
-- **`deepDepth`** · parameter (DEPTH, "Deep Sub Depth") · [ParameterSpecs.cpp:70](Source/Parameters/ParameterSpecs.cpp#L70) — 0 – 10
-- **`deepHull`** · parameter (HULL, "Deep Sub Hull") · [ParameterSpecs.cpp:71](Source/Parameters/ParameterSpecs.cpp#L71) — 0 – 10
-- **`deepSize`** · parameter (SIZE, "Deep Sub Size") · [ParameterSpecs.cpp:72](Source/Parameters/ParameterSpecs.cpp#L72) — 0 – 10
-- **`deepPressure`** · parameter (PRESSURE, "Deep Sub Pressure") · [ParameterSpecs.cpp:73](Source/Parameters/ParameterSpecs.cpp#L73) — 0 – 10
-- **`deepActive`** · parameter (IN, "Deep Sub In") · [ParameterSpecs.cpp:74](Source/Parameters/ParameterSpecs.cpp#L74) — Out / In
-- **`charModelA`** · parameter (A, "Character A") · [ParameterSpecs.cpp:75](Source/Parameters/ParameterSpecs.cpp#L75) — 0 – 8
-- **`charModelB`** · parameter (B, "Character B") · [ParameterSpecs.cpp:77](Source/Parameters/ParameterSpecs.cpp#L77) — 0 – 8
-- **`charBlend`** · parameter (BLEND, "Character Blend") · [ParameterSpecs.cpp:79](Source/Parameters/ParameterSpecs.cpp#L79) — 0 – 100 %
-- **`charDrive`** · parameter (DRIVE, "Character Drive") · [ParameterSpecs.cpp:80](Source/Parameters/ParameterSpecs.cpp#L80) — 0 – 10
-- **`charActive`** · parameter (IN, "Character In") · [ParameterSpecs.cpp:81](Source/Parameters/ParameterSpecs.cpp#L81) — Out / In
-- **`charGrit`** · parameter (GRIT, "Character Grit") · [ParameterSpecs.cpp:82](Source/Parameters/ParameterSpecs.cpp#L82) — Clean drive / Drive + distortion
-- **`abCompare`** · parameter (COMPARE, "Compare") · [ParameterSpecs.cpp:83](Source/Parameters/ParameterSpecs.cpp#L83) — Rack / Input (level-matched)
-- **`monitorSpeed`** · parameter (SPEED, "Monitor Speed") · [ParameterSpecs.cpp:84](Source/Parameters/ParameterSpecs.cpp#L84) — 1 – 10
-- **`presetPrev`** · parameter (PREV, "Preset Previous") · [ParameterSpecs.cpp:86](Source/Parameters/ParameterSpecs.cpp#L86) — 0 – 1
-- **`presetNext`** · parameter (NEXT, "Preset Next") · [ParameterSpecs.cpp:87](Source/Parameters/ParameterSpecs.cpp#L87) — 0 – 1
+- **`footstep`** · parameter (IN, "Footstep Radar In") · [ParameterSpecs.cpp:15](Source/Parameters/ParameterSpecs.cpp#L15) — Out / In
+- **`radarSens`** · parameter (SENSITIVITY, "Footstep Sensitivity") · [ParameterSpecs.cpp:16](Source/Parameters/ParameterSpecs.cpp#L16) — 0 – 10
+- **`radarBoost`** · parameter (BOOST, "Footstep Boost") · [ParameterSpecs.cpp:17](Source/Parameters/ParameterSpecs.cpp#L17) — 0 – 12 dB
+- **`radarSpace`** · parameter (SPACE, "Footstep Space") · [ParameterSpecs.cpp:18](Source/Parameters/ParameterSpecs.cpp#L18) — 0 – 10
+- **`radarListen`** · parameter (LISTEN, "Footstep Listen") · [ParameterSpecs.cpp:19](Source/Parameters/ParameterSpecs.cpp#L19) — 0 – 1
+- **`enhMultiply`** · parameter (MULTIPLY, "Enhancer Multiply") · [ParameterSpecs.cpp:20](Source/Parameters/ParameterSpecs.cpp#L20) — 0 – 3 x
+- **`enhStrength`** · parameter (STRENGTH, "Enhancer Strength") · [ParameterSpecs.cpp:21](Source/Parameters/ParameterSpecs.cpp#L21) — 0 – 5
+- **`tideMix`** · parameter (MIX, "Compressor Mix") · [ParameterSpecs.cpp:23](Source/Parameters/ParameterSpecs.cpp#L23) — 0 – 100 %
+- **`tideResponse`** · parameter (RESPONSE, "Compressor Response") · [ParameterSpecs.cpp:24](Source/Parameters/ParameterSpecs.cpp#L24) — 0 – 10
+- **`tideActive`** · parameter (IN, "Compressor In") · [ParameterSpecs.cpp:25](Source/Parameters/ParameterSpecs.cpp#L25) — Out / In
+- **`lumenTarget`** · parameter (TARGET, "Leveler Target") · [ParameterSpecs.cpp:27](Source/Parameters/ParameterSpecs.cpp#L27) — -36 – -6 dB
+- **`lumenResponse`** · parameter (RESPONSE, "Leveler Response") · [ParameterSpecs.cpp:28](Source/Parameters/ParameterSpecs.cpp#L28) — 0 – 10
+- **`spectralRange`** · parameter (RANGE, "Spectral Limiter Range") · [ParameterSpecs.cpp:29](Source/Parameters/ParameterSpecs.cpp#L29) — 0 – 18 dB
+- **`spectralRelease`** · parameter (RELEASE, "Spectral Limiter Release") · [ParameterSpecs.cpp:30](Source/Parameters/ParameterSpecs.cpp#L30) — 30 – 600 ms
+- **`spectralCeiling`** · parameter (CEILING, "Spectral Limiter Ceiling") · [ParameterSpecs.cpp:31](Source/Parameters/ParameterSpecs.cpp#L31) — -12 – 0 dB
+- **`spectralActive`** · parameter (IN, "Spectral Limiter In") · [ParameterSpecs.cpp:32](Source/Parameters/ParameterSpecs.cpp#L32) — Out / In
+- **`lumenActive`** · parameter (IN, "Leveler In") · [ParameterSpecs.cpp:34](Source/Parameters/ParameterSpecs.cpp#L34) — Out / In
+- **`seraphMode`** · parameter (POWER, "Tone & Space Mode") · [ParameterSpecs.cpp:36](Source/Parameters/ParameterSpecs.cpp#L36) — Off / Tone / Tone + Space
+- **`seraphMultiply`** · parameter (MULTIPLY, "Tone & Space Multiply") · [ParameterSpecs.cpp:37](Source/Parameters/ParameterSpecs.cpp#L37) — 0 – 3 x
+- **`seraphStrength`** · parameter (STRENGTH, "Tone & Space Strength") · [ParameterSpecs.cpp:38](Source/Parameters/ParameterSpecs.cpp#L38) — 0 – 5
+- **`silkSmooth`** · parameter (SMOOTH, "Tone Smooth") · [ParameterSpecs.cpp:40](Source/Parameters/ParameterSpecs.cpp#L40) — 0 – 10
+- **`silkAir`** · parameter (AIR, "Tone Air") · [ParameterSpecs.cpp:41](Source/Parameters/ParameterSpecs.cpp#L41) — 0 – 10
+- **`silkWarmth`** · parameter (WARMTH, "Tone Warmth") · [ParameterSpecs.cpp:42](Source/Parameters/ParameterSpecs.cpp#L42) — 0 – 10
+- **`silkBody`** · parameter (BODY, "Tone Body") · [ParameterSpecs.cpp:43](Source/Parameters/ParameterSpecs.cpp#L43) — 0 – 10
+- **`silkOutput`** · parameter (OUTPUT, "Tone Output") · [ParameterSpecs.cpp:44](Source/Parameters/ParameterSpecs.cpp#L44) — -12 – 12 dB
+- **`silkProtect`** · parameter (PROTECT, "Tone Protect") · [ParameterSpecs.cpp:45](Source/Parameters/ParameterSpecs.cpp#L45) — 0 – 1
+- **`silkTape`** · parameter (TAPE, "Tone Tape") · [ParameterSpecs.cpp:46](Source/Parameters/ParameterSpecs.cpp#L46) — 0 – 1
+- **`silkAuto`** · parameter (MATCH, "Tone Level Match") · [ParameterSpecs.cpp:47](Source/Parameters/ParameterSpecs.cpp#L47) — 0 – 1
+- **`silkSub`** · parameter (SUB, "Tone Sub") · [ParameterSpecs.cpp:48](Source/Parameters/ParameterSpecs.cpp#L48) — 0 – 10
+- **`heavenHold`** · parameter (LOUDNESS, "Loudness Hold") · [ParameterSpecs.cpp:50](Source/Parameters/ParameterSpecs.cpp#L50) — 0 – 30
+- **`heavenLift`** · parameter (LOUDNESS, "Loudness Lift") · [ParameterSpecs.cpp:51](Source/Parameters/ParameterSpecs.cpp#L51) — 0 – 10
+- **`heavenMode`** · parameter (LIFT, "Loudness Mode") · [ParameterSpecs.cpp:52](Source/Parameters/ParameterSpecs.cpp#L52) — Hold / Lift + Hold
+- **`heavenAuto`** · parameter (AUTO, "Auto Heaven") · [ParameterSpecs.cpp:53](Source/Parameters/ParameterSpecs.cpp#L53) — 0 – 1
+- **`heavenAutoAmount`** · parameter (HEAVEN, "Auto Heaven Amount") · [ParameterSpecs.cpp:54](Source/Parameters/ParameterSpecs.cpp#L54) — 0 – 10
+- **`haloWidth`** · parameter (WIDTH, "Space Width") · [ParameterSpecs.cpp:56](Source/Parameters/ParameterSpecs.cpp#L56) — 0 – 200 %
+- **`haloSpace`** · parameter (REVERB, "Space Reverb") · [ParameterSpecs.cpp:57](Source/Parameters/ParameterSpecs.cpp#L57) — 0 – 10
+- **`haloDecay`** · parameter (DECAY, "Space Decay") · [ParameterSpecs.cpp:58](Source/Parameters/ParameterSpecs.cpp#L58) — 0.3 – 8 s
+- **`haloShimmer`** · parameter (SHIMMER, "Space Shimmer") · [ParameterSpecs.cpp:59](Source/Parameters/ParameterSpecs.cpp#L59) — 0 – 10
+- **`haloTone`** · parameter (TONE, "Space Tone") · [ParameterSpecs.cpp:60](Source/Parameters/ParameterSpecs.cpp#L60) — 0 – 10
+- **`haloDuck`** · parameter (DUCK, "Space Duck") · [ParameterSpecs.cpp:61](Source/Parameters/ParameterSpecs.cpp#L61) — 0 – 1
+- **`haloBassMono`** · parameter (BASS MONO, "Space Bass Mono") · [ParameterSpecs.cpp:62](Source/Parameters/ParameterSpecs.cpp#L62) — 0 – 1
+- **`haloMod`** · parameter (MOD, "Space Mod") · [ParameterSpecs.cpp:63](Source/Parameters/ParameterSpecs.cpp#L63) — 0 – 1
+- **`levelGain`** · parameter (LEVEL, "Level") · [ParameterSpecs.cpp:65](Source/Parameters/ParameterSpecs.cpp#L65) — -24 – 12 dB
+- **`loudnessReset`** · parameter (RESET, "Loudness Reset") · [ParameterSpecs.cpp:66](Source/Parameters/ParameterSpecs.cpp#L66) — 0 – 1
+- **`balAmount`** · parameter (BALANCE, "Balancer Balance") · [ParameterSpecs.cpp:68](Source/Parameters/ParameterSpecs.cpp#L68) — 0 – 10
+- **`balSpeed`** · parameter (SPEED, "Balancer Speed") · [ParameterSpecs.cpp:69](Source/Parameters/ParameterSpecs.cpp#L69) — 0 – 10
+- **`balTilt`** · parameter (TILT, "Balancer Tilt") · [ParameterSpecs.cpp:70](Source/Parameters/ParameterSpecs.cpp#L70) — -5 – 5
+- **`balRange`** · parameter (RANGE, "Balancer Range") · [ParameterSpecs.cpp:71](Source/Parameters/ParameterSpecs.cpp#L71) — 0 – 12 dB
+- **`balActive`** · parameter (IN, "Balancer In") · [ParameterSpecs.cpp:72](Source/Parameters/ParameterSpecs.cpp#L72) — Out / In
+- **`balResolution`** · parameter (RESOLUTION, "Balancer Resolution") · [ParameterSpecs.cpp:73](Source/Parameters/ParameterSpecs.cpp#L73) — 0 – 10
+- **`deepDepth`** · parameter (DEPTH, "Deep Sub Depth") · [ParameterSpecs.cpp:74](Source/Parameters/ParameterSpecs.cpp#L74) — 0 – 10
+- **`deepHull`** · parameter (HULL, "Deep Sub Hull") · [ParameterSpecs.cpp:75](Source/Parameters/ParameterSpecs.cpp#L75) — 0 – 10
+- **`deepSize`** · parameter (SIZE, "Deep Sub Size") · [ParameterSpecs.cpp:76](Source/Parameters/ParameterSpecs.cpp#L76) — 0 – 10
+- **`deepPressure`** · parameter (PRESSURE, "Deep Sub Pressure") · [ParameterSpecs.cpp:77](Source/Parameters/ParameterSpecs.cpp#L77) — 0 – 10
+- **`deepActive`** · parameter (IN, "Deep Sub In") · [ParameterSpecs.cpp:78](Source/Parameters/ParameterSpecs.cpp#L78) — Out / In
+- **`charModelA`** · parameter (A, "Character A") · [ParameterSpecs.cpp:79](Source/Parameters/ParameterSpecs.cpp#L79) — 0 – 8
+- **`charModelB`** · parameter (B, "Character B") · [ParameterSpecs.cpp:81](Source/Parameters/ParameterSpecs.cpp#L81) — 0 – 8
+- **`charBlend`** · parameter (BLEND, "Character Blend") · [ParameterSpecs.cpp:83](Source/Parameters/ParameterSpecs.cpp#L83) — 0 – 100 %
+- **`charDrive`** · parameter (DRIVE, "Character Drive") · [ParameterSpecs.cpp:84](Source/Parameters/ParameterSpecs.cpp#L84) — 0 – 10
+- **`charColour`** · parameter (COLOUR, "Character Colour") · [ParameterSpecs.cpp:85](Source/Parameters/ParameterSpecs.cpp#L85) — 0 – 10
+- **`charActive`** · parameter (IN, "Character In") · [ParameterSpecs.cpp:86](Source/Parameters/ParameterSpecs.cpp#L86) — Out / In
+- **`charGrit`** · parameter (GRIT, "Character Grit") · [ParameterSpecs.cpp:87](Source/Parameters/ParameterSpecs.cpp#L87) — Clean drive / Drive + distortion
+- **`abCompare`** · parameter (COMPARE, "Compare") · [ParameterSpecs.cpp:88](Source/Parameters/ParameterSpecs.cpp#L88) — Rack / Input (level-matched)
+- **`monitorSpeed`** · parameter (SPEED, "Monitor Speed") · [ParameterSpecs.cpp:89](Source/Parameters/ParameterSpecs.cpp#L89) — 1 – 10
+- **`presetPrev`** · parameter (PREV, "Preset Previous") · [ParameterSpecs.cpp:91](Source/Parameters/ParameterSpecs.cpp#L91) — 0 – 1
+- **`presetNext`** · parameter (NEXT, "Preset Next") · [ParameterSpecs.cpp:92](Source/Parameters/ParameterSpecs.cpp#L92) — 0 – 1
 
 ## Glass-panel settings
 
-Every setting in the units' glass panels, and every choice. (135)
+Every setting in the units' glass panels, and every choice. (143)
 
-- **ADAPTIVE COMPRESSOR: DETECTOR** · glass-panel setting (PROCESSING; parameter `tideDetector`) · [MethodRegistry.h:514](Source/DSP/MethodRegistry.h#L514) — How it measures the level: PKR Peak or RMS, RMS Root mean square, KWT K-weighted
-- **PKR — Peak or RMS** · method of ADAPTIVE COMPRESSOR DETECTOR · [MethodRegistry.h:68](Source/DSP/MethodRegistry.h#L68)
-- **RMS — Root mean square** · method of ADAPTIVE COMPRESSOR DETECTOR · [MethodRegistry.h:72](Source/DSP/MethodRegistry.h#L72)
-- **KWT — K-weighted** · method of ADAPTIVE COMPRESSOR DETECTOR · [MethodRegistry.h:76](Source/DSP/MethodRegistry.h#L76)
-- **ADAPTIVE COMPRESSOR: SIDE-CHAIN** · glass-panel setting (PROCESSING; parameter `tideSideChain`) · [MethodRegistry.h:515](Source/DSP/MethodRegistry.h#L515) — What the detector hears: H90 High-pass 90 Hz, H15 High-pass 150 Hz, FUL Full range
-- **H90 — High-pass 90 Hz** · method of ADAPTIVE COMPRESSOR SIDE-CHAIN · [MethodRegistry.h:82](Source/DSP/MethodRegistry.h#L82)
-- **H15 — High-pass 150 Hz** · method of ADAPTIVE COMPRESSOR SIDE-CHAIN · [MethodRegistry.h:86](Source/DSP/MethodRegistry.h#L86)
-- **FUL — Full range** · method of ADAPTIVE COMPRESSOR SIDE-CHAIN · [MethodRegistry.h:90](Source/DSP/MethodRegistry.h#L90)
-- **ADAPTIVE COMPRESSOR: GAIN** · glass-panel setting (PROCESSING; parameter `tideGain`) · [MethodRegistry.h:516](Source/DSP/MethodRegistry.h#L516) — How it calculates the reduction: ADT Adaptive threshold, SFT Soft, HRD Hard
-- **ADT — Adaptive threshold** · method of ADAPTIVE COMPRESSOR GAIN · [MethodRegistry.h:96](Source/DSP/MethodRegistry.h#L96)
-- **SFT — Soft** · method of ADAPTIVE COMPRESSOR GAIN · [MethodRegistry.h:100](Source/DSP/MethodRegistry.h#L100)
-- **HRD — Hard** · method of ADAPTIVE COMPRESSOR GAIN · [MethodRegistry.h:104](Source/DSP/MethodRegistry.h#L104)
-- **ADAPTIVE COMPRESSOR: SMOOTHING** · glass-panel setting (PROCESSING; parameter `tideSmoothing`) · [MethodRegistry.h:517](Source/DSP/MethodRegistry.h#L517) — How the reduction moves: DRL Dual release, SRL Single release, OPT Opto
-- **DRL — Dual release** · method of ADAPTIVE COMPRESSOR SMOOTHING · [MethodRegistry.h:110](Source/DSP/MethodRegistry.h#L110)
-- **SRL — Single release** · method of ADAPTIVE COMPRESSOR SMOOTHING · [MethodRegistry.h:114](Source/DSP/MethodRegistry.h#L114)
-- **OPT — Opto** · method of ADAPTIVE COMPRESSOR SMOOTHING · [MethodRegistry.h:118](Source/DSP/MethodRegistry.h#L118)
-- **ADAPTIVE COMPRESSOR: MAKE-UP** · glass-panel setting (PROCESSING; parameter `tideMakeup`) · [MethodRegistry.h:518](Source/DSP/MethodRegistry.h#L518) — How much level it gives back: AUT Auto 65 %, FUL Full 90 %, OFF None
-- **AUT — Auto 65 %** · method of ADAPTIVE COMPRESSOR MAKE-UP · [MethodRegistry.h:124](Source/DSP/MethodRegistry.h#L124)
-- **FUL — Full 90 %** · method of ADAPTIVE COMPRESSOR MAKE-UP · [MethodRegistry.h:128](Source/DSP/MethodRegistry.h#L128)
-- **OFF — None** · method of ADAPTIVE COMPRESSOR MAKE-UP · [MethodRegistry.h:132](Source/DSP/MethodRegistry.h#L132)
-- **ADAPTIVE COMPRESSOR: LAW** · glass-panel setting (KNOBS, tideResponse knob; parameter `tideResponseLaw`) · [MethodRegistry.h:519](Source/DSP/MethodRegistry.h#L519) — How the knob's travel maps: LIN Linear, EXP Exponential, LOG Logarithmic
-- **LIN — Linear** · method of ADAPTIVE COMPRESSOR LAW · [MethodRegistry.h:138](Source/DSP/MethodRegistry.h#L138)
-- **EXP — Exponential** · method of ADAPTIVE COMPRESSOR LAW · [MethodRegistry.h:142](Source/DSP/MethodRegistry.h#L142)
-- **LOG — Logarithmic** · method of ADAPTIVE COMPRESSOR LAW · [MethodRegistry.h:146](Source/DSP/MethodRegistry.h#L146)
-- **ADAPTIVE COMPRESSOR: STEREO** · glass-panel setting (STEREO; parameter `tideStereo`) · [MethodRegistry.h:520](Source/DSP/MethodRegistry.h#L520) — Which part of the image it works on: MID Mid only, SID Side only
-- **MID — Mid only** · method of ADAPTIVE COMPRESSOR STEREO · [MethodRegistry.h:503](Source/DSP/MethodRegistry.h#L503)
-- **SID — Side only** · method of ADAPTIVE COMPRESSOR STEREO · [MethodRegistry.h:507](Source/DSP/MethodRegistry.h#L507)
-- **SPECTRAL LIMITER: NORMAL** · glass-panel setting (PROCESSING; parameter `limiterNormal`) · [MethodRegistry.h:523](Source/DSP/MethodRegistry.h#L523) — What counts as normal for a band: P97 97th percentile, P90 90th percentile, P99 99th percentile
-- **P97 — 97th percentile** · method of SPECTRAL LIMITER NORMAL · [MethodRegistry.h:155](Source/DSP/MethodRegistry.h#L155)
-- **P90 — 90th percentile** · method of SPECTRAL LIMITER NORMAL · [MethodRegistry.h:159](Source/DSP/MethodRegistry.h#L159)
-- **P99 — 99th percentile** · method of SPECTRAL LIMITER NORMAL · [MethodRegistry.h:163](Source/DSP/MethodRegistry.h#L163)
-- **SPECTRAL LIMITER: CUT WIDTH** · glass-panel setting (PROCESSING; parameter `limiterWidth`) · [MethodRegistry.h:524](Source/DSP/MethodRegistry.h#L524) — How wide each cut is: STD Region width, NAR Narrow, WID Wide
-- **STD — Region width** · method of SPECTRAL LIMITER CUT WIDTH · [MethodRegistry.h:169](Source/DSP/MethodRegistry.h#L169)
-- **NAR — Narrow** · method of SPECTRAL LIMITER CUT WIDTH · [MethodRegistry.h:173](Source/DSP/MethodRegistry.h#L173)
-- **WID — Wide** · method of SPECTRAL LIMITER CUT WIDTH · [MethodRegistry.h:177](Source/DSP/MethodRegistry.h#L177)
-- **SPECTRAL LIMITER: LOUDNESS KEEPER** · glass-panel setting (PROCESSING; parameter `limiterKeeper`) · [MethodRegistry.h:525](Source/DSP/MethodRegistry.h#L525) — What it gives back while cutting: K60 Keep 60 %, K90 Keep 90 %, OFF Off
-- **K60 — Keep 60 %** · method of SPECTRAL LIMITER LOUDNESS KEEPER · [MethodRegistry.h:183](Source/DSP/MethodRegistry.h#L183)
-- **K90 — Keep 90 %** · method of SPECTRAL LIMITER LOUDNESS KEEPER · [MethodRegistry.h:187](Source/DSP/MethodRegistry.h#L187)
-- **OFF — Off** · method of SPECTRAL LIMITER LOUDNESS KEEPER · [MethodRegistry.h:191](Source/DSP/MethodRegistry.h#L191)
-- **SPECTRAL LIMITER: STEREO** · glass-panel setting (STEREO; parameter `limiterStereo`) · [MethodRegistry.h:526](Source/DSP/MethodRegistry.h#L526) — Which part of the image it works on: MID Mid only, SID Side only
-- **MID — Mid only** · method of SPECTRAL LIMITER STEREO · [MethodRegistry.h:503](Source/DSP/MethodRegistry.h#L503)
-- **SID — Side only** · method of SPECTRAL LIMITER STEREO · [MethodRegistry.h:507](Source/DSP/MethodRegistry.h#L507)
-- **MIX BALANCER: REFERENCE** · glass-panel setting (PROCESSING; parameter `balancerReference`) · [MethodRegistry.h:529](Source/DSP/MethodRegistry.h#L529) — What a band's jump is measured against: MED Median, AVG Average
-- **MED — Median** · method of MIX BALANCER REFERENCE · [MethodRegistry.h:200](Source/DSP/MethodRegistry.h#L200)
-- **AVG — Average** · method of MIX BALANCER REFERENCE · [MethodRegistry.h:204](Source/DSP/MethodRegistry.h#L204)
-- **MIX BALANCER: DEAD ZONE** · glass-panel setting (PROCESSING; parameter `balancerDeadZone`) · [MethodRegistry.h:530](Source/DSP/MethodRegistry.h#L530) — How big a move is ignored: STD 1.5 dB, TGT Tight 0.75 dB, LSE Loose 3 dB
-- **STD — 1.5 dB** · method of MIX BALANCER DEAD ZONE · [MethodRegistry.h:210](Source/DSP/MethodRegistry.h#L210)
-- **TGT — Tight 0.75 dB** · method of MIX BALANCER DEAD ZONE · [MethodRegistry.h:214](Source/DSP/MethodRegistry.h#L214)
-- **LSE — Loose 3 dB** · method of MIX BALANCER DEAD ZONE · [MethodRegistry.h:218](Source/DSP/MethodRegistry.h#L218)
-- **MIX BALANCER: LIFTS** · glass-panel setting (PROCESSING; parameter `balancerLifts`) · [MethodRegistry.h:531](Source/DSP/MethodRegistry.h#L531) — What it does with a band that drops out: HLF Half range, NON Cuts only, FUL Full range
-- **HLF — Half range** · method of MIX BALANCER LIFTS · [MethodRegistry.h:224](Source/DSP/MethodRegistry.h#L224)
-- **NON — Cuts only** · method of MIX BALANCER LIFTS · [MethodRegistry.h:228](Source/DSP/MethodRegistry.h#L228)
-- **FUL — Full range** · method of MIX BALANCER LIFTS · [MethodRegistry.h:232](Source/DSP/MethodRegistry.h#L232)
-- **MIX BALANCER: ATTACK GUARD** · glass-panel setting (PROCESSING; parameter `balancerGuard`) · [MethodRegistry.h:532](Source/DSP/MethodRegistry.h#L532) — How it treats a fresh transient: STD Guard attacks, STR Strong guard, OFF No guard
-- **STD — Guard attacks** · method of MIX BALANCER ATTACK GUARD · [MethodRegistry.h:238](Source/DSP/MethodRegistry.h#L238)
-- **STR — Strong guard** · method of MIX BALANCER ATTACK GUARD · [MethodRegistry.h:242](Source/DSP/MethodRegistry.h#L242)
-- **OFF — No guard** · method of MIX BALANCER ATTACK GUARD · [MethodRegistry.h:246](Source/DSP/MethodRegistry.h#L246)
-- **MIX BALANCER: LOUDNESS KEEPER** · glass-panel setting (PROCESSING; parameter `balancerKeeper`) · [MethodRegistry.h:533](Source/DSP/MethodRegistry.h#L533) — What it gives back while cutting: K60 Keep 60 %, K90 Keep 90 %, OFF Off
-- **K60 — Keep 60 %** · method of MIX BALANCER LOUDNESS KEEPER · [MethodRegistry.h:183](Source/DSP/MethodRegistry.h#L183)
-- **K90 — Keep 90 %** · method of MIX BALANCER LOUDNESS KEEPER · [MethodRegistry.h:187](Source/DSP/MethodRegistry.h#L187)
-- **OFF — Off** · method of MIX BALANCER LOUDNESS KEEPER · [MethodRegistry.h:191](Source/DSP/MethodRegistry.h#L191)
-- **MIX BALANCER: STEREO** · glass-panel setting (STEREO; parameter `balancerStereo`) · [MethodRegistry.h:534](Source/DSP/MethodRegistry.h#L534) — Which part of the image it works on: MID Mid only, SID Side only
-- **MID — Mid only** · method of MIX BALANCER STEREO · [MethodRegistry.h:503](Source/DSP/MethodRegistry.h#L503)
-- **SID — Side only** · method of MIX BALANCER STEREO · [MethodRegistry.h:507](Source/DSP/MethodRegistry.h#L507)
-- **UPWARD LEVELER: LIFT** · glass-panel setting (PROCESSING; parameter `levelerLift`) · [MethodRegistry.h:537](Source/DSP/MethodRegistry.h#L537) — How far quiet material may come up: STD Standard lift, GEN Gentle, BIG Big
-- **STD — Standard lift** · method of UPWARD LEVELER LIFT · [MethodRegistry.h:255](Source/DSP/MethodRegistry.h#L255)
-- **GEN — Gentle** · method of UPWARD LEVELER LIFT · [MethodRegistry.h:259](Source/DSP/MethodRegistry.h#L259)
-- **BIG — Big** · method of UPWARD LEVELER LIFT · [MethodRegistry.h:263](Source/DSP/MethodRegistry.h#L263)
-- **UPWARD LEVELER: GATE** · glass-panel setting (PROCESSING; parameter `levelerGate`) · [MethodRegistry.h:538](Source/DSP/MethodRegistry.h#L538) — What is too quiet to lift: STD Gate -58 dBFS, SNS Sensitive -66, STR Strict -50
-- **STD — Gate -58 dBFS** · method of UPWARD LEVELER GATE · [MethodRegistry.h:269](Source/DSP/MethodRegistry.h#L269)
-- **SNS — Sensitive -66** · method of UPWARD LEVELER GATE · [MethodRegistry.h:273](Source/DSP/MethodRegistry.h#L273)
-- **STR — Strict -50** · method of UPWARD LEVELER GATE · [MethodRegistry.h:277](Source/DSP/MethodRegistry.h#L277)
-- **UPWARD LEVELER: BAND BALANCE** · glass-panel setting (PROCESSING; parameter `levelerBalance`) · [MethodRegistry.h:539](Source/DSP/MethodRegistry.h#L539) — Where the lift goes: STD Voiced, MID Mid focus, FLT Flat
-- **STD — Voiced** · method of UPWARD LEVELER BAND BALANCE · [MethodRegistry.h:283](Source/DSP/MethodRegistry.h#L283)
-- **MID — Mid focus** · method of UPWARD LEVELER BAND BALANCE · [MethodRegistry.h:287](Source/DSP/MethodRegistry.h#L287)
-- **FLT — Flat** · method of UPWARD LEVELER BAND BALANCE · [MethodRegistry.h:291](Source/DSP/MethodRegistry.h#L291)
-- **UPWARD LEVELER: STEREO** · glass-panel setting (STEREO; parameter `levelerStereo`) · [MethodRegistry.h:540](Source/DSP/MethodRegistry.h#L540) — Which part of the image it works on: MID Mid only, SID Side only
-- **MID — Mid only** · method of UPWARD LEVELER STEREO · [MethodRegistry.h:503](Source/DSP/MethodRegistry.h#L503)
-- **SID — Side only** · method of UPWARD LEVELER STEREO · [MethodRegistry.h:507](Source/DSP/MethodRegistry.h#L507)
-- **ADAPTIVE ENHANCER: HARMONICS** · glass-panel setting (PROCESSING; parameter `enhancerHarmonics`) · [MethodRegistry.h:543](Source/DSP/MethodRegistry.h#L543) — What the exciters generate: CHB Chebyshev 2 + 3, EVN Even, ODD Odd
-- **CHB — Chebyshev 2 + 3** · method of ADAPTIVE ENHANCER HARMONICS · [MethodRegistry.h:300](Source/DSP/MethodRegistry.h#L300)
-- **EVN — Even** · method of ADAPTIVE ENHANCER HARMONICS · [MethodRegistry.h:304](Source/DSP/MethodRegistry.h#L304)
-- **ODD — Odd** · method of ADAPTIVE ENHANCER HARMONICS · [MethodRegistry.h:308](Source/DSP/MethodRegistry.h#L308)
-- **TONE & SPACE: TAPE CURVE** · glass-panel setting (PROCESSING; parameter `seraphTape`) · [MethodRegistry.h:546](Source/DSP/MethodRegistry.h#L546) — How TAPE saturates: TNH Tanh, ATN Arctangent, CUB Cubic
-- **TNH — Tanh** · method of TONE & SPACE TAPE CURVE · [MethodRegistry.h:317](Source/DSP/MethodRegistry.h#L317)
-- **ATN — Arctangent** · method of TONE & SPACE TAPE CURVE · [MethodRegistry.h:321](Source/DSP/MethodRegistry.h#L321)
-- **CUB — Cubic** · method of TONE & SPACE TAPE CURVE · [MethodRegistry.h:325](Source/DSP/MethodRegistry.h#L325)
-- **TONE & SPACE: PRE-DELAY** · glass-panel setting (PROCESSING; parameter `seraphPreDelay`) · [MethodRegistry.h:547](Source/DSP/MethodRegistry.h#L547) — When the space begins: P18 18 ms, P08 8 ms, P35 35 ms
-- **P18 — 18 ms** · method of TONE & SPACE PRE-DELAY · [MethodRegistry.h:331](Source/DSP/MethodRegistry.h#L331)
-- **P08 — 8 ms** · method of TONE & SPACE PRE-DELAY · [MethodRegistry.h:335](Source/DSP/MethodRegistry.h#L335)
-- **P35 — 35 ms** · method of TONE & SPACE PRE-DELAY · [MethodRegistry.h:339](Source/DSP/MethodRegistry.h#L339)
-- **TONE & SPACE: LOUDNESS WINDOW** · glass-panel setting (PROCESSING; parameter `seraphWindow`) · [MethodRegistry.h:548](Source/DSP/MethodRegistry.h#L548) — How long LOUDNESS listens: W2S 2 s window, W1S 1 s window, W4S 4 s window
-- **W2S — 2 s window** · method of TONE & SPACE LOUDNESS WINDOW · [MethodRegistry.h:345](Source/DSP/MethodRegistry.h#L345)
-- **W1S — 1 s window** · method of TONE & SPACE LOUDNESS WINDOW · [MethodRegistry.h:349](Source/DSP/MethodRegistry.h#L349)
-- **W4S — 4 s window** · method of TONE & SPACE LOUDNESS WINDOW · [MethodRegistry.h:353](Source/DSP/MethodRegistry.h#L353)
-- **TONE & SPACE: STEREO** · glass-panel setting (STEREO; parameter `seraphStereo`) · [MethodRegistry.h:549](Source/DSP/MethodRegistry.h#L549) — Which part of the image it works on: MID Mid only, SID Side only
-- **MID — Mid only** · method of TONE & SPACE STEREO · [MethodRegistry.h:503](Source/DSP/MethodRegistry.h#L503)
-- **SID — Side only** · method of TONE & SPACE STEREO · [MethodRegistry.h:507](Source/DSP/MethodRegistry.h#L507)
-- **LEVEL CONTROL: GLIDE** · glass-panel setting (PROCESSING; parameter `levelGlide`) · [MethodRegistry.h:552](Source/DSP/MethodRegistry.h#L552) — How fast LEVEL moves: STD 20 ms glide, FST 5 ms glide, SLW 150 ms glide
-- **STD — 20 ms glide** · method of LEVEL CONTROL GLIDE · [MethodRegistry.h:362](Source/DSP/MethodRegistry.h#L362)
-- **FST — 5 ms glide** · method of LEVEL CONTROL GLIDE · [MethodRegistry.h:366](Source/DSP/MethodRegistry.h#L366)
-- **SLW — 150 ms glide** · method of LEVEL CONTROL GLIDE · [MethodRegistry.h:370](Source/DSP/MethodRegistry.h#L370)
-- **OUTPUT MONITOR: CEILING** · glass-panel setting (OUTPUT; parameter `outputCeiling`) · [MethodRegistry.h:555](Source/DSP/MethodRegistry.h#L555) — The output limiter's ceiling:
-- **OUTPUT MONITOR: LOUDNESS TARGET** · glass-panel setting (OUTPUT; parameter `outputTarget`) · [MethodRegistry.h:556](Source/DSP/MethodRegistry.h#L556) — How loud everything leaves the rack: OFF No target, 23 -23 LUFS, 18 -18 LUFS, 14 -14 LUFS
-- **OFF — No target** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:393](Source/DSP/MethodRegistry.h#L393)
-- **23 — -23 LUFS** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:397](Source/DSP/MethodRegistry.h#L397)
-- **18 — -18 LUFS** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:401](Source/DSP/MethodRegistry.h#L401)
-- **14 — -14 LUFS** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:405](Source/DSP/MethodRegistry.h#L405)
-- **OUTPUT MONITOR: TONE RANGE** · glass-panel setting (DISPLAY; parameter `displayToneRange`) · [MethodRegistry.h:557](Source/DSP/MethodRegistry.h#L557) — The tone-change curve's scale: 12 +-12 dB, 24 +-24 dB
-- **12 — +-12 dB** · method of OUTPUT MONITOR TONE RANGE · [MethodRegistry.h:411](Source/DSP/MethodRegistry.h#L411)
-- **24 — +-24 dB** · method of OUTPUT MONITOR TONE RANGE · [MethodRegistry.h:419](Source/DSP/MethodRegistry.h#L419)
-- **OUTPUT MONITOR: DUCK HOLD** · glass-panel setting (DISPLAY; parameter `displayDuckHold`) · [MethodRegistry.h:558](Source/DSP/MethodRegistry.h#L558) — How long DUCK holds a reading:
-- **OUTPUT MONITOR: WAVEFORM** · glass-panel setting (DISPLAY; parameter `displayWaveform`) · [MethodRegistry.h:559](Source/DSP/MethodRegistry.h#L559) — What each waveform column shows: PK Peak, RMS RMS
-- **PK — Peak** · method of OUTPUT MONITOR WAVEFORM · [MethodRegistry.h:439](Source/DSP/MethodRegistry.h#L439)
-- **RMS — RMS** · method of OUTPUT MONITOR WAVEFORM · [MethodRegistry.h:443](Source/DSP/MethodRegistry.h#L443)
-- **DEEP SUB: SUB SHAPE** · glass-panel setting (PROCESSING; parameter `deepShape`) · [MethodRegistry.h:563](Source/DSP/MethodRegistry.h#L563) — What the generated sub is: SIN Sine, WRM Warm, GRL Growl
-- **SIN — Sine** · method of DEEP SUB SUB SHAPE · [MethodRegistry.h:452](Source/DSP/MethodRegistry.h#L452)
-- **WRM — Warm** · method of DEEP SUB SUB SHAPE · [MethodRegistry.h:456](Source/DSP/MethodRegistry.h#L456)
-- **GRL — Growl** · method of DEEP SUB SUB SHAPE · [MethodRegistry.h:460](Source/DSP/MethodRegistry.h#L460)
-- **DEEP SUB: TRACKING** · glass-panel setting (PROCESSING; parameter `deepTracking`) · [MethodRegistry.h:564](Source/DSP/MethodRegistry.h#L564) — How it follows the bass note: STD Standard, FST Fast, STB Stable
-- **STD — Standard** · method of DEEP SUB TRACKING · [MethodRegistry.h:466](Source/DSP/MethodRegistry.h#L466)
-- **FST — Fast** · method of DEEP SUB TRACKING · [MethodRegistry.h:470](Source/DSP/MethodRegistry.h#L470)
-- **STB — Stable** · method of DEEP SUB TRACKING · [MethodRegistry.h:474](Source/DSP/MethodRegistry.h#L474)
-- **DEEP SUB: HULL MATERIAL** · glass-panel setting (PROCESSING; parameter `deepMaterial`) · [MethodRegistry.h:565](Source/DSP/MethodRegistry.h#L565) — How long the hull rings: STL Steel, IRN Iron, CAV Cavern
-- **STL — Steel** · method of DEEP SUB HULL MATERIAL · [MethodRegistry.h:480](Source/DSP/MethodRegistry.h#L480)
-- **IRN — Iron** · method of DEEP SUB HULL MATERIAL · [MethodRegistry.h:484](Source/DSP/MethodRegistry.h#L484)
-- **CAV — Cavern** · method of DEEP SUB HULL MATERIAL · [MethodRegistry.h:488](Source/DSP/MethodRegistry.h#L488)
-- **CHARACTER: COMPONENTS** · glass-panel setting (PROCESSING; parameter `charComponents`) · [MethodRegistry.h:585](Source/DSP/MethodRegistry.h#L585) — How alike its two channels are: MAT Matched, SUB Subtle tolerance, VIN Vintage tolerance
-- **MAT — Matched** · method of CHARACTER COMPONENTS · [MethodRegistry.h:571](Source/DSP/MethodRegistry.h#L571)
-- **SUB — Subtle tolerance** · method of CHARACTER COMPONENTS · [MethodRegistry.h:575](Source/DSP/MethodRegistry.h#L575)
-- **VIN — Vintage tolerance** · method of CHARACTER COMPONENTS · [MethodRegistry.h:579](Source/DSP/MethodRegistry.h#L579)
-- **CHARACTER: STEREO** · glass-panel setting (STEREO; parameter `charStereo`) · [MethodRegistry.h:586](Source/DSP/MethodRegistry.h#L586) — Which part of the image it works on: MID Mid only, SID Side only
-- **MID — Mid only** · method of CHARACTER STEREO · [MethodRegistry.h:503](Source/DSP/MethodRegistry.h#L503)
-- **SID — Side only** · method of CHARACTER STEREO · [MethodRegistry.h:507](Source/DSP/MethodRegistry.h#L507)
+- **ADAPTIVE COMPRESSOR: DETECTOR** · glass-panel setting (PROCESSING; parameter `tideDetector`) · [MethodRegistry.h:515](Source/DSP/MethodRegistry.h#L515) — How it measures the level: PKR Peak or RMS, RMS Root mean square, KWT K-weighted
+- **PKR — Peak or RMS** · method of ADAPTIVE COMPRESSOR DETECTOR · [MethodRegistry.h:69](Source/DSP/MethodRegistry.h#L69)
+- **RMS — Root mean square** · method of ADAPTIVE COMPRESSOR DETECTOR · [MethodRegistry.h:73](Source/DSP/MethodRegistry.h#L73)
+- **KWT — K-weighted** · method of ADAPTIVE COMPRESSOR DETECTOR · [MethodRegistry.h:77](Source/DSP/MethodRegistry.h#L77)
+- **ADAPTIVE COMPRESSOR: SIDE-CHAIN** · glass-panel setting (PROCESSING; parameter `tideSideChain`) · [MethodRegistry.h:516](Source/DSP/MethodRegistry.h#L516) — What the detector hears: H90 High-pass 90 Hz, H15 High-pass 150 Hz, FUL Full range
+- **H90 — High-pass 90 Hz** · method of ADAPTIVE COMPRESSOR SIDE-CHAIN · [MethodRegistry.h:83](Source/DSP/MethodRegistry.h#L83)
+- **H15 — High-pass 150 Hz** · method of ADAPTIVE COMPRESSOR SIDE-CHAIN · [MethodRegistry.h:87](Source/DSP/MethodRegistry.h#L87)
+- **FUL — Full range** · method of ADAPTIVE COMPRESSOR SIDE-CHAIN · [MethodRegistry.h:91](Source/DSP/MethodRegistry.h#L91)
+- **ADAPTIVE COMPRESSOR: GAIN** · glass-panel setting (PROCESSING; parameter `tideGain`) · [MethodRegistry.h:517](Source/DSP/MethodRegistry.h#L517) — How it calculates the reduction: ADT Adaptive threshold, SFT Soft, HRD Hard
+- **ADT — Adaptive threshold** · method of ADAPTIVE COMPRESSOR GAIN · [MethodRegistry.h:97](Source/DSP/MethodRegistry.h#L97)
+- **SFT — Soft** · method of ADAPTIVE COMPRESSOR GAIN · [MethodRegistry.h:101](Source/DSP/MethodRegistry.h#L101)
+- **HRD — Hard** · method of ADAPTIVE COMPRESSOR GAIN · [MethodRegistry.h:105](Source/DSP/MethodRegistry.h#L105)
+- **ADAPTIVE COMPRESSOR: SMOOTHING** · glass-panel setting (PROCESSING; parameter `tideSmoothing`) · [MethodRegistry.h:518](Source/DSP/MethodRegistry.h#L518) — How the reduction moves: DRL Dual release, SRL Single release, OPT Opto
+- **DRL — Dual release** · method of ADAPTIVE COMPRESSOR SMOOTHING · [MethodRegistry.h:111](Source/DSP/MethodRegistry.h#L111)
+- **SRL — Single release** · method of ADAPTIVE COMPRESSOR SMOOTHING · [MethodRegistry.h:115](Source/DSP/MethodRegistry.h#L115)
+- **OPT — Opto** · method of ADAPTIVE COMPRESSOR SMOOTHING · [MethodRegistry.h:119](Source/DSP/MethodRegistry.h#L119)
+- **ADAPTIVE COMPRESSOR: MAKE-UP** · glass-panel setting (PROCESSING; parameter `tideMakeup`) · [MethodRegistry.h:519](Source/DSP/MethodRegistry.h#L519) — How much level it gives back: AUT Auto 65 %, FUL Full 90 %, OFF None
+- **AUT — Auto 65 %** · method of ADAPTIVE COMPRESSOR MAKE-UP · [MethodRegistry.h:125](Source/DSP/MethodRegistry.h#L125)
+- **FUL — Full 90 %** · method of ADAPTIVE COMPRESSOR MAKE-UP · [MethodRegistry.h:129](Source/DSP/MethodRegistry.h#L129)
+- **OFF — None** · method of ADAPTIVE COMPRESSOR MAKE-UP · [MethodRegistry.h:133](Source/DSP/MethodRegistry.h#L133)
+- **ADAPTIVE COMPRESSOR: LAW** · glass-panel setting (KNOBS, tideResponse knob; parameter `tideResponseLaw`) · [MethodRegistry.h:520](Source/DSP/MethodRegistry.h#L520) — How the knob's travel maps: LIN Linear, EXP Exponential, LOG Logarithmic
+- **LIN — Linear** · method of ADAPTIVE COMPRESSOR LAW · [MethodRegistry.h:139](Source/DSP/MethodRegistry.h#L139)
+- **EXP — Exponential** · method of ADAPTIVE COMPRESSOR LAW · [MethodRegistry.h:143](Source/DSP/MethodRegistry.h#L143)
+- **LOG — Logarithmic** · method of ADAPTIVE COMPRESSOR LAW · [MethodRegistry.h:147](Source/DSP/MethodRegistry.h#L147)
+- **ADAPTIVE COMPRESSOR: STEREO** · glass-panel setting (STEREO; parameter `tideStereo`) · [MethodRegistry.h:521](Source/DSP/MethodRegistry.h#L521) — Which part of the image it works on: MID Mid only, SID Side only
+- **MID — Mid only** · method of ADAPTIVE COMPRESSOR STEREO · [MethodRegistry.h:504](Source/DSP/MethodRegistry.h#L504)
+- **SID — Side only** · method of ADAPTIVE COMPRESSOR STEREO · [MethodRegistry.h:508](Source/DSP/MethodRegistry.h#L508)
+- **SPECTRAL LIMITER: NORMAL** · glass-panel setting (PROCESSING; parameter `limiterNormal`) · [MethodRegistry.h:524](Source/DSP/MethodRegistry.h#L524) — What counts as normal for a band: P97 97th percentile, P90 90th percentile, P99 99th percentile
+- **P97 — 97th percentile** · method of SPECTRAL LIMITER NORMAL · [MethodRegistry.h:156](Source/DSP/MethodRegistry.h#L156)
+- **P90 — 90th percentile** · method of SPECTRAL LIMITER NORMAL · [MethodRegistry.h:160](Source/DSP/MethodRegistry.h#L160)
+- **P99 — 99th percentile** · method of SPECTRAL LIMITER NORMAL · [MethodRegistry.h:164](Source/DSP/MethodRegistry.h#L164)
+- **SPECTRAL LIMITER: CUT WIDTH** · glass-panel setting (PROCESSING; parameter `limiterWidth`) · [MethodRegistry.h:525](Source/DSP/MethodRegistry.h#L525) — How wide each cut is: STD Region width, NAR Narrow, WID Wide
+- **STD — Region width** · method of SPECTRAL LIMITER CUT WIDTH · [MethodRegistry.h:170](Source/DSP/MethodRegistry.h#L170)
+- **NAR — Narrow** · method of SPECTRAL LIMITER CUT WIDTH · [MethodRegistry.h:174](Source/DSP/MethodRegistry.h#L174)
+- **WID — Wide** · method of SPECTRAL LIMITER CUT WIDTH · [MethodRegistry.h:178](Source/DSP/MethodRegistry.h#L178)
+- **SPECTRAL LIMITER: LOUDNESS KEEPER** · glass-panel setting (PROCESSING; parameter `limiterKeeper`) · [MethodRegistry.h:526](Source/DSP/MethodRegistry.h#L526) — What it gives back while cutting: K60 Keep 60 %, K90 Keep 90 %, OFF Off
+- **K60 — Keep 60 %** · method of SPECTRAL LIMITER LOUDNESS KEEPER · [MethodRegistry.h:184](Source/DSP/MethodRegistry.h#L184)
+- **K90 — Keep 90 %** · method of SPECTRAL LIMITER LOUDNESS KEEPER · [MethodRegistry.h:188](Source/DSP/MethodRegistry.h#L188)
+- **OFF — Off** · method of SPECTRAL LIMITER LOUDNESS KEEPER · [MethodRegistry.h:192](Source/DSP/MethodRegistry.h#L192)
+- **SPECTRAL LIMITER: STEREO** · glass-panel setting (STEREO; parameter `limiterStereo`) · [MethodRegistry.h:527](Source/DSP/MethodRegistry.h#L527) — Which part of the image it works on: MID Mid only, SID Side only
+- **MID — Mid only** · method of SPECTRAL LIMITER STEREO · [MethodRegistry.h:504](Source/DSP/MethodRegistry.h#L504)
+- **SID — Side only** · method of SPECTRAL LIMITER STEREO · [MethodRegistry.h:508](Source/DSP/MethodRegistry.h#L508)
+- **MIX BALANCER: REFERENCE** · glass-panel setting (PROCESSING; parameter `balancerReference`) · [MethodRegistry.h:530](Source/DSP/MethodRegistry.h#L530) — What a band's jump is measured against: MED Median, AVG Average
+- **MED — Median** · method of MIX BALANCER REFERENCE · [MethodRegistry.h:201](Source/DSP/MethodRegistry.h#L201)
+- **AVG — Average** · method of MIX BALANCER REFERENCE · [MethodRegistry.h:205](Source/DSP/MethodRegistry.h#L205)
+- **MIX BALANCER: DEAD ZONE** · glass-panel setting (PROCESSING; parameter `balancerDeadZone`) · [MethodRegistry.h:531](Source/DSP/MethodRegistry.h#L531) — How big a move is ignored: STD 1.5 dB, TGT Tight 0.75 dB, LSE Loose 3 dB
+- **STD — 1.5 dB** · method of MIX BALANCER DEAD ZONE · [MethodRegistry.h:211](Source/DSP/MethodRegistry.h#L211)
+- **TGT — Tight 0.75 dB** · method of MIX BALANCER DEAD ZONE · [MethodRegistry.h:215](Source/DSP/MethodRegistry.h#L215)
+- **LSE — Loose 3 dB** · method of MIX BALANCER DEAD ZONE · [MethodRegistry.h:219](Source/DSP/MethodRegistry.h#L219)
+- **MIX BALANCER: LIFTS** · glass-panel setting (PROCESSING; parameter `balancerLifts`) · [MethodRegistry.h:532](Source/DSP/MethodRegistry.h#L532) — What it does with a band that drops out: HLF Half range, NON Cuts only, FUL Full range
+- **HLF — Half range** · method of MIX BALANCER LIFTS · [MethodRegistry.h:225](Source/DSP/MethodRegistry.h#L225)
+- **NON — Cuts only** · method of MIX BALANCER LIFTS · [MethodRegistry.h:229](Source/DSP/MethodRegistry.h#L229)
+- **FUL — Full range** · method of MIX BALANCER LIFTS · [MethodRegistry.h:233](Source/DSP/MethodRegistry.h#L233)
+- **MIX BALANCER: ATTACK GUARD** · glass-panel setting (PROCESSING; parameter `balancerGuard`) · [MethodRegistry.h:533](Source/DSP/MethodRegistry.h#L533) — How it treats a fresh transient: STD Guard attacks, STR Strong guard, OFF No guard
+- **STD — Guard attacks** · method of MIX BALANCER ATTACK GUARD · [MethodRegistry.h:239](Source/DSP/MethodRegistry.h#L239)
+- **STR — Strong guard** · method of MIX BALANCER ATTACK GUARD · [MethodRegistry.h:243](Source/DSP/MethodRegistry.h#L243)
+- **OFF — No guard** · method of MIX BALANCER ATTACK GUARD · [MethodRegistry.h:247](Source/DSP/MethodRegistry.h#L247)
+- **MIX BALANCER: LOUDNESS KEEPER** · glass-panel setting (PROCESSING; parameter `balancerKeeper`) · [MethodRegistry.h:534](Source/DSP/MethodRegistry.h#L534) — What it gives back while cutting: K60 Keep 60 %, K90 Keep 90 %, OFF Off
+- **K60 — Keep 60 %** · method of MIX BALANCER LOUDNESS KEEPER · [MethodRegistry.h:184](Source/DSP/MethodRegistry.h#L184)
+- **K90 — Keep 90 %** · method of MIX BALANCER LOUDNESS KEEPER · [MethodRegistry.h:188](Source/DSP/MethodRegistry.h#L188)
+- **OFF — Off** · method of MIX BALANCER LOUDNESS KEEPER · [MethodRegistry.h:192](Source/DSP/MethodRegistry.h#L192)
+- **MIX BALANCER: STEREO** · glass-panel setting (STEREO; parameter `balancerStereo`) · [MethodRegistry.h:535](Source/DSP/MethodRegistry.h#L535) — Which part of the image it works on: MID Mid only, SID Side only
+- **MID — Mid only** · method of MIX BALANCER STEREO · [MethodRegistry.h:504](Source/DSP/MethodRegistry.h#L504)
+- **SID — Side only** · method of MIX BALANCER STEREO · [MethodRegistry.h:508](Source/DSP/MethodRegistry.h#L508)
+- **UPWARD LEVELER: LIFT** · glass-panel setting (PROCESSING; parameter `levelerLift`) · [MethodRegistry.h:538](Source/DSP/MethodRegistry.h#L538) — How far quiet material may come up: STD Standard lift, GEN Gentle, BIG Big
+- **STD — Standard lift** · method of UPWARD LEVELER LIFT · [MethodRegistry.h:256](Source/DSP/MethodRegistry.h#L256)
+- **GEN — Gentle** · method of UPWARD LEVELER LIFT · [MethodRegistry.h:260](Source/DSP/MethodRegistry.h#L260)
+- **BIG — Big** · method of UPWARD LEVELER LIFT · [MethodRegistry.h:264](Source/DSP/MethodRegistry.h#L264)
+- **UPWARD LEVELER: GATE** · glass-panel setting (PROCESSING; parameter `levelerGate`) · [MethodRegistry.h:539](Source/DSP/MethodRegistry.h#L539) — What is too quiet to lift: STD Gate -58 dBFS, SNS Sensitive -66, STR Strict -50
+- **STD — Gate -58 dBFS** · method of UPWARD LEVELER GATE · [MethodRegistry.h:270](Source/DSP/MethodRegistry.h#L270)
+- **SNS — Sensitive -66** · method of UPWARD LEVELER GATE · [MethodRegistry.h:274](Source/DSP/MethodRegistry.h#L274)
+- **STR — Strict -50** · method of UPWARD LEVELER GATE · [MethodRegistry.h:278](Source/DSP/MethodRegistry.h#L278)
+- **UPWARD LEVELER: BAND BALANCE** · glass-panel setting (PROCESSING; parameter `levelerBalance`) · [MethodRegistry.h:540](Source/DSP/MethodRegistry.h#L540) — Where the lift goes: STD Voiced, MID Mid focus, FLT Flat
+- **STD — Voiced** · method of UPWARD LEVELER BAND BALANCE · [MethodRegistry.h:284](Source/DSP/MethodRegistry.h#L284)
+- **MID — Mid focus** · method of UPWARD LEVELER BAND BALANCE · [MethodRegistry.h:288](Source/DSP/MethodRegistry.h#L288)
+- **FLT — Flat** · method of UPWARD LEVELER BAND BALANCE · [MethodRegistry.h:292](Source/DSP/MethodRegistry.h#L292)
+- **UPWARD LEVELER: STEREO** · glass-panel setting (STEREO; parameter `levelerStereo`) · [MethodRegistry.h:541](Source/DSP/MethodRegistry.h#L541) — Which part of the image it works on: MID Mid only, SID Side only
+- **MID — Mid only** · method of UPWARD LEVELER STEREO · [MethodRegistry.h:504](Source/DSP/MethodRegistry.h#L504)
+- **SID — Side only** · method of UPWARD LEVELER STEREO · [MethodRegistry.h:508](Source/DSP/MethodRegistry.h#L508)
+- **ADAPTIVE ENHANCER: HARMONICS** · glass-panel setting (PROCESSING; parameter `enhancerHarmonics`) · [MethodRegistry.h:544](Source/DSP/MethodRegistry.h#L544) — What the exciters generate: CHB Chebyshev 2 + 3, EVN Even, ODD Odd
+- **CHB — Chebyshev 2 + 3** · method of ADAPTIVE ENHANCER HARMONICS · [MethodRegistry.h:301](Source/DSP/MethodRegistry.h#L301)
+- **EVN — Even** · method of ADAPTIVE ENHANCER HARMONICS · [MethodRegistry.h:305](Source/DSP/MethodRegistry.h#L305)
+- **ODD — Odd** · method of ADAPTIVE ENHANCER HARMONICS · [MethodRegistry.h:309](Source/DSP/MethodRegistry.h#L309)
+- **TONE & SPACE: TAPE CURVE** · glass-panel setting (PROCESSING; parameter `seraphTape`) · [MethodRegistry.h:547](Source/DSP/MethodRegistry.h#L547) — How TAPE saturates: TNH Tanh, ATN Arctangent, CUB Cubic
+- **TNH — Tanh** · method of TONE & SPACE TAPE CURVE · [MethodRegistry.h:318](Source/DSP/MethodRegistry.h#L318)
+- **ATN — Arctangent** · method of TONE & SPACE TAPE CURVE · [MethodRegistry.h:322](Source/DSP/MethodRegistry.h#L322)
+- **CUB — Cubic** · method of TONE & SPACE TAPE CURVE · [MethodRegistry.h:326](Source/DSP/MethodRegistry.h#L326)
+- **TONE & SPACE: PRE-DELAY** · glass-panel setting (PROCESSING; parameter `seraphPreDelay`) · [MethodRegistry.h:548](Source/DSP/MethodRegistry.h#L548) — When the space begins: P18 18 ms, P08 8 ms, P35 35 ms
+- **P18 — 18 ms** · method of TONE & SPACE PRE-DELAY · [MethodRegistry.h:332](Source/DSP/MethodRegistry.h#L332)
+- **P08 — 8 ms** · method of TONE & SPACE PRE-DELAY · [MethodRegistry.h:336](Source/DSP/MethodRegistry.h#L336)
+- **P35 — 35 ms** · method of TONE & SPACE PRE-DELAY · [MethodRegistry.h:340](Source/DSP/MethodRegistry.h#L340)
+- **TONE & SPACE: LOUDNESS WINDOW** · glass-panel setting (PROCESSING; parameter `seraphWindow`) · [MethodRegistry.h:549](Source/DSP/MethodRegistry.h#L549) — How long LOUDNESS listens: W2S 2 s window, W1S 1 s window, W4S 4 s window
+- **W2S — 2 s window** · method of TONE & SPACE LOUDNESS WINDOW · [MethodRegistry.h:346](Source/DSP/MethodRegistry.h#L346)
+- **W1S — 1 s window** · method of TONE & SPACE LOUDNESS WINDOW · [MethodRegistry.h:350](Source/DSP/MethodRegistry.h#L350)
+- **W4S — 4 s window** · method of TONE & SPACE LOUDNESS WINDOW · [MethodRegistry.h:354](Source/DSP/MethodRegistry.h#L354)
+- **TONE & SPACE: STEREO** · glass-panel setting (STEREO; parameter `seraphStereo`) · [MethodRegistry.h:550](Source/DSP/MethodRegistry.h#L550) — Which part of the image it works on: MID Mid only, SID Side only
+- **MID — Mid only** · method of TONE & SPACE STEREO · [MethodRegistry.h:504](Source/DSP/MethodRegistry.h#L504)
+- **SID — Side only** · method of TONE & SPACE STEREO · [MethodRegistry.h:508](Source/DSP/MethodRegistry.h#L508)
+- **LEVEL CONTROL: GLIDE** · glass-panel setting (PROCESSING; parameter `levelGlide`) · [MethodRegistry.h:553](Source/DSP/MethodRegistry.h#L553) — How fast LEVEL moves: STD 20 ms glide, FST 5 ms glide, SLW 150 ms glide
+- **STD — 20 ms glide** · method of LEVEL CONTROL GLIDE · [MethodRegistry.h:363](Source/DSP/MethodRegistry.h#L363)
+- **FST — 5 ms glide** · method of LEVEL CONTROL GLIDE · [MethodRegistry.h:367](Source/DSP/MethodRegistry.h#L367)
+- **SLW — 150 ms glide** · method of LEVEL CONTROL GLIDE · [MethodRegistry.h:371](Source/DSP/MethodRegistry.h#L371)
+- **OUTPUT MONITOR: CEILING** · glass-panel setting (OUTPUT; parameter `outputCeiling`) · [MethodRegistry.h:556](Source/DSP/MethodRegistry.h#L556) — The output limiter's ceiling:
+- **OUTPUT MONITOR: LOUDNESS TARGET** · glass-panel setting (OUTPUT; parameter `outputTarget`) · [MethodRegistry.h:557](Source/DSP/MethodRegistry.h#L557) — How loud everything leaves the rack: OFF No target, 23 -23 LUFS, 18 -18 LUFS, 14 -14 LUFS
+- **OFF — No target** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:394](Source/DSP/MethodRegistry.h#L394)
+- **23 — -23 LUFS** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:398](Source/DSP/MethodRegistry.h#L398)
+- **18 — -18 LUFS** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:402](Source/DSP/MethodRegistry.h#L402)
+- **14 — -14 LUFS** · method of OUTPUT MONITOR LOUDNESS TARGET · [MethodRegistry.h:406](Source/DSP/MethodRegistry.h#L406)
+- **OUTPUT MONITOR: TONE RANGE** · glass-panel setting (DISPLAY; parameter `displayToneRange`) · [MethodRegistry.h:558](Source/DSP/MethodRegistry.h#L558) — The tone-change curve's scale: 12 +-12 dB, 24 +-24 dB
+- **12 — +-12 dB** · method of OUTPUT MONITOR TONE RANGE · [MethodRegistry.h:412](Source/DSP/MethodRegistry.h#L412)
+- **24 — +-24 dB** · method of OUTPUT MONITOR TONE RANGE · [MethodRegistry.h:420](Source/DSP/MethodRegistry.h#L420)
+- **OUTPUT MONITOR: DUCK HOLD** · glass-panel setting (DISPLAY; parameter `displayDuckHold`) · [MethodRegistry.h:559](Source/DSP/MethodRegistry.h#L559) — How long DUCK holds a reading:
+- **OUTPUT MONITOR: WAVEFORM** · glass-panel setting (DISPLAY; parameter `displayWaveform`) · [MethodRegistry.h:560](Source/DSP/MethodRegistry.h#L560) — What each waveform column shows: PK Peak, RMS RMS
+- **PK — Peak** · method of OUTPUT MONITOR WAVEFORM · [MethodRegistry.h:440](Source/DSP/MethodRegistry.h#L440)
+- **RMS — RMS** · method of OUTPUT MONITOR WAVEFORM · [MethodRegistry.h:444](Source/DSP/MethodRegistry.h#L444)
+- **DEEP SUB: SUB SHAPE** · glass-panel setting (PROCESSING; parameter `deepShape`) · [MethodRegistry.h:564](Source/DSP/MethodRegistry.h#L564) — What the generated sub is: SIN Sine, WRM Warm, GRL Growl
+- **SIN — Sine** · method of DEEP SUB SUB SHAPE · [MethodRegistry.h:453](Source/DSP/MethodRegistry.h#L453)
+- **WRM — Warm** · method of DEEP SUB SUB SHAPE · [MethodRegistry.h:457](Source/DSP/MethodRegistry.h#L457)
+- **GRL — Growl** · method of DEEP SUB SUB SHAPE · [MethodRegistry.h:461](Source/DSP/MethodRegistry.h#L461)
+- **DEEP SUB: TRACKING** · glass-panel setting (PROCESSING; parameter `deepTracking`) · [MethodRegistry.h:565](Source/DSP/MethodRegistry.h#L565) — How it follows the bass note: STD Standard, FST Fast, STB Stable
+- **STD — Standard** · method of DEEP SUB TRACKING · [MethodRegistry.h:467](Source/DSP/MethodRegistry.h#L467)
+- **FST — Fast** · method of DEEP SUB TRACKING · [MethodRegistry.h:471](Source/DSP/MethodRegistry.h#L471)
+- **STB — Stable** · method of DEEP SUB TRACKING · [MethodRegistry.h:475](Source/DSP/MethodRegistry.h#L475)
+- **DEEP SUB: HULL MATERIAL** · glass-panel setting (PROCESSING; parameter `deepMaterial`) · [MethodRegistry.h:566](Source/DSP/MethodRegistry.h#L566) — How long the hull rings: STL Steel, IRN Iron, CAV Cavern
+- **STL — Steel** · method of DEEP SUB HULL MATERIAL · [MethodRegistry.h:481](Source/DSP/MethodRegistry.h#L481)
+- **IRN — Iron** · method of DEEP SUB HULL MATERIAL · [MethodRegistry.h:485](Source/DSP/MethodRegistry.h#L485)
+- **CAV — Cavern** · method of DEEP SUB HULL MATERIAL · [MethodRegistry.h:489](Source/DSP/MethodRegistry.h#L489)
+- **CHARACTER: COMPONENTS** · glass-panel setting (PROCESSING; parameter `charComponents`) · [MethodRegistry.h:586](Source/DSP/MethodRegistry.h#L586) — How alike its two channels are: MAT Matched, SUB Subtle tolerance, VIN Vintage tolerance
+- **MAT — Matched** · method of CHARACTER COMPONENTS · [MethodRegistry.h:572](Source/DSP/MethodRegistry.h#L572)
+- **SUB — Subtle tolerance** · method of CHARACTER COMPONENTS · [MethodRegistry.h:576](Source/DSP/MethodRegistry.h#L576)
+- **VIN — Vintage tolerance** · method of CHARACTER COMPONENTS · [MethodRegistry.h:580](Source/DSP/MethodRegistry.h#L580)
+- **CHARACTER: STEREO** · glass-panel setting (STEREO; parameter `charStereo`) · [MethodRegistry.h:587](Source/DSP/MethodRegistry.h#L587) — Which part of the image it works on: MID Mid only, SID Side only
+- **MID — Mid only** · method of CHARACTER STEREO · [MethodRegistry.h:504](Source/DSP/MethodRegistry.h#L504)
+- **SID — Side only** · method of CHARACTER STEREO · [MethodRegistry.h:508](Source/DSP/MethodRegistry.h#L508)
+- **FOOTSTEP RADAR: DETECTION** · glass-panel setting (PROCESSING; parameter `radarDetection`) · [MethodRegistry.h:621](Source/DSP/MethodRegistry.h#L621) — How sure it must be: STD Standard, SEN Sensitive, STR Strict
+- **STD — Standard** · method of FOOTSTEP RADAR DETECTION · [MethodRegistry.h:593](Source/DSP/MethodRegistry.h#L593)
+- **SEN — Sensitive** · method of FOOTSTEP RADAR DETECTION · [MethodRegistry.h:597](Source/DSP/MethodRegistry.h#L597)
+- **STR — Strict** · method of FOOTSTEP RADAR DETECTION · [MethodRegistry.h:601](Source/DSP/MethodRegistry.h#L601)
+- **FOOTSTEP RADAR: ROOM** · glass-panel setting (PROCESSING; parameter `radarRoom`) · [MethodRegistry.h:622](Source/DSP/MethodRegistry.h#L622) — The space it gives far steps: ROM Room, HAL Hall, OPN Open air
+- **ROM — Room** · method of FOOTSTEP RADAR ROOM · [MethodRegistry.h:607](Source/DSP/MethodRegistry.h#L607)
+- **HAL — Hall** · method of FOOTSTEP RADAR ROOM · [MethodRegistry.h:611](Source/DSP/MethodRegistry.h#L611)
+- **OPN — Open air** · method of FOOTSTEP RADAR ROOM · [MethodRegistry.h:615](Source/DSP/MethodRegistry.h#L615)
 - **Every glass-panel setting, explained** · doc · [Methods.md](Vault/Reference/Methods.md)
 
 ## Tests and tools
 
-Test modes, tool commands, scenes, scripts. (56)
+Test modes, tool commands, scenes, scripts. (57)
 
 - **scripts/selftest.sh** · the whole self-test in one command · [scripts/selftest.sh](scripts/selftest.sh) — every test, PASS / FAIL per step
-- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2137](Tests/EnhDspTests.cpp#L2137)
-- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2144](Tests/EnhDspTests.cpp#L2144)
-- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2147](Tests/EnhDspTests.cpp#L2147)
-- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2150](Tests/EnhDspTests.cpp#L2150)
-- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2157](Tests/EnhDspTests.cpp#L2157)
-- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2166](Tests/EnhDspTests.cpp#L2166)
-- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2172](Tests/EnhDspTests.cpp#L2172)
-- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2179](Tests/EnhDspTests.cpp#L2179)
-- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2186](Tests/EnhDspTests.cpp#L2186)
-- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2193](Tests/EnhDspTests.cpp#L2193)
-- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2201](Tests/EnhDspTests.cpp#L2201)
-- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2208](Tests/EnhDspTests.cpp#L2208)
-- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2214](Tests/EnhDspTests.cpp#L2214)
-- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2221](Tests/EnhDspTests.cpp#L2221)
-- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2230](Tests/EnhDspTests.cpp#L2230)
-- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2288](Tests/EnhDspTests.cpp#L2288)
-- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2332](Tests/EnhDspTests.cpp#L2332)
+- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2138](Tests/EnhDspTests.cpp#L2138)
+- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2145](Tests/EnhDspTests.cpp#L2145)
+- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2148](Tests/EnhDspTests.cpp#L2148)
+- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2161](Tests/EnhDspTests.cpp#L2161)
+- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2164](Tests/EnhDspTests.cpp#L2164)
+- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2171](Tests/EnhDspTests.cpp#L2171)
+- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2180](Tests/EnhDspTests.cpp#L2180)
+- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2186](Tests/EnhDspTests.cpp#L2186)
+- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2193](Tests/EnhDspTests.cpp#L2193)
+- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2200](Tests/EnhDspTests.cpp#L2200)
+- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2207](Tests/EnhDspTests.cpp#L2207)
+- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2215](Tests/EnhDspTests.cpp#L2215)
+- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2222](Tests/EnhDspTests.cpp#L2222)
+- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2228](Tests/EnhDspTests.cpp#L2228)
+- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2235](Tests/EnhDspTests.cpp#L2235)
+- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2244](Tests/EnhDspTests.cpp#L2244)
+- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2305](Tests/EnhDspTests.cpp#L2305)
+- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2331](Tests/EnhDspTests.cpp#L2331)
 - **scene gaps** · AudioLab test scene · [AudioLab.cpp:212](Tools/AudioLab.cpp#L212) — music for 3 s, near silence for 3 s, music again: what the auto gains do in the gaps
 - **scene bassduck** · AudioLab test scene · [AudioLab.cpp:213](Tools/AudioLab.cpp#L213) — unchanging quiet detail and footsteps throughout, loud bass only from 3 - 5 s: what the bass does to the rest
 - **scene steps** · AudioLab test scene · [AudioLab.cpp:214](Tools/AudioLab.cpp#L214) — ambience and footsteps only, left/right, every 0.45 s: what the rack does to footsteps over time
@@ -589,26 +620,25 @@ Test modes, tool commands, scenes, scripts. (56)
 
 ## Dev settings
 
-Every environment variable the code reads, and where. (69)
+Every environment variable the code reads, and where. (73)
 
-- **ALIAS_PRESETS** · dev setting (environment variable) · [Tests/MasteringTests.h:569](Tests/MasteringTests.h#L569)
-- **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1312](Tests/EnhDspTests.cpp#L1312)
-- **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1305](Tests/EnhDspTests.cpp#L1305)
-- **CHAR_STEPS** · dev setting (environment variable) · [Tests/CharacterTests.h:224](Tests/CharacterTests.h#L224)
-- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2084](Tests/EnhDspTests.cpp#L2084)
-- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:904](Tests/EnhDspTests.cpp#L904)
-- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:904](Tests/EnhDspTests.cpp#L904)
+- **ALIAS_PRESETS** · dev setting (environment variable) · [Tests/MasteringTests.h:571](Tests/MasteringTests.h#L571)
+- **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1304](Tests/EnhDspTests.cpp#L1304)
+- **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1297](Tests/EnhDspTests.cpp#L1297)
+- **CHAR_STEPS** · dev setting (environment variable) · [Tests/CharacterTests.h:269](Tests/CharacterTests.h#L269)
+- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2085](Tests/EnhDspTests.cpp#L2085)
+- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:903](Tests/EnhDspTests.cpp#L903)
+- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:903](Tests/EnhDspTests.cpp#L903)
 - **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Source/Parameters/PresetLibrary.cpp:42](Source/Parameters/PresetLibrary.cpp#L42)
-- **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:827](Tests/EnhDspTests.cpp#L827)
+- **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:826](Tests/EnhDspTests.cpp#L826)
 - **FOCUS** · dev setting (environment variable) · [Tools/LayoutViz.cpp:115](Tools/LayoutViz.cpp#L115)
-- **FS_KICK_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:923](Tests/EnhDspTests.cpp#L923)
-- **KEEP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1363](Tests/EnhDspTests.cpp#L1363)
+- **KEEP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1355](Tests/EnhDspTests.cpp#L1355)
 - **LAB_FOOTSTEP_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:500](Tools/AudioLab.cpp#L500)
-- **LIMITER_FINE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
-- **LIMITER_FROM** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
-- **LIMITER_FROM** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
-- **LIMITER_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
-- **LIMITER_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
+- **LIMITER_FINE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
+- **LIMITER_FROM** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
+- **LIMITER_FROM** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
+- **LIMITER_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
+- **LIMITER_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
 - **MASTER_DEBUG** · dev setting (environment variable) · [Tests/MasteringTests.h:88](Tests/MasteringTests.h#L88)
 - **OUT** · dev setting (environment variable) · [Tools/LayoutViz.cpp:116](Tools/LayoutViz.cpp#L116)
 - **OUT** · dev setting (environment variable) · [Tools/LayoutViz.cpp:116](Tools/LayoutViz.cpp#L116)
@@ -616,54 +646,59 @@ Every environment variable the code reads, and where. (69)
 - **PAD_ROUTER_TEST_INSERT** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:244](Source/Standalone/RouterBar.cpp#L244)
 - **PAD_ROUTER_TEST_LISTEN** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:234](Source/Standalone/RouterBar.cpp#L234)
 - **PAD_ROUTER_TEST_SOURCE** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:229](Source/Standalone/RouterBar.cpp#L229)
-- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:60](Source/UI/HardwareView.cpp#L60)
-- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:61](Source/UI/HardwareView.cpp#L61)
+- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:62](Source/UI/HardwareView.cpp#L62)
+- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:63](Source/UI/HardwareView.cpp#L63)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/Scene/LayoutAudit.h:8](Source/UI/Scene/LayoutAudit.h#L8)
-- **PAD_UI_TEST_BACKGROUND** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:613](Source/UI/HardwareView.cpp#L613)
+- **PAD_UI_TEST_BACKGROUND** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:615](Source/UI/HardwareView.cpp#L615)
 - **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:232](Source/Standalone/StandaloneApp.cpp#L232)
 - **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:233](Source/Standalone/StandaloneApp.cpp#L233)
 - **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/HardwareView.h:67](Source/UI/HardwareView.h#L67)
-- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1379](Source/UI/Scene/HardwareRenderer.cpp#L1379)
-- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:306](Source/UI/Scene/HardwareRenderer.h#L306)
-- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:79](Source/UI/HardwareView.cpp#L79)
-- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:80](Source/UI/HardwareView.cpp#L80)
-- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:219](Source/UI/Scene/HardwareRenderer.h#L219)
+- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1385](Source/UI/Scene/HardwareRenderer.cpp#L1385)
+- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1503](Source/UI/Scene/HardwareRenderer.cpp#L1503)
+- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:81](Source/UI/HardwareView.cpp#L81)
+- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:82](Source/UI/HardwareView.cpp#L82)
 - **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:220](Source/UI/Scene/HardwareRenderer.h#L220)
-- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:847](Source/UI/HardwareView.cpp#L847)
-- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:855](Source/UI/HardwareView.cpp#L855)
-- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:254](Source/UI/Scene/HardwareRenderer.h#L254)
+- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:221](Source/UI/Scene/HardwareRenderer.h#L221)
+- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:849](Source/UI/HardwareView.cpp#L849)
+- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:857](Source/UI/HardwareView.cpp#L857)
 - **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:255](Source/UI/Scene/HardwareRenderer.h#L255)
-- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:308](Source/UI/Scene/HardwareRenderer.h#L308)
-- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:309](Source/UI/Scene/HardwareRenderer.h#L309)
-- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:799](Source/UI/HardwareView.cpp#L799)
-- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:800](Source/UI/HardwareView.cpp#L800)
-- **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:86](Source/UI/HardwareView.cpp#L86)
+- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:256](Source/UI/Scene/HardwareRenderer.h#L256)
+- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:310](Source/UI/Scene/HardwareRenderer.h#L310)
+- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:311](Source/UI/Scene/HardwareRenderer.h#L311)
+- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:801](Source/UI/HardwareView.cpp#L801)
+- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:802](Source/UI/HardwareView.cpp#L802)
 - **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:88](Source/UI/HardwareView.cpp#L88)
-- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:102](Source/UI/HardwareView.cpp#L102)
-- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:103](Source/UI/HardwareView.cpp#L103)
-- **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:585](Source/UI/HardwareView.cpp#L585)
+- **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:90](Source/UI/HardwareView.cpp#L90)
+- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:104](Source/UI/HardwareView.cpp#L104)
+- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:105](Source/UI/HardwareView.cpp#L105)
 - **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:587](Source/UI/HardwareView.cpp#L587)
+- **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:589](Source/UI/HardwareView.cpp#L589)
 - **PAD_UI_TEST_SIZE** · dev setting (environment variable) · [Source/PluginEditor.cpp:13](Source/PluginEditor.cpp#L13)
 - **PAD_UI_TEST_SIZE** · dev setting (environment variable) · [Source/PluginEditor.cpp:14](Source/PluginEditor.cpp#L14)
-- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:867](Source/UI/Scene/HardwareRenderer.cpp#L867)
-- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:868](Source/UI/Scene/HardwareRenderer.cpp#L868)
+- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:873](Source/UI/Scene/HardwareRenderer.cpp#L873)
+- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:874](Source/UI/Scene/HardwareRenderer.cpp#L874)
 - **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/HardwareView.h:114](Source/UI/HardwareView.h#L114)
-- **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:311](Source/UI/Scene/HardwareRenderer.h#L311)
-- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
-- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:896](Tests/EnhDspTests.cpp#L896)
-- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:899](Tests/EnhDspTests.cpp#L899)
-- **PUMP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1047](Tests/EnhDspTests.cpp#L1047)
-- **SMOOTH_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:993](Tests/EnhDspTests.cpp#L993)
-- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1085](Tests/EnhDspTests.cpp#L1085)
-- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1087](Tests/EnhDspTests.cpp#L1087)
-- **ZIP_DUMP** · dev setting (environment variable) · [Tests/MasteringTests.h:495](Tests/MasteringTests.h#L495)
-- **ZIP_PARAM** · dev setting (environment variable) · [Tests/MasteringTests.h:468](Tests/MasteringTests.h#L468)
-- **ZIP_PRESET** · dev setting (environment variable) · [Tests/MasteringTests.h:474](Tests/MasteringTests.h#L474)
-- **ZIP_SET** · dev setting (environment variable) · [Tests/MasteringTests.h:475](Tests/MasteringTests.h#L475)
+- **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:313](Source/UI/Scene/HardwareRenderer.h#L313)
+- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
+- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:895](Tests/EnhDspTests.cpp#L895)
+- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:898](Tests/EnhDspTests.cpp#L898)
+- **PUMP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1036](Tests/EnhDspTests.cpp#L1036)
+- **RADAR_BANDS** · dev setting (environment variable) · [Tests/RadarTests.h:535](Tests/RadarTests.h#L535)
+- **RADAR_DUMP** · dev setting (environment variable) · [Tests/RadarTests.h:517](Tests/RadarTests.h#L517)
+- **RADAR_METHODS** · dev setting (environment variable) · [Tests/RadarTests.h:499](Tests/RadarTests.h#L499)
+- **RADAR_STATS** · dev setting (environment variable) · [Tests/RadarTests.h:510](Tests/RadarTests.h#L510)
+- **RADAR_TRACE** · dev setting (environment variable) · [Tests/RadarTests.h:523](Tests/RadarTests.h#L523)
+- **SMOOTH_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:982](Tests/EnhDspTests.cpp#L982)
+- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1074](Tests/EnhDspTests.cpp#L1074)
+- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1076](Tests/EnhDspTests.cpp#L1076)
+- **ZIP_DUMP** · dev setting (environment variable) · [Tests/MasteringTests.h:497](Tests/MasteringTests.h#L497)
+- **ZIP_PARAM** · dev setting (environment variable) · [Tests/MasteringTests.h:470](Tests/MasteringTests.h#L470)
+- **ZIP_PRESET** · dev setting (environment variable) · [Tests/MasteringTests.h:476](Tests/MasteringTests.h#L476)
+- **ZIP_SET** · dev setting (environment variable) · [Tests/MasteringTests.h:477](Tests/MasteringTests.h#L477)
 
 ## Code
 
-Every class, struct, enum and function, by file, with the first line of its comment. (1073)
+Every class, struct, enum and function, by file, with the first line of its comment. (1145)
 
 
 **[Source/PluginEditor.cpp](Source/PluginEditor.cpp)**
@@ -677,18 +712,18 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 **[Source/PluginProcessor.cpp](Source/PluginProcessor.cpp)**
 
-- **PluginProcessor::prepareToPlay** · function · [PluginProcessor.cpp:105](Source/PluginProcessor.cpp#L105)
-- **PluginProcessor::isBusesLayoutSupported** · function · [PluginProcessor.cpp:113](Source/PluginProcessor.cpp#L113)
-- **PluginProcessor::processBlock** · function · [PluginProcessor.cpp:123](Source/PluginProcessor.cpp#L123)
-- **PluginProcessor::applyKnobModifiers** · function · [PluginProcessor.cpp:207](Source/PluginProcessor.cpp#L207)
-- **PluginProcessor::getNumPrograms** · function · [PluginProcessor.cpp:219](Source/PluginProcessor.cpp#L219)
-- **PluginProcessor::getProgramName** · function · [PluginProcessor.cpp:224](Source/PluginProcessor.cpp#L224)
-- **PluginProcessor::setCurrentProgram** · function · [PluginProcessor.cpp:230](Source/PluginProcessor.cpp#L230)
-- **PluginProcessor::stepPreset** · function · [PluginProcessor.cpp:256](Source/PluginProcessor.cpp#L256)
-- **PluginProcessor::createEditor** · function · [PluginProcessor.cpp:262](Source/PluginProcessor.cpp#L262)
-- **PluginProcessor::getStateInformation** · function · [PluginProcessor.cpp:267](Source/PluginProcessor.cpp#L267)
-- **PluginProcessor::setStateInformation** · function · [PluginProcessor.cpp:273](Source/PluginProcessor.cpp#L273)
-- **createPluginFilter** · function · [PluginProcessor.cpp:299](Source/PluginProcessor.cpp#L299)
+- **PluginProcessor::prepareToPlay** · function · [PluginProcessor.cpp:110](Source/PluginProcessor.cpp#L110)
+- **PluginProcessor::isBusesLayoutSupported** · function · [PluginProcessor.cpp:118](Source/PluginProcessor.cpp#L118)
+- **PluginProcessor::processBlock** · function · [PluginProcessor.cpp:128](Source/PluginProcessor.cpp#L128)
+- **PluginProcessor::applyKnobModifiers** · function · [PluginProcessor.cpp:217](Source/PluginProcessor.cpp#L217)
+- **PluginProcessor::getNumPrograms** · function · [PluginProcessor.cpp:229](Source/PluginProcessor.cpp#L229)
+- **PluginProcessor::getProgramName** · function · [PluginProcessor.cpp:234](Source/PluginProcessor.cpp#L234)
+- **PluginProcessor::setCurrentProgram** · function · [PluginProcessor.cpp:240](Source/PluginProcessor.cpp#L240)
+- **PluginProcessor::stepPreset** · function · [PluginProcessor.cpp:266](Source/PluginProcessor.cpp#L266)
+- **PluginProcessor::createEditor** · function · [PluginProcessor.cpp:272](Source/PluginProcessor.cpp#L272)
+- **PluginProcessor::getStateInformation** · function · [PluginProcessor.cpp:277](Source/PluginProcessor.cpp#L277)
+- **PluginProcessor::setStateInformation** · function · [PluginProcessor.cpp:283](Source/PluginProcessor.cpp#L283)
+- **createPluginFilter** · function · [PluginProcessor.cpp:309](Source/PluginProcessor.cpp#L309)
 
 **[Source/PluginProcessor.h](Source/PluginProcessor.h)**
 
@@ -731,19 +766,19 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **AdaptiveEQ::prepare** · function · [AdaptiveEQ.cpp:18](Source/DSP/AdaptiveEQ.cpp#L18)
 - **AdaptiveEQ::reset** · function · [AdaptiveEQ.cpp:104](Source/DSP/AdaptiveEQ.cpp#L104)
 - **AdaptiveEQ::analyseSource** · function · [AdaptiveEQ.cpp:125](Source/DSP/AdaptiveEQ.cpp#L125)
-- **AdaptiveEQ::update** · function · [AdaptiveEQ.cpp:236](Source/DSP/AdaptiveEQ.cpp#L236)
-- **AdaptiveEQ::process** · function · [AdaptiveEQ.cpp:306](Source/DSP/AdaptiveEQ.cpp#L306)
+- **AdaptiveEQ::update** · function · [AdaptiveEQ.cpp:232](Source/DSP/AdaptiveEQ.cpp#L232)
+- **AdaptiveEQ::process** · function · [AdaptiveEQ.cpp:300](Source/DSP/AdaptiveEQ.cpp#L300)
 
 **[Source/DSP/AdaptiveEQ.h](Source/DSP/AdaptiveEQ.h)**
 
-- **AdaptiveEQ** · class · [AdaptiveEQ.h:36](Source/DSP/AdaptiveEQ.h#L36)
-- **AdaptiveEQ::Settings** · struct · [AdaptiveEQ.h:39](Source/DSP/AdaptiveEQ.h#L39)
-- **AdaptiveEQ::getGainDb** · function · [AdaptiveEQ.h:58](Source/DSP/AdaptiveEQ.h#L58) — Applied response at each band centre (what the display shows).
-- **AdaptiveEQ::getTargetDb** · function · [AdaptiveEQ.h:59](Source/DSP/AdaptiveEQ.h#L59)
-- **AdaptiveEQ::getFilterGainDb** · function · [AdaptiveEQ.h:60](Source/DSP/AdaptiveEQ.h#L60)
-- **AdaptiveEQ::getActivity** · function · [AdaptiveEQ.h:61](Source/DSP/AdaptiveEQ.h#L61)
-- **AdaptiveEQ::getTrebleBalanceDb** · function · [AdaptiveEQ.h:62](Source/DSP/AdaptiveEQ.h#L62)
-- **AdaptiveEQ::getBassBalanceDb** · function · [AdaptiveEQ.h:63](Source/DSP/AdaptiveEQ.h#L63)
+- **AdaptiveEQ** · class · [AdaptiveEQ.h:35](Source/DSP/AdaptiveEQ.h#L35)
+- **AdaptiveEQ::Settings** · struct · [AdaptiveEQ.h:38](Source/DSP/AdaptiveEQ.h#L38)
+- **AdaptiveEQ::getGainDb** · function · [AdaptiveEQ.h:56](Source/DSP/AdaptiveEQ.h#L56) — Applied response at each band centre (what the display shows).
+- **AdaptiveEQ::getTargetDb** · function · [AdaptiveEQ.h:57](Source/DSP/AdaptiveEQ.h#L57)
+- **AdaptiveEQ::getFilterGainDb** · function · [AdaptiveEQ.h:58](Source/DSP/AdaptiveEQ.h#L58)
+- **AdaptiveEQ::getActivity** · function · [AdaptiveEQ.h:59](Source/DSP/AdaptiveEQ.h#L59)
+- **AdaptiveEQ::getTrebleBalanceDb** · function · [AdaptiveEQ.h:60](Source/DSP/AdaptiveEQ.h#L60)
+- **AdaptiveEQ::getBassBalanceDb** · function · [AdaptiveEQ.h:61](Source/DSP/AdaptiveEQ.h#L61)
 
 **[Source/DSP/AnalogStage.cpp](Source/DSP/AnalogStage.cpp)**
 
@@ -760,13 +795,13 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 - **AnalogStage** · class · [AnalogStage.h:24](Source/DSP/AnalogStage.h#L24)
 - **AnalogStage::Settings** · struct · [AnalogStage.h:27](Source/DSP/AnalogStage.h#L27)
-- **AnalogStage::getAutoGainDb** · function · [AnalogStage.h:47](Source/DSP/AnalogStage.h#L47)
-- **AnalogStage::getPeakDb** · function · [AnalogStage.h:48](Source/DSP/AnalogStage.h#L48)
-- **AnalogStage::KWeighting** · struct · [AnalogStage.h:53](Source/DSP/AnalogStage.h#L53)
-- **AnalogStage::BaseChannel** · struct · [AnalogStage.h:59](Source/DSP/AnalogStage.h#L59)
-- **AnalogStage::Exciter** · struct · [AnalogStage.h:64](Source/DSP/AnalogStage.h#L64)
-- **AnalogStage::ExciterCoeffs** · struct · [AnalogStage.h:71](Source/DSP/AnalogStage.h#L71)
-- **AnalogStage::OsChannel** · struct · [AnalogStage.h:78](Source/DSP/AnalogStage.h#L78)
+- **AnalogStage::getAutoGainDb** · function · [AnalogStage.h:46](Source/DSP/AnalogStage.h#L46)
+- **AnalogStage::getPeakDb** · function · [AnalogStage.h:47](Source/DSP/AnalogStage.h#L47)
+- **AnalogStage::KWeighting** · struct · [AnalogStage.h:52](Source/DSP/AnalogStage.h#L52)
+- **AnalogStage::BaseChannel** · struct · [AnalogStage.h:58](Source/DSP/AnalogStage.h#L58)
+- **AnalogStage::Exciter** · struct · [AnalogStage.h:63](Source/DSP/AnalogStage.h#L63)
+- **AnalogStage::ExciterCoeffs** · struct · [AnalogStage.h:70](Source/DSP/AnalogStage.h#L70)
+- **AnalogStage::OsChannel** · struct · [AnalogStage.h:77](Source/DSP/AnalogStage.h#L77)
 
 **[Source/DSP/BandAnalyzer.cpp](Source/DSP/BandAnalyzer.cpp)**
 
@@ -786,26 +821,26 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 - **Character** · class · [Character.h:38](Source/DSP/Character.h#L38)
 - **Character::Settings** · struct · [Character.h:47](Source/DSP/Character.h#L47)
-- **Character::prepare** · function · [Character.h:59](Source/DSP/Character.h#L59)
-- **Character::reset** · function · [Character.h:80](Source/DSP/Character.h#L80)
-- **Character::getLatencySamples** · function · [Character.h:103](Source/DSP/Character.h#L103)
-- **Character::getHarmonicsDb** · function · [Character.h:107](Source/DSP/Character.h#L107)
-- **Character::process** · function · [Character.h:109](Source/DSP/Character.h#L109)
-- **Character::setMaxBlock** · function · [Character.h:277](Source/DSP/Character.h#L277)
-- **Character::Coeffs** · struct · [Character.h:288](Source/DSP/Character.h#L288) — One model's parts, designed for the oversampled rate (and for one channel's tolerances).
-- **Character::State** · struct · [Character.h:310](Source/DSP/Character.h#L310)
-- **Character::Voice** · struct · [Character.h:320](Source/DSP/Character.h#L320)
-- **Character::approach** · function · [Character.h:327](Source/DSP/Character.h#L327)
-- **Character::assignVoices** · function · [Character.h:333](Source/DSP/Character.h#L333) — A and B get their shares;
-- **Character::fastTanh** · function · [Character.h:374](Source/DSP/Character.h#L374)
-- **Character::fluxStage** · function · [Character.h:383](Source/DSP/Character.h#L383)
-- **Character::biasedStage** · function · [Character.h:396](Source/DSP/Character.h#L396)
-- **Character::tapeCurve** · function · [Character.h:404](Source/DSP/Character.h#L404)
-- **Character::runModel** · function · [Character.h:412](Source/DSP/Character.h#L412)
-- **Character::designAll** · function · [Character.h:478](Source/DSP/Character.h#L478)
-- **Character::design** · function · [Character.h:494](Source/DSP/Character.h#L494)
-- **Character::delayOnly** · function · [Character.h:615](Source/DSP/Character.h#L615) — ==============================================================================
-- **Character::delayInto** · function · [Character.h:634](Source/DSP/Character.h#L634)
+- **Character::prepare** · function · [Character.h:61](Source/DSP/Character.h#L61)
+- **Character::reset** · function · [Character.h:84](Source/DSP/Character.h#L84)
+- **Character::getLatencySamples** · function · [Character.h:108](Source/DSP/Character.h#L108)
+- **Character::getHarmonicsDb** · function · [Character.h:112](Source/DSP/Character.h#L112)
+- **Character::process** · function · [Character.h:114](Source/DSP/Character.h#L114)
+- **Character::setMaxBlock** · function · [Character.h:305](Source/DSP/Character.h#L305)
+- **Character::Coeffs** · struct · [Character.h:316](Source/DSP/Character.h#L316) — One model's parts, designed for the oversampled rate (and for one channel's tolerances).
+- **Character::State** · struct · [Character.h:338](Source/DSP/Character.h#L338)
+- **Character::Voice** · struct · [Character.h:348](Source/DSP/Character.h#L348)
+- **Character::approach** · function · [Character.h:355](Source/DSP/Character.h#L355)
+- **Character::assignVoices** · function · [Character.h:361](Source/DSP/Character.h#L361) — A and B get their shares;
+- **Character::fastTanh** · function · [Character.h:402](Source/DSP/Character.h#L402)
+- **Character::fluxStage** · function · [Character.h:411](Source/DSP/Character.h#L411)
+- **Character::biasedStage** · function · [Character.h:424](Source/DSP/Character.h#L424)
+- **Character::tapeCurve** · function · [Character.h:432](Source/DSP/Character.h#L432)
+- **Character::runModel** · function · [Character.h:442](Source/DSP/Character.h#L442)
+- **Character::designAll** · function · [Character.h:510](Source/DSP/Character.h#L510)
+- **Character::design** · function · [Character.h:528](Source/DSP/Character.h#L528)
+- **Character::delayOnly** · function · [Character.h:650](Source/DSP/Character.h#L650) — ==============================================================================
+- **Character::delayInto** · function · [Character.h:669](Source/DSP/Character.h#L669)
 
 **[Source/DSP/DeepSub.h](Source/DSP/DeepSub.h)**
 
@@ -905,36 +940,36 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **EnhEngine::prepare** · function · [EnhEngine.cpp:6](Source/DSP/EnhEngine.cpp#L6)
 - **EnhEngine::reset** · function · [EnhEngine.cpp:51](Source/DSP/EnhEngine.cpp#L51)
 - **EnhEngine::controlTick** · function · [EnhEngine.cpp:88](Source/DSP/EnhEngine.cpp#L88)
-- **EnhEngine::process** · function · [EnhEngine.cpp:124](Source/DSP/EnhEngine.cpp#L124)
-- **EnhEngine::inStereoMode** · function · [EnhEngine.cpp:276](Source/DSP/EnhEngine.cpp#L276)
-- **EnhEngine::compareStage** · function · [EnhEngine.cpp:333](Source/DSP/EnhEngine.cpp#L333)
-- **EnhEngine::processChunk** · function · [EnhEngine.cpp:387](Source/DSP/EnhEngine.cpp#L387)
+- **EnhEngine::process** · function · [EnhEngine.cpp:123](Source/DSP/EnhEngine.cpp#L123)
+- **EnhEngine::inStereoMode** · function · [EnhEngine.cpp:275](Source/DSP/EnhEngine.cpp#L275)
+- **EnhEngine::compareStage** · function · [EnhEngine.cpp:332](Source/DSP/EnhEngine.cpp#L332)
+- **EnhEngine::publishRadar** · function · [EnhEngine.cpp:386](Source/DSP/EnhEngine.cpp#L386)
+- **EnhEngine::processChunk** · function · [EnhEngine.cpp:425](Source/DSP/EnhEngine.cpp#L425)
 
 **[Source/DSP/EnhEngine.h](Source/DSP/EnhEngine.h)**
 
-- **EnhEngine** · class · [EnhEngine.h:47](Source/DSP/EnhEngine.h#L47)
-- **EnhEngine::Parameters** · struct · [EnhEngine.h:50](Source/DSP/EnhEngine.h#L50)
-- **EnhEngine::getLatencySamples** · function · [EnhEngine.h:75](Source/DSP/EnhEngine.h#L75)
-- **EnhEngine::resetLoudness** · function · [EnhEngine.h:78](Source/DSP/EnhEngine.h#L78) — The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again.
-- **EnhEngine::getBalancer** · function · [EnhEngine.h:79](Source/DSP/EnhEngine.h#L79)
-- **EnhEngine::getLoudness** · function · [EnhEngine.h:80](Source/DSP/EnhEngine.h#L80)
-- **EnhEngine::getBalancerInputScope** · function · [EnhEngine.h:81](Source/DSP/EnhEngine.h#L81)
-- **EnhEngine::getBalancerOutputScope** · function · [EnhEngine.h:82](Source/DSP/EnhEngine.h#L82)
-- **EnhEngine::getOutputLimiter** · function · [EnhEngine.h:83](Source/DSP/EnhEngine.h#L83)
-- **EnhEngine::getMeters** · function · [EnhEngine.h:84](Source/DSP/EnhEngine.h#L84)
-- **EnhEngine::getFootstepEventCount** · function · [EnhEngine.h:87](Source/DSP/EnhEngine.h#L87) — For tests: detector events since reset.
-- **EnhEngine::getFootstepConfidence** · function · [EnhEngine.h:88](Source/DSP/EnhEngine.h#L88)
-- **EnhEngine::getFootstepTrace** · function · [EnhEngine.h:89](Source/DSP/EnhEngine.h#L89)
-- **EnhEngine::getHarmonicPlan** · function · [EnhEngine.h:90](Source/DSP/EnhEngine.h#L90)
-- **EnhEngine::getEQ** · function · [EnhEngine.h:91](Source/DSP/EnhEngine.h#L91)
-- **EnhEngine::getFootstepDetector** · function · [EnhEngine.h:92](Source/DSP/EnhEngine.h#L92)
-- **EnhEngine::setFootstepAdaptive** · function · [EnhEngine.h:93](Source/DSP/EnhEngine.h#L93)
-- **EnhEngine::getSeraph** · function · [EnhEngine.h:94](Source/DSP/EnhEngine.h#L94)
-- **EnhEngine::getCompressor** · function · [EnhEngine.h:95](Source/DSP/EnhEngine.h#L95)
-- **EnhEngine::getLeveler** · function · [EnhEngine.h:96](Source/DSP/EnhEngine.h#L96)
-- **EnhEngine::getLimiter** · function · [EnhEngine.h:97](Source/DSP/EnhEngine.h#L97)
-- **EnhEngine::getInputScope** · function · [EnhEngine.h:100](Source/DSP/EnhEngine.h#L100) — Analyser taps: the audio thread only copies samples in, the editor does the FFT.
-- **EnhEngine::getOutputScope** · function · [EnhEngine.h:101](Source/DSP/EnhEngine.h#L101)
+- **EnhEngine** · class · [EnhEngine.h:44](Source/DSP/EnhEngine.h#L44)
+- **EnhEngine::Parameters** · struct · [EnhEngine.h:47](Source/DSP/EnhEngine.h#L47)
+- **EnhEngine::getLatencySamples** · function · [EnhEngine.h:73](Source/DSP/EnhEngine.h#L73)
+- **EnhEngine::resetLoudness** · function · [EnhEngine.h:76](Source/DSP/EnhEngine.h#L76) — The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again.
+- **EnhEngine::getBalancer** · function · [EnhEngine.h:77](Source/DSP/EnhEngine.h#L77)
+- **EnhEngine::getLoudness** · function · [EnhEngine.h:78](Source/DSP/EnhEngine.h#L78)
+- **EnhEngine::getBalancerInputScope** · function · [EnhEngine.h:79](Source/DSP/EnhEngine.h#L79)
+- **EnhEngine::getBalancerOutputScope** · function · [EnhEngine.h:80](Source/DSP/EnhEngine.h#L80)
+- **EnhEngine::getOutputLimiter** · function · [EnhEngine.h:81](Source/DSP/EnhEngine.h#L81)
+- **EnhEngine::getMeters** · function · [EnhEngine.h:82](Source/DSP/EnhEngine.h#L82)
+- **EnhEngine::getFootstepEventCount** · function · [EnhEngine.h:85](Source/DSP/EnhEngine.h#L85) — For tests: footsteps the radar has found since reset, and how much it is lifting now (0..1).
+- **EnhEngine::getFootstepConfidence** · function · [EnhEngine.h:86](Source/DSP/EnhEngine.h#L86)
+- **EnhEngine::getRadar** · function · [EnhEngine.h:87](Source/DSP/EnhEngine.h#L87)
+- **EnhEngine::setRadarLog** · function · [EnhEngine.h:88](Source/DSP/EnhEngine.h#L88)
+- **EnhEngine::getHarmonicPlan** · function · [EnhEngine.h:89](Source/DSP/EnhEngine.h#L89)
+- **EnhEngine::getEQ** · function · [EnhEngine.h:90](Source/DSP/EnhEngine.h#L90)
+- **EnhEngine::getSeraph** · function · [EnhEngine.h:91](Source/DSP/EnhEngine.h#L91)
+- **EnhEngine::getCompressor** · function · [EnhEngine.h:92](Source/DSP/EnhEngine.h#L92)
+- **EnhEngine::getLeveler** · function · [EnhEngine.h:93](Source/DSP/EnhEngine.h#L93)
+- **EnhEngine::getLimiter** · function · [EnhEngine.h:94](Source/DSP/EnhEngine.h#L94)
+- **EnhEngine::getInputScope** · function · [EnhEngine.h:97](Source/DSP/EnhEngine.h#L97) — Analyser taps: the audio thread only copies samples in, the editor does the FFT.
+- **EnhEngine::getOutputScope** · function · [EnhEngine.h:98](Source/DSP/EnhEngine.h#L98)
 
 **[Source/DSP/FinalLimiter.h](Source/DSP/FinalLimiter.h)**
 
@@ -954,28 +989,57 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **FinalLimiter::designInterpolator** · function · [FinalLimiter.h:251](Source/DSP/FinalLimiter.h#L251)
 - **FinalLimiter::truePeak** · function · [FinalLimiter.h:280](Source/DSP/FinalLimiter.h#L280)
 
-**[Source/DSP/FootstepDetector.cpp](Source/DSP/FootstepDetector.cpp)**
+**[Source/DSP/FootstepRadar.cpp](Source/DSP/FootstepRadar.cpp)**
 
-- **FootstepDetector::prepare** · function · [FootstepDetector.cpp:16](Source/DSP/FootstepDetector.cpp#L16)
-- **FootstepDetector::reset** · function · [FootstepDetector.cpp:36](Source/DSP/FootstepDetector.cpp#L36)
-- **FootstepDetector::computeShape** · function · [FootstepDetector.cpp:66](Source/DSP/FootstepDetector.cpp#L66) — ==============================================================================
-- **FootstepDetector::fingerprintMatch** · function · [FootstepDetector.cpp:85](Source/DSP/FootstepDetector.cpp#L85)
-- **FootstepDetector::startEvent** · function · [FootstepDetector.cpp:106](Source/DSP/FootstepDetector.cpp#L106) — ==============================================================================
-- **FootstepDetector::retract** · function · [FootstepDetector.cpp:158](Source/DSP/FootstepDetector.cpp#L158)
-- **FootstepDetector::commit** · function · [FootstepDetector.cpp:165](Source/DSP/FootstepDetector.cpp#L165)
-- **FootstepDetector::eventDropDb** · function · [FootstepDetector.cpp:193](Source/DSP/FootstepDetector.cpp#L193)
-- **FootstepDetector::eventExcessDb** · function · [FootstepDetector.cpp:215](Source/DSP/FootstepDetector.cpp#L215)
-- **FootstepDetector::evaluate** · function · [FootstepDetector.cpp:229](Source/DSP/FootstepDetector.cpp#L229)
-- **FootstepDetector::update** · function · [FootstepDetector.cpp:295](Source/DSP/FootstepDetector.cpp#L295) — ==============================================================================
+- **powerDb** · function · [FootstepRadar.cpp:14](Source/DSP/FootstepRadar.cpp#L14)
+- **ramp** · function · [FootstepRadar.cpp:17](Source/DSP/FootstepRadar.cpp#L17) — 0 at e0, 1 at e1 (either way round), smooth in between.
+- **cosine** · function · [FootstepRadar.cpp:23](Source/DSP/FootstepRadar.cpp#L23)
+- **FootstepRadar::prepare** · function · [FootstepRadar.cpp:37](Source/DSP/FootstepRadar.cpp#L37) — ==============================================================================
+- **FootstepRadar::reset** · function · [FootstepRadar.cpp:70](Source/DSP/FootstepRadar.cpp#L70)
+- **FootstepRadar::designRoom** · function · [FootstepRadar.cpp:128](Source/DSP/FootstepRadar.cpp#L128) — ==============================================================================
+- **FootstepRadar::roomProcess** · function · [FootstepRadar.cpp:149](Source/DSP/FootstepRadar.cpp#L149)
+- **FootstepRadar::process** · function · [FootstepRadar.cpp:180](Source/DSP/FootstepRadar.cpp#L180) — ==============================================================================
+- **FootstepRadar::expectedNow** · function · [FootstepRadar.cpp:313](Source/DSP/FootstepRadar.cpp#L313) — ==============================================================================
+- **FootstepRadar::trackMatch** · function · [FootstepRadar.cpp:329](Source/DSP/FootstepRadar.cpp#L329)
+- **FootstepRadar::controlTick** · function · [FootstepRadar.cpp:365](Source/DSP/FootstepRadar.cpp#L365) — ==============================================================================
+- **FootstepRadar::rhythmOf** · function · [FootstepRadar.cpp:620](Source/DSP/FootstepRadar.cpp#L620)
+- **FootstepRadar::combineLifts** · function · [FootstepRadar.cpp:643](Source/DSP/FootstepRadar.cpp#L643)
+- **FootstepRadar::pitchStrength** · function · [FootstepRadar.cpp:655](Source/DSP/FootstepRadar.cpp#L655)
+- **FootstepRadar::weakSoFar** · function · [FootstepRadar.cpp:689](Source/DSP/FootstepRadar.cpp#L689)
+- **FootstepRadar::updateBackground** · function · [FootstepRadar.cpp:701](Source/DSP/FootstepRadar.cpp#L701)
+- **FootstepRadar::onsetRate** · function · [FootstepRadar.cpp:738](Source/DSP/FootstepRadar.cpp#L738)
+- **FootstepRadar::startEvent** · function · [FootstepRadar.cpp:746](Source/DSP/FootstepRadar.cpp#L746)
+- **FootstepRadar::setLift** · function · [FootstepRadar.cpp:802](Source/DSP/FootstepRadar.cpp#L802)
+- **FootstepRadar::release** · function · [FootstepRadar.cpp:825](Source/DSP/FootstepRadar.cpp#L825)
+- **FootstepRadar::decide** · function · [FootstepRadar.cpp:834](Source/DSP/FootstepRadar.cpp#L834)
+- **FootstepRadar::confirm** · function · [FootstepRadar.cpp:1082](Source/DSP/FootstepRadar.cpp#L1082)
 
-**[Source/DSP/FootstepDetector.h](Source/DSP/FootstepDetector.h)**
+**[Source/DSP/FootstepRadar.h](Source/DSP/FootstepRadar.h)**
 
-- **FootstepDetector** · class · [FootstepDetector.h:50](Source/DSP/FootstepDetector.h#L50)
-- **FootstepDetector::getConfidence** · function · [FootstepDetector.h:57](Source/DSP/FootstepDetector.h#L57)
-- **FootstepDetector::setAdaptive** · function · [FootstepDetector.h:60](Source/DSP/FootstepDetector.h#L60) — Tests: switch the adaptive decay and the second look off, to compare with fixed rules.
-- **FootstepDetector::getEventCount** · function · [FootstepDetector.h:61](Source/DSP/FootstepDetector.h#L61)
-- **FootstepDetector::getRejectedCount** · function · [FootstepDetector.h:62](Source/DSP/FootstepDetector.h#L62)
-- **FootstepDetector::Trace** · struct · [FootstepDetector.h:70](Source/DSP/FootstepDetector.h#L70) — Decision factors of the current / last event (tests, diagnostics).
+- **FootstepRadar** · class · [FootstepRadar.h:39](Source/DSP/FootstepRadar.h#L39)
+- **FootstepRadar::Settings** · struct · [FootstepRadar.h:46](Source/DSP/FootstepRadar.h#L46)
+- **FootstepRadar::Step** · struct · [FootstepRadar.h:58](Source/DSP/FootstepRadar.h#L58) — A confirmed step (for the display, the meters and the tests).
+- **FootstepRadar::Track** · struct · [FootstepRadar.h:71](Source/DSP/FootstepRadar.h#L71) — A walker being followed.
+- **FootstepRadar::Decision** · struct · [FootstepRadar.h:84](Source/DSP/FootstepRadar.h#L84) — Every event and what was decided (tests;
+- **FootstepRadar::getLatencySamples** · function · [FootstepRadar.h:101](Source/DSP/FootstepRadar.h#L101)
+- **FootstepRadar::getActivity** · function · [FootstepRadar.h:104](Source/DSP/FootstepRadar.h#L104) — --- readouts ------------------------------------------------------------------------------
+- **FootstepRadar::getAcceptedCount** · function · [FootstepRadar.h:105](Source/DSP/FootstepRadar.h#L105)
+- **FootstepRadar::getEventCount** · function · [FootstepRadar.h:106](Source/DSP/FootstepRadar.h#L106)
+- **FootstepRadar::getTracks** · function · [FootstepRadar.h:107](Source/DSP/FootstepRadar.h#L107)
+- **FootstepRadar::getBandExcessDb** · function · [FootstepRadar.h:108](Source/DSP/FootstepRadar.h#L108)
+- **FootstepRadar::getOnsetStrength** · function · [FootstepRadar.h:109](Source/DSP/FootstepRadar.h#L109)
+- **FootstepRadar::getThreshold** · function · [FootstepRadar.h:110](Source/DSP/FootstepRadar.h#L110)
+- **FootstepRadar::getRecent** · function · [FootstepRadar.h:112](Source/DSP/FootstepRadar.h#L112) — Confirmed steps: a ring of the last recentCapacity;
+- **FootstepRadar::getStepsTotal** · function · [FootstepRadar.h:113](Source/DSP/FootstepRadar.h#L113)
+- **FootstepRadar::getClock** · function · [FootstepRadar.h:114](Source/DSP/FootstepRadar.h#L114)
+- **FootstepRadar::getMusicality** · function · [FootstepRadar.h:115](Source/DSP/FootstepRadar.h#L115)
+- **FootstepRadar::getPeriodicity** · function · [FootstepRadar.h:116](Source/DSP/FootstepRadar.h#L116)
+- **FootstepRadar::getBackgroundDb** · function · [FootstepRadar.h:117](Source/DSP/FootstepRadar.h#L117)
+- **FootstepRadar::getPhase** · function · [FootstepRadar.h:118](Source/DSP/FootstepRadar.h#L118)
+- **FootstepRadar::getLastOnset** · function · [FootstepRadar.h:119](Source/DSP/FootstepRadar.h#L119)
+- **FootstepRadar::getFlickerDb** · function · [FootstepRadar.h:120](Source/DSP/FootstepRadar.h#L120)
+- **FootstepRadar::Event** · struct · [FootstepRadar.h:202](Source/DSP/FootstepRadar.h#L202)
+- **FootstepRadar::Room** · struct · [FootstepRadar.h:265](Source/DSP/FootstepRadar.h#L265)
 
 **[Source/DSP/HarmonicPlanner.cpp](Source/DSP/HarmonicPlanner.cpp)**
 
@@ -1022,9 +1086,9 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 - **Method** · struct · [MethodRegistry.h:23](Source/DSP/MethodRegistry.h#L23)
 - **MethodId** · enum · [MethodRegistry.h:33](Source/DSP/MethodRegistry.h#L33) — Every stage with a parameter, so the DSP can address them by number (KnobValues::methods).
-- **Stage** · struct · [MethodRegistry.h:51](Source/DSP/MethodRegistry.h#L51)
-- **stagesForUnit** · function · [MethodRegistry.h:592](Source/DSP/MethodRegistry.h#L592) — The stages of a unit (by its layout::Unit index).
-- **Modifier** · struct · [MethodRegistry.h:617](Source/DSP/MethodRegistry.h#L617) — ================================================================================================== Knob modif…
+- **Stage** · struct · [MethodRegistry.h:52](Source/DSP/MethodRegistry.h#L52)
+- **stagesForUnit** · function · [MethodRegistry.h:628](Source/DSP/MethodRegistry.h#L628) — The stages of a unit (by its layout::Unit index).
+- **Modifier** · struct · [MethodRegistry.h:654](Source/DSP/MethodRegistry.h#L654) — ================================================================================================== Knob modif…
 
 **[Source/DSP/MixBalancer.h](Source/DSP/MixBalancer.h)**
 
@@ -1059,7 +1123,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/DSP/ParameterMapping.h](Source/DSP/ParameterMapping.h)**
 
 - **KnobValues** · struct · [ParameterMapping.h:9](Source/DSP/ParameterMapping.h#L9)
-- **mapKnobs** · function · [ParameterMapping.h:92](Source/DSP/ParameterMapping.h#L92)
+- **mapKnobs** · function · [ParameterMapping.h:96](Source/DSP/ParameterMapping.h#L96)
 
 **[Source/DSP/Seraph.cpp](Source/DSP/Seraph.cpp)**
 
@@ -1273,13 +1337,13 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/Parameters/ParameterSpecs.cpp](Source/Parameters/ParameterSpecs.cpp)**
 
 - **buildSpecs** · function · [ParameterSpecs.cpp:6](Source/Parameters/ParameterSpecs.cpp#L6)
-- **allSpecs** · function · [ParameterSpecs.cpp:114](Source/Parameters/ParameterSpecs.cpp#L114)
-- **findSpec** · function · [ParameterSpecs.cpp:120](Source/Parameters/ParameterSpecs.cpp#L120)
-- **createLayout** · function · [ParameterSpecs.cpp:129](Source/Parameters/ParameterSpecs.cpp#L129)
+- **allSpecs** · function · [ParameterSpecs.cpp:119](Source/Parameters/ParameterSpecs.cpp#L119)
+- **findSpec** · function · [ParameterSpecs.cpp:125](Source/Parameters/ParameterSpecs.cpp#L125)
+- **createLayout** · function · [ParameterSpecs.cpp:134](Source/Parameters/ParameterSpecs.cpp#L134)
 
 **[Source/Parameters/ParameterSpecs.h](Source/Parameters/ParameterSpecs.h)**
 
-- **Spec** · struct · [ParameterSpecs.h:121](Source/Parameters/ParameterSpecs.h#L121)
+- **Spec** · struct · [ParameterSpecs.h:126](Source/Parameters/ParameterSpecs.h#L126)
 
 **[Source/Parameters/PresetLibrary.cpp](Source/Parameters/PresetLibrary.cpp)**
 
@@ -1300,12 +1364,13 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Router::readJournal** · function · [AudioRouting.cpp:59](Source/Standalone/AudioRouting.cpp#L59)
 - **Router::save** · function · [AudioRouting.cpp:68](Source/Standalone/AudioRouting.cpp#L68)
 - **Router::insert** · function · [AudioRouting.cpp:83](Source/Standalone/AudioRouting.cpp#L83)
-- **Router::followNewStreams** · function · [AudioRouting.cpp:142](Source/Standalone/AudioRouting.cpp#L142)
-- **Router::undo** · function · [AudioRouting.cpp:202](Source/Standalone/AudioRouting.cpp#L202)
-- **Router::remove** · function · [AudioRouting.cpp:252](Source/Standalone/AudioRouting.cpp#L252)
-- **Router::recoverLeftovers** · function · [AudioRouting.cpp:271](Source/Standalone/AudioRouting.cpp#L271)
-- **runWatchdog** · function · [AudioRouting.cpp:298](Source/Standalone/AudioRouting.cpp#L298) — ==============================================================================
-- **startWatchdog** · function · [AudioRouting.cpp:313](Source/Standalone/AudioRouting.cpp#L313)
+- **Router::retarget** · function · [AudioRouting.cpp:143](Source/Standalone/AudioRouting.cpp#L143)
+- **Router::followNewStreams** · function · [AudioRouting.cpp:165](Source/Standalone/AudioRouting.cpp#L165)
+- **Router::undo** · function · [AudioRouting.cpp:232](Source/Standalone/AudioRouting.cpp#L232)
+- **Router::remove** · function · [AudioRouting.cpp:282](Source/Standalone/AudioRouting.cpp#L282)
+- **Router::recoverLeftovers** · function · [AudioRouting.cpp:301](Source/Standalone/AudioRouting.cpp#L301)
+- **runWatchdog** · function · [AudioRouting.cpp:328](Source/Standalone/AudioRouting.cpp#L328) — ==============================================================================
+- **startWatchdog** · function · [AudioRouting.cpp:343](Source/Standalone/AudioRouting.cpp#L343)
 
 **[Source/Standalone/AudioRouting.h](Source/Standalone/AudioRouting.h)**
 
@@ -1322,8 +1387,10 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Plan** · struct · [AudioRouting.h:87](Source/Standalone/AudioRouting.h#L87) — ============================================================================== What the user asked for.
 - **Router** · class · [AudioRouting.h:100](Source/Standalone/AudioRouting.h#L100)
 - **Router::isInserted** · function · [AudioRouting.h:111](Source/Standalone/AudioRouting.h#L111)
-- **Router::getLastError** · function · [AudioRouting.h:121](Source/Standalone/AudioRouting.h#L121)
-- **Router::getJournalFile** · function · [AudioRouting.h:122](Source/Standalone/AudioRouting.h#L122)
+- **Router::listenId** · function · [AudioRouting.h:125](Source/Standalone/AudioRouting.h#L125)
+- **Router::isWholeSystem** · function · [AudioRouting.h:126](Source/Standalone/AudioRouting.h#L126)
+- **Router::getLastError** · function · [AudioRouting.h:132](Source/Standalone/AudioRouting.h#L132)
+- **Router::getJournalFile** · function · [AudioRouting.h:133](Source/Standalone/AudioRouting.h#L133)
 
 **[Source/Standalone/AudioRoutingLinux.cpp](Source/Standalone/AudioRoutingLinux.cpp)**
 
@@ -1414,16 +1481,17 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **RouterBar::setStatus** · function · [RouterBar.cpp:400](Source/Standalone/RouterBar.cpp#L400)
 - **RouterBar::openRackAudio** · function · [RouterBar.cpp:408](Source/Standalone/RouterBar.cpp#L408) — ==============================================================================
 - **RouterBar::insertRack** · function · [RouterBar.cpp:474](Source/Standalone/RouterBar.cpp#L474)
-- **RouterBar::removeRack** · function · [RouterBar.cpp:550](Source/Standalone/RouterBar.cpp#L550)
-- **RouterBar::showAppsMenu** · function · [RouterBar.cpp:565](Source/Standalone/RouterBar.cpp#L565) — ==============================================================================
-- **RouterBar::showMoreMenu** · function · [RouterBar.cpp:609](Source/Standalone/RouterBar.cpp#L609)
-- **RouterBar::timerCallback** · function · [RouterBar.cpp:648](Source/Standalone/RouterBar.cpp#L648)
-- **RouterBar::paint** · function · [RouterBar.cpp:724](Source/Standalone/RouterBar.cpp#L724) — ==============================================================================
-- **RouterBar::resized** · function · [RouterBar.cpp:781](Source/Standalone/RouterBar.cpp#L781)
-- **startCommand** · function · [RouterBar.cpp:821](Source/Standalone/RouterBar.cpp#L821)
-- **autostartFile** · function · [RouterBar.cpp:830](Source/Standalone/RouterBar.cpp#L830)
-- **RouterBar::isStartingWithComputer** · function · [RouterBar.cpp:837](Source/Standalone/RouterBar.cpp#L837)
-- **RouterBar::setStartingWithComputer** · function · [RouterBar.cpp:846](Source/Standalone/RouterBar.cpp#L846)
+- **RouterBar::followDefaultSwitch** · function · [RouterBar.cpp:550](Source/Standalone/RouterBar.cpp#L550)
+- **RouterBar::removeRack** · function · [RouterBar.cpp:606](Source/Standalone/RouterBar.cpp#L606)
+- **RouterBar::showAppsMenu** · function · [RouterBar.cpp:621](Source/Standalone/RouterBar.cpp#L621) — ==============================================================================
+- **RouterBar::showMoreMenu** · function · [RouterBar.cpp:665](Source/Standalone/RouterBar.cpp#L665)
+- **RouterBar::timerCallback** · function · [RouterBar.cpp:704](Source/Standalone/RouterBar.cpp#L704)
+- **RouterBar::paint** · function · [RouterBar.cpp:791](Source/Standalone/RouterBar.cpp#L791) — ==============================================================================
+- **RouterBar::resized** · function · [RouterBar.cpp:848](Source/Standalone/RouterBar.cpp#L848)
+- **startCommand** · function · [RouterBar.cpp:888](Source/Standalone/RouterBar.cpp#L888)
+- **autostartFile** · function · [RouterBar.cpp:897](Source/Standalone/RouterBar.cpp#L897)
+- **RouterBar::isStartingWithComputer** · function · [RouterBar.cpp:904](Source/Standalone/RouterBar.cpp#L904)
+- **RouterBar::setStartingWithComputer** · function · [RouterBar.cpp:913](Source/Standalone/RouterBar.cpp#L913)
 
 **[Source/Standalone/RouterBar.h](Source/Standalone/RouterBar.h)**
 
@@ -1578,32 +1646,32 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/UI/HardwareView.cpp](Source/UI/HardwareView.cpp)**
 
 - **isSwitchLike** · function · [HardwareView.cpp:18](Source/UI/HardwareView.cpp#L18) — Buttons and bat toggles flip on click;
-- **HardwareView::resized** · function · [HardwareView.cpp:124](Source/UI/HardwareView.cpp#L124)
-- **HardwareView::openPanel** · function · [HardwareView.cpp:137](Source/UI/HardwareView.cpp#L137) — ==============================================================================
-- **HardwareView::publishPanel** · function · [HardwareView.cpp:155](Source/UI/HardwareView.cpp#L155) — Hands the panel's rectangle and, when it changed, its print to the renderer.
-- **HardwareView::publishWindowGeometry** · function · [HardwareView.cpp:175](Source/UI/HardwareView.cpp#L175)
-- **HardwareView::paramIndexForControl** · function · [HardwareView.cpp:192](Source/UI/HardwareView.cpp#L192) — ==============================================================================
-- **HardwareView::pickControl** · function · [HardwareView.cpp:197](Source/UI/HardwareView.cpp#L197)
-- **HardwareView::unitUnderPointer** · function · [HardwareView.cpp:205](Source/UI/HardwareView.cpp#L205)
-- **HardwareView::setFocus** · function · [HardwareView.cpp:224](Source/UI/HardwareView.cpp#L224) — Walk toward a unit, or step back to see the whole rack.
-- **HardwareView::updateMouse** · function · [HardwareView.cpp:231](Source/UI/HardwareView.cpp#L231)
-- **HardwareView::mouseEnter** · function · [HardwareView.cpp:240](Source/UI/HardwareView.cpp#L240) — ==============================================================================
-- **HardwareView::mouseMove** · function · [HardwareView.cpp:242](Source/UI/HardwareView.cpp#L242)
-- **HardwareView::mouseExit** · function · [HardwareView.cpp:272](Source/UI/HardwareView.cpp#L272)
-- **HardwareView::mouseDown** · function · [HardwareView.cpp:279](Source/UI/HardwareView.cpp#L279)
-- **HardwareView::mouseDrag** · function · [HardwareView.cpp:347](Source/UI/HardwareView.cpp#L347)
-- **HardwareView::mouseUp** · function · [HardwareView.cpp:363](Source/UI/HardwareView.cpp#L363)
-- **HardwareView::mouseDoubleClick** · function · [HardwareView.cpp:396](Source/UI/HardwareView.cpp#L396)
-- **HardwareView::nudge** · function · [HardwareView.cpp:410](Source/UI/HardwareView.cpp#L410)
-- **HardwareView::mouseWheelMove** · function · [HardwareView.cpp:418](Source/UI/HardwareView.cpp#L418)
-- **HardwareView::fillDemoScope** · function · [HardwareView.cpp:456](Source/UI/HardwareView.cpp#L456)
-- **HardwareView::refreshOverlay** · function · [HardwareView.cpp:481](Source/UI/HardwareView.cpp#L481)
-- **HardwareView::applyTestParams** · function · [HardwareView.cpp:583](Source/UI/HardwareView.cpp#L583)
-- **HardwareView::updateRenderingState** · function · [HardwareView.cpp:599](Source/UI/HardwareView.cpp#L599)
-- **HardwareView::updateDisplayHistories** · function · [HardwareView.cpp:651](Source/UI/HardwareView.cpp#L651) — The LEVEL & LOUDNESS waveform and readout, and the MIX BALANCER's spectrum and history.
-- **HardwareView::displayChoice** · function · [HardwareView.cpp:768](Source/UI/HardwareView.cpp#L768) — A display setting's choice (MethodRegistry.h, DISPLAY), 0 = the default.
-- **HardwareView::timerCallback** · function · [HardwareView.cpp:777](Source/UI/HardwareView.cpp#L777)
-- **HardwareView::updateCallout** · function · [HardwareView.cpp:845](Source/UI/HardwareView.cpp#L845)
+- **HardwareView::resized** · function · [HardwareView.cpp:126](Source/UI/HardwareView.cpp#L126)
+- **HardwareView::openPanel** · function · [HardwareView.cpp:139](Source/UI/HardwareView.cpp#L139) — ==============================================================================
+- **HardwareView::publishPanel** · function · [HardwareView.cpp:157](Source/UI/HardwareView.cpp#L157) — Hands the panel's rectangle and, when it changed, its print to the renderer.
+- **HardwareView::publishWindowGeometry** · function · [HardwareView.cpp:177](Source/UI/HardwareView.cpp#L177)
+- **HardwareView::paramIndexForControl** · function · [HardwareView.cpp:194](Source/UI/HardwareView.cpp#L194) — ==============================================================================
+- **HardwareView::pickControl** · function · [HardwareView.cpp:199](Source/UI/HardwareView.cpp#L199)
+- **HardwareView::unitUnderPointer** · function · [HardwareView.cpp:207](Source/UI/HardwareView.cpp#L207)
+- **HardwareView::setFocus** · function · [HardwareView.cpp:226](Source/UI/HardwareView.cpp#L226) — Walk toward a unit, or step back to see the whole rack.
+- **HardwareView::updateMouse** · function · [HardwareView.cpp:233](Source/UI/HardwareView.cpp#L233)
+- **HardwareView::mouseEnter** · function · [HardwareView.cpp:242](Source/UI/HardwareView.cpp#L242) — ==============================================================================
+- **HardwareView::mouseMove** · function · [HardwareView.cpp:244](Source/UI/HardwareView.cpp#L244)
+- **HardwareView::mouseExit** · function · [HardwareView.cpp:274](Source/UI/HardwareView.cpp#L274)
+- **HardwareView::mouseDown** · function · [HardwareView.cpp:281](Source/UI/HardwareView.cpp#L281)
+- **HardwareView::mouseDrag** · function · [HardwareView.cpp:349](Source/UI/HardwareView.cpp#L349)
+- **HardwareView::mouseUp** · function · [HardwareView.cpp:365](Source/UI/HardwareView.cpp#L365)
+- **HardwareView::mouseDoubleClick** · function · [HardwareView.cpp:398](Source/UI/HardwareView.cpp#L398)
+- **HardwareView::nudge** · function · [HardwareView.cpp:412](Source/UI/HardwareView.cpp#L412)
+- **HardwareView::mouseWheelMove** · function · [HardwareView.cpp:420](Source/UI/HardwareView.cpp#L420)
+- **HardwareView::fillDemoScope** · function · [HardwareView.cpp:458](Source/UI/HardwareView.cpp#L458)
+- **HardwareView::refreshOverlay** · function · [HardwareView.cpp:483](Source/UI/HardwareView.cpp#L483)
+- **HardwareView::applyTestParams** · function · [HardwareView.cpp:585](Source/UI/HardwareView.cpp#L585)
+- **HardwareView::updateRenderingState** · function · [HardwareView.cpp:601](Source/UI/HardwareView.cpp#L601)
+- **HardwareView::updateDisplayHistories** · function · [HardwareView.cpp:653](Source/UI/HardwareView.cpp#L653) — The LEVEL & LOUDNESS waveform and readout, and the MIX BALANCER's spectrum and history.
+- **HardwareView::displayChoice** · function · [HardwareView.cpp:770](Source/UI/HardwareView.cpp#L770) — A display setting's choice (MethodRegistry.h, DISPLAY), 0 = the default.
+- **HardwareView::timerCallback** · function · [HardwareView.cpp:779](Source/UI/HardwareView.cpp#L779)
+- **HardwareView::updateCallout** · function · [HardwareView.cpp:847](Source/UI/HardwareView.cpp#L847)
 
 **[Source/UI/HardwareView.h](Source/UI/HardwareView.h)**
 
@@ -1636,39 +1704,39 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/UI/Scene/DeviceLayout.h](Source/UI/Scene/DeviceLayout.h)**
 
 - **lidVent** · function · [DeviceLayout.h:48](Source/UI/Scene/DeviceLayout.h#L48) — Vent slot i, in the body's top-face coordinates (x across, z back from the panel).
-- **knobAngleForValue** · function · [DeviceLayout.h:96](Source/UI/Scene/DeviceLayout.h#L96) — Pointer rotation about the knob axis (clockwise as seen by the viewer);
-- **buttonOutline** · function · [DeviceLayout.h:102](Source/UI/Scene/DeviceLayout.h#L102)
-- **Unit** · enum · [DeviceLayout.h:129](Source/UI/Scene/DeviceLayout.h#L129)
-- **isOneU** · function · [DeviceLayout.h:132](Source/UI/Scene/DeviceLayout.h#L132)
-- **isOutboard** · function · [DeviceLayout.h:136](Source/UI/Scene/DeviceLayout.h#L136)
+- **knobAngleForValue** · function · [DeviceLayout.h:95](Source/UI/Scene/DeviceLayout.h#L95) — Pointer rotation about the knob axis (clockwise as seen by the viewer);
+- **buttonOutline** · function · [DeviceLayout.h:101](Source/UI/Scene/DeviceLayout.h#L101)
+- **Unit** · enum · [DeviceLayout.h:128](Source/UI/Scene/DeviceLayout.h#L128)
+- **isOneU** · function · [DeviceLayout.h:131](Source/UI/Scene/DeviceLayout.h#L131)
+- **isOutboard** · function · [DeviceLayout.h:135](Source/UI/Scene/DeviceLayout.h#L135)
 - **ControlDef** · struct · [DeviceLayout.h:138](Source/UI/Scene/DeviceLayout.h#L138)
 - **switchOutline** · function · [DeviceLayout.h:158](Source/UI/Scene/DeviceLayout.h#L158)
-- **unitHalfH** · function · [DeviceLayout.h:209](Source/UI/Scene/DeviceLayout.h#L209)
-- **unitArcPos** · function · [DeviceLayout.h:221](Source/UI/Scene/DeviceLayout.h#L221) — Distance along the arc from the bottom of the stack to the centre of a unit.
-- **totalArcLength** · function · [DeviceLayout.h:234](Source/UI/Scene/DeviceLayout.h#L234)
-- **unitAngle** · function · [DeviceLayout.h:243](Source/UI/Scene/DeviceLayout.h#L243) — How far a unit is rotated toward the viewer: 0 at the middle of the case.
-- **unitOrigin** · function · [DeviceLayout.h:249](Source/UI/Scene/DeviceLayout.h#L249) — Centre of a unit's faceplate, in world space.
-- **panelToWorld** · function · [DeviceLayout.h:257](Source/UI/Scene/DeviceLayout.h#L257) — Panel-local (x across, z down, y out of the panel) to world, on the arc.
-- **panelToWorld** · function · [DeviceLayout.h:262](Source/UI/Scene/DeviceLayout.h#L262)
-- **unitNormal** · function · [DeviceLayout.h:265](Source/UI/Scene/DeviceLayout.h#L265) — Outward normal of a unit's faceplate (world).
-- **unitCenterY** · function · [DeviceLayout.h:272](Source/UI/Scene/DeviceLayout.h#L272) — Kept for the few places that still want a height: the world y of a panel's centre.
-- **selectorAngleForValue** · function · [DeviceLayout.h:340](Source/UI/Scene/DeviceLayout.h#L340) — Stepped selector (OFF / SILK / HEAVEN): pointer angle for a normalised choice value.
-- **characterSelectorAngle** · function · [DeviceLayout.h:346](Source/UI/Scene/DeviceLayout.h#L346)
-- **oneUSectionBox** · function · [DeviceLayout.h:374](Source/UI/Scene/DeviceLayout.h#L374) — Section box printed around the controls, like a hardware compressor's front panel.
-- **makerTopZ** · function · [DeviceLayout.h:386](Source/UI/Scene/DeviceLayout.h#L386) — Where an outboard unit's maker block (its name) starts, down the panel.
-- **outboardWindows** · function · [DeviceLayout.h:394](Source/UI/Scene/DeviceLayout.h#L394) — The windows cut into an outboard unit's plate besides its meters.
-- **numVus** · function · [DeviceLayout.h:424](Source/UI/Scene/DeviceLayout.h#L424)
-- **vuHalfW** · function · [DeviceLayout.h:430](Source/UI/Scene/DeviceLayout.h#L430)
-- **vuX** · function · [DeviceLayout.h:436](Source/UI/Scene/DeviceLayout.h#L436)
-- **vuZ** · function · [DeviceLayout.h:447](Source/UI/Scene/DeviceLayout.h#L447)
-- **firstNeedle** · function · [DeviceLayout.h:454](Source/UI/Scene/DeviceLayout.h#L454)
-- **outboardEarSlots** · function · [DeviceLayout.h:468](Source/UI/Scene/DeviceLayout.h#L468) — An outboard unit's ear slots: one each side on a 1U, two each side on the taller ones.
-- **hasLed** · function · [DeviceLayout.h:576](Source/UI/Scene/DeviceLayout.h#L576) — Momentary buttons (PRESET PREV / NEXT, loudness RESET) have no LED: there is no state to show.
-- **ledOffset** · function · [DeviceLayout.h:584](Source/UI/Scene/DeviceLayout.h#L584)
-- **controlIndex** · function · [DeviceLayout.h:591](Source/UI/Scene/DeviceLayout.h#L591)
-- **ladderLedZ** · function · [DeviceLayout.h:613](Source/UI/Scene/DeviceLayout.h#L613)
-- **knobBodyRadius** · function · [DeviceLayout.h:624](Source/UI/Scene/DeviceLayout.h#L624) — Body radius of a knob control as drawn.
-- **unitDisplayRect** · function · [DeviceLayout.h:634](Source/UI/Scene/DeviceLayout.h#L634) — The display window on a unit's panel (the 1U units carry VU meters instead).
+- **unitHalfH** · function · [DeviceLayout.h:210](Source/UI/Scene/DeviceLayout.h#L210)
+- **unitArcPos** · function · [DeviceLayout.h:222](Source/UI/Scene/DeviceLayout.h#L222) — Distance along the arc from the bottom of the stack to the centre of a unit.
+- **totalArcLength** · function · [DeviceLayout.h:235](Source/UI/Scene/DeviceLayout.h#L235)
+- **unitAngle** · function · [DeviceLayout.h:244](Source/UI/Scene/DeviceLayout.h#L244) — How far a unit is rotated toward the viewer: 0 at the middle of the case.
+- **unitOrigin** · function · [DeviceLayout.h:250](Source/UI/Scene/DeviceLayout.h#L250) — Centre of a unit's faceplate, in world space.
+- **panelToWorld** · function · [DeviceLayout.h:258](Source/UI/Scene/DeviceLayout.h#L258) — Panel-local (x across, z down, y out of the panel) to world, on the arc.
+- **panelToWorld** · function · [DeviceLayout.h:263](Source/UI/Scene/DeviceLayout.h#L263)
+- **unitNormal** · function · [DeviceLayout.h:266](Source/UI/Scene/DeviceLayout.h#L266) — Outward normal of a unit's faceplate (world).
+- **unitCenterY** · function · [DeviceLayout.h:273](Source/UI/Scene/DeviceLayout.h#L273) — Kept for the few places that still want a height: the world y of a panel's centre.
+- **selectorAngleForValue** · function · [DeviceLayout.h:342](Source/UI/Scene/DeviceLayout.h#L342) — Stepped selector (OFF / SILK / HEAVEN): pointer angle for a normalised choice value.
+- **characterSelectorAngle** · function · [DeviceLayout.h:348](Source/UI/Scene/DeviceLayout.h#L348)
+- **oneUSectionBox** · function · [DeviceLayout.h:376](Source/UI/Scene/DeviceLayout.h#L376) — Section box printed around the controls, like a hardware compressor's front panel.
+- **makerTopZ** · function · [DeviceLayout.h:389](Source/UI/Scene/DeviceLayout.h#L389) — Where an outboard unit's maker block (its name) starts, down the panel.
+- **outboardWindows** · function · [DeviceLayout.h:397](Source/UI/Scene/DeviceLayout.h#L397) — The windows cut into an outboard unit's plate besides its meters.
+- **numVus** · function · [DeviceLayout.h:429](Source/UI/Scene/DeviceLayout.h#L429)
+- **vuHalfW** · function · [DeviceLayout.h:435](Source/UI/Scene/DeviceLayout.h#L435)
+- **vuX** · function · [DeviceLayout.h:442](Source/UI/Scene/DeviceLayout.h#L442)
+- **vuZ** · function · [DeviceLayout.h:454](Source/UI/Scene/DeviceLayout.h#L454)
+- **firstNeedle** · function · [DeviceLayout.h:461](Source/UI/Scene/DeviceLayout.h#L461)
+- **outboardEarSlots** · function · [DeviceLayout.h:475](Source/UI/Scene/DeviceLayout.h#L475) — An outboard unit's ear slots: one each side on a 1U, two each side on the taller ones.
+- **hasLed** · function · [DeviceLayout.h:590](Source/UI/Scene/DeviceLayout.h#L590) — Momentary buttons (PRESET PREV / NEXT, loudness RESET) have no LED: there is no state to show.
+- **ledOffset** · function · [DeviceLayout.h:598](Source/UI/Scene/DeviceLayout.h#L598)
+- **controlIndex** · function · [DeviceLayout.h:605](Source/UI/Scene/DeviceLayout.h#L605)
+- **ladderLedZ** · function · [DeviceLayout.h:627](Source/UI/Scene/DeviceLayout.h#L627)
+- **knobBodyRadius** · function · [DeviceLayout.h:638](Source/UI/Scene/DeviceLayout.h#L638) — Body radius of a knob control as drawn.
+- **unitDisplayRect** · function · [DeviceLayout.h:648](Source/UI/Scene/DeviceLayout.h#L648) — The display window on a unit's panel (the 1U units carry VU meters instead).
 
 **[Source/UI/Scene/GeometryFactory.cpp](Source/UI/Scene/GeometryFactory.cpp)**
 
@@ -1734,39 +1802,39 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **HardwareRenderer::parameterFor** · function · [HardwareRenderer.cpp:150](Source/UI/Scene/HardwareRenderer.cpp#L150)
 - **HardwareRenderer::detailFor** · function · [HardwareRenderer.cpp:158](Source/UI/Scene/HardwareRenderer.cpp#L158)
 - **HardwareRenderer::newOpenGLContextCreated** · function · [HardwareRenderer.cpp:175](Source/UI/Scene/HardwareRenderer.cpp#L175) — ==============================================================================
-- **HardwareRenderer::openGLContextClosing** · function · [HardwareRenderer.cpp:370](Source/UI/Scene/HardwareRenderer.cpp#L370)
-- **HardwareRenderer::uploadScope** · function · [HardwareRenderer.cpp:423](Source/UI/Scene/HardwareRenderer.cpp#L423) — ============================================================================== The analyser curve as a 1 x N…
-- **HardwareRenderer::uploadDisplays** · function · [HardwareRenderer.cpp:449](Source/UI/Scene/HardwareRenderer.cpp#L449) — ============================================================================== The two new displays' data, re…
-- **HardwareRenderer::uploadLevelLabelsIfChanged** · function · [HardwareRenderer.cpp:631](Source/UI/Scene/HardwareRenderer.cpp#L631)
-- **HardwareRenderer::drawWindows** · function · [HardwareRenderer.cpp:649](Source/UI/Scene/HardwareRenderer.cpp#L649) — The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window.
-- **HardwareRenderer::uploadOverlayIfChanged** · function · [HardwareRenderer.cpp:691](Source/UI/Scene/HardwareRenderer.cpp#L691)
-- **HardwareRenderer::uploadCalloutIfChanged** · function · [HardwareRenderer.cpp:711](Source/UI/Scene/HardwareRenderer.cpp#L711)
-- **HardwareRenderer::renderLoupeView** · function · [HardwareRenderer.cpp:737](Source/UI/Scene/HardwareRenderer.cpp#L737)
-- **HardwareRenderer::renderScaleFor** · function · [HardwareRenderer.cpp:790](Source/UI/Scene/HardwareRenderer.cpp#L790)
-- **HardwareRenderer::presentScene** · function · [HardwareRenderer.cpp:795](Source/UI/Scene/HardwareRenderer.cpp#L795)
-- **HardwareRenderer::drawLoupe** · function · [HardwareRenderer.cpp:813](Source/UI/Scene/HardwareRenderer.cpp#L813)
-- **HardwareRenderer::updatePanel** · function · [HardwareRenderer.cpp:865](Source/UI/Scene/HardwareRenderer.cpp#L865) — ============================================================================== Glass panel
-- **HardwareRenderer::uploadPanelIfChanged** · function · [HardwareRenderer.cpp:901](Source/UI/Scene/HardwareRenderer.cpp#L901)
-- **HardwareRenderer::blurBehindPanel** · function · [HardwareRenderer.cpp:929](Source/UI/Scene/HardwareRenderer.cpp#L929)
-- **HardwareRenderer::drawPanelConnector** · function · [HardwareRenderer.cpp:982](Source/UI/Scene/HardwareRenderer.cpp#L982)
-- **HardwareRenderer::drawGlassPanel** · function · [HardwareRenderer.cpp:1050](Source/UI/Scene/HardwareRenderer.cpp#L1050)
-- **HardwareRenderer::drawOutlines** · function · [HardwareRenderer.cpp:1087](Source/UI/Scene/HardwareRenderer.cpp#L1087)
-- **HardwareRenderer::pollPointer** · function · [HardwareRenderer.cpp:1125](Source/UI/Scene/HardwareRenderer.cpp#L1125)
-- **HardwareRenderer::handleInteraction** · function · [HardwareRenderer.cpp:1162](Source/UI/Scene/HardwareRenderer.cpp#L1162)
-- **rangeOf** · function · [HardwareRenderer.cpp:1252](Source/UI/Scene/HardwareRenderer.cpp#L1252) — A parameter's value in its own units, and back (the spec's range and skew).
-- **HardwareRenderer::autoTurnedValue** · function · [HardwareRenderer.cpp:1264](Source/UI/Scene/HardwareRenderer.cpp#L1264)
-- **HardwareRenderer::updateAnimation** · function · [HardwareRenderer.cpp:1297](Source/UI/Scene/HardwareRenderer.cpp#L1297)
-- **HardwareRenderer::paceFrame** · function · [HardwareRenderer.cpp:1538](Source/UI/Scene/HardwareRenderer.cpp#L1538) — ==============================================================================
-- **HardwareRenderer::recordStats** · function · [HardwareRenderer.cpp:1565](Source/UI/Scene/HardwareRenderer.cpp#L1565)
-- **HardwareRenderer::renderOpenGL** · function · [HardwareRenderer.cpp:1593](Source/UI/Scene/HardwareRenderer.cpp#L1593)
-- **HardwareRenderer::use** · function · [HardwareRenderer.cpp:1684](Source/UI/Scene/HardwareRenderer.cpp#L1684) — ==============================================================================
-- **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:1709](Source/UI/Scene/HardwareRenderer.cpp#L1709)
-- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:1718](Source/UI/Scene/HardwareRenderer.cpp#L1718)
-- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:1728](Source/UI/Scene/HardwareRenderer.cpp#L1728)
-- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:1736](Source/UI/Scene/HardwareRenderer.cpp#L1736)
-- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:1747](Source/UI/Scene/HardwareRenderer.cpp#L1747)
-- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:1843](Source/UI/Scene/HardwareRenderer.cpp#L1843) — The cover glass over a unit's meters, drawn with everything else transparent.
-- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:1858](Source/UI/Scene/HardwareRenderer.cpp#L1858)
+- **HardwareRenderer::openGLContextClosing** · function · [HardwareRenderer.cpp:374](Source/UI/Scene/HardwareRenderer.cpp#L374)
+- **HardwareRenderer::uploadScope** · function · [HardwareRenderer.cpp:429](Source/UI/Scene/HardwareRenderer.cpp#L429) — ============================================================================== The analyser curve as a 1 x N…
+- **HardwareRenderer::uploadDisplays** · function · [HardwareRenderer.cpp:455](Source/UI/Scene/HardwareRenderer.cpp#L455) — ============================================================================== The two new displays' data, re…
+- **HardwareRenderer::uploadLevelLabelsIfChanged** · function · [HardwareRenderer.cpp:637](Source/UI/Scene/HardwareRenderer.cpp#L637)
+- **HardwareRenderer::drawWindows** · function · [HardwareRenderer.cpp:655](Source/UI/Scene/HardwareRenderer.cpp#L655) — The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window.
+- **HardwareRenderer::uploadOverlayIfChanged** · function · [HardwareRenderer.cpp:697](Source/UI/Scene/HardwareRenderer.cpp#L697)
+- **HardwareRenderer::uploadCalloutIfChanged** · function · [HardwareRenderer.cpp:717](Source/UI/Scene/HardwareRenderer.cpp#L717)
+- **HardwareRenderer::renderLoupeView** · function · [HardwareRenderer.cpp:743](Source/UI/Scene/HardwareRenderer.cpp#L743)
+- **HardwareRenderer::renderScaleFor** · function · [HardwareRenderer.cpp:796](Source/UI/Scene/HardwareRenderer.cpp#L796)
+- **HardwareRenderer::presentScene** · function · [HardwareRenderer.cpp:801](Source/UI/Scene/HardwareRenderer.cpp#L801)
+- **HardwareRenderer::drawLoupe** · function · [HardwareRenderer.cpp:819](Source/UI/Scene/HardwareRenderer.cpp#L819)
+- **HardwareRenderer::updatePanel** · function · [HardwareRenderer.cpp:871](Source/UI/Scene/HardwareRenderer.cpp#L871) — ============================================================================== Glass panel
+- **HardwareRenderer::uploadPanelIfChanged** · function · [HardwareRenderer.cpp:907](Source/UI/Scene/HardwareRenderer.cpp#L907)
+- **HardwareRenderer::blurBehindPanel** · function · [HardwareRenderer.cpp:935](Source/UI/Scene/HardwareRenderer.cpp#L935)
+- **HardwareRenderer::drawPanelConnector** · function · [HardwareRenderer.cpp:988](Source/UI/Scene/HardwareRenderer.cpp#L988)
+- **HardwareRenderer::drawGlassPanel** · function · [HardwareRenderer.cpp:1056](Source/UI/Scene/HardwareRenderer.cpp#L1056)
+- **HardwareRenderer::drawOutlines** · function · [HardwareRenderer.cpp:1093](Source/UI/Scene/HardwareRenderer.cpp#L1093)
+- **HardwareRenderer::pollPointer** · function · [HardwareRenderer.cpp:1131](Source/UI/Scene/HardwareRenderer.cpp#L1131)
+- **HardwareRenderer::handleInteraction** · function · [HardwareRenderer.cpp:1168](Source/UI/Scene/HardwareRenderer.cpp#L1168)
+- **rangeOf** · function · [HardwareRenderer.cpp:1258](Source/UI/Scene/HardwareRenderer.cpp#L1258) — A parameter's value in its own units, and back (the spec's range and skew).
+- **HardwareRenderer::autoTurnedValue** · function · [HardwareRenderer.cpp:1270](Source/UI/Scene/HardwareRenderer.cpp#L1270)
+- **HardwareRenderer::updateAnimation** · function · [HardwareRenderer.cpp:1303](Source/UI/Scene/HardwareRenderer.cpp#L1303)
+- **HardwareRenderer::paceFrame** · function · [HardwareRenderer.cpp:1561](Source/UI/Scene/HardwareRenderer.cpp#L1561) — ==============================================================================
+- **HardwareRenderer::recordStats** · function · [HardwareRenderer.cpp:1588](Source/UI/Scene/HardwareRenderer.cpp#L1588)
+- **HardwareRenderer::renderOpenGL** · function · [HardwareRenderer.cpp:1616](Source/UI/Scene/HardwareRenderer.cpp#L1616)
+- **HardwareRenderer::use** · function · [HardwareRenderer.cpp:1707](Source/UI/Scene/HardwareRenderer.cpp#L1707) — ==============================================================================
+- **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:1732](Source/UI/Scene/HardwareRenderer.cpp#L1732)
+- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:1741](Source/UI/Scene/HardwareRenderer.cpp#L1741)
+- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:1751](Source/UI/Scene/HardwareRenderer.cpp#L1751)
+- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:1759](Source/UI/Scene/HardwareRenderer.cpp#L1759)
+- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:1770](Source/UI/Scene/HardwareRenderer.cpp#L1770)
+- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:1866](Source/UI/Scene/HardwareRenderer.cpp#L1866) — The cover glass over a unit's meters, drawn with everything else transparent.
+- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:1881](Source/UI/Scene/HardwareRenderer.cpp#L1881)
 
 **[Source/UI/Scene/HardwareRenderer.h](Source/UI/Scene/HardwareRenderer.h)**
 
@@ -1778,8 +1846,8 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **HardwareRenderer::GpuModel** · struct · [HardwareRenderer.h:83](Source/UI/Scene/HardwareRenderer.h#L83) — A HardwareKit model on the GPU: one mesh per part plus its material hints.
 - **HardwareRenderer::GpuModel::Part** · struct · [HardwareRenderer.h:85](Source/UI/Scene/HardwareRenderer.h#L85)
 - **HardwareRenderer::draw** · function · [HardwareRenderer.h:125](Source/UI/Scene/HardwareRenderer.h#L125)
-- **HardwareRenderer::Needle** · struct · [HardwareRenderer.h:182](Source/UI/Scene/HardwareRenderer.h#L182)
-- **HardwareRenderer::vuModelFor** · function · [HardwareRenderer.h:194](Source/UI/Scene/HardwareRenderer.h#L194)
+- **HardwareRenderer::Needle** · struct · [HardwareRenderer.h:183](Source/UI/Scene/HardwareRenderer.h#L183)
+- **HardwareRenderer::vuModelFor** · function · [HardwareRenderer.h:195](Source/UI/Scene/HardwareRenderer.h#L195)
 
 **[Source/UI/Scene/LayoutAudit.cpp](Source/UI/Scene/LayoutAudit.cpp)**
 
@@ -1815,21 +1883,21 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **renderFaceplateDecal** · function · [PanelArtwork.cpp:105](Source/UI/Scene/PanelArtwork.cpp#L105)
 - **renderTubeDecal** · function · [PanelArtwork.cpp:221](Source/UI/Scene/PanelArtwork.cpp#L221) — ==============================================================================
 - **renderOneUDecal** · function · [PanelArtwork.cpp:348](Source/UI/Scene/PanelArtwork.cpp#L348)
-- **renderVuFace** · function · [PanelArtwork.cpp:500](Source/UI/Scene/PanelArtwork.cpp#L500)
-- **renderWindowLabels** · function · [PanelArtwork.cpp:608](Source/UI/Scene/PanelArtwork.cpp#L608)
-- **renderSeraphDisplayLabels** · function · [PanelArtwork.cpp:683](Source/UI/Scene/PanelArtwork.cpp#L683)
-- **collectKnobScaleText** · function · [PanelArtwork.cpp:754](Source/UI/Scene/PanelArtwork.cpp#L754)
-- **renderCallout** · function · [PanelArtwork.cpp:783](Source/UI/Scene/PanelArtwork.cpp#L783)
-- **renderKnobScale** · function · [PanelArtwork.cpp:831](Source/UI/Scene/PanelArtwork.cpp#L831) — ==============================================================================
-- **renderDisplayOverlay** · function · [PanelArtwork.cpp:875](Source/UI/Scene/PanelArtwork.cpp#L875)
+- **renderVuFace** · function · [PanelArtwork.cpp:502](Source/UI/Scene/PanelArtwork.cpp#L502)
+- **renderWindowLabels** · function · [PanelArtwork.cpp:611](Source/UI/Scene/PanelArtwork.cpp#L611)
+- **renderSeraphDisplayLabels** · function · [PanelArtwork.cpp:686](Source/UI/Scene/PanelArtwork.cpp#L686)
+- **collectKnobScaleText** · function · [PanelArtwork.cpp:757](Source/UI/Scene/PanelArtwork.cpp#L757)
+- **renderCallout** · function · [PanelArtwork.cpp:786](Source/UI/Scene/PanelArtwork.cpp#L786)
+- **renderKnobScale** · function · [PanelArtwork.cpp:834](Source/UI/Scene/PanelArtwork.cpp#L834) — ==============================================================================
+- **renderDisplayOverlay** · function · [PanelArtwork.cpp:878](Source/UI/Scene/PanelArtwork.cpp#L878)
 
 **[Source/UI/Scene/PanelArtwork.h](Source/UI/Scene/PanelArtwork.h)**
 
 - **RawTexture** · struct · [PanelArtwork.h:16](Source/UI/Scene/PanelArtwork.h#L16)
 - **TextureSet** · struct · [PanelArtwork.h:23](Source/UI/Scene/PanelArtwork.h#L23) — Everything the renderer uploads once when the GL context is created.
-- **TextItem** · struct · [PanelArtwork.h:36](Source/UI/Scene/PanelArtwork.h#L36) — One piece of printed text, in panel-local coordinates of its unit (for the hover callouts).
-- **renderWindowLabels** · function · [PanelArtwork.h:58](Source/UI/Scene/PanelArtwork.h#L58) — Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window).
-- **DisplayText** · struct · [PanelArtwork.h:71](Source/UI/Scene/PanelArtwork.h#L71)
+- **TextItem** · struct · [PanelArtwork.h:37](Source/UI/Scene/PanelArtwork.h#L37) — One piece of printed text, in panel-local coordinates of its unit (for the hover callouts).
+- **renderWindowLabels** · function · [PanelArtwork.h:59](Source/UI/Scene/PanelArtwork.h#L59) — Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window).
+- **DisplayText** · struct · [PanelArtwork.h:72](Source/UI/Scene/PanelArtwork.h#L72)
 
 **[Source/UI/Scene/Picking.h](Source/UI/Scene/Picking.h)**
 
@@ -1839,9 +1907,10 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Tests/CharacterTests.h](Tests/CharacterTests.h)**
 
 - **sineWith** · function · [CharacterTests.h:13](Tests/CharacterTests.h#L13)
-- **sine** · function · [CharacterTests.h:82](Tests/CharacterTests.h#L82)
-- **levelChange** · function · [CharacterTests.h:88](Tests/CharacterTests.h#L88) — Pink-ish noise at -18 dBFS through a model: output RMS change in dB.
-- **runCharacterTests** · function · [CharacterTests.h:117](Tests/CharacterTests.h#L117)
+- **sine** · function · [CharacterTests.h:83](Tests/CharacterTests.h#L83)
+- **voicingDb** · function · [CharacterTests.h:90](Tests/CharacterTests.h#L90)
+- **levelChange** · function · [CharacterTests.h:124](Tests/CharacterTests.h#L124) — Pink-ish noise at -18 dBFS through a model: output RMS change in dB.
+- **runCharacterTests** · function · [CharacterTests.h:162](Tests/CharacterTests.h#L162)
 
 **[Tests/EnhDspTests.cpp](Tests/EnhDspTests.cpp)**
 
@@ -1859,34 +1928,34 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **makeReverbScene** · function · [EnhDspTests.cpp:306](Tests/EnhDspTests.cpp#L306)
 - **makeMusic** · function · [EnhDspTests.cpp:351](Tests/EnhDspTests.cpp#L351) — Music-like programme: kick, snare, hats, bass, pad and a formant "vocal".
 - **RunResult** · struct · [EnhDspTests.cpp:405](Tests/EnhDspTests.cpp#L405)
-- **run** · function · [EnhDspTests.cpp:419](Tests/EnhDspTests.cpp#L419)
-- **maxConfidence** · function · [EnhDspTests.cpp:487](Tests/EnhDspTests.cpp#L487)
-- **rmsDb** · function · [EnhDspTests.cpp:495](Tests/EnhDspTests.cpp#L495)
-- **toneDb** · function · [EnhDspTests.cpp:502](Tests/EnhDspTests.cpp#L502)
-- **check** · function · [EnhDspTests.cpp:516](Tests/EnhDspTests.cpp#L516)
-- **LimiterRun** · struct · [EnhDspTests.cpp:526](Tests/EnhDspTests.cpp#L526)
-- **runLimiterScene** · function · [EnhDspTests.cpp:538](Tests/EnhDspTests.cpp#L538)
-- **runLimiterTests** · function · [EnhDspTests.cpp:654](Tests/EnhDspTests.cpp#L654)
-- **presetList** · function · [EnhDspTests.cpp:708](Tests/EnhDspTests.cpp#L708)
-- **presetNamed** · function · [EnhDspTests.cpp:715](Tests/EnhDspTests.cpp#L715) — A preset by name from that list, else from the factory list (tests that need a particular one).
-- **presetParameters** · function · [EnhDspTests.cpp:727](Tests/EnhDspTests.cpp#L727) — A factory preset as the engine sees it: the panel values through the same mapping the plugin uses.
-- **rmsDb** · function · [EnhDspTests.cpp:781](Tests/EnhDspTests.cpp#L781)
-- **setEnv** · function · [EnhDspTests.cpp:790](Tests/EnhDspTests.cpp#L790) — Sets (or, with an empty value, clears) an environment variable, portably.
-- **runPresetFileTests** · function · [EnhDspTests.cpp:802](Tests/EnhDspTests.cpp#L802)
-- **runPresetTests** · function · [EnhDspTests.cpp:843](Tests/EnhDspTests.cpp#L843)
-- **bassThdPercent** · function · [EnhDspTests.cpp:946](Tests/EnhDspTests.cpp#L946) — ========================================================================== Loud bass through the whole rack:…
-- **seraphPumpingDb** · function · [EnhDspTests.cpp:973](Tests/EnhDspTests.cpp#L973)
-- **rackPumpingDb** · function · [EnhDspTests.cpp:1016](Tests/EnhDspTests.cpp#L1016) — The whole rack: the same 2 kHz tone with bass switching on and off every second.
-- **runLoudBassTests** · function · [EnhDspTests.cpp:1045](Tests/EnhDspTests.cpp#L1045)
-- **runNewUnitTests** · function · [EnhDspTests.cpp:1158](Tests/EnhDspTests.cpp#L1158) — The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER.
-- **methodsDoc** · function · [EnhDspTests.cpp:1442](Tests/EnhDspTests.cpp#L1442) — ========================================================================== The method registry as the referen…
-- **methodsDocFile** · function · [EnhDspTests.cpp:1496](Tests/EnhDspTests.cpp#L1496)
-- **runMethodTests** · function · [EnhDspTests.cpp:1509](Tests/EnhDspTests.cpp#L1509)
-- **runDeepSubTests** · function · [EnhDspTests.cpp:1903](Tests/EnhDspTests.cpp#L1903) — ==========================================================================
-- **runNewUnitsMode** · function · [EnhDspTests.cpp:1991](Tests/EnhDspTests.cpp#L1991)
-- **runGolden** · function · [EnhDspTests.cpp:1999](Tests/EnhDspTests.cpp#L1999)
-- **runCpuBenchmark** · function · [EnhDspTests.cpp:2050](Tests/EnhDspTests.cpp#L2050)
-- **main** · function · [EnhDspTests.cpp:2132](Tests/EnhDspTests.cpp#L2132)
+- **run** · function · [EnhDspTests.cpp:418](Tests/EnhDspTests.cpp#L418)
+- **maxConfidence** · function · [EnhDspTests.cpp:485](Tests/EnhDspTests.cpp#L485)
+- **rmsDb** · function · [EnhDspTests.cpp:493](Tests/EnhDspTests.cpp#L493)
+- **toneDb** · function · [EnhDspTests.cpp:500](Tests/EnhDspTests.cpp#L500)
+- **check** · function · [EnhDspTests.cpp:514](Tests/EnhDspTests.cpp#L514)
+- **LimiterRun** · struct · [EnhDspTests.cpp:524](Tests/EnhDspTests.cpp#L524)
+- **runLimiterScene** · function · [EnhDspTests.cpp:536](Tests/EnhDspTests.cpp#L536)
+- **runLimiterTests** · function · [EnhDspTests.cpp:652](Tests/EnhDspTests.cpp#L652)
+- **presetList** · function · [EnhDspTests.cpp:706](Tests/EnhDspTests.cpp#L706)
+- **presetNamed** · function · [EnhDspTests.cpp:713](Tests/EnhDspTests.cpp#L713) — A preset by name from that list, else from the factory list (tests that need a particular one).
+- **presetParameters** · function · [EnhDspTests.cpp:725](Tests/EnhDspTests.cpp#L725) — A factory preset as the engine sees it: the panel values through the same mapping the plugin uses.
+- **rmsDb** · function · [EnhDspTests.cpp:780](Tests/EnhDspTests.cpp#L780)
+- **setEnv** · function · [EnhDspTests.cpp:789](Tests/EnhDspTests.cpp#L789) — Sets (or, with an empty value, clears) an environment variable, portably.
+- **runPresetFileTests** · function · [EnhDspTests.cpp:801](Tests/EnhDspTests.cpp#L801)
+- **runPresetTests** · function · [EnhDspTests.cpp:842](Tests/EnhDspTests.cpp#L842)
+- **bassThdPercent** · function · [EnhDspTests.cpp:935](Tests/EnhDspTests.cpp#L935) — ========================================================================== Loud bass through the whole rack:…
+- **seraphPumpingDb** · function · [EnhDspTests.cpp:962](Tests/EnhDspTests.cpp#L962)
+- **rackPumpingDb** · function · [EnhDspTests.cpp:1005](Tests/EnhDspTests.cpp#L1005) — The whole rack: the same 2 kHz tone with bass switching on and off every second.
+- **runLoudBassTests** · function · [EnhDspTests.cpp:1034](Tests/EnhDspTests.cpp#L1034)
+- **runNewUnitTests** · function · [EnhDspTests.cpp:1150](Tests/EnhDspTests.cpp#L1150) — The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER.
+- **methodsDoc** · function · [EnhDspTests.cpp:1434](Tests/EnhDspTests.cpp#L1434) — ========================================================================== The method registry as the referen…
+- **methodsDocFile** · function · [EnhDspTests.cpp:1488](Tests/EnhDspTests.cpp#L1488)
+- **runMethodTests** · function · [EnhDspTests.cpp:1501](Tests/EnhDspTests.cpp#L1501)
+- **runDeepSubTests** · function · [EnhDspTests.cpp:1904](Tests/EnhDspTests.cpp#L1904) — ==========================================================================
+- **runNewUnitsMode** · function · [EnhDspTests.cpp:1992](Tests/EnhDspTests.cpp#L1992)
+- **runGolden** · function · [EnhDspTests.cpp:2000](Tests/EnhDspTests.cpp#L2000)
+- **runCpuBenchmark** · function · [EnhDspTests.cpp:2051](Tests/EnhDspTests.cpp#L2051)
+- **main** · function · [EnhDspTests.cpp:2133](Tests/EnhDspTests.cpp#L2133)
 
 **[Tests/MasteringTests.h](Tests/MasteringTests.h)**
 
@@ -1896,10 +1965,51 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **db** · function · [MasteringTests.h:48](Tests/MasteringTests.h#L48)
 - **runMasteringTests** · function · [MasteringTests.h:51](Tests/MasteringTests.h#L51)
 - **runSafetyTests** · function · [MasteringTests.h:228](Tests/MasteringTests.h#L228) — Speaker and headset safety (3.6.4.1): EnhDspTests --mastering runs these too.
-- **runKnobFuzz** · function · [MasteringTests.h:338](Tests/MasteringTests.h#L338) — Knob fuzz: every automatable parameter and every processing method moved at random, block after block, as a u…
-- **runZipperTests** · function · [MasteringTests.h:433](Tests/MasteringTests.h#L433) — Zipper noise (3.6.5.1): every continuous knob jumped from one end to the other in a single block while a stea…
-- **runAliasTests** · function · [MasteringTests.h:520](Tests/MasteringTests.h#L520) — Aliasing through the rack's own non-linear stages (3.6.5.1): a 7 kHz tone, loud, through one stage at a time…
-- **runStrengthZeroCheck** · function · [MasteringTests.h:583](Tests/MasteringTests.h#L583) — TONE at STRENGTH 0 against its input, with the oversampling's delay taken out: at a few lags, and below 4 kHz…
+- **runKnobFuzz** · function · [MasteringTests.h:340](Tests/MasteringTests.h#L340) — Knob fuzz: every automatable parameter and every processing method moved at random, block after block, as a u…
+- **runZipperTests** · function · [MasteringTests.h:435](Tests/MasteringTests.h#L435) — Zipper noise (3.6.5.1): every continuous knob jumped from one end to the other in a single block while a stea…
+- **runAliasTests** · function · [MasteringTests.h:522](Tests/MasteringTests.h#L522) — Aliasing through the rack's own non-linear stages (3.6.5.1): a 7 kHz tone, loud, through one stage at a time…
+- **runStrengthZeroCheck** · function · [MasteringTests.h:585](Tests/MasteringTests.h#L585) — TONE at STRENGTH 0 against its input, with the oversampling's delay taken out: at a few lags, and below 4 kHz…
+
+**[Tests/RadarTests.h](Tests/RadarTests.h)**
+
+- **Audio** · struct · [RadarTests.h:22](Tests/RadarTests.h#L22)
+- **blank** · function · [RadarTests.h:30](Tests/RadarTests.h#L30)
+- **fromDb** · function · [RadarTests.h:39](Tests/RadarTests.h#L39)
+- **Rng** · struct · [RadarTests.h:41](Tests/RadarTests.h#L41)
+- **Rng::Rng** · function · [RadarTests.h:44](Tests/RadarTests.h#L44)
+- **Rng::noise** · function · [RadarTests.h:45](Tests/RadarTests.h#L45)
+- **Rng::uni** · function · [RadarTests.h:46](Tests/RadarTests.h#L46)
+- **Rng::pick** · function · [RadarTests.h:47](Tests/RadarTests.h#L47)
+- **place** · function · [RadarTests.h:51](Tests/RadarTests.h#L51) — A short mono sound, placed into the scene at a pan (-1..1), optionally from behind (right out of phase).
+- **filteredNoise** · function · [RadarTests.h:62](Tests/RadarTests.h#L62)
+- **dampedSine** · function · [RadarTests.h:77](Tests/RadarTests.h#L77)
+- **mix** · function · [RadarTests.h:91](Tests/RadarTests.h#L91)
+- **normalisePeak** · function · [RadarTests.h:97](Tests/RadarTests.h#L97)
+- **surfaceName** · function · [RadarTests.h:108](Tests/RadarTests.h#L108)
+- **impact** · function · [RadarTests.h:115](Tests/RadarTests.h#L115) — One impact of a foot (heel or toe) on a surface, unit-ish level.
+- **footstep** · function · [RadarTests.h:148](Tests/RadarTests.h#L148) — A step: heel, and often the toe 30-90 ms later, a little quieter.
+- **atDistance** · function · [RadarTests.h:160](Tests/RadarTests.h#L160) — Distance: quieter, the air's top taken off, and more of a room around it.
+- **addWalk** · function · [RadarTests.h:180](Tests/RadarTests.h#L180)
+- **addAmbience** · function · [RadarTests.h:193](Tests/RadarTests.h#L193) — ============================================================================== Everything else a game plays
+- **addWind** · function · [RadarTests.h:207](Tests/RadarTests.h#L207)
+- **addRain** · function · [RadarTests.h:221](Tests/RadarTests.h#L221)
+- **addShot** · function · [RadarTests.h:232](Tests/RadarTests.h#L232)
+- **addBurst** · function · [RadarTests.h:243](Tests/RadarTests.h#L243)
+- **addExplosion** · function · [RadarTests.h:250](Tests/RadarTests.h#L250)
+- **addSpeech** · function · [RadarTests.h:262](Tests/RadarTests.h#L262) — A voice: a glottal buzz (120-220 Hz) through two moving formants, in syllables.
+- **addMusic** · function · [RadarTests.h:284](Tests/RadarTests.h#L284) — Music: kick on every beat, snare on 2 and 4, hi-hats in eighths, a bass line and a pad (120 bpm).
+- **addClick** · function · [RadarTests.h:314](Tests/RadarTests.h#L314)
+- **addReload** · function · [RadarTests.h:322](Tests/RadarTests.h#L322)
+- **Score** · struct · [RadarTests.h:339](Tests/RadarTests.h#L339) — ============================================================================== Running and scoring
+- **Score::recall** · function · [RadarTests.h:343](Tests/RadarTests.h#L343)
+- **Score::falsePerMinute** · function · [RadarTests.h:344](Tests/RadarTests.h#L344)
+- **runRadar** · function · [RadarTests.h:348](Tests/RadarTests.h#L348) — The accepted steps' onset times, running the radar on the scene (blocks of 256).
+- **score** · function · [RadarTests.h:381](Tests/RadarTests.h#L381)
+- **fromScene** · function · [RadarTests.h:408](Tests/RadarTests.h#L408)
+- **runOld** · function · [RadarTests.h:421](Tests/RadarTests.h#L421) — The old detector (the enhancer's, before 3.7): its accepted events through the engine.
+- **methodScene** · function · [RadarTests.h:452](Tests/RadarTests.h#L452)
+- **printStats** · function · [RadarTests.h:469](Tests/RadarTests.h#L469) — RADAR_STATS: what the background estimator sees, per band, in a few kinds of sound.
+- **runRadarTests** · function · [RadarTests.h:496](Tests/RadarTests.h#L496)
 
 **[Tests/RouterTests.cpp](Tests/RouterTests.cpp)**
 
@@ -1910,7 +2020,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **sinkExists** · function · [RouterTests.cpp:66](Tests/RouterTests.cpp#L66)
 - **sinkGone** · function · [RouterTests.cpp:75](Tests/RouterTests.cpp#L75) — The sound server removes a sink a moment after it is asked to (longer when the machine is busy).
 - **main** · function · [RouterTests.cpp:84](Tests/RouterTests.cpp#L84)
-- **reaper** · function · [RouterTests.cpp:205](Tests/RouterTests.cpp#L205)
+- **reaper** · function · [RouterTests.cpp:238](Tests/RouterTests.cpp#L238)
 
 **[Tools/AudioLab.cpp](Tools/AudioLab.cpp)**
 
@@ -1990,7 +2100,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 ## Files
 
-Every source, script and workflow file. (101)
+Every source, script and workflow file. (102)
 
 - **PluginEditor.cpp** · file · [Source/PluginEditor.cpp](Source/PluginEditor.cpp)
 - **PluginEditor.h** · file · [Source/PluginEditor.h](Source/PluginEditor.h)
@@ -2013,8 +2123,8 @@ Every source, script and workflow file. (101)
 - **EnhEngine.cpp** · file · [Source/DSP/EnhEngine.cpp](Source/DSP/EnhEngine.cpp)
 - **EnhEngine.h** · file · [Source/DSP/EnhEngine.h](Source/DSP/EnhEngine.h)
 - **FinalLimiter.h** · file · [Source/DSP/FinalLimiter.h](Source/DSP/FinalLimiter.h)
-- **FootstepDetector.cpp** · file · [Source/DSP/FootstepDetector.cpp](Source/DSP/FootstepDetector.cpp)
-- **FootstepDetector.h** · file · [Source/DSP/FootstepDetector.h](Source/DSP/FootstepDetector.h)
+- **FootstepRadar.cpp** · file · [Source/DSP/FootstepRadar.cpp](Source/DSP/FootstepRadar.cpp)
+- **FootstepRadar.h** · file · [Source/DSP/FootstepRadar.h](Source/DSP/FootstepRadar.h)
 - **HarmonicPlanner.cpp** · file · [Source/DSP/HarmonicPlanner.cpp](Source/DSP/HarmonicPlanner.cpp)
 - **HarmonicPlanner.h** · file · [Source/DSP/HarmonicPlanner.h](Source/DSP/HarmonicPlanner.h)
 - **LoudnessMeter.h** · file · [Source/DSP/LoudnessMeter.h](Source/DSP/LoudnessMeter.h)
@@ -2076,6 +2186,7 @@ Every source, script and workflow file. (101)
 - **CharacterTests.h** · file · [Tests/CharacterTests.h](Tests/CharacterTests.h)
 - **EnhDspTests.cpp** · file · [Tests/EnhDspTests.cpp](Tests/EnhDspTests.cpp)
 - **MasteringTests.h** · file · [Tests/MasteringTests.h](Tests/MasteringTests.h)
+- **RadarTests.h** · file · [Tests/RadarTests.h](Tests/RadarTests.h)
 - **RouterTests.cpp** · file · [Tests/RouterTests.cpp](Tests/RouterTests.cpp)
 - **lab-baseline.json** · file · [Tests/lab-baseline.json](Tests/lab-baseline.json)
 - **AudioLab.cpp** · file · [Tools/AudioLab.cpp](Tools/AudioLab.cpp)

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "BandAnalyzer.h"
-#include "FootstepDetector.h"
+#include "BandAnalyzer.h"
+#include "HarmonicPlanner.h"
 #include "PDController.h"
 #include "HarmonicPlanner.h"
 
@@ -19,14 +20,12 @@ namespace enh::dsp
                      build-ups are cut and holes are filled, wherever they are (lifts only where
                      there is real content, so empty bands and noise are not boosted)
           bursts     momentary resonances well above a band's long-term level are tamed
-          footstep   detected steps lift the bands their energy actually rose in and gently
-                     duck nearby maskers
           add        (ADD mode only) lifts where HarmonicPlanner found definition / body missing
                      and brings up quiet details (decays, tails, distant sounds) in bands that carry
                      content - never a fixed region
 
         Midrange guard: 250 Hz - 5 kHz carries footsteps, voices and most harmonics, so cuts
-        there are limited (-1.5 to -3 dB) and never land on the current footstep's bands.
+        there are limited (-1.5 to -3 dB). (Footsteps themselves are the FOOTSTEP RADAR's.)
         The curve is anchored on the midrange (its mean there is 0 dB); auto gain handles level.
 
         Each band follows its target through a PD controller; the 24 overlapping peaking filters
@@ -41,7 +40,6 @@ namespace enh::dsp
             float normalize = 0.5f;      // 0..1  strength of the source-derived correction
             float boost = 0.0f;          // 0..1  ADD mode: detail lift on top of the correction
             float speed = 0.4f;          // 0..1
-            bool footstepMode = false;
             HarmonicPlanner::Band depth, clarity;   // where enhancement is useful right now
             float strength = 1.0f;       // device STRENGTH: scales the whole applied curve (0..5)
         };
@@ -50,7 +48,7 @@ namespace enh::dsp
         void reset();
 
         /** Control-rate update: analysis -> targets -> PD controllers -> solved filter gains. */
-        void update (const BandAnalyzer&, const FootstepDetector&, const Settings&, float dt) noexcept;
+        void update (const BandAnalyzer&, const Settings&, float dt) noexcept;
 
         void process (float* const* channels, int numChannels, int startSample, int numSamples) noexcept;
 
@@ -66,7 +64,7 @@ namespace enh::dsp
 
     private:
         static constexpr int maxChannels = 2;
-        void analyseSource (const BandAnalyzer&, const FootstepDetector&, const Settings&) noexcept;
+        void analyseSource (const BandAnalyzer&, const Settings&) noexcept;
         using Matrix = std::array<std::array<float, numBands>, numBands>;
 
         std::array<PeakingDesigner, numBands> designers {};
@@ -76,7 +74,7 @@ namespace enh::dsp
         std::array<float, numBands> octave {}, midGuard {}, edgeLift {}, trebleWeight {}, bassWeight {}, filterGain {}, response {}, lastDesigned {};
         std::array<bool, numBands> midRegion {}, trebleRegion {}, bassRegion {};
         float trebleBalance = 0.0f, bassBalance = 0.0f;
-        std::array<float, numBands> curve {};          // source-derived correction (before footstep priority)
+        std::array<float, numBands> curve {};          // source-derived correction
         std::array<float, numBands> addCurve {};       // ADD-mode enhancement lift
         std::array<float, 11> localWeight {};
         int analysisCountdown = 0;

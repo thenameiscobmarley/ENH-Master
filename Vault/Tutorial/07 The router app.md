@@ -27,6 +27,13 @@ between your games and your headset, and takes it out again. You never touch you
 - start with the computer
 - refresh devices, and the full audio settings
 
+## Changing your headset or speakers
+
+Just switch as you always do (the speaker icon in the taskbar, or Windows' sound settings) while the
+rack is in. The app notices within a tenth of a second: the rack starts playing to the device you
+picked, and Windows' default goes back to the rack input, so nothing skips the rack. Apps you've set
+to a device of their own in *App volume and device preferences* are brought into the rack as well.
+
 ## Windows: one thing to set up
 
 Windows needs a spare output for the rack to listen to. Either install the free **VB-CABLE** (the app

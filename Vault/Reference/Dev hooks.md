@@ -9,6 +9,7 @@ For developers. None of these do anything unless you set them.
 | Mode | What it does |
 |---|---|
 | *(none)* | everything |
+| `--radar [table]` | the FOOTSTEP RADAR on 70 scenes (every surface and distance, under game audio, look-alikes), scored |
 | `--events <scene>` | every footstep decision, with reasons |
 | `--diagnose` / `--analyze file.wav` | the same for live audio / a recording |
 | `--units` · `--presets` · `--bass` · `--limiter` | parts of the suite |
@@ -24,13 +25,15 @@ For developers. None of these do anything unless you set them.
 |---|---|
 | `PAD_UI_TEST_SIZE=1000x740` | window size |
 | `PAD_UI_TEST_DEMO=1` | animates the screens without audio |
-| `PAD_UI_TEST_FOCUS=<n>` | start zoomed on a unit: 0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 spectral limiter, 5 level, 6 balancer, 7 monitor, 8 deep sub, 9 character |
+| `PAD_UI_TEST_FOCUS=<n>` | start zoomed on a unit: 0 enhancer, 1 tone & space, 2 compressor, 3 leveler, 4 spectral limiter, 5 level, 6 balancer, 7 monitor, 8 deep sub, 9 character, 10 footstep radar |
 | `PAD_UI_TEST_PANEL=<unit>[,row[,choice]]` | open a glass panel |
 | `PAD_UI_TEST_HOVER="x,y"` / `PAD_UI_TEST_HOVER_CONTROL=<id>` | show the loupe / outline a control |
 | `PAD_UI_TEST_STATS=1` | frame timing every 5 s |
 | `PAD_UI_TEST_PARAMS="clarity=0.8;footstep=1"` | set values after 1.5 s |
 | `PAD_UI_DUMP_ARTWORK=<dir>` | write every panel's print and the layout audit (`clearances.txt`) |
 | `ENH_MASTER_PRESETS=<file>` | use another preset file |
+| `RADAR_DUMP=<scene>` (+ `RADAR_BANDS=1`, `RADAR_TRACE=1`) | with `--radar`: every event in that scene, why it was taken or not, and the steps it missed |
+| `RADAR_STATS=1` · `RADAR_METHODS=1` | with `--radar`: what the background estimate sees · steps taken per DETECTION setting |
 
 The full list of every variable, with a link to where it's read, is in the [Searchbar](../../Searchbar.md#dev-settings).
 

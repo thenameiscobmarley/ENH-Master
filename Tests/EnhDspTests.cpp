@@ -405,7 +405,6 @@ namespace
     struct RunResult
     {
         std::vector<float> confidence;   // per block
-        std::vector<enh::dsp::FootstepDetector::Trace> traces;
         double meanAbsBandGain = 0.0;
         std::array<double, enh::dsp::numBands> curve {};   // mean displayed EQ curve over the last 40 %
         float treble = 0.0f, bass = 0.0f;                  // measured balance at the end
@@ -461,7 +460,6 @@ namespace
                 res.maxAbsBandGain = std::max (res.maxAbsBandGain, v);
             }
             res.meanAbsBandGain += blockAbs / (float) enh::dsp::numBands;
-            res.traces.push_back (engine.getFootstepTrace());
 
             if (pos >= (int) (0.6 * total))
             {
@@ -769,6 +767,7 @@ namespace
             else if (i == id::deepActive) k.deepActive = on;
             else if (i == id::charModelA) k.charModelA = v; else if (i == id::charModelB) k.charModelB = v;
             else if (i == id::charBlend) k.charBlend = v;   else if (i == id::charDrive) k.charDrive = v;
+            else if (i == id::charColour) k.charColour = v;
             else if (i == id::charActive) k.charActive = on;
             else if (i == id::abCompare) k.compare = on;
             else if (i == id::charGrit) k.charGrit = on;
@@ -918,16 +917,6 @@ namespace
             variant ("tone & space: SUB 0", [] (auto& p) { p.seraph.silk.sub = 0.0f; });
             variant ("tone & space: AUTO off", [] (auto& p) { p.seraph.heaven.autoHeaven = false; });
             variant ("only limiter + compressor", [] (auto& p) { p.strength = 0.0f; p.normalize = 0.0f; p.sub = 0.0f; p.lumen.active = false; p.seraph.mode = enh::dsp::Seraph::off; });
-        }
-
-        if (std::getenv ("FS_KICK_DIAG") != nullptr)
-        {
-            const auto p = presetParameters (presetNamed ("COMPETITIVE FOOTSTEPS"));
-            for (bool adaptive : { false, true })
-            {
-                const auto hit = runLimiterScene (sr, true, false, 256, -6.0f, false, &p, [adaptive] (EnhEngine& e) { e.setFootstepAdaptive (adaptive); });
-                std::printf ("    COMPETITIVE, footstep adaptive %s: footstep events %d, detail %+.1f dB\n", adaptive ? "on " : "off", hit.footstepEvents, hit.detailDipDb);
-            }
         }
 
         // The reference preset: level unchanged, and nothing processing the bass hit
@@ -1147,6 +1136,9 @@ namespace
         check (std::abs (pumpAuto) < 0.75f, "AUTO at full: the tone does not pump with the bass");
     }
 }
+
+#define ENH_HAS_OLD_FOOTSTEP_DETECTOR 0
+#include "RadarTests.h"
 
 namespace
 {
@@ -1557,6 +1549,15 @@ namespace
             // and a huge rumble at 8 s (it needs a few seconds to learn what is normal); for the leveler's
             // LIFT quiet noise (quiet enough to reach its limits)
             const auto gameScene = makeScene (sr, 2.0, true, true, 11);
+            // The FOOTSTEP RADAR's settings need steps to work on (and some it should not take)
+            const auto radarScene = []
+            {
+                const auto a = radartests::methodScene();
+                Scene sc;
+                sc.left = a.l;
+                sc.right = a.r;
+                return sc;
+            }();
             Scene quietScene;   // quiet pink noise, -34 dBFS, 8 s: the leveler lifts it well past LIFT's limits
             {
                 juce::Random rnd (4);
@@ -1598,7 +1599,7 @@ namespace
                 // A ceiling only shows on material that reaches it, so it gets the scene pushed to the top
                 return st.id == m::outputCeiling ? hotScene
                      : st.unitIndex == 4 ? limiterScene
-                     : st.id == m::levelerLift ? quietScene : gameScene;
+                     : st.id == m::levelerLift ? quietScene : st.unitIndex == 10 ? radarScene : gameScene;
             };
             std::map<std::pair<const Scene*, bool>, RunResult> references;   // per scene, with CHARACTER in or out
             int runs = 0, failed = 0, placebo = 0;
@@ -1612,7 +1613,7 @@ namespace
                     for (int k = 1; k < st.numMethods; ++k)
                     {
                         // A unit that is out by default (CHARACTER) is put in for its own methods
-                        const auto p = presetParameters (presetNamed ("IMMERSIVE GAMES"), [&] (auto& kv) { base (kv); kv.methods[(size_t) st.id] = k; if (st.unitIndex == 9) kv.charActive = true; });
+                        const auto p = presetParameters (presetNamed ("IMMERSIVE GAMES"), [&] (auto& kv) { base (kv); kv.methods[(size_t) st.id] = k; if (st.unitIndex == 9) kv.charActive = true; if (st.unitIndex == 10) kv.footstep = true; });
                         const float limit = st.id == m::outputCeiling ? (k == 1 ? 0.96605088f : 0.89125094f) + 1.0e-6f : ceiling;
                         bool ok = true;
                         float diff = 0.0f;
@@ -1620,7 +1621,7 @@ namespace
                         const auto key = std::make_pair (&scene, st.unitIndex == 9);
                         if (references.count (key) == 0)
                             references[key] = run (scene, sr, 128, presetParameters (presetNamed ("IMMERSIVE GAMES"),
-                                                                                      [&] (auto& kv) { base (kv); if (st.unitIndex == 9) kv.charActive = true; }));
+                                                                                      [&] (auto& kv) { base (kv); if (st.unitIndex == 9) kv.charActive = true; if (st.unitIndex == 10) kv.footstep = true; }));
                         const auto& reference = references[key];
                         for (int bs : { 7, 128, 1024 })
                         {
@@ -2144,6 +2145,19 @@ int main (int argc, char** argv)
     if (argc > 3 && juce::String (argv[1]) == "--golden")
         return runGolden (argv[2], juce::File (juce::File::getCurrentWorkingDirectory().getChildFile (argv[3])));
 
+    if (argc > 1 && juce::String (argv[1]) == "--radar")
+    {
+        bool table = false, old = false;
+        for (int k = 2; k < argc; ++k)
+        {
+            table = table || juce::String (argv[k]) == "table";
+            old = old || juce::String (argv[k]) == "old";
+        }
+        radartests::runRadarTests (sr, table, old);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
     if (argc > 1 && juce::String (argv[1]) == "--units")
         return runNewUnitsMode (sr);
 
@@ -2246,10 +2260,12 @@ int main (int argc, char** argv)
         p.normalize = argc > 3 ? (float) std::atof (argv[3]) : 0.6f;
 
         juce::AudioBuffer<float> buf (2, block);
-        auto lastPhase = enh::dsp::FootstepDetector::Phase::idle;
+        std::vector<enh::dsp::FootstepRadar::Decision> log;
+        log.reserve (200000);
+        engine.setRadarLog (&log);
+        size_t shown = 0;
         double nextReport = 5.0;
-        using Phase = enh::dsp::FootstepDetector::Phase;
-        std::printf ("time    event      str  decay tonal ctx  clutter hot  bb   seq  score\n");
+        std::printf ("time    event     P     base  walker attack  decay  over   tonal  level     far\n");
 
         for (int pos = 0; pos < len; pos += block)
         {
@@ -2259,14 +2275,15 @@ int main (int argc, char** argv)
             buf.copyFrom (1, 0, file, file.getNumChannels() > 1 ? 1 : 0, pos, n);
             engine.process (buf, p);
 
-            const auto& t = engine.getFootstepTrace();
-            const double now = (pos + n) / fileRate;
-            if (t.phase != lastPhase && (t.phase == Phase::accepted || t.phase == Phase::rejected))
-                std::printf ("%7.3f %-9s  %.2f %.2f  %.2f  %.2f %.2f    %.2f %.2f %.2f %.2f\n", now,
-                             t.phase == Phase::accepted ? "FOOTSTEP" : "rejected",
-                             t.strength, t.decay, t.tonal, t.context, t.clutter, t.hot, t.broadband, t.sequence, t.score);
-            lastPhase = t.phase;
+            for (; shown < log.size(); ++shown)
+            {
+                const auto& d = log[shown];
+                std::printf ("%7.3f %-8s  %.2f  %.2f  %.2f  %5.1f ms %5.1f dB %5.1f dB  %.2f %6.1f dBFS %.2f\n", d.time,
+                             d.accepted ? "FOOTSTEP" : "rejected", d.probability, d.base, d.match, d.attackMs, d.decayDb, d.excessDb,
+                             d.tonal, d.levelDb, d.distance);
+            }
 
+            const double now = (pos + n) / fileRate;
             if (now >= nextReport)
             {
                 const auto& plan = engine.getHarmonicPlan();
@@ -2279,12 +2296,12 @@ int main (int argc, char** argv)
             }
         }
 
-        std::printf ("footsteps accepted %d, events rejected %d\n", engine.getFootstepDetector().getEventCount(),
-                     engine.getFootstepDetector().getRejectedCount());
+        engine.setRadarLog (nullptr);
+        std::printf ("footsteps found %d, events %d\n", engine.getRadar().getStepsTotal(), engine.getRadar().getEventCount());
         return 0;
     }
 
-    // Per-event decisions with ground truth: EnhDspTests --events quiet|crates|game
+    // Per-event decisions with ground truth: EnhDspTests --events quiet|crates|varied|reverb|game [seed]
     if (argc > 2 && juce::String (argv[1]) == "--events")
     {
         const juce::String which (argv[2]);
@@ -2293,208 +2310,34 @@ int main (int argc, char** argv)
                          : which == "varied" ? makeScene (sr, 30.0, true, true, argc > 3 ? std::atoi (argv[3]) : 7, true)
                          : which == "reverb" ? makeReverbScene (sr, 24.0, argc > 3 ? std::atoi (argv[3]) : 5, true)
                          : makeScene (sr, 24.0, true, true, argc > 3 ? std::atoi (argv[3]) : 1234);
-        EnhEngine engine;
-        const int eb = 32;
-        engine.prepare (sr, eb, 2);
-        EnhEngine::Parameters p;
-        p.normalize = 0.6f; p.footstep = true;
-        juce::AudioBuffer<float> buf (2, eb);
-        using Phase = enh::dsp::FootstepDetector::Phase;
-        auto last = Phase::idle;
-        double onset = 0.0;
-
+        std::vector<enh::dsp::FootstepRadar::Decision> log;
+        log.reserve (20000);
+        enh::dsp::FootstepRadar::Settings s;
+        radartests::runRadar (radartests::fromScene (scene, sr), s, nullptr, &log);
         auto label = [&] (double t)
         {
-            for (auto& st : scene.steps) if (t >= st.time - 0.01 && t < st.time + 0.2) return juce::String ("STEP ") + juce::String ((t - st.time) * 1000.0, 0) + "ms";
+            for (auto& st : scene.steps) if (t >= st.time - 0.02 && t < st.time + 0.2) return juce::String ("STEP ") + juce::String ((t - st.time) * 1000.0, 0) + "ms";
             for (auto& c : scene.crates) if (t >= c.time - 0.01 && t < c.time + 1.2) return juce::String ("crate+") + juce::String ((t - c.time) * 1000.0, 0) + "ms";
             for (auto& sh : scene.shots) if (t >= sh.time - 0.01 && t < sh.time + 0.5) return juce::String ("shot");
             return juce::String ("-");
         };
-
-        for (int pos = 0; pos + eb <= (int) scene.left.size(); pos += eb)
-        {
-            std::copy_n (scene.left.data() + pos, eb, buf.getWritePointer (0));
-            std::copy_n (scene.right.data() + pos, eb, buf.getWritePointer (1));
-            engine.process (buf, p);
-            const auto& t = engine.getFootstepTrace();
-            const double now = (pos + eb) / sr;
-            if (t.phase == Phase::provisional && last != Phase::provisional)
-                onset = now;
-            if (t.phase != last && (t.phase == Phase::accepted || t.phase == Phase::rejected))
-                std::printf ("%7.3f %-8s %-14s str %.2f decay %.2f tonal %.2f ctx %.2f clut %.2f hot %.2f bb %.2f mid %.2f seq %.2f score %.2f (+%.0fms)\n",
-                             onset, t.phase == Phase::accepted ? "ACCEPT" : "reject", label (onset).toRawUTF8(),
-                             t.strength, t.decay, t.tonal, t.context, t.clutter, t.hot, t.broadband, t.midDominance, t.sequence, t.score, (now - onset) * 1000.0);
-            last = t.phase;
-        }
+        for (auto& d : log)
+            std::printf ("%7.3f %-6s %-14s P %.2f base %.2f walker %.2f  attack %4.1f ms  decay %4.1f dB  over %4.1f dB  tonal %.2f  %6.1f dBFS  far %.2f\n",
+                         d.time, d.accepted ? "ACCEPT" : "reject", label (d.time).toRawUTF8(), d.probability, d.base, d.match, d.attackMs,
+                         d.decayDb, d.excessDb, d.tonal, d.levelDb, d.distance);
         return 0;
     }
 
     if (argc > 1 && juce::String (argv[1]) == "--diagnose")
     {
-        for (int variant = 0; variant < 3; ++variant)
-        {
-            const bool shots = variant != 1, speech = variant != 0;
-            const auto scene = makeScene (sr, 24.0, shots, speech, 1234);
-            EnhEngine::Parameters p;
-            p.footstep = true;
-            const auto r = run (scene, sr, block, p);
-            int hits = 0;
-            std::printf ("\nvariant shots=%d speech=%d\n", shots, speech);
-            for (auto& st : scene.steps)
-            {
-                const float c = maxConfidence (r, sr, block, st.time, st.time + 0.08);
-                hits += c >= 0.5f;
-                std::printf ("  step %.2fs conf %.2f\n", st.time, c);
-                if (c < 0.5f)
-                    for (int b = (int) (st.time * sr / block); b < (int) ((st.time + 0.05) * sr / block); ++b)
-                    {
-                        const auto& t = r.traces[(size_t) b];
-                        std::printf ("     +%2.0fms str %.2f decay %.2f tonal %.2f ctx %.2f clutter %.2f hot %.2f bb %.2f mid %.2f seq %.2f score %.2f conf %.2f phase %d\n",
-                                     (b * block / sr - st.time) * 1000.0, t.strength, t.decay, t.tonal, t.context, t.clutter, t.hot, t.broadband,
-                                     t.midDominance, t.sequence, t.score, t.confidence, (int) t.phase);
-                    }
-            }
-            std::printf ("  hits %d/%zu\n", hits, scene.steps.size());
-            for (auto& sh : scene.shots)
-            {
-                float best = 0.0f; double at = 0.0;
-                for (int b = (int) (sh.time * sr / block); b < (int) ((sh.time + 0.25) * sr / block) && b < (int) r.confidence.size(); ++b)
-                    if (r.confidence[(size_t) b] > best) { best = r.confidence[(size_t) b]; at = b * block / sr - sh.time; }
-                std::printf ("  shot %.2fs maxconf %.2f at +%.0fms\n", sh.time, best, at * 1000.0);
-            }
-        }
+        radartests::runRadarTests (sr, true, false);   // every scene, what it found (RADAR_DUMP=<scene> for its every decision)
         return 0;
     }
 
     //==========================================================================
-    for (int seed : { 1234, 999, 31337 })
-    {
-        std::printf ("\n== Footstep detection (synthetic game scene: ambience, steps, gunshots, voice), seed %d ==\n", seed);
-        const auto scene = makeScene (sr, 24.0, true, true, seed);
-        EnhEngine::Parameters p;
-        p.normalize = 0.6f; p.adaptSpeed = 0.5f; p.sub = 0.3f; p.footstep = true;
-        const auto r = run (scene, sr, block, p);
-
-        int hits = 0;
-        for (auto& s : scene.steps)
-            hits += maxConfidence (r, sr, block, s.time, s.time + 0.08) >= 0.5f ? 1 : 0;
-
-        int shotFalse = 0;
-        for (auto& s : scene.shots)
-            shotFalse += maxConfidence (r, sr, block, s.time, s.time + 0.25) >= 0.5f ? 1 : 0;
-
-        // Voice-only time: confidence >= 0.5 with no step within 250 ms
-        int voiceBlocks = 0, voiceFalse = 0;
-        for (auto& seg : scene.speech)
-            for (int b = (int) (seg.first * sr / block); b < (int) (seg.second * sr / block); ++b)
-            {
-                const double t = b * block / sr;
-                bool nearStep = false;
-                for (auto& s : scene.steps)
-                    nearStep = nearStep || (t > s.time - 0.05 && t < s.time + 0.25);
-                if (nearStep) continue;
-                ++voiceBlocks;
-                voiceFalse += r.confidence[(size_t) b] >= 0.5f ? 1 : 0;
-            }
-
-        const float hitRate = (float) hits / (float) std::max<size_t> (1, scene.steps.size());
-        const float voiceRate = (float) voiceFalse / (float) std::max (1, voiceBlocks);
-
-        std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
-        std::printf ("  gunshot false    : %d / %zu\n", shotFalse, scene.shots.size());
-        std::printf ("  voice false time : %.1f%%\n", 100.0f * voiceRate);
-        // v4 trades a little synthetic recall (v3: 86-100%) for rejecting crate / rattle transients
-        // (v3 boosted 54-61% of crate time in the crate scene below); steps under loud speech are the misses
-        check (hitRate >= 0.80f, "detects >= 80% of footsteps");
-        check (shotFalse <= (int) scene.shots.size() / 5, "gunshots rarely flagged as footsteps");
-        check (voiceRate <= 0.10f, "voice rarely flagged as footsteps");
-        check (r.finite && r.peak <= 1.0f, "output finite and below full scale (peak " + juce::String (r.peak, 3) + ")");
-    }
-
-    //==========================================================================
-    for (int seed : { 7, 4242 })
-    {
-        std::printf ("\n== Varied surfaces (thump, metal click, wood, gravel, distant) + gunshots + voice, seed %d ==\n", seed);
-        const auto scene = makeScene (sr, 30.0, true, true, seed, true);
-        EnhEngine::Parameters p;
-        p.normalize = 0.6f; p.footstep = true;
-        const auto r = run (scene, sr, block, p);
-
-        int hits = 0;
-        for (auto& st : scene.steps)
-            hits += maxConfidence (r, sr, block, st.time, st.time + 0.08) >= 0.5f ? 1 : 0;
-
-        int shotFalse = 0;
-        for (auto& st : scene.shots)
-            shotFalse += maxConfidence (r, sr, block, st.time, st.time + 0.25) >= 0.5f ? 1 : 0;
-
-        int voiceBlocks = 0, voiceFalse = 0;
-        for (auto& seg : scene.speech)
-            for (int b = (int) (seg.first * sr / block); b < (int) (seg.second * sr / block); ++b)
-            {
-                const double t = b * block / sr;
-                bool nearStep = false;
-                for (auto& st : scene.steps)
-                    nearStep = nearStep || (t > st.time - 0.05 && t < st.time + 0.25);
-                if (nearStep) continue;
-                ++voiceBlocks;
-                voiceFalse += r.confidence[(size_t) b] >= 0.5f ? 1 : 0;
-            }
-
-        const float hitRate = (float) hits / (float) std::max<size_t> (1, scene.steps.size());
-        const float voiceRate = (float) voiceFalse / (float) std::max (1, voiceBlocks);
-        std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
-        std::printf ("  gunshot false    : %d / %zu\n", shotFalse, scene.shots.size());
-        std::printf ("  voice false time : %.1f%%\n", 100.0f * voiceRate);
-        check (hitRate >= 0.75f, "detects >= 75% of varied-surface footsteps");
-        check (shotFalse <= (int) scene.shots.size() / 5, "gunshots rarely flagged");
-        check (voiceRate <= 0.10f, "voice rarely flagged");
-    }
-
-    for (int seed : { 5, 88 })
-    {
-        std::printf ("\n== Reverberant rooms (varied surfaces, RT ~0.6 s) + voice, seed %d: fixed rules vs adaptive ==\n", seed);
-        const auto scene = makeReverbScene (sr, 24.0, seed, true);
-        auto measure = [&] (bool adaptive)
-        {
-            EnhEngine::Parameters p;
-            p.normalize = 0.6f; p.footstep = true;
-            const auto r = run (scene, sr, block, p, {}, [adaptive] (EnhEngine& e) { e.setFootstepAdaptive (adaptive); });
-            int hits = 0;
-            for (auto& st : scene.steps)
-                hits += maxConfidence (r, sr, block, st.time, st.time + 0.08) >= 0.5f ? 1 : 0;
-            int voiceBlocks = 0, voiceFalse = 0;
-            for (auto& seg : scene.speech)
-                for (int b = (int) (seg.first * sr / block); b < (int) (seg.second * sr / block); ++b)
-                {
-                    const double t = b * block / sr;
-                    bool nearStep = false;
-                    for (auto& st : scene.steps) nearStep = nearStep || (t > st.time - 0.05 && t < st.time + 0.25);
-                    if (nearStep) continue;
-                    ++voiceBlocks;
-                    voiceFalse += r.confidence[(size_t) b] >= 0.5f ? 1 : 0;
-                }
-            return std::make_pair ((float) hits / (float) std::max<size_t> (1, scene.steps.size()), (float) voiceFalse / (float) std::max (1, voiceBlocks));
-        };
-        const auto fixed = measure (false), adaptive = measure (true);
-        std::printf ("  fixed rules : steps %.0f%%, voice false time %.1f%%\n", 100.0f * fixed.first, 100.0f * fixed.second);
-        std::printf ("  adaptive    : steps %.0f%%, voice false time %.1f%%\n", 100.0f * adaptive.first, 100.0f * adaptive.second);
-        check (adaptive.first >= fixed.first, "adaptive detection catches at least as many reverberant steps");
-        check (adaptive.second <= 0.10f, "voice still rarely flagged");
-    }
-
-    std::printf ("\n== Quiet scene: only footsteps over ambience ==\n");
-    {
-        const auto scene = makeScene (sr, 12.0, false, false, 77);
-        EnhEngine::Parameters p;
-        p.footstep = true;
-        const auto r = run (scene, sr, block, p);
-        int hits = 0;
-        for (auto& s : scene.steps)
-            hits += maxConfidence (r, sr, block, s.time, s.time + 0.08) >= 0.5f ? 1 : 0;
-        std::printf ("  steps detected   : %d / %zu\n", hits, scene.steps.size());
-        check ((float) hits >= 0.85f * (float) scene.steps.size(), "detects footsteps when they are the loudest sound");
-    }
+    // Footsteps: the FOOTSTEP RADAR on every surface and distance, under game audio, against look-alikes,
+    // and on the scenes the old detector was tuned on (the same ground truth)
+    radartests::runRadarTests (sr, false, false);
 
     //==========================================================================
     std::printf ("\n== Neutral settings on a 1 kHz tone (-12 dBFS) ==\n");
@@ -2608,47 +2451,6 @@ int main (int argc, char** argv)
         std::printf ("  SUB 100%% + BOOST: difference %+.1f dB rel.\n", diffDb (rs));
         check (diffDb (rs) > -12.0f, "SUB + BOOST changes the sound clearly");
         check (rs.finite && rs.peak <= 1.0f, "SUB + BOOST output below full scale (peak " + juce::String (rs.peak, 3) + ")");
-    }
-
-    //==========================================================================
-    for (int seed : { 11, 2024 })
-    {
-        std::printf ("\n== Crate openings between walking (latch ring, creak, rattles, thud), seed %d ==\n", seed);
-        const auto scene = makeCrateScene (sr, 40.0, seed);
-        EnhEngine::Parameters p;
-        p.normalize = 0.6f; p.footstep = true;
-        const auto r = run (scene, sr, block, p);
-
-        int hits = 0;
-        for (auto& st : scene.steps)
-            hits += maxConfidence (r, sr, block, st.time, st.time + 0.08) >= 0.5f ? 1 : 0;
-
-        int flagged = 0, liftBlocks = 0, crateBlocks = 0, sustained = 0;
-        for (auto& c : scene.crates)
-        {
-            flagged += maxConfidence (r, sr, block, c.time, c.time + 1.1) >= 0.5f ? 1 : 0;
-            int run = 0, longest = 0;
-            for (int b = (int) (c.time * sr / block); b < (int) ((c.time + 1.1) * sr / block) && b < (int) r.confidence.size(); ++b)
-            {
-                ++crateBlocks;
-                const bool lifted = r.confidence[(size_t) b] >= 0.3f;
-                liftBlocks += lifted ? 1 : 0;
-                run = lifted ? run + 1 : 0;
-                longest = std::max (longest, run);
-            }
-            sustained += longest * block / sr > 0.15 ? 1 : 0;   // lifted for longer than a brief blip
-        }
-
-        const float hitRate = (float) hits / (float) std::max<size_t> (1, scene.steps.size());
-        const float crateRate = (float) flagged / (float) std::max<size_t> (1, scene.crates.size());
-        const float liftTime = (float) liftBlocks / (float) std::max (1, crateBlocks);
-        std::printf ("  steps detected   : %d / %zu (%.0f%%)\n", hits, scene.steps.size(), 100.0f * hitRate);
-        std::printf ("  crates flagged   : %d / %zu (%.0f%%), lifted > 150 ms: %d, lifted time during crates %.1f%%\n",
-                     flagged, scene.crates.size(), 100.0f * crateRate, sustained, 100.0f * liftTime);
-        check (hitRate >= 0.80f, "detects >= 80% of footsteps around crates");
-        check (crateRate <= 0.40f, "most crate openings never flagged (rummage-only crates may blip once)");
-        check (sustained == 0, "no crate gets a sustained footstep lift");
-        check (liftTime <= 0.05f, "footstep lift active < 5% of crate time (v3: 54-61%)");
     }
 
     //==========================================================================

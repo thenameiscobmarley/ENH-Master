@@ -4,7 +4,7 @@
 #include "BandAnalyzer.h"
 #include "SpectralAnalyzer.h"
 #include "HarmonicPlanner.h"
-#include "FootstepDetector.h"
+#include "FootstepRadar.h"
 #include "AdaptiveEQ.h"
 #include "SubEnhancer.h"
 #include "AnalogStage.h"
@@ -28,17 +28,14 @@ namespace enh::dsp
 
         LEVEL (the rack's working level: everything after it hears it, the leveler's target moves with it)
         input ─► analysis: 24 bands + long-term spectrum, FFT tonality,      [feed-forward]
-          │                 footstep classifier, harmonic planner, sub follower
+          │                 harmonic planner, sub follower
           │
-          └─► source-dependent EQ (+ footstep lift) ─► sub enhancer ─► analog stage ─► UPWARD LEVELER
-                                                                       (auto gain, 2x adaptive
-                                                                        depth/clarity exciters,
-                                                                        colour, ceiling)
-              ─► SPECTRAL LIMITER ─► MIX BALANCER ─► ADAPTIVE COMPRESSOR ─► TONE & SPACE ─► output limiter ─► out
-                                                                                             (loudness meter)
-                 (abnormal spectral   (broadband, keyed on   (tone & texture,
-                  excess, from the     what is left)          space & width,
-                  shared analysis)                            loudness hold)
+          └─► source-dependent EQ ─► sub enhancer ─► analog stage ─► UPWARD LEVELER ─► DEEP SUB
+                                                     (auto gain, 2x adaptive
+                                                      depth/clarity exciters,
+                                                      colour, ceiling)
+              ─► SPECTRAL LIMITER ─► MIX BALANCER ─► ADAPTIVE COMPRESSOR ─► FOOTSTEP RADAR ─► TONE & SPACE
+              ─► CHARACTER ─► LOUDNESS TARGET ─► COMPARE ─► protection ─► output limiter ─► out (loudness meter)
 
         Control updates run at ~1.5 kHz; audio runs through IIR filters only, so the added
         latency is just the oversampling filters (reported to the host).
@@ -54,7 +51,8 @@ namespace enh::dsp
             float adaptSpeed = 0.4f;  // 0..1
             float sub = 0.0f;         // 0..1
             bool subBoost = false;
-            bool footstep = false;
+            bool footstep = false;                              // (the FOOTSTEP RADAR's IN; radar.active follows it)
+            FootstepRadar::Settings radar {};                   // FOOTSTEP RADAR: finds footsteps, lifts them, far ones with space
             float strength = 1.0f;    // ENH STRENGTH: 0 = no effect .. 5 = five times the effect
             SpectralLeveler::Settings lumen {};   // UPWARD LEVELER: lifts quiet material
             SpectralLimiter::Settings limiter {}; // SPECTRAL LIMITER: cuts abnormal spectral excess
@@ -72,7 +70,7 @@ namespace enh::dsp
         void reset();
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
-        int getLatencySamples() const noexcept { return analog.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + output.getLatencySamples(); }
+        int getLatencySamples() const noexcept { return analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + output.getLatencySamples(); }
 
         /** The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again. */
         void resetLoudness() noexcept { loudnessResetPending.store (true, std::memory_order_relaxed); }
@@ -83,14 +81,13 @@ namespace enh::dsp
         const FinalLimiter& getOutputLimiter() const noexcept { return output; }
         const EngineMeters& getMeters() const noexcept { return meters; }
 
-        /** For tests: detector events since reset. */
-        int getFootstepEventCount() const noexcept { return steps.getEventCount(); }
-        float getFootstepConfidence() const noexcept { return steps.getConfidence(); }
-        const FootstepDetector::Trace& getFootstepTrace() const noexcept { return steps.trace; }
+        /** For tests: footsteps the radar has found since reset, and how much it is lifting now (0..1). */
+        int getFootstepEventCount() const noexcept { return radar.getStepsTotal(); }
+        float getFootstepConfidence() const noexcept { return radar.getActivity(); }
+        const FootstepRadar& getRadar() const noexcept { return radar; }
+        void setRadarLog (std::vector<FootstepRadar::Decision>* log) noexcept { radar.log = log; }   // tests (reserve first)
         const HarmonicPlanner& getHarmonicPlan() const noexcept { return planner; }
         const AdaptiveEQ& getEQ() const noexcept { return eq; }
-        const FootstepDetector& getFootstepDetector() const noexcept { return steps; }
-        void setFootstepAdaptive (bool on) noexcept { steps.setAdaptive (on); }   // tests
         const Seraph& getSeraph() const noexcept { return seraph; }
         const DynamicCompressor& getCompressor() const noexcept { return tide; }
         const SpectralLeveler& getLeveler() const noexcept { return lumen; }
@@ -117,7 +114,8 @@ namespace enh::dsp
 
         BandAnalyzer analyzer;
         SpectralAnalyzer spectrum;
-        FootstepDetector steps;
+        FootstepRadar radar;
+        void publishRadar() noexcept;   // its readouts to the meters, for the display
         HarmonicPlanner planner;
         AdaptiveEQ eq;
         SubEnhancer sub;

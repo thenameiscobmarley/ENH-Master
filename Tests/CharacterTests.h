@@ -10,13 +10,14 @@ namespace chartest
         Nyquist, %), everything else - aliases and noise - against the fundamental (dB) }. */
     struct Measure { float fundamental = 0, thd = 0, otherDb = -200; };
 
-    inline Measure sineWith (int model, float drive, float hz, float levelDb, bool grit, double rate = 48000.0, int components = 0)
+    inline Measure sineWith (int model, float drive, float hz, float levelDb, bool grit, double rate = 48000.0, int components = 0, float colour = 5.0f)
     {
         Character ch;
         ch.prepare (rate, 256, 2);
         ch.setMaxBlock (256);
         Character::Settings s;
         s.active = true; s.modelA = model; s.modelB = model; s.blend = 0.0f; s.drive = drive; s.components = components; s.grit = grit;
+        s.colour = colour;
 
         // 8 s to settle: the unit's loudness match (1.5 s) has to have found its level, or the fit reads
         // its last glide as distortion
@@ -84,17 +85,57 @@ namespace chartest
         return sineWith (model, drive, hz, levelDb, true, rate, components);
     }
 
-    /** Pink-ish noise at -18 dBFS through a model: output RMS change in dB. */
-    inline float levelChange (int model, float drive)
+    /** A model's voicing: two tones at -30 dBFS each (a single one would be level-matched away), and how
+        much the model moves the first against the second, in dB. */
+    inline float voicingDb (int model, float colour, float hzA, float hzB)
     {
         Character ch;
         ch.prepare (48000.0, 256, 2);
         ch.setMaxBlock (256);
         Character::Settings s;
-        s.active = true; s.modelA = s.modelB = model; s.drive = drive;
+        s.active = true; s.modelA = s.modelB = model; s.drive = 5.0f; s.grit = false; s.colour = colour;
+        const int total = 48000 * 6, skip = 48000 * 4;
+        const double amp = std::pow (10.0, -30.0 / 20.0), tau = 2.0 * juce::MathConstants<double>::pi;
+        double sa = 0, ca = 0, sb = 0, cb = 0;
+        juce::AudioBuffer<float> buf (2, 256);
+        for (int pos = 0; pos < total; pos += 256)
+        {
+            for (int i = 0; i < 256; ++i)
+            {
+                const double t = (pos + i) / 48000.0;
+                const float v = (float) (amp * (std::sin (tau * hzA * t) + std::sin (tau * hzB * t)));
+                buf.setSample (0, i, v); buf.setSample (1, i, v);
+            }
+            ch.process (buf.getArrayOfWritePointers(), 2, 256, s);
+            if (pos >= skip)
+                for (int i = 0; i < 256; ++i)
+                {
+                    // Against the input's phase, shifted by the unit's latency
+                    const double t = (pos + i - ch.getLatencySamples()) / 48000.0;
+                    const double y = buf.getSample (0, i);
+                    sa += y * std::sin (tau * hzA * t); ca += y * std::cos (tau * hzA * t);
+                    sb += y * std::sin (tau * hzB * t); cb += y * std::cos (tau * hzB * t);
+                }
+        }
+        return (float) (10.0 * std::log10 ((sa * sa + ca * ca) / std::max (1e-30, sb * sb + cb * cb)));
+    }
+
+    /** Pink-ish noise at -18 dBFS through a model: output RMS change in dB. */
+    inline float levelChange (int model, float drive, float colour = 5.0f)
+    {
+        Character ch;
+        ch.prepare (48000.0, 256, 2);
+        ch.setMaxBlock (256);
+        Character::Settings s;
+        s.active = true; s.modelA = s.modelB = model; s.drive = drive; s.colour = colour;
         juce::Random r (7);
         float b0 = 0, b1 = 0, b2 = 0;
         double inE = 0, outE = 0;
+        // Loudness as it is heard (K-weighted, BS.1770), which is what CHARACTER keeps: plain RMS read a
+        // model whose voicing tilts the spectrum (ARENA: less 280 Hz, more 3.2 kHz) as quieter than it sounds
+        enh::dsp::BiquadCoeffs pre, rlb;
+        enh::dsp::kWeighting (48000.0, pre, rlb);
+        enh::dsp::BiquadState inPre, inRlb, outPre, outRlb;
         juce::AudioBuffer<float> buf (2, 256);
         for (int blk = 0; blk < 48000 * 10 / 256; ++blk)
         {
@@ -104,11 +145,15 @@ namespace chartest
                 b0 = 0.99765f * b0 + w * 0.0990460f; b1 = 0.96300f * b1 + w * 0.2965164f; b2 = 0.57000f * b2 + w * 1.0526913f;
                 const float v = (b0 + b1 + b2 + w * 0.1848f) * 0.05f;
                 buf.setSample (0, i, v); buf.setSample (1, i, v);
-                if (blk > 1125) inE += (double) v * v;
+                const float k = inRlb.process (rlb, inPre.process (pre, v));
+                if (blk > 1125) inE += (double) k * k;
             }
             ch.process (buf.getArrayOfWritePointers(), 2, 256, s);
-            if (blk > 1125)
-                for (int i = 0; i < 256; ++i) outE += (double) buf.getSample (0, i) * buf.getSample (0, i);
+            for (int i = 0; i < 256; ++i)
+            {
+                const float k = outRlb.process (rlb, outPre.process (pre, buf.getSample (0, i)));
+                if (blk > 1125) outE += (double) k * k;
+            }
         }
         return (float) (10.0 * std::log10 (outE / inE));
     }
@@ -171,7 +216,7 @@ static void runCharacterTests (bool table)
                                                    + juce::String (a, 2) + " / " + juce::String (b, 2) + " / " + juce::String (c, 2) + " %)");
     }
 
-    // 4. DRIVE is given back: pink noise at -18 dBFS keeps its level within 1.5 dB at every drive
+    // 4. DRIVE is given back: pink noise at -18 dBFS keeps its loudness (K-weighted) within 1.5 dB at every drive
     for (int m = 0; m < Character::numModels; ++m)
     {
         float worst = 0.0f;
@@ -255,5 +300,40 @@ static void runCharacterTests (bool table)
                 for (int i = 0; i < n; ++i) finite = finite && std::isfinite (buf.getSample (0, i)) && std::abs (buf.getSample (0, i)) < 4.0f;
             }
         check (finite, "odd block sizes, full-scale noise, drive 10, COMPONENTS vintage: finite and bounded");
+
+    // 5. COLOUR: the character without the distortion. Its voicing is heard, its harmonics are there at a
+    //    quiet level (and not at COLOUR 0), GRIT off stays clean at full COLOUR, and the loudness stays.
+    std::printf ("\n  COLOUR: voicing 0 -> 10, harmonics at -30 dBFS (GRIT off) 0 -> 5 -> 10, THD at -6 dBFS COLOUR 10 GRIT off\n");
+    {
+        struct V { int model; float a, b; const char* what; float atLeast; };
+        const V voicings[] { { Character::tape15, 52.0f, 1000.0f, "head bump at 52 Hz", 3.0f },
+                             { Character::arena, 3200.0f, 1000.0f, "3.2 kHz presence", 2.0f },
+                             { Character::cinema, 45.0f, 1000.0f, "weight at 45 Hz", 2.0f },
+                             { Character::vintage, 60.0f, 1000.0f, "low shelf at 60 Hz", 1.5f } };
+        for (auto& v : voicings)
+        {
+            const float at0 = voicingDb (v.model, 0.0f, v.a, v.b), at10 = voicingDb (v.model, 10.0f, v.a, v.b);
+            std::printf ("  %-18s %-20s %+.2f -> %+.2f dB\n", Character::names[(size_t) v.model], v.what, at0, at10);
+            check (at10 - at0 >= v.atLeast, juce::String (Character::names[(size_t) v.model]) + ": COLOUR brings its " + v.what
+                   + " in (" + juce::String (at10 - at0, 1) + " dB, at least " + juce::String (v.atLeast, 1) + ")");
+        }
+        for (int m = 0; m < Character::numModels; ++m)
+        {
+            const float q0 = sineWith (m, 5.0f, 1000.0f, -30.0f, false, 48000.0, 0, 0.0f).thd;
+            const float q5 = sineWith (m, 5.0f, 1000.0f, -30.0f, false, 48000.0, 0, 5.0f).thd;
+            const float q10 = sineWith (m, 5.0f, 1000.0f, -30.0f, false, 48000.0, 0, 10.0f).thd;
+            const float loud = sineWith (m, 5.0f, 1000.0f, -6.0f, false, 48000.0, 0, 10.0f).thd;
+            std::printf ("  %-18s %.3f -> %.3f -> %.3f %%   loud %.2f %%\n", Character::names[(size_t) m], q0, q5, q10, loud);
+            if (m != Character::clean)
+                check (q10 >= 0.25f && q10 > 4.0f * q0, juce::String (Character::names[(size_t) m])
+                       + ": COLOUR gives it character at a quiet level (" + juce::String (q10, 2) + " % at -30 dBFS)");
+            check (loud <= 1.6f, juce::String (Character::names[(size_t) m]) + ": GRIT off stays clean at COLOUR 10 ("
+                   + juce::String (loud, 2) + " % at -6 dBFS)");
+            float worst = 0.0f;
+            for (float c : { 0.0f, 10.0f })
+                worst = std::max (worst, std::abs (levelChange (m, 5.0f, c)));
+            check (worst < 1.5f, juce::String (Character::names[(size_t) m]) + ": loudness kept at COLOUR 0 and 10 (" + juce::String (worst, 2) + " dB)");
+        }
+    }
     }
 }

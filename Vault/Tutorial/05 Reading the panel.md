@@ -20,7 +20,8 @@ The print is small, like on real hardware. You don't need to squint:
 
 ## Lights and colours
 
-- **DETECT** flashes on a recognised footstep; **OUT** and **ENH** show output level and how much it's enhancing.
+- **STEPS** (ADAPTIVE ENHANCER, METER) flashes on every footstep the FOOTSTEP RADAR finds; **OUT** and **ENH** show output level and how much it's enhancing.
+- **FOOTSTEP RADAR**: its STEP LIFT needle kicks on every step it lifts.
 - A moving knob's pointer is coloured by who moved it: **amber** you, **blue** automation, **violet** the plugin itself.
 
 Next: [Windows and other platforms](06%20Windows%20and%20other%20platforms.md)

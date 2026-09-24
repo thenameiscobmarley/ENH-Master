@@ -74,5 +74,20 @@ namespace enh::dsp
         std::atomic<bool>  comparing { false };
         std::atomic<bool>  protectionTripped { false };    // a block had something that was not a number: silenced    // LOUDNESS TARGET's gain (0 when off)
         std::array<std::atomic<float>, 28> silkDipDb {};
+
+        // FOOTSTEP RADAR, for its display: how far each band stands over its background, the onset against
+        // the threshold, the walkers it follows, and the last 32 steps it found (their fields written
+        // first, then radarStepsTotal with release order: the display reads the total first)
+        static constexpr int radarBands = 6, radarTracks = 4, radarRecent = 32;
+        std::atomic<float> radarActivity { 0.0f }, radarOnset { 0.0f }, radarThreshold { 1.0f }, radarMusicality { 0.0f };
+        std::array<std::atomic<float>, radarBands> radarExcessDb {};
+        std::array<std::atomic<float>, radarTracks> radarTrackPan {}, radarTrackDistance {}, radarTrackConfidence {}, radarTrackPeriod {};
+        std::array<std::atomic<int>, radarTracks> radarTrackId {};
+        std::array<std::atomic<float>, radarRecent> radarStepTime {}, radarStepPan {}, radarStepRear {}, radarStepDistance {},
+                                                     radarStepConfidence {}, radarStepBoost {};
+        std::array<std::atomic<int>, radarRecent> radarStepTrack {};
+        std::atomic<int> radarStepsTotal { 0 };
+        std::atomic<float> radarClock { 0.0f };
+        std::atomic<bool> radarOn { false };
     };
 }

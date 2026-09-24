@@ -385,6 +385,7 @@ namespace pad::artwork
                              : unit == levelUnit ? juce::String ("LEVEL") : unit == balancerUnit ? juce::String ("BALANCE")
                              : unit == monitorUnit ? juce::String ("MONITOR")
                              : unit == characterUnit ? juce::String ("CHARACTER")
+                             : unit == radarUnit ? juce::String ("RADAR")
                                                                                                    : juce::String ("DYNAMIC EQ");
             const auto font = makeFont (m.len (0.024f), true, 0.30f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, title);
@@ -478,6 +479,7 @@ namespace pad::artwork
                              : unit == monitorUnit ? juce::String (loudness[i])
                              : unit == deepUnit ? juce::String ("SUB ADDED")
                              : unit == characterUnit ? juce::String ("HARMONICS")
+                             : unit == radarUnit ? juce::String ("STEPS")
                              : unit == levelUnit ? juce::String ("INPUT") : juce::String (bands[i]);
             text (g, m, label, vuX (unit, i), vuZ (unit, i) + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
         }
@@ -583,6 +585,7 @@ namespace pad::artwork
                            : unit == monitorUnit ? juce::String ("LUFS") : unit == levelUnit ? juce::String ("INPUT   dBFS")
                            : unit == deepUnit ? juce::String ("SUB   dBFS")
                            : unit == characterUnit ? juce::String ("HARMONICS   dB")
+                           : unit == radarUnit ? juce::String ("STEP LIFT   dB")
                                                  : juce::String ("LIFT   dB");
         const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
         g.setFont (capFont);

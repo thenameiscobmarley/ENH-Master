@@ -184,7 +184,7 @@ namespace enh::dsp
         const float strength = std::clamp (s.strength, 0.0f, 5.0f);
         const float depthTarget = std::min (4.0f, 1.1f * s.boost * (0.5f + 0.5f * s.depth.amount) * strength);
         const float clarityTarget = std::min (4.0f, 1.05f * s.boost * (0.5f + 0.5f * s.clarityBand.amount) * (0.8f + 0.4f * s.transient)
-                                                    * (1.0f + 0.4f * s.footstep) * strength);
+                                                    * strength);
         const float depthStep = (depthTarget - depthMix) / (float) un;
         const float clarityStep = (clarityTarget - clarityMix) / (float) un;
         const bool exciting = depthTarget + depthMix + clarityTarget + clarityMix > 1.0e-5f;

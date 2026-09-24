@@ -26,9 +26,9 @@ namespace enh::dsp
                    exactly the blend of the two curves (no phasing between parallel paths).
 
         Attacks are respected: a band's cut is held back while that band is in a fresh transient. While
-        footsteps are being lifted by the enhancer (one detected in the last second) the cuts let go: the two
+        the FOOTSTEP RADAR is lifting a step the cuts let go: the two
         used to fight, the balancer holding a standing cut where the steps live and taking 1.5 - 2 dB back off
-        every step the enhancer had just lifted.
+        every step that had just been lifted.
 
         Loudness keeper: where a fader holds a band below what it usually carries (letting go after a
         jump has passed, or a cut deeper than the jump), the mix is quieter than usual and the rest of
@@ -361,7 +361,7 @@ namespace enh::dsp
                     // A band in a fresh attack is not cut yet: the front edge goes through
                     if (target < 0.0f && s.guard != 2 && transient[(size_t) b] > guardRatio (s) * fast[(size_t) b])
                         target = std::max (target, gainDb[(size_t) b]);
-                    // While footsteps are being lifted by the enhancer the cuts let go: the balancer had learnt a
+                    // While the FOOTSTEP RADAR lifts a step the cuts let go: the balancer had learnt a
                     // standing cut where the steps live and took 1.5 - 2 dB back off every one of them
                     if (target < 0.0f && s.holdCuts)
                         target = 0.0f;

@@ -36,12 +36,13 @@ Sound goes in at the bottom and comes out at the top.
 | Unit | What it does |
 |---|---|
 | **LEVEL CONTROL** | how loud the rack runs |
-| **ADAPTIVE ENHANCER** | brings out detail, sub and footsteps, following the audio |
+| **ADAPTIVE ENHANCER** | brings out detail and sub, following the audio |
 | **UPWARD LEVELER** | lifts quiet sounds |
 | **DEEP SUB** | adds a deep sub and a ringing "steel hull" under the bass |
 | **SPECTRAL LIMITER** | takes a loud bang down *where it is*, so the rest of the mix doesn't duck |
 | **MIX BALANCER** | keeps the bands of the mix in balance |
 | **ADAPTIVE COMPRESSOR** | evens out the level |
+| **FOOTSTEP RADAR** | finds footsteps in any game, near or far, lifts them, and shows on a radar where they came from |
 | **TONE & SPACE** | polish, air, width and room |
 | **CHARACTER** | the sound of consoles, tape and valves: two at once, blended |
 | **OUTPUT MONITOR** | shows what the rack does: before and after, loudness, and who is ducking |

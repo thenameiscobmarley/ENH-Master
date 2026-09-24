@@ -185,7 +185,7 @@ PROCESSING. Parameter `balancerGuard`.
 
 | Method | What it measures / does | How the sound changes | CPU / latency |
 |---|---|---|---|
-| **STD** Guard attacks (default) | A band in a fresh transient (its fast level 2.5 times its average) is not cut yet, and while footsteps are being lifted by the enhancer the cuts let go. | Footsteps and gunshots keep their front edge, and the balancer never takes back the footstep lift. The original guard. | Control rate, no audio cost (default). |
+| **STD** Guard attacks (default) | A band in a fresh transient (its fast level 2.5 times its average) is not cut yet, and while the FOOTSTEP RADAR is lifting a step the cuts let go. | Footsteps and gunshots keep their front edge, and the balancer never takes back the radar's lift. The original guard. | Control rate, no audio cost (default). |
 | **STR** Strong guard | The guard trips at 1.8 times the average: more attacks are protected. | Punchier transients; a harsh burst gets a moment longer before it is caught. | Control rate, no audio cost. Glides. |
 | **OFF** No guard | Attacks are cut like anything else (footsteps being lifted still release the cuts). | The tightest control of sudden bursts, at the price of softened attacks. | Control rate, no audio cost. Glides. |
 
@@ -280,6 +280,28 @@ STEREO. Parameter `tideStereo`.
 | **L/R** Left and right (default) | The unit works on the left and right channels, as it always did. | The original. | No cost (default). |
 | **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 | **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
+
+## FOOTSTEP RADAR
+
+### DETECTION - How sure it must be
+
+PROCESSING. Parameter `radarDetection`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **STD** Standard (default) | Every onset judged on its attack, decay, tonality, loudness and spread, and against the walkers it follows; taken at 45 % sure. | Finds steps near and far on every surface; look-alikes (clicks, reloads, voices, drums, gunfire) are mostly left alone. | About 1 % of one core. 2.5 ms latency (the lift lands on the step's attack). |
+| **SEN** Sensitive | The same, but listening closer: a lower onset threshold and taken at 36 % sure. | More of the faintest steps, and now and then something that only sounds like one gets a small lift too. | No extra cost. |
+| **STR** Strict | Only what is clearly a step: a higher threshold, taken at 60 % sure. | For busy scenes and music: fewer steps lifted, almost nothing else. | No extra cost. |
+
+### ROOM - The space it gives far steps
+
+PROCESSING. Parameter `radarRoom`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **ROM** Room (default) | Far steps get a small room around them: four short lines (17 - 37 ms), a little air taken from the top. | Distant steps sound distant but close enough to place - like a corridor or the next room. | No extra cost (default). |
+| **HAL** Hall | Longer lines (31 - 67 ms), a longer tail. | A big space: far steps bloom and carry. | No extra cost. |
+| **OPN** Open air | A few far echoes (47 - 127 ms), little tail, more of the top taken. | Outdoors: far steps come with a faint slap-back, as across a courtyard. | No extra cost. |
 
 ## TONE & SPACE
 
@@ -409,4 +431,4 @@ three off the knob is exactly as it always was.
 | **CRV** Curve | Reshapes the knob's travel before it reaches the processing: LOW spends more travel at the bottom of the range (squared), HIGH more at the top (square root), S at both ends (smoothstep). | Finer control where you need it; the knob still covers the same range end to end. | No cost. | **LINEAR** (off), LOW, HIGH, S |
 | **LIM** Range | Limits how far the knob reaches: its full travel covers only the bottom part of its range. | A safety net for live use and presets: the setting can never be pushed past the limit, and the knob gets finer. | No cost. | **FULL** (off), 75 %, 50 %, 25 % |
 
-Knobs with modifiers: `clarityNorm`, `clarityAdd`, `adaptSpeed`, `sub`, `enhMultiply`, `enhStrength`, `heavenHold`, `heavenLift`, `heavenAutoAmount`, `tideMix`, `tideResponse`, `lumenTarget`, `lumenResponse`, `spectralRange`, `spectralRelease`, `spectralCeiling`, `levelGain`, `balAmount`, `balSpeed`, `balTilt`, `balRange`, `balResolution`, `silkSmooth`, `silkAir`, `silkWarmth`, `silkBody`, `silkOutput`, `silkSub`, `haloWidth`, `haloSpace`, `haloDecay`, `haloShimmer`, `haloTone`, `seraphMultiply`, `seraphStrength`, `deepDepth`, `deepHull`, `deepSize`, `deepPressure`, `charBlend`, `charDrive`.
+Knobs with modifiers: `clarityNorm`, `clarityAdd`, `adaptSpeed`, `sub`, `enhMultiply`, `enhStrength`, `heavenHold`, `heavenLift`, `heavenAutoAmount`, `tideMix`, `tideResponse`, `lumenTarget`, `lumenResponse`, `spectralRange`, `spectralRelease`, `spectralCeiling`, `levelGain`, `balAmount`, `balSpeed`, `balTilt`, `balRange`, `balResolution`, `silkSmooth`, `silkAir`, `silkWarmth`, `silkBody`, `silkOutput`, `silkSub`, `haloWidth`, `haloSpace`, `haloDecay`, `haloShimmer`, `haloTone`, `seraphMultiply`, `seraphStrength`, `deepDepth`, `deepHull`, `deepSize`, `deepPressure`, `charBlend`, `charDrive`, `charColour`, `radarSens`, `radarBoost`, `radarSpace`.

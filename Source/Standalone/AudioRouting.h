@@ -111,8 +111,19 @@ namespace pad::routing
         bool isInserted() const { return journal.isObject(); }
 
         /** While inserted (chosen apps): moves any new stream of a chosen app into the rack, and any
-            stream moved earlier that is no longer there back into it. Returns how many moved. */
+            stream moved earlier that is no longer there back into it. Returns how many moved.
+            (Whole system: moves any app pinned to the listening device - which would play past the
+            rack - into it.) */
         int followNewStreams();
+
+        /** Whole system: the user made another device the default while the rack was in (in Windows'
+            sound settings, the taskbar, a headset's own software). That is where they want to listen now:
+            it becomes the listening device, the rack input the default again, and what the default goes
+            back to when the rack comes out. Returns false if the journal could not be written. */
+        bool retarget (const juce::String& newListenId);
+
+        juce::String listenId() const { return journal["listen"].toString(); }
+        bool isWholeSystem() const    { return journal["source"].toString() == "system"; }
 
         /** A journal left behind by a run that did not finish: undo it. Returns a line for the user,
             or "" if there was nothing to do. */

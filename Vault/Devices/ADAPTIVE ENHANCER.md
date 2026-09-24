@@ -10,7 +10,7 @@ The black unit, second from the bottom. It listens to the sound and brings out w
   creates new detail (harmonics) where there's none. The printed scale changes with the mode.
 - **ADAPT** — how fast it follows the sound (0–100 %).
 - **SUB** + **+BOOST** — more low end.
-- **FOOTSTEP** — lifts recognised footsteps. **DETECT** lights flash when one is found.
+- **METER** — **STEPS** lights flash with every footstep the [FOOTSTEP RADAR](FOOTSTEP%20RADAR.md) finds.
 - **MULTIPLY / STRENGTH** — see [Your first sound](../Tutorial/02%20Your%20first%20sound.md).
 - **PRESET ◀ ▶** — steps through the [presets](../Reference/Presets.md).
 
@@ -25,4 +25,6 @@ The EQ curve it's actually using, live. When the SPECTRAL LIMITER cuts, a magent
 3. Adds harmonics in ADD mode ([Harmonics and clarity](../DSP/Harmonics%20and%20clarity.md)).
 4. Adds sub, then keeps the level the same as it came in.
 
-Code: `AdaptiveEQ`, `AnalogStage`, `SubEnhancer`, `FootstepDetector`, `HarmonicPlanner`.
+Footsteps have their own unit now: the [FOOTSTEP RADAR](FOOTSTEP%20RADAR.md).
+
+Code: `AdaptiveEQ`, `AnalogStage`, `SubEnhancer`, `HarmonicPlanner`.

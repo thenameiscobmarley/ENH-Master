@@ -18,12 +18,13 @@ GitHub, or open this `Vault` folder in [Obsidian](https://obsidian.md) as a vaul
 ## The units, bottom to top
 
 - [LEVEL CONTROL and OUTPUT MONITOR](Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) — how loud the rack runs, and what it did
-- [ADAPTIVE ENHANCER](Devices/ADAPTIVE%20ENHANCER.md) — clarity, sub and footsteps
+- [ADAPTIVE ENHANCER](Devices/ADAPTIVE%20ENHANCER.md) — clarity and sub
 - [UPWARD LEVELER](Devices/UPWARD%20LEVELER.md) — lifts quiet sounds
 - [DEEP SUB](Devices/DEEP%20SUB.md) — a deep sub and a ringing hull
 - [SPECTRAL LIMITER](Devices/SPECTRAL%20LIMITER.md) — takes loud bangs down where they are
 - [MIX BALANCER](Devices/MIX%20BALANCER.md) — keeps the mix in balance
 - [ADAPTIVE COMPRESSOR](Devices/ADAPTIVE%20COMPRESSOR.md) — evens out the level
+- [FOOTSTEP RADAR](Devices/FOOTSTEP%20RADAR.md) — finds every footstep, lifts it, and shows where it came from
 - [TONE and SPACE](Devices/TONE%20and%20SPACE.md) — polish, air, width and room
 - [CHARACTER](Devices/CHARACTER.md) — consoles, tape and valves
 

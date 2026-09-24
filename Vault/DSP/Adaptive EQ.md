@@ -10,7 +10,6 @@ The ADAPTIVE ENHANCER's EQ curve is **worked out from the sound**, all the time.
 - **Balance** — treble and bass compared to the mids (the mids are the anchor, never scooped).
 - **Local fixes** — a ringing spot is cut, a hole is filled, right where it is.
 - **Bursts** — short events get a moment of help.
-- **Footsteps** — lift where a found footstep carries its detail, dip what's masking it.
 - **ADD mode** — room for generated harmonics.
 
 A guard stops it ever pulling the mids down far. The 24 bands overlap, so their gains are solved

@@ -25,6 +25,10 @@ PluginProcessor::PluginProcessor()
     sub        = state.getRawParameterValue (id::sub);
     subBoost   = state.getRawParameterValue (id::subBoost);
     footstep   = state.getRawParameterValue (id::footstep);
+    radarSens  = state.getRawParameterValue (id::radarSens);
+    radarBoost = state.getRawParameterValue (id::radarBoost);
+    radarSpace = state.getRawParameterValue (id::radarSpace);
+    radarListen = state.getRawParameterValue (id::radarListen);
 
     heavenHold    = state.getRawParameterValue (id::heavenHold);
     heavenLift    = state.getRawParameterValue (id::heavenLift);
@@ -42,6 +46,7 @@ PluginProcessor::PluginProcessor()
     charModelB    = state.getRawParameterValue (id::charModelB);
     charBlend     = state.getRawParameterValue (id::charBlend);
     charDrive     = state.getRawParameterValue (id::charDrive);
+    charColour    = state.getRawParameterValue (id::charColour);
     charActive    = state.getRawParameterValue (id::charActive);
     abCompare     = state.getRawParameterValue (id::abCompare);
     charGrit      = state.getRawParameterValue (id::charGrit);
@@ -135,6 +140,10 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.subPercent     = sub->load();
     k.subBoost       = subBoost->load() > 0.5f;
     k.footstep       = footstep->load() > 0.5f;
+    k.radarSens      = radarSens->load();
+    k.radarBoost     = radarBoost->load();
+    k.radarSpace     = radarSpace->load();
+    k.radarListen    = radarListen->load() > 0.5f;
     k.enhMultiply    = enhMultiply->load();
     k.enhStrength    = enhStrength->load();
 
@@ -156,6 +165,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.charModelB     = charModelB->load();
     k.charBlend      = charBlend->load();
     k.charDrive      = charDrive->load();
+    k.charColour     = charColour->load();
     k.charActive     = charActive->load() > 0.5f;
     k.compare        = abCompare->load() > 0.5f;
     k.charGrit       = charGrit->load() > 0.5f;

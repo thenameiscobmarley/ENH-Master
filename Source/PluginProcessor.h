@@ -78,7 +78,7 @@ private:
     std::atomic<float>* heavenHold = nullptr, *heavenLift = nullptr, *heavenMode = nullptr;
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
     std::atomic<float>* deepDepth = nullptr, *deepHull = nullptr, *deepSize = nullptr, *deepPressure = nullptr, *deepActive = nullptr;
-    std::atomic<float>* charModelA = nullptr, *charModelB = nullptr, *charBlend = nullptr, *charDrive = nullptr, *charActive = nullptr;
+    std::atomic<float>* charModelA = nullptr, *charModelB = nullptr, *charBlend = nullptr, *charDrive = nullptr, *charColour = nullptr, *charActive = nullptr;
     std::atomic<float>* abCompare = nullptr, *charGrit = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
     std::atomic<float>* spectralRange = nullptr, *spectralRelease = nullptr, *spectralCeiling = nullptr, *spectralActive = nullptr;
@@ -89,7 +89,8 @@ private:
                       * heavenAuto = nullptr, *heavenAutoAmount = nullptr,
                       * haloWidth = nullptr, *haloSpace = nullptr, *haloDecay = nullptr, *haloShimmer = nullptr, *haloTone = nullptr,
                       * haloDuck = nullptr, *haloBassMono = nullptr, *haloMod = nullptr;
-    std::atomic<float>* clarityNorm = nullptr, *clarityAdd = nullptr, *clarityMode = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr;
+    std::atomic<float>* clarityNorm = nullptr, *clarityAdd = nullptr, *clarityMode = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr,
+                        *radarSens = nullptr, *radarBoost = nullptr, *radarSpace = nullptr, *radarListen = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

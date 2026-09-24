@@ -122,7 +122,7 @@ namespace enh::dsp
         activity = 0.0f;
     }
 
-    void AdaptiveEQ::analyseSource (const BandAnalyzer& a, const FootstepDetector& steps, const Settings& s) noexcept
+    void AdaptiveEQ::analyseSource (const BandAnalyzer& a, const Settings& s) noexcept
     {
         const int n = activeCount;
         const float clarity = s.normalize;
@@ -203,13 +203,9 @@ namespace enh::dsp
             const auto i = (size_t) k;
             float t = 1.6f * clarity * (target[i] - mean);   // NORM 30 / ADD 10 corrects 1.6x as hard as v4
 
-            // Midrange guard: cuts limited to -3 dB (-1.5 dB in the core); none on the current footstep's bands
+            // Midrange guard: cuts limited to -3 dB (-1.5 dB in the core)
             if (t < 0.0f)
-            {
                 t = std::max (t, -3.0f * (0.5f + 0.5f * midGuard[i]) - 9.0f * midGuard[i] * midGuard[i]);
-                if (s.footstepMode)
-                    t *= 1.0f - saturate01 (steps.dynamicWeight[i] / 0.3f);
-            }
 
             curve[i] = silent ? 0.0f : t;
 
@@ -233,26 +229,24 @@ namespace enh::dsp
         }
     }
 
-    void AdaptiveEQ::update (const BandAnalyzer& a, const FootstepDetector& steps, const Settings& s, float dt) noexcept
+    void AdaptiveEQ::update (const BandAnalyzer& a, const Settings& s, float dt) noexcept
     {
         const int n = activeCount;
-        const float footConfidence = s.footstepMode ? steps.getConfidence() : 0.0f;
         std::array<float, numBands> target {};
 
         // The source analysis follows slow spectra: ~375 Hz is plenty
         if (--analysisCountdown <= 0)
         {
             analysisCountdown = 4;
-            analyseSource (a, steps, s);
+            analyseSource (a, s);
         }
 
-        // Light smoothing across frequency, then footstep priority on top
+        // Light smoothing across frequency (footsteps are the FOOTSTEP RADAR's now, a unit of their own)
         for (int k = 0; k < n; ++k)
         {
             const auto i = (size_t) k;
             const float l = curve[(size_t) std::max (0, k - 1)], r = curve[(size_t) std::min (n - 1, k + 1)];
-            target[i] = std::clamp ((std::clamp (0.15f * l + 0.7f * curve[i] + 0.15f * r, -12.0f, 12.0f) + addCurve[i]
-                                     + footConfidence * (6.0f * steps.dynamicWeight[i] - 3.0f * steps.competitorWeight[i]))
+            target[i] = std::clamp ((std::clamp (0.15f * l + 0.7f * curve[i] + 0.15f * r, -12.0f, 12.0f) + addCurve[i])
                                     * std::clamp (s.strength, 0.0f, 5.0f), -24.0f, 24.0f);
         }
 

@@ -17,7 +17,11 @@ namespace pad::params
         inline constexpr const char* adaptSpeed = "adaptSpeed";  // how fast adaptive gains follow the material
         inline constexpr const char* sub        = "sub";         // sub-bass enhance amount
         inline constexpr const char* subBoost   = "subBoost";    // + BOOST
-        inline constexpr const char* footstep   = "footstep";    // footstep priority mode
+        inline constexpr const char* footstep   = "footstep";    // FOOTSTEP RADAR: IN (was the enhancer's footstep priority)
+        inline constexpr const char* radarSens  = "radarSens";   // FOOTSTEP RADAR: SENSITIVITY (0-10)
+        inline constexpr const char* radarBoost = "radarBoost";  // FOOTSTEP RADAR: BOOST (0-12 dB, a far quiet step)
+        inline constexpr const char* radarSpace = "radarSpace";  // FOOTSTEP RADAR: SPACE (0-10, room for far steps)
+        inline constexpr const char* radarListen = "radarListen"; // FOOTSTEP RADAR: LISTEN (hear only what it adds)
         inline constexpr const char* enhMultiply = "enhMultiply"; // multiplies every ENH Master knob (0-3x)
         inline constexpr const char* enhStrength = "enhStrength"; // how hard ENH Master's processing hits (0-5)
 
@@ -102,6 +106,7 @@ namespace pad::params
         inline constexpr const char* charModelB = "charModelB";   // B: the second model (choice)
         inline constexpr const char* charBlend  = "charBlend";    // BLEND: A .. B (0-100 %)
         inline constexpr const char* charDrive  = "charDrive";    // DRIVE: how hard they are hit (0-10)
+        inline constexpr const char* charColour = "charColour";   // COLOUR: how much of the models' character (0-10)
         inline constexpr const char* charActive = "charActive";   // IN (out by default: old sessions unchanged)
         inline constexpr const char* charGrit   = "charGrit";     // GRIT: DRIVE may distort (on) or stays clean (off)
 

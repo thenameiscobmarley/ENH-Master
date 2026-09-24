@@ -238,6 +238,8 @@ static void runSafetyTests (double sr)
         juce::Random rng (1);
         bool finite = true, silentOnBad = true;
         float after = 0.0f;
+        // The block where each bad sample reaches the output (the rack's delay may carry it into the next one)
+        const int badOut1 = 100 + (17 + e.getLatencySamples()) / 256, badOut2 = 150 + (3 + e.getLatencySamples()) / 256;
         for (int blk = 0; blk < 400; ++blk)
         {
             for (int i = 0; i < 256; ++i) { const float v = 0.3f * (rng.nextFloat() - 0.5f); buf.setSample (0, i, v); buf.setSample (1, i, v); }
@@ -248,7 +250,7 @@ static void runSafetyTests (double sr)
                 for (int i = 0; i < 256; ++i)
                 {
                     finite = finite && std::isfinite (buf.getSample (c, i));
-                    if (blk == 100 || blk == 150) silentOnBad = silentOnBad && buf.getSample (c, i) == 0.0f;
+                    if (blk == badOut1 || blk == badOut2) silentOnBad = silentOnBad && buf.getSample (c, i) == 0.0f;
                     if (blk > 350) after = std::max (after, std::abs (buf.getSample (c, i)));
                 }
         }

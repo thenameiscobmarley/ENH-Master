@@ -173,6 +173,7 @@ namespace pad
         gfx::Texture2D decalTex, scaleTex, scaleWideTex, scale3Tex, scale5Tex, tubeDecalTex, seraphLabelTex, overlayTex, calloutTex;
         gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex, deepDecalTex, deepLabelTex;
         gfx::Texture2D characterDecalTex, characterLabelTex;
+        gfx::Texture2D radarDecalTex, radarVuFaceTex;   // FOOTSTEP RADAR: panel print, its meter's dial
         std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
         gfx::Texture2D levelDecalTex, balancerDecalTex, monitorDecalTex, monitorLabelTex, balancerLabelTex, levelFaceTex;
         std::array<gfx::Texture2D, 2> monitorFaceTex;    // MOMENTARY and SHORT-TERM faces
@@ -190,12 +191,12 @@ namespace pad
         std::array<Needle, layout::numNeedles> needles {};
         std::array<float, layout::numUnits> unitLamp {};   // backlight per outboard unit, on with IN (or always)
 
-        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu, characterVu;   // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu, characterVu, radarVu;   // HardwareKit VU models, one per size
         GpuModel& vuModelFor (int unit) noexcept
         {
             return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu
                  : unit == layout::monitorUnit ? monitorVu : unit == layout::deepUnit ? deepVu
-                 : unit == layout::characterUnit ? characterVu : limiterVu;
+                 : unit == layout::characterUnit ? characterVu : unit == layout::radarUnit ? radarVu : limiterVu;
         }
 
         /** An outboard unit. faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
@@ -296,6 +297,7 @@ namespace pad
         std::array<float, 48> limitCurve {};       // SPECTRAL LIMITER cut on the analyser's axis (dB), smoothed
         float limitBroadband = 0.0f;
         float stepFlash = 0.0f, activityGlow = 0.0f;
+        float outDbShown = -120.0f;   // OUT ladder: the peak with meter ballistics
         bool pointerInside = false, pointerPolled = false, leftDown = false, lastLeftDown = false, fineDrag = false;
         float pointerNdcX = 0.0f, pointerNdcY = 0.0f, pointerX = 0.0f, pointerY = 0.0f, lastPointerX = 0.0f, lastPointerY = 0.0f;
         int dragControl = -1, dragParam = -1;

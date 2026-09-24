@@ -12,7 +12,8 @@ namespace enh::dsp
         float clarityNorm = 15.0f, clarityAdd = 3.0f;   // 0..30 / 0..10
         bool clarityAddMode = false;
         float adaptPercent = 40.0f, subPercent = 0.0f;
-        bool subBoost = false, footstep = false;
+        bool subBoost = false, footstep = false, radarListen = false;
+        float radarSens = 6.0f, radarBoost = 6.0f, radarSpace = 4.0f;
         float enhMultiply = 1.0f, enhStrength = 1.0f;
 
         // SERAPH
@@ -38,7 +39,7 @@ namespace enh::dsp
         bool deepActive = true;
 
         // CHARACTER
-        float charModelA = 3.0f, charModelB = 4.0f, charBlend = 0.0f, charDrive = 5.0f;
+        float charModelA = 3.0f, charModelB = 4.0f, charBlend = 0.0f, charDrive = 5.0f, charColour = 5.0f;
         bool charActive = false, charGrit = true;
         bool compare = false;   // COMPARE (OUTPUT MONITOR)
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
@@ -57,7 +58,7 @@ namespace enh::dsp
     /** Every continuous knob, by parameter ID, and where its value goes: the knob modifiers
         (Parameters/KnobModifiers.h) work on these, before the mapping below. */
     struct KnobField { const char* param; float KnobValues::* field; };
-    inline constexpr std::array<KnobField, 41> knobFields {{
+    inline constexpr std::array<KnobField, 45> knobFields {{
         { "clarityNorm", &KnobValues::clarityNorm },       { "clarityAdd", &KnobValues::clarityAdd },
         { "adaptSpeed", &KnobValues::adaptPercent },       { "sub", &KnobValues::subPercent },
         { "enhMultiply", &KnobValues::enhMultiply },       { "enhStrength", &KnobValues::enhStrength },
@@ -81,6 +82,9 @@ namespace enh::dsp
         { "deepDepth", &KnobValues::deepDepth },           { "deepHull", &KnobValues::deepHull },
         { "deepSize", &KnobValues::deepSize },             { "deepPressure", &KnobValues::deepPressure },
         { "charBlend", &KnobValues::charBlend },           { "charDrive", &KnobValues::charDrive },
+        { "charColour", &KnobValues::charColour },
+        { "radarSens", &KnobValues::radarSens },           { "radarBoost", &KnobValues::radarBoost },
+        { "radarSpace", &KnobValues::radarSpace },
     }};
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -108,6 +112,13 @@ namespace enh::dsp
         p.sub = std::clamp (k.subPercent * m / 100.0f, 0.0f, 3.0f);
         p.subBoost = k.subBoost;
         p.footstep = k.footstep;
+        p.radar.active = k.footstep;
+        p.radar.sensitivity = std::clamp (k.radarSens, 0.0f, 10.0f);
+        p.radar.boostDb = std::clamp (k.radarBoost, 0.0f, 12.0f);
+        p.radar.space = std::clamp (k.radarSpace, 0.0f, 10.0f);
+        p.radar.solo = k.radarListen;
+        p.radar.detection = k.methods[(size_t) methods::radarDetection];
+        p.radar.room = k.methods[(size_t) methods::radarRoom];
         p.strength = std::clamp (k.enhStrength, 0.0f, maxStrength);
 
         const float sm = std::clamp (k.seraphMultiply, 0.0f, maxMultiply);
@@ -192,6 +203,7 @@ namespace enh::dsp
         p.character.modelB     = std::clamp ((int) std::lround (k.charModelB), 0, (int) Character::numModels - 1);
         p.character.blend      = std::clamp (k.charBlend / 100.0f, 0.0f, 1.0f);
         p.character.drive      = std::clamp (k.charDrive, 0.0f, 10.0f);
+        p.character.colour     = std::clamp (k.charColour, 0.0f, 10.0f);
         p.character.components = mt[charComponents];
         p.character.grit       = k.charGrit;
         p.compare              = k.compare;

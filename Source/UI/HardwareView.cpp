@@ -44,6 +44,8 @@ namespace pad
         textures.deepVuFace = artwork::renderVuFace (deepUnit, 1536, &textItems);
         textures.characterDecal = artwork::renderOneUDecal (characterUnit, config.panelTextureWidth, &textItems);
         textures.characterVuFace = artwork::renderVuFace (characterUnit, 1024, &textItems);
+        textures.radarDecal = artwork::renderOneUDecal (radarUnit, config.panelTextureWidth, &textItems);
+        textures.radarVuFace = artwork::renderVuFace (radarUnit, 1024, &textItems);
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
         textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);

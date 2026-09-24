@@ -547,6 +547,62 @@ namespace pad
         updateControls();
     }
 
+    void RouterBar::followDefaultSwitch()
+    {
+        if (! router.isInserted() || ! router.isWholeSystem() || rackInputInUse.isEmpty())
+            return;
+
+        const auto now = backend->defaultOutput();
+        if (now.isEmpty() || now == rackInputInUse)
+            return;
+
+        if (listenIds.indexOf (now) < 0)
+        {
+            endpoints = backend->outputs();   // a device that has just appeared (a headset plugged in)
+            listenBox->clear (juce::dontSendNotification);
+            listenIds.clear();
+            for (auto& e : endpoints)
+                if (e.id != "enh_rack_input")
+                {
+                    listenBox->addItem (e.name, listenIds.size() + 1);
+                    listenIds.add (e.id);
+                }
+            if (listenIds.indexOf (now) < 0)
+                return;
+        }
+
+        const auto was = router.listenId();
+        if (now != was)
+        {
+            // Play there. If it cannot be opened, keep listening where we were and take the default back.
+            setMuted (true);
+            juce::String audioError;
+            if (! openRackAudio (rackInputInUse, now, audioError))
+            {
+                backend->setDefaultOutput (rackInputInUse);
+                juce::String again;
+                const bool back = openRackAudio (rackInputInUse, was, again);
+                setMuted (! back);
+                setStatus ("Could not play on " + nameOfEndpoint (now) + " (" + audioError + "). The rack stays on "
+                           + nameOfEndpoint (was) + ".", true);
+                return;
+            }
+        }
+
+        if (! router.retarget (now))
+        {
+            setStatus ("Rack in, but " + router.getLastError(), true);
+            setMuted (false);
+            return;
+        }
+
+        listenBox->setSelectedItemIndex (listenIds.indexOf (now), juce::dontSendNotification);
+        saveChoices();
+        setMuted (false);
+        router.followNewStreams();
+        setStatus ("You switched to " + nameOfEndpoint (now) + ": the rack plays there now, and your audio still goes through it.");
+    }
+
     void RouterBar::removeRack()
     {
         if (! router.isInserted())
@@ -672,6 +728,17 @@ namespace pad
                 levelBox->setSelectedId (id, juce::dontSendNotification);
         }
 
+        // Someone switched the default device while the rack is in (Windows' sound settings, the taskbar's
+        // speaker menu, a headset's own app). Windows would now send everything straight there, past the
+        // rack - so the rack follows: it plays there, and takes the default back at once. (Ten times a
+        // second on Windows, where asking is cheap; once a second elsewhere.)
+       #if JUCE_WINDOWS
+        if (tick % 2 == 0)
+       #else
+        if (tick % 20 == 0)
+       #endif
+            followDefaultSwitch();
+
         if (tick % 20 != 0)
             return;
 
@@ -709,7 +776,7 @@ namespace pad
             }
 
             // Apps that start (or open a new stream) while the rack is in follow the others into it.
-            if (plan.source == routing::Plan::Source::chosenApps && tick % 40 == 0)
+            if (tick % 40 == 0)
                 if (auto n = router.followNewStreams(); n > 0)
                     setStatus ("Rack in. Moved " + juce::String (n) + " new stream" + (n == 1 ? "" : "s") + " into it.");
         }

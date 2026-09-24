@@ -27,6 +27,7 @@ namespace pad::artwork
         RawTexture tideVuFace, lumenVuFace, limiterVuFace[2];        // the printed faces of their VU meters
         RawTexture deepDecal, deepVuFace;                            // DEEP SUB
         RawTexture characterDecal, characterVuFace;                  // CHARACTER (2U)
+        RawTexture radarDecal, radarVuFace;                          // FOOTSTEP RADAR (2U): its panel, its meter's dial
         RawTexture levelDecal, balancerDecal, monitorDecal;           // LEVEL (1U), MIX BALANCER (4U), MONITOR (3U)
         RawTexture levelVuFace, monitorVuFace[2];                     // INPUT; MOMENTARY and SHORT-TERM
         RawTexture monitorLabels, balancerLabels;                     // print inside their displays

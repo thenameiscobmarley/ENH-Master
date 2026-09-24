@@ -5,6 +5,32 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.9.12 — the FOOTSTEP RADAR
+
+- **New unit: FOOTSTEP RADAR.** Footsteps have their own unit now: CHARACTER's look in olive drab, with
+  SENSITIVITY, BOOST and SPACE, IN and LISTEN switches, and a STEP LIFT meter whose needle kicks on every step.
+- **A new way of finding steps**, built from scratch. It recognises each sound by how it starts, dies
+  away and rings, follows walkers by sound, place and pace, and judges up to four sounds at once.
+  On the test scenes (old detector → radar): near steps 54 → 100 %, far 48 → 96 %, very far 42 → 98 %;
+  false lifts on music 158 → 4 a minute, speech 66 → 0, UI clicks 60 → 0.
+- **Far steps sound far, near steps sound near.** A far step gets more lift and a room behind it (the
+  further, the more room); a near one gets a small, dry lift. Choose the room in the glass panel.
+- The ADAPTIVE ENHANCER's FOOTSTEP button moved to the radar; its METER section got a **STEPS** light.
+- **Router: switching your output no longer skips the rack.** Pick your headset in Windows' sound
+  settings (or the taskbar) while the rack is in, and the rack moves there: it plays to that device and
+  takes the default back at once, so everything still goes through it. Apps set to play on that device
+  are pulled into the rack too. Taking the rack out leaves you on the device you picked.
+- Still hard (and on the list): steps as quiet as the background, and steps well under a drum beat or a voice.
+
+## 3.6.9.12 — COLOUR, and two display fixes
+
+- **New: COLOUR knob on CHARACTER.** You now hear each model's character — its tone and gentle
+  harmonics — at any volume, without distortion. Before, the models only really showed once DRIVE made
+  them distort. COLOUR 5 is the new default; DRIVE is still there for grit.
+- **Fixed:** under the magnifying glass, lit LEDs and lamps showed as big solid squares.
+- **Fixed:** the meter lights on the ADAPTIVE ENHANCER flickered, with hard lines through their glow.
+  They now rise and fall like real meter LEDs.
+
 ## 3.6.8.10 — a real self-test
 
 - **New:** `scripts/selftest.sh` runs every test in one go and says PASS or FAIL per step.
