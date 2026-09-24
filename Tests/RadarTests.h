@@ -529,9 +529,9 @@ namespace radartests
                 {
                     double near = 99.0;
                     for (double t : a.steps) if (std::abs (d.time - t) < std::abs (near)) near = d.time - t;
-                    std::printf ("  %7.3f %s P %.2f base %.2f m %.2f  att %5.1f  dec %5.1f  ex %5.1f  ton %.2f  lvl %6.1f  spr %.0f  dur %4.1f body %.2f rate %4.1f mus %.2f imp %.2f ring %.2f bang %.2f rap %.1f nar %.2f step %+.3f\n",
+                    std::printf ("  %7.3f %s P %.2f base %.2f m %.2f  att %5.1f  dec %5.1f  ex %5.1f  ton %.2f  lvl %6.1f  spr %.0f  dur %4.1f body %.2f rate %4.1f mus %.2f imp %.2f ring %.2f bang %.2f rap %.1f nar %.2f grid %.2f step %+.3f\n",
                                  d.time, d.accepted ? (d.withdrawn == 1 ? "SUSTND" : d.withdrawn == 2 ? "KICKED" : "ACCEPT") : "reject", d.probability, d.base, d.match, d.attackMs, d.decayDb, d.excessDb, d.tonal, d.levelDb, d.spread,
-                                 d.durationMs, d.body, d.rate, d.music, d.impact, d.ring, d.bang, d.rapid, d.narrow, near);
+                                 d.durationMs, d.body, d.rate, d.music, d.impact, d.ring, d.bang, d.rapid, d.narrow, d.grid, near);
                     if (std::getenv ("RADAR_BANDS") != nullptr)
                         for (int b = 0; b < 6; ++b)
                             std::printf ("            band %d: p %5.1f att %5.1f dec %5.1f ton %.2f imp %.2f\n", b, d.bandP[(size_t) b], d.bandAtt[(size_t) b],
@@ -708,7 +708,7 @@ namespace radartests
         {
             // Crates (a latch's clank and a lid's thud are impacts too) and steps under a drum beat (its
             // hits land in step with the walker) are the two known weak spots: held where they are
-            const float most = r.name == "classic crates" ? 36.0f : r.name.rfind ("under music", 0) == 0 ? 72.0f : 10.0f;
+            const float most = r.name == "classic crates" ? 36.0f : r.name.rfind ("under music", 0) == 0 ? 30.0f : 10.0f;
             check (r.news.falsePerMinute() <= most || r.name.find ("alone") != std::string::npos,
                    juce::String (r.name) + ": at most " + juce::String (most, 0) + " false steps a minute");
             goal (r.news.falsePerMinute() <= 6.0f || r.name.find ("alone") != std::string::npos, r.name + ": at most 6 false steps a minute");

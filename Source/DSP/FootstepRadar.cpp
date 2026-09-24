@@ -108,6 +108,9 @@ namespace enh::dsp
         lastEventPan = 0.0f;
         lastEventBody = false;
         lastEventTrack = -1;
+        lastEventGrid = 0.0f;
+        for (auto& h : heard) h = Heard {};
+        heardHead = 0;
         for (auto& f : faint) f = Faint {};
         faintHead = 0;
         for (auto& t : tracks) t = Track {};
@@ -448,7 +451,7 @@ namespace enh::dsp
         const float sens = std::clamp (s.sensitivity, 0.0f, 10.0f);
         float threshold = 12.0f - 0.9f * sens;                     // 12 (0) .. 3 (10)
         threshold *= s.detection == 1 ? 0.8f : s.detection == 2 ? 1.3f : 1.0f;
-        threshold *= 1.0f + 0.5f * musicality;
+        threshold *= 1.0f + 0.3f * musicality;   // (the drum hits themselves are told apart by their grid)
         threshold *= 1.0f - 0.30f * expectedNow (clock) * (1.0f - 0.8f * musicality);
         thresholdNow = threshold;
 
@@ -615,6 +618,50 @@ namespace enh::dsp
         for (float g : lift)
             most = std::max (most, g);
         activity = saturate01 (most / 1.5f);
+    }
+
+    float FootstepRadar::machineGrid (const Event& e, const std::array<float, numBands>& print) const noexcept
+    {
+        // Events like this one in the last 8 s: is this one a whole number of beats after them, exact to 2 ms
+        // (the event clock ticks every millisecond), for a beat between 0.1 and 1 s?
+        std::array<double, heardMemory> same {};
+        int n = 0;
+        for (const auto& h : heard)
+            if (h.time > e.eventStart - 8.0 && h.time < e.eventStart - 0.05 && cosine (h.print, print) > 0.9f)
+                same[(size_t) n++] = h.time;
+        if (n < 4)
+            return 0.0f;
+
+        float best = 0.0f;
+        for (int a = 0; a < n; ++a)
+        {
+            const double beat = e.eventStart - same[(size_t) a];   // the beat: back to one of them ...
+            if (beat < 0.1 || beat > 1.0)
+                continue;
+            int onGrid = 0;                                        // ... and the others on its multiples
+            for (int k = 0; k < n; ++k)
+            {
+                const double beats = (e.eventStart - same[(size_t) k]) / beat;
+                const double err = std::abs (beats - std::round (beats)) * beat;
+                onGrid += err < 0.0021 ? 1 : 0;
+            }
+            if (onGrid < 4)
+                continue;
+
+            // A walker can happen to be regular; a drum machine plays other drums on the same grid (half and
+            // quarter beats too), or over pitched music
+            int others = 0;
+            for (const auto& h : heard)
+            {
+                if (h.time < e.eventStart - 8.0 || h.time > e.eventStart - 0.05 || cosine (h.print, print) > 0.9f)
+                    continue;
+                const double quarters = (e.eventStart - h.time) / (0.25 * beat);
+                others += std::abs (quarters - std::round (quarters)) * 0.25 * beat < 0.0021 ? 1 : 0;
+            }
+            const float sure = std::min (1.0f, (float) (onGrid - 3) / 3.0f) * std::max (std::min (1.0f, (float) others / 3.0f), ramp (0.1f, 0.35f, musicality));
+            best = std::max (best, sure);
+        }
+        return best;
     }
 
     float FootstepRadar::rhythmOf (const Event& e, const std::array<float, numBands>& print) const noexcept
@@ -991,7 +1038,11 @@ namespace enh::dsp
         // (or each followed as a walker of its own)
         const bool ownWalker = e.eventBestTrack >= 0 && e.eventMatch >= 0.5f && e.eventBestTrack != lastEventTrack;
         const bool elsewhere = std::abs (e.eventPan - lastEventPan) >= 0.3f && (hasBody || lastEventBody || ownWalker);
-        const bool rapid = e.eventStart - lastEventTime < 0.18 && cosine (print, lastEventPrint) > 0.8f && ! elsewhere;
+        // On a drum machine's grid (a sample-exact beat that other drums or pitched music share): music
+        const float grid = machineGrid (e, print);
+        const float fGrid = 1.0f - 0.85f * grid;
+        // (not when that impact was the drum machine's: then this is what came right after a beat)
+        const bool rapid = e.eventStart - lastEventTime < 0.18 && cosine (print, lastEventPrint) > 0.8f && ! elsewhere && lastEventGrid < 0.5f;
         const float fRapid = rapid ? 0.3f : 1.0f;
         const float fBody = hasBody ? 1.0f : ramp (5.0f, 10.0f, onsetRate()) * -0.35f + 0.70f;
         // A pure ring, however short: with no weight behind it, a click and a ring (a reload, a latch, a
@@ -999,18 +1050,18 @@ namespace enh::dsp
         const float fRing = 1.0f - 0.6f * ramp (0.8f, 1.0f, std::max (tonal, ring)) * (hasBody ? 0.25f : 1.0f);
         // A blip in a single band, with no weight behind it: a raindrop cluster, a flicker of hiss
         const float fNarrow = ! hasBody && spread <= 1 && most < 12.0f ? 0.45f : 1.0f;
-        const float base = bestImpact * fRing * fBang * fRapid * fShape * fBody * fNarrow * (1.0f - 0.25f * musicality);
+        const float base = bestImpact * fRing * fBang * fRapid * fShape * fBody * fNarrow * fGrid * (1.0f - 0.15f * musicality);
         e.eventBestBand = bestBand;
 
         // A walker's step is trusted on its match, but never a bang or a tone: those stay what they are
         // A walker vouches only for what already sounds somewhat like a step (a hi-hat on the beat does not)
-        const float vouched = bestScore * fBang * fTonal * fRing * fNarrow * fRapid * fDuration * std::sqrt (fDecay) * ramp (0.08f, 0.25f, base)
+        const float vouched = bestScore * fBang * fTonal * fRing * fNarrow * fRapid * fGrid * fDuration * std::sqrt (fDecay) * ramp (0.08f, 0.25f, base)
                             * (airOnly ? 0.0f : 1.0f) * (1.0f - 0.8f * musicality);
         float probability = 1.0f - (1.0f - base) * (1.0f - 0.9f * vouched);
         e.eventBaseScore = base;
         e.eventProbability = probability;
 
-        float needed = (s.detection == 1 ? 0.36f : s.detection == 2 ? 0.60f : 0.45f) + 0.1f * musicality;
+        float needed = (s.detection == 1 ? 0.36f : s.detection == 2 ? 0.60f : 0.45f) + 0.05f * musicality;
         needed -= 0.02f * (std::clamp (s.sensitivity, 0.0f, 10.0f) - 6.0f);
         bool accept = probability >= needed;
 
@@ -1049,10 +1100,17 @@ namespace enh::dsp
             const auto bands = d;
             d = { e.eventStart, accept, probability, base, e.eventMatch, attack, decay, most, tonal, e.eventInPeak, (float) spread, e.eventDistance,
                   durationMs, fBody, onsetRate(), musicality, fRing, fBang, fRapid, fNarrow, bestImpact };
+            d.grid = grid;
             d.bandAtt = bands.bandAtt; d.bandDec = bands.bandDec; d.bandP = bands.bandP; d.bandTon = bands.bandTon; d.bandImp = bands.bandImp;
             log->push_back (d);
         }
 
+        {
+            auto& h = heard[(size_t) heardHead];
+            heardHead = (heardHead + 1) % heardMemory;
+            h.time = e.eventStart;
+            h.print = print;
+        }
         if (bestImpact >= 0.2f || accept)
         {
             lastEventTime = e.eventStart;
@@ -1060,6 +1118,7 @@ namespace enh::dsp
             lastEventPan = e.eventPan;
             lastEventBody = hasBody;
             lastEventTrack = e.eventMatch >= 0.35f ? e.eventBestTrack : -1;
+            lastEventGrid = grid;
         }
 
         if (accept)

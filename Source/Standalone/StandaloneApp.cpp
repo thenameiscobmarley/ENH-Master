@@ -54,6 +54,8 @@ namespace juce
                    h.processor.get())
         {
             addAndMakeVisible (bar);
+            // The bar grows while its getting-started strip is open: the rack gives it the room
+            bar.onHeightChanged = [this] { resized(); };
 
             if (auto* e = h.processor->createEditorAndMakeActive())
             {
@@ -83,7 +85,7 @@ namespace juce
         void resized() override
         {
             auto r = getLocalBounds();
-            bar.setBounds (r.removeFromTop (pad::RouterBar::preferredHeight));
+            bar.setBounds (r.removeFromTop (bar.currentHeight()));
 
             if (editor != nullptr)
             {

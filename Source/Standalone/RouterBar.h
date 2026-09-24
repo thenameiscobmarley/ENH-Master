@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -32,6 +34,11 @@ namespace pad
         ~RouterBar() override;
 
         static constexpr int preferredHeight = 66;
+        static constexpr int guideHeight = 76;    // the getting-started strip under the controls, while it is open
+
+        /** How tall the bar is now (taller while the getting-started strip is open). */
+        int currentHeight() const noexcept { return preferredHeight + (guideOpen ? guideHeight : 0); }
+        std::function<void()> onHeightChanged;   // the window lays itself out again
 
         /** "Start with the computer": an autostart entry that opens ENH Master in the tray with the
             rack in (Linux: ~/.config/autostart, Windows: the Run key). */
@@ -59,6 +66,8 @@ namespace pad
         void refreshAppsButton();
         void showAppsMenu();
         void showMoreMenu();
+        void showGuide();                  // the getting-started steps (the ? button; once on the first run)
+        juce::String nextStepHint() const; // what to do next while the rack is out
         void updateControls();
         void setStatus (const juce::String& text, bool isProblem = false);
         void saveChoices();
@@ -88,7 +97,10 @@ namespace pad
         juce::RangedAudioParameter* compareParam = nullptr;  // the rack's COMPARE (level-matched A/B)
         float inLevel = 0.0f, outLevel = 0.0f;
         juce::AudioDeviceManager::LevelMeter::Ptr inMeter, outMeter;   // held: the device only measures while someone holds them
-        juce::TextButton insertButton, appsButton, moreButton, compareButton;
+        juce::TextButton insertButton, appsButton, moreButton, compareButton, helpButton;
+        juce::TextButton gotItButton;
+        bool guideOpen = false;
+        void closeGuide();
         juce::String status;
         bool statusIsProblem = false;
         float lamp = 0.0f;

@@ -5,6 +5,17 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.12.12 — smarter radar, friendlier app
+
+- **FOOTSTEP RADAR hears a drum machine for what it is.** A drum beat plays on a grid exact to the
+  sample; footsteps wobble by milliseconds. Hits on such a grid (shared with other drums or with
+  pitched music) aren't lifted: false lifts under music dropped from 68 to 21 a minute.
+- **EAR GUARD lets go at once:** after it holds a gunshot down, the quieter sounds right after it
+  (footsteps!) are no longer left ducked. A blast still can't sneak back in.
+- **The app shows you the way:** the steps are numbered (1 SOURCE, 2 RACK INPUT, 3 LISTEN ON), the
+  status line always says what to do next, and a **?** button opens a getting-started strip (it opens
+  by itself the first time).
+
 ## 3.7.11.12 — precision bands, and an ear guard
 
 - **New: CLARITY's precision bands.** Besides the 24 fixed bands, up to 8 moving bells, each with its own

@@ -12,6 +12,9 @@ between your games and your headset, and takes it out again. You never touch you
 
 ## Use it
 
+The steps are numbered in the bar, and the line under it always says what to do next. The **?**
+button shows the steps again.
+
 1. **LISTEN ON** — your headset or speakers.
 2. **SOURCE** — *Whole system* (everything) or *Chosen apps* (tick the game, Discord…).
 3. **INSERT RACK**. Press **REMOVE** (or close the app) and everything goes back exactly as it was.

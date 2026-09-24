@@ -30,6 +30,8 @@ section flash with every step too.
 - It lifts **only the step's own frequencies**, and only while the step lasts. Everything else is untouched.
 - It knows the difference between a step and a gunshot, an explosion, a voice, music, rain, a reload
   or a UI click, by how each one starts, dies away and rings.
+- It recognises a drum machine: its hits land on a grid exact to the sample, while footsteps wobble by
+  milliseconds. Drum hits on such a grid aren't lifted.
 - It **follows walkers**: once it has heard a few steps from one place, it knows the pace, and it catches
   that walker's next steps more easily, even very faint ones. Two walkers at once are followed apart.
 - Steps as faint as the background can still be found when three come in a steady walking rhythm.

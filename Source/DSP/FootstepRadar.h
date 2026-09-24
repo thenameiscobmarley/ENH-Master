@@ -89,6 +89,7 @@ namespace enh::dsp
             float durationMs, body, rate, music;
             float ring = 1.0f, bang = 1.0f, rapid = 1.0f, narrow = 1.0f, impact = 0.0f;   // the factors, for tuning
             std::array<float, 6> bandAtt {}, bandDec {}, bandP {}, bandTon {}, bandImp {};
+            float grid = 0.0f;
             int withdrawn = 0;   // 1 sustained, 2 a kick (at the 130 ms check)
         };
         std::vector<Decision>* log = nullptr;
@@ -240,6 +241,14 @@ namespace enh::dsp
         float lastEventPan = 0.0f;
         bool lastEventBody = false;
         int lastEventTrack = -1;
+        float lastEventGrid = 0.0f;   // how surely the last impact-like event was a drum machine's
+        // Every event's time and print (the last 8 s or so): a drum machine plays on a grid exact to the
+        // sample; footsteps, set off by animations and the game's audio blocks, wobble by milliseconds
+        struct Heard { double time = -100.0; std::array<float, numBands> print {}; };
+        static constexpr int heardMemory = 64;
+        std::array<Heard, heardMemory> heard {};
+        int heardHead = 0;
+        float machineGrid (const Event&, const std::array<float, numBands>& print) const noexcept;   // 0..1
         std::array<float, numBands> riseNow {};          // each band's rise over the last 6 ms (as the onset counts it)
         std::array<float, numBands> lastEventPrint {};   // (of the last impact-like event)
         // Zero-crossing intervals of this tick (added into every event being watched)

@@ -168,7 +168,7 @@ namespace pad
         {
             addAndMakeVisible (*c);
             c->beforePopup = [this] { if (! router.isInserted()) refreshLists(); };
-            c->onChange = [this] { saveChoices(); updateControls(); };
+            c->onChange = [this] { saveChoices(); updateControls(); if (! router.isInserted()) setStatus (nextStepHint()); };
         }
 
         // "Use VB-Audio Cable (Recommended)" with no cable installed yet: take them to its download page
@@ -183,6 +183,8 @@ namespace pad
             }
             saveChoices();
             updateControls();
+            if (! router.isInserted())
+                setStatus (nextStepHint());
         };
 
         // LEVEL: the rack's LOUDNESS TARGET (OUTPUT MONITOR's panel), here too because it is what a
@@ -235,6 +237,15 @@ namespace pad
         moreButton.onClick = [this] { showMoreMenu(); };
         addAndMakeVisible (moreButton);
 
+        helpButton.setButtonText ("?");
+        helpButton.setTooltip ("Getting started: what to pick, in order.");
+        helpButton.onClick = [this] { if (guideOpen) closeGuide(); else showGuide(); };
+        addAndMakeVisible (helpButton);
+
+        gotItButton.setButtonText ("Got it");
+        gotItButton.onClick = [this] { closeGuide(); };
+        addChildComponent (gotItButton);
+
         if (props != nullptr)
         {
             sourceBox->setSelectedId (props->getIntValue ("router.source", 1), juce::dontSendNotification);
@@ -261,11 +272,15 @@ namespace pad
 
         refreshLists();
         updateControls();
-        setStatus (recovered.isNotEmpty() ? recovered : "Rack out. Your audio plays as it did before.");
-       #if JUCE_WINDOWS
-        if (recovered.isEmpty() && rackInputIds.contains (vbCableGetId))
-            setStatus ("Tip: install VB-Audio Cable (free) - pick \"Use VB-Audio Cable (Recommended)\" under RACK INPUT.");
-       #endif
+        setStatus (recovered.isNotEmpty() ? recovered : nextStepHint());
+        // The first time: the steps, once the window is up
+        if (props != nullptr && ! props->getBoolValue ("router.seenGuide", false) && recovered.isEmpty())
+            juce::Timer::callAfterDelay (900, [safe = juce::Component::SafePointer<RouterBar> (this)]
+            {
+                if (safe != nullptr && safe->isShowing())
+                    safe->showGuide();
+            });
+
 
         const bool autoInsert = (props != nullptr && props->getBoolValue ("router.autoInsert", false))
                              || juce::SystemStats::getEnvironmentVariable ("PAD_ROUTER_TEST_INSERT", {}) == "1";
@@ -601,7 +616,7 @@ namespace pad
         setMuted (true);
 
         const bool ok = router.remove();
-        setStatus (ok ? "Rack out. Your audio is back where it was."
+        setStatus (ok ? "Rack out. Your audio is back where it was. " + nextStepHint().replace ("Ready: press", "Press")
                       : "Rack out, but not everything went back: " + router.getLastError(), ! ok);
         updateControls();
     }
@@ -766,6 +781,40 @@ namespace pad
     }
 
     //==============================================================================
+    void RouterBar::showGuide()
+    {
+        // The rack is drawn by OpenGL in its own native window on some systems, so nothing can be laid over
+        // it: the bar grows instead, the steps in a strip under its controls, until "Got it"
+        guideOpen = true;
+        gotItButton.setVisible (true);
+        if (props != nullptr)
+            props->setValue ("router.seenGuide", true);
+        if (onHeightChanged) onHeightChanged();
+        resized();
+        repaint();
+    }
+
+    void RouterBar::closeGuide()
+    {
+        guideOpen = false;
+        gotItButton.setVisible (false);
+        if (onHeightChanged) onHeightChanged();
+        resized();
+        repaint();
+    }
+
+    juce::String RouterBar::nextStepHint() const
+    {
+        if (rackInputIds[rackInputBox->getSelectedItemIndex()] == vbCableGetId)
+            return "Next: install VB-Audio Cable (free) - pick \"Use VB-Audio Cable (Recommended)\" under 2 RACK INPUT.";
+        if (listenIds.isEmpty())
+            return "Next: plug in or turn on your headset or speakers.";
+        if (sourceBox->getSelectedId() == 2 && chosenApps.isEmpty())
+            return "Next: pick the apps to send through the rack (Apps...).";
+        return "Ready: press INSERT RACK. Your sound goes through the rack to " + nameOfEndpoint (listenIds[listenBox->getSelectedItemIndex()]) + ".";
+    }
+
+    //==============================================================================
     void RouterBar::paint (juce::Graphics& g)
     {
         auto r = getLocalBounds().toFloat();
@@ -783,9 +832,9 @@ namespace pad
                 g.drawText (text, c.getX(), 6, c.getWidth(), 11, juce::Justification::centredLeft, false);
         };
 
-        caption (*sourceBox, "SOURCE");
-        caption (*rackInputBox, "RACK INPUT");
-        caption (*listenBox, "LISTEN ON");
+        caption (*sourceBox, "1  SOURCE");
+        caption (*rackInputBox, "2  RACK INPUT");
+        caption (*listenBox, "3  LISTEN ON");
         caption (*levelBox, "LEVEL");
 
         // The lamp on the insert button's left: dark when out, warm when in.
@@ -800,7 +849,7 @@ namespace pad
         }
 
         // IN / OUT meters on the right of the status line (dB scale, -60 .. 0)
-        auto meterRow = juce::Rectangle<int> (getWidth() - 12 - 200, getHeight() - 17, 200, 10);
+        auto meterRow = juce::Rectangle<int> (getWidth() - 12 - 200, preferredHeight - 17, 200, 10);
         auto meter = [&] (juce::Rectangle<int> r, const char* label, float level)
         {
             g.setFont (uiFont (9.5f, true));
@@ -820,15 +869,54 @@ namespace pad
 
         g.setFont (uiFont (11.5f));
         g.setColour (statusIsProblem ? problem : faintInk);
-        g.drawText (status, 12, getHeight() - 20, getWidth() - 24 - 212, 16, juce::Justification::centredLeft, true);
+        g.drawText (status, 12, preferredHeight - 20, getWidth() - 24 - 212, 16, juce::Justification::centredLeft, true);
+
+        // The getting-started strip: the four steps side by side, under the controls
+        if (guideOpen)
+        {
+            auto strip = juce::Rectangle<int> (0, preferredHeight, getWidth(), guideHeight);
+            g.setColour (juce::Colour (0xff100e12));
+            g.fillRect (strip);
+            g.setColour (hairline);
+            g.fillRect (strip.withHeight (1));
+
+            auto content = strip.reduced (12, 10);
+            content.removeFromRight (100);   // "Got it"
+            struct Step { const char* n; const char* title; juce::String body; };
+           #if JUCE_WINDOWS
+            const juce::String cable = "Use VB-Audio Cable (Recommended). Free: pick that entry and its download page opens. Install, restart, done.";
+           #else
+            const juce::String cable = "ENH Master rack input: made for you, nothing to install.";
+           #endif
+            const Step steps[] {
+                { "1", "SOURCE", "Whole system: everything goes through the rack. Chosen apps: only the ones you tick." },
+                { "2", "RACK INPUT", cable },
+                { "3", "LISTEN ON", "Your headset or speakers: where you hear the result." },
+                { "4", "INSERT RACK", "Press it. Press again to take the rack out: everything goes back as it was. Start with your volume low." },
+            };
+            const int w = content.getWidth() / 4;
+            for (auto& st : steps)
+            {
+                auto col = content.removeFromLeft (w).reduced (6, 0);
+                juce::AttributedString t;
+                t.setWordWrap (juce::AttributedString::byWord);
+                t.append (juce::String (st.n) + "  ", uiFont (16.0f, true), amber);
+                t.append (juce::String (st.title) + "\n", uiFont (12.5f, true), ink);
+                t.append (st.body, uiFont (12.0f), faintInk);
+                t.draw (g, col.toFloat());
+            }
+        }
     }
 
     void RouterBar::resized()
     {
         auto r = getLocalBounds().reduced (12, 0);
         auto row = r.withTop (19).withHeight (26);
+        gotItButton.setBounds (getWidth() - 12 - 90, preferredHeight + (guideHeight - 28) / 2, 90, 28);
 
         moreButton.setBounds (row.removeFromRight (34));
+        row.removeFromRight (6);
+        helpButton.setBounds (row.removeFromRight (26));
         row.removeFromRight (8);
         insertButton.setBounds (row.removeFromRight (juce::jlimit (120, 170, getWidth() / 6)));
         row.removeFromRight (24);   // room for the lamp

@@ -11,7 +11,7 @@ Jump to: [GitHub pages](#github-pages) · [Units](#units) · [Presets](#presets)
 
 ## GitHub pages
 
-Releases, downloads, issues, builds, HardwareKit, and every version. (62)
+Releases, downloads, issues, builds, HardwareKit, and every version. (64)
 
 - **ENH Master on GitHub** · GitHub: the repository home page · [github.com/thenameiscobmarley/ENH-Master](https://github.com/thenameiscobmarley/ENH-Master)
 - **Latest release / download** · GitHub: releases (Windows zip for gamers, Linux zip, VST3) · [releases/latest](https://github.com/thenameiscobmarley/ENH-Master/releases/latest)
@@ -47,6 +47,8 @@ Releases, downloads, issues, builds, HardwareKit, and every version. (62)
 - **workflow release.yml** · its source · [.github/workflows/release.yml](.github/workflows/release.yml)
 - **workflow windows-converter.yml** · GitHub Actions: its runs · [actions/workflows/windows-converter.yml](https://github.com/thenameiscobmarley/ENH-Master/actions/workflows/windows-converter.yml)
 - **workflow windows-converter.yml** · its source · [.github/workflows/windows-converter.yml](.github/workflows/windows-converter.yml)
+- **release v3.7.11.12** · GitHub: that version's page and downloads · [releases/tag/v3.7.11.12](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.11.12)
+- **source at v3.7.11.12** · GitHub: the code as it was in that version · [tree/v3.7.11.12](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.11.12)
 - **release v3.7.10.12** · GitHub: that version's page and downloads · [releases/tag/v3.7.10.12](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.10.12)
 - **source at v3.7.10.12** · GitHub: the code as it was in that version · [tree/v3.7.10.12](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.10.12)
 - **release v3.7.9.12** · GitHub: that version's page and downloads · [releases/tag/v3.7.9.12](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.9.12)
@@ -123,9 +125,10 @@ Every factory preset, with its description. (13)
 
 ## Docs
 
-Every doc and every section in it. (213)
+Every doc and every section in it. (215)
 
 - **What changed** · doc · [CHANGELOG.md](CHANGELOG.md)
+- **3.7.12.12 — smarter radar, friendlier app** · doc section · [CHANGELOG.md › 3.7.12.12 — smarter radar, friendlier app](CHANGELOG.md#371212--smarter-radar-friendlier-app) — in What changed
 - **3.7.11.12 — precision bands, and an ear guard** · doc section · [CHANGELOG.md › 3.7.11.12 — precision bands, and an ear guard](CHANGELOG.md#371112--precision-bands-and-an-ear-guard) — in What changed
 - **3.7.10.12 — a warmer room, and a faster one** · doc section · [CHANGELOG.md › 3.7.10.12 — a warmer room, and a faster one](CHANGELOG.md#371012--a-warmer-room-and-a-faster-one) — in What changed
 - **3.7.9.12 — the FOOTSTEP RADAR** · doc section · [CHANGELOG.md › 3.7.9.12 — the FOOTSTEP RADAR](CHANGELOG.md#37912--the-footstep-radar) — in What changed
@@ -286,6 +289,7 @@ Every doc and every section in it. (213)
 - **OUTPUT MONITOR** · doc section · [Vault/Reference/Methods.md › OUTPUT MONITOR](Vault/Reference/Methods.md#output-monitor) — in Every glass-panel setting
 - **CEILING - The output limiter's ceiling** · doc section · [Vault/Reference/Methods.md › CEILING - The output limiter's ceiling](Vault/Reference/Methods.md#ceiling---the-output-limiters-ceiling) — in Every glass-panel setting
 - **LOUDNESS TARGET - How loud everything leaves the rack** · doc section · [Vault/Reference/Methods.md › LOUDNESS TARGET - How loud everything leaves the rack](Vault/Reference/Methods.md#loudness-target---how-loud-everything-leaves-the-rack) — in Every glass-panel setting
+- **EAR GUARD - How far the sound may suddenly jump** · doc section · [Vault/Reference/Methods.md › EAR GUARD - How far the sound may suddenly jump](Vault/Reference/Methods.md#ear-guard---how-far-the-sound-may-suddenly-jump) — in Every glass-panel setting
 - **TONE RANGE - The tone-change curve's scale** · doc section · [Vault/Reference/Methods.md › TONE RANGE - The tone-change curve's scale](Vault/Reference/Methods.md#tone-range---the-tone-change-curves-scale) — in Every glass-panel setting
 - **DUCK HOLD - How long DUCK holds a reading** · doc section · [Vault/Reference/Methods.md › DUCK HOLD - How long DUCK holds a reading](Vault/Reference/Methods.md#duck-hold---how-long-duck-holds-a-reading) — in Every glass-panel setting
 - **WAVEFORM - What each waveform column shows** · doc section · [Vault/Reference/Methods.md › WAVEFORM - What each waveform column shows](Vault/Reference/Methods.md#waveform---what-each-waveform-column-shows) — in Every glass-panel setting
@@ -575,25 +579,25 @@ Every setting in the units' glass panels, and every choice. (149)
 Test modes, tool commands, scenes, scripts. (58)
 
 - **scripts/selftest.sh** · the whole self-test in one command · [scripts/selftest.sh](scripts/selftest.sh) — every test, PASS / FAIL per step
-- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2145](Tests/EnhDspTests.cpp#L2145)
-- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2152](Tests/EnhDspTests.cpp#L2152)
-- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2155](Tests/EnhDspTests.cpp#L2155)
-- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2168](Tests/EnhDspTests.cpp#L2168)
-- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2171](Tests/EnhDspTests.cpp#L2171)
-- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2178](Tests/EnhDspTests.cpp#L2178)
-- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2187](Tests/EnhDspTests.cpp#L2187)
-- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2193](Tests/EnhDspTests.cpp#L2193)
-- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2200](Tests/EnhDspTests.cpp#L2200)
-- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2207](Tests/EnhDspTests.cpp#L2207)
-- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2214](Tests/EnhDspTests.cpp#L2214)
-- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2222](Tests/EnhDspTests.cpp#L2222)
-- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2229](Tests/EnhDspTests.cpp#L2229)
-- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2235](Tests/EnhDspTests.cpp#L2235)
-- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2242](Tests/EnhDspTests.cpp#L2242)
-- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2251](Tests/EnhDspTests.cpp#L2251)
-- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2312](Tests/EnhDspTests.cpp#L2312)
-- **EnhDspTests --precision** · test mode · [EnhDspTests.cpp:2338](Tests/EnhDspTests.cpp#L2338)
-- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2345](Tests/EnhDspTests.cpp#L2345)
+- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2154](Tests/EnhDspTests.cpp#L2154)
+- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2161](Tests/EnhDspTests.cpp#L2161)
+- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2164](Tests/EnhDspTests.cpp#L2164)
+- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2177](Tests/EnhDspTests.cpp#L2177)
+- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2180](Tests/EnhDspTests.cpp#L2180)
+- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2187](Tests/EnhDspTests.cpp#L2187)
+- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2196](Tests/EnhDspTests.cpp#L2196)
+- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2202](Tests/EnhDspTests.cpp#L2202)
+- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2209](Tests/EnhDspTests.cpp#L2209)
+- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2216](Tests/EnhDspTests.cpp#L2216)
+- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2223](Tests/EnhDspTests.cpp#L2223)
+- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2231](Tests/EnhDspTests.cpp#L2231)
+- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2238](Tests/EnhDspTests.cpp#L2238)
+- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2244](Tests/EnhDspTests.cpp#L2244)
+- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2251](Tests/EnhDspTests.cpp#L2251)
+- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2260](Tests/EnhDspTests.cpp#L2260)
+- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2321](Tests/EnhDspTests.cpp#L2321)
+- **EnhDspTests --precision** · test mode · [EnhDspTests.cpp:2347](Tests/EnhDspTests.cpp#L2347)
+- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2354](Tests/EnhDspTests.cpp#L2354)
 - **scene gaps** · AudioLab test scene · [AudioLab.cpp:212](Tools/AudioLab.cpp#L212) — music for 3 s, near silence for 3 s, music again: what the auto gains do in the gaps
 - **scene bassduck** · AudioLab test scene · [AudioLab.cpp:213](Tools/AudioLab.cpp#L213) — unchanging quiet detail and footsteps throughout, loud bass only from 3 - 5 s: what the bass does to the rest
 - **scene steps** · AudioLab test scene · [AudioLab.cpp:214](Tools/AudioLab.cpp#L214) — ambience and footsteps only, left/right, every 0.45 s: what the rack does to footsteps over time
@@ -641,7 +645,7 @@ Every environment variable the code reads, and where. (75)
 - **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1311](Tests/EnhDspTests.cpp#L1311)
 - **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1304](Tests/EnhDspTests.cpp#L1304)
 - **CHAR_STEPS** · dev setting (environment variable) · [Tests/CharacterTests.h:269](Tests/CharacterTests.h#L269)
-- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2092](Tests/EnhDspTests.cpp#L2092)
+- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2101](Tests/EnhDspTests.cpp#L2101)
 - **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:905](Tests/EnhDspTests.cpp#L905)
 - **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:905](Tests/EnhDspTests.cpp#L905)
 - **EAR_TRACE** · dev setting (environment variable) · [Tests/MasteringTests.h:357](Tests/MasteringTests.h#L357)
@@ -659,16 +663,16 @@ Every environment variable the code reads, and where. (75)
 - **MASTER_DEBUG** · dev setting (environment variable) · [Tests/MasteringTests.h:88](Tests/MasteringTests.h#L88)
 - **OUT** · dev setting (environment variable) · [Tools/LayoutViz.cpp:116](Tools/LayoutViz.cpp#L116)
 - **OUT** · dev setting (environment variable) · [Tools/LayoutViz.cpp:116](Tools/LayoutViz.cpp#L116)
-- **PAD_ROUTER_TEST_APPS** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:255](Source/Standalone/RouterBar.cpp#L255)
-- **PAD_ROUTER_TEST_INSERT** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:271](Source/Standalone/RouterBar.cpp#L271)
-- **PAD_ROUTER_TEST_LISTEN** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:257](Source/Standalone/RouterBar.cpp#L257)
-- **PAD_ROUTER_TEST_SOURCE** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:252](Source/Standalone/RouterBar.cpp#L252)
+- **PAD_ROUTER_TEST_APPS** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:266](Source/Standalone/RouterBar.cpp#L266)
+- **PAD_ROUTER_TEST_INSERT** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:286](Source/Standalone/RouterBar.cpp#L286)
+- **PAD_ROUTER_TEST_LISTEN** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:268](Source/Standalone/RouterBar.cpp#L268)
+- **PAD_ROUTER_TEST_SOURCE** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:263](Source/Standalone/RouterBar.cpp#L263)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:62](Source/UI/HardwareView.cpp#L62)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:63](Source/UI/HardwareView.cpp#L63)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/Scene/LayoutAudit.h:8](Source/UI/Scene/LayoutAudit.h#L8)
 - **PAD_UI_TEST_BACKGROUND** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:615](Source/UI/HardwareView.cpp#L615)
-- **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:232](Source/Standalone/StandaloneApp.cpp#L232)
-- **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:233](Source/Standalone/StandaloneApp.cpp#L233)
+- **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:234](Source/Standalone/StandaloneApp.cpp#L234)
+- **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:235](Source/Standalone/StandaloneApp.cpp#L235)
 - **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/HardwareView.h:67](Source/UI/HardwareView.h#L67)
 - **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1391](Source/UI/Scene/HardwareRenderer.cpp#L1391)
 - **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1527](Source/UI/Scene/HardwareRenderer.cpp#L1527)
@@ -715,7 +719,7 @@ Every environment variable the code reads, and where. (75)
 
 ## Code
 
-Every class, struct, enum and function, by file, with the first line of its comment. (1161)
+Every class, struct, enum and function, by file, with the first line of its comment. (1166)
 
 
 **[Source/PluginEditor.cpp](Source/PluginEditor.cpp)**
@@ -952,13 +956,13 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 - **EarGuard** · class · [EarGuard.h:33](Source/DSP/EarGuard.h#L33)
 - **EarGuard::prepare** · function · [EarGuard.h:39](Source/DSP/EarGuard.h#L39)
-- **EarGuard::reset** · function · [EarGuard.h:60](Source/DSP/EarGuard.h#L60)
-- **EarGuard::process** · function · [EarGuard.h:78](Source/DSP/EarGuard.h#L78) — In place, after everything else and before the output limiter.
-- **EarGuard::setJumpDb** · function · [EarGuard.h:145](Source/DSP/EarGuard.h#L145) — How far over its usual loudness the sound may jump (the EAR GUARD method: 12, 15 or 18 dB).
-- **EarGuard::getLatencySamples** · function · [EarGuard.h:147](Source/DSP/EarGuard.h#L147)
-- **EarGuard::getReductionDb** · function · [EarGuard.h:148](Source/DSP/EarGuard.h#L148)
-- **EarGuard::getUsualLufs** · function · [EarGuard.h:149](Source/DSP/EarGuard.h#L149)
-- **EarGuard::decide** · function · [EarGuard.h:152](Source/DSP/EarGuard.h#L152)
+- **EarGuard::reset** · function · [EarGuard.h:61](Source/DSP/EarGuard.h#L61)
+- **EarGuard::process** · function · [EarGuard.h:79](Source/DSP/EarGuard.h#L79) — In place, after everything else and before the output limiter.
+- **EarGuard::setJumpDb** · function · [EarGuard.h:146](Source/DSP/EarGuard.h#L146) — How far over its usual loudness the sound may jump (the EAR GUARD method: 12, 15 or 18 dB).
+- **EarGuard::getLatencySamples** · function · [EarGuard.h:148](Source/DSP/EarGuard.h#L148)
+- **EarGuard::getReductionDb** · function · [EarGuard.h:149](Source/DSP/EarGuard.h#L149)
+- **EarGuard::getUsualLufs** · function · [EarGuard.h:150](Source/DSP/EarGuard.h#L150)
+- **EarGuard::decide** · function · [EarGuard.h:153](Source/DSP/EarGuard.h#L153)
 
 **[Source/DSP/EngineMeters.h](Source/DSP/EngineMeters.h)**
 
@@ -1025,23 +1029,24 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **cosine** · function · [FootstepRadar.cpp:23](Source/DSP/FootstepRadar.cpp#L23)
 - **FootstepRadar::prepare** · function · [FootstepRadar.cpp:37](Source/DSP/FootstepRadar.cpp#L37) — ==============================================================================
 - **FootstepRadar::reset** · function · [FootstepRadar.cpp:70](Source/DSP/FootstepRadar.cpp#L70)
-- **FootstepRadar::designRoom** · function · [FootstepRadar.cpp:128](Source/DSP/FootstepRadar.cpp#L128) — ==============================================================================
-- **FootstepRadar::roomProcess** · function · [FootstepRadar.cpp:149](Source/DSP/FootstepRadar.cpp#L149)
-- **FootstepRadar::process** · function · [FootstepRadar.cpp:180](Source/DSP/FootstepRadar.cpp#L180) — ==============================================================================
-- **FootstepRadar::expectedNow** · function · [FootstepRadar.cpp:313](Source/DSP/FootstepRadar.cpp#L313) — ==============================================================================
-- **FootstepRadar::trackMatch** · function · [FootstepRadar.cpp:329](Source/DSP/FootstepRadar.cpp#L329)
-- **FootstepRadar::controlTick** · function · [FootstepRadar.cpp:365](Source/DSP/FootstepRadar.cpp#L365) — ==============================================================================
-- **FootstepRadar::rhythmOf** · function · [FootstepRadar.cpp:620](Source/DSP/FootstepRadar.cpp#L620)
-- **FootstepRadar::combineLifts** · function · [FootstepRadar.cpp:643](Source/DSP/FootstepRadar.cpp#L643)
-- **FootstepRadar::pitchStrength** · function · [FootstepRadar.cpp:655](Source/DSP/FootstepRadar.cpp#L655)
-- **FootstepRadar::weakSoFar** · function · [FootstepRadar.cpp:689](Source/DSP/FootstepRadar.cpp#L689)
-- **FootstepRadar::updateBackground** · function · [FootstepRadar.cpp:701](Source/DSP/FootstepRadar.cpp#L701)
-- **FootstepRadar::onsetRate** · function · [FootstepRadar.cpp:738](Source/DSP/FootstepRadar.cpp#L738)
-- **FootstepRadar::startEvent** · function · [FootstepRadar.cpp:746](Source/DSP/FootstepRadar.cpp#L746)
-- **FootstepRadar::setLift** · function · [FootstepRadar.cpp:802](Source/DSP/FootstepRadar.cpp#L802)
-- **FootstepRadar::release** · function · [FootstepRadar.cpp:825](Source/DSP/FootstepRadar.cpp#L825)
-- **FootstepRadar::decide** · function · [FootstepRadar.cpp:834](Source/DSP/FootstepRadar.cpp#L834)
-- **FootstepRadar::confirm** · function · [FootstepRadar.cpp:1082](Source/DSP/FootstepRadar.cpp#L1082)
+- **FootstepRadar::designRoom** · function · [FootstepRadar.cpp:131](Source/DSP/FootstepRadar.cpp#L131) — ==============================================================================
+- **FootstepRadar::roomProcess** · function · [FootstepRadar.cpp:152](Source/DSP/FootstepRadar.cpp#L152)
+- **FootstepRadar::process** · function · [FootstepRadar.cpp:183](Source/DSP/FootstepRadar.cpp#L183) — ==============================================================================
+- **FootstepRadar::expectedNow** · function · [FootstepRadar.cpp:316](Source/DSP/FootstepRadar.cpp#L316) — ==============================================================================
+- **FootstepRadar::trackMatch** · function · [FootstepRadar.cpp:332](Source/DSP/FootstepRadar.cpp#L332)
+- **FootstepRadar::controlTick** · function · [FootstepRadar.cpp:368](Source/DSP/FootstepRadar.cpp#L368) — ==============================================================================
+- **FootstepRadar::machineGrid** · function · [FootstepRadar.cpp:623](Source/DSP/FootstepRadar.cpp#L623)
+- **FootstepRadar::rhythmOf** · function · [FootstepRadar.cpp:667](Source/DSP/FootstepRadar.cpp#L667)
+- **FootstepRadar::combineLifts** · function · [FootstepRadar.cpp:690](Source/DSP/FootstepRadar.cpp#L690)
+- **FootstepRadar::pitchStrength** · function · [FootstepRadar.cpp:702](Source/DSP/FootstepRadar.cpp#L702)
+- **FootstepRadar::weakSoFar** · function · [FootstepRadar.cpp:736](Source/DSP/FootstepRadar.cpp#L736)
+- **FootstepRadar::updateBackground** · function · [FootstepRadar.cpp:748](Source/DSP/FootstepRadar.cpp#L748)
+- **FootstepRadar::onsetRate** · function · [FootstepRadar.cpp:785](Source/DSP/FootstepRadar.cpp#L785)
+- **FootstepRadar::startEvent** · function · [FootstepRadar.cpp:793](Source/DSP/FootstepRadar.cpp#L793)
+- **FootstepRadar::setLift** · function · [FootstepRadar.cpp:849](Source/DSP/FootstepRadar.cpp#L849)
+- **FootstepRadar::release** · function · [FootstepRadar.cpp:872](Source/DSP/FootstepRadar.cpp#L872)
+- **FootstepRadar::decide** · function · [FootstepRadar.cpp:881](Source/DSP/FootstepRadar.cpp#L881)
+- **FootstepRadar::confirm** · function · [FootstepRadar.cpp:1141](Source/DSP/FootstepRadar.cpp#L1141)
 
 **[Source/DSP/FootstepRadar.h](Source/DSP/FootstepRadar.h)**
 
@@ -1050,25 +1055,25 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **FootstepRadar::Step** · struct · [FootstepRadar.h:58](Source/DSP/FootstepRadar.h#L58) — A confirmed step (for the display, the meters and the tests).
 - **FootstepRadar::Track** · struct · [FootstepRadar.h:71](Source/DSP/FootstepRadar.h#L71) — A walker being followed.
 - **FootstepRadar::Decision** · struct · [FootstepRadar.h:84](Source/DSP/FootstepRadar.h#L84) — Every event and what was decided (tests;
-- **FootstepRadar::getLatencySamples** · function · [FootstepRadar.h:101](Source/DSP/FootstepRadar.h#L101)
-- **FootstepRadar::getActivity** · function · [FootstepRadar.h:104](Source/DSP/FootstepRadar.h#L104) — --- readouts ------------------------------------------------------------------------------
-- **FootstepRadar::getAcceptedCount** · function · [FootstepRadar.h:105](Source/DSP/FootstepRadar.h#L105)
-- **FootstepRadar::getEventCount** · function · [FootstepRadar.h:106](Source/DSP/FootstepRadar.h#L106)
-- **FootstepRadar::getTracks** · function · [FootstepRadar.h:107](Source/DSP/FootstepRadar.h#L107)
-- **FootstepRadar::getBandExcessDb** · function · [FootstepRadar.h:108](Source/DSP/FootstepRadar.h#L108)
-- **FootstepRadar::getOnsetStrength** · function · [FootstepRadar.h:109](Source/DSP/FootstepRadar.h#L109)
-- **FootstepRadar::getThreshold** · function · [FootstepRadar.h:110](Source/DSP/FootstepRadar.h#L110)
-- **FootstepRadar::getRecent** · function · [FootstepRadar.h:112](Source/DSP/FootstepRadar.h#L112) — Confirmed steps: a ring of the last recentCapacity;
-- **FootstepRadar::getStepsTotal** · function · [FootstepRadar.h:113](Source/DSP/FootstepRadar.h#L113)
-- **FootstepRadar::getClock** · function · [FootstepRadar.h:114](Source/DSP/FootstepRadar.h#L114)
-- **FootstepRadar::getMusicality** · function · [FootstepRadar.h:115](Source/DSP/FootstepRadar.h#L115)
-- **FootstepRadar::getPeriodicity** · function · [FootstepRadar.h:116](Source/DSP/FootstepRadar.h#L116)
-- **FootstepRadar::getBackgroundDb** · function · [FootstepRadar.h:117](Source/DSP/FootstepRadar.h#L117)
-- **FootstepRadar::getPhase** · function · [FootstepRadar.h:118](Source/DSP/FootstepRadar.h#L118)
-- **FootstepRadar::getLastOnset** · function · [FootstepRadar.h:119](Source/DSP/FootstepRadar.h#L119)
-- **FootstepRadar::getFlickerDb** · function · [FootstepRadar.h:120](Source/DSP/FootstepRadar.h#L120)
-- **FootstepRadar::Event** · struct · [FootstepRadar.h:202](Source/DSP/FootstepRadar.h#L202)
-- **FootstepRadar::Room** · struct · [FootstepRadar.h:265](Source/DSP/FootstepRadar.h#L265)
+- **FootstepRadar::getLatencySamples** · function · [FootstepRadar.h:102](Source/DSP/FootstepRadar.h#L102)
+- **FootstepRadar::getActivity** · function · [FootstepRadar.h:105](Source/DSP/FootstepRadar.h#L105) — --- readouts ------------------------------------------------------------------------------
+- **FootstepRadar::getAcceptedCount** · function · [FootstepRadar.h:106](Source/DSP/FootstepRadar.h#L106)
+- **FootstepRadar::getEventCount** · function · [FootstepRadar.h:107](Source/DSP/FootstepRadar.h#L107)
+- **FootstepRadar::getTracks** · function · [FootstepRadar.h:108](Source/DSP/FootstepRadar.h#L108)
+- **FootstepRadar::getBandExcessDb** · function · [FootstepRadar.h:109](Source/DSP/FootstepRadar.h#L109)
+- **FootstepRadar::getOnsetStrength** · function · [FootstepRadar.h:110](Source/DSP/FootstepRadar.h#L110)
+- **FootstepRadar::getThreshold** · function · [FootstepRadar.h:111](Source/DSP/FootstepRadar.h#L111)
+- **FootstepRadar::getRecent** · function · [FootstepRadar.h:113](Source/DSP/FootstepRadar.h#L113) — Confirmed steps: a ring of the last recentCapacity;
+- **FootstepRadar::getStepsTotal** · function · [FootstepRadar.h:114](Source/DSP/FootstepRadar.h#L114)
+- **FootstepRadar::getClock** · function · [FootstepRadar.h:115](Source/DSP/FootstepRadar.h#L115)
+- **FootstepRadar::getMusicality** · function · [FootstepRadar.h:116](Source/DSP/FootstepRadar.h#L116)
+- **FootstepRadar::getPeriodicity** · function · [FootstepRadar.h:117](Source/DSP/FootstepRadar.h#L117)
+- **FootstepRadar::getBackgroundDb** · function · [FootstepRadar.h:118](Source/DSP/FootstepRadar.h#L118)
+- **FootstepRadar::getPhase** · function · [FootstepRadar.h:119](Source/DSP/FootstepRadar.h#L119)
+- **FootstepRadar::getLastOnset** · function · [FootstepRadar.h:120](Source/DSP/FootstepRadar.h#L120)
+- **FootstepRadar::getFlickerDb** · function · [FootstepRadar.h:121](Source/DSP/FootstepRadar.h#L121)
+- **FootstepRadar::Event** · struct · [FootstepRadar.h:203](Source/DSP/FootstepRadar.h#L203)
+- **FootstepRadar::Room** · struct · [FootstepRadar.h:274](Source/DSP/FootstepRadar.h#L274)
 
 **[Source/DSP/HarmonicPlanner.cpp](Source/DSP/HarmonicPlanner.cpp)**
 
@@ -1502,63 +1507,67 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **RouterBar::getTextButtonFont** · function · [RouterBar.cpp:122](Source/Standalone/RouterBar.cpp#L122)
 - **RouterBar** · class · [RouterBar.cpp:126](Source/Standalone/RouterBar.cpp#L126) — A combo box that re-reads the devices just before it opens, so the list is never stale.
 - **RouterBar::showPopup** · function · [RouterBar.cpp:131](Source/Standalone/RouterBar.cpp#L131)
-- **RouterBar::currentPlan** · function · [RouterBar.cpp:292](Source/Standalone/RouterBar.cpp#L292) — ==============================================================================
-- **RouterBar::nameOfEndpoint** · function · [RouterBar.cpp:302](Source/Standalone/RouterBar.cpp#L302)
-- **RouterBar::refreshLists** · function · [RouterBar.cpp:310](Source/Standalone/RouterBar.cpp#L310)
-- **RouterBar::refreshAppsButton** · function · [RouterBar.cpp:405](Source/Standalone/RouterBar.cpp#L405)
-- **RouterBar::saveChoices** · function · [RouterBar.cpp:410](Source/Standalone/RouterBar.cpp#L410)
-- **RouterBar::updateControls** · function · [RouterBar.cpp:421](Source/Standalone/RouterBar.cpp#L421)
-- **RouterBar::setStatus** · function · [RouterBar.cpp:439](Source/Standalone/RouterBar.cpp#L439)
-- **RouterBar::openRackAudio** · function · [RouterBar.cpp:447](Source/Standalone/RouterBar.cpp#L447) — ==============================================================================
-- **RouterBar::insertRack** · function · [RouterBar.cpp:513](Source/Standalone/RouterBar.cpp#L513)
-- **RouterBar::removeRack** · function · [RouterBar.cpp:595](Source/Standalone/RouterBar.cpp#L595)
-- **RouterBar::showAppsMenu** · function · [RouterBar.cpp:610](Source/Standalone/RouterBar.cpp#L610) — ==============================================================================
-- **RouterBar::showMoreMenu** · function · [RouterBar.cpp:654](Source/Standalone/RouterBar.cpp#L654)
-- **RouterBar::timerCallback** · function · [RouterBar.cpp:693](Source/Standalone/RouterBar.cpp#L693)
-- **RouterBar::paint** · function · [RouterBar.cpp:769](Source/Standalone/RouterBar.cpp#L769) — ==============================================================================
-- **RouterBar::resized** · function · [RouterBar.cpp:826](Source/Standalone/RouterBar.cpp#L826)
-- **startCommand** · function · [RouterBar.cpp:866](Source/Standalone/RouterBar.cpp#L866)
-- **autostartFile** · function · [RouterBar.cpp:875](Source/Standalone/RouterBar.cpp#L875)
-- **RouterBar::isStartingWithComputer** · function · [RouterBar.cpp:882](Source/Standalone/RouterBar.cpp#L882)
-- **RouterBar::setStartingWithComputer** · function · [RouterBar.cpp:891](Source/Standalone/RouterBar.cpp#L891)
+- **RouterBar::currentPlan** · function · [RouterBar.cpp:307](Source/Standalone/RouterBar.cpp#L307) — ==============================================================================
+- **RouterBar::nameOfEndpoint** · function · [RouterBar.cpp:317](Source/Standalone/RouterBar.cpp#L317)
+- **RouterBar::refreshLists** · function · [RouterBar.cpp:325](Source/Standalone/RouterBar.cpp#L325)
+- **RouterBar::refreshAppsButton** · function · [RouterBar.cpp:420](Source/Standalone/RouterBar.cpp#L420)
+- **RouterBar::saveChoices** · function · [RouterBar.cpp:425](Source/Standalone/RouterBar.cpp#L425)
+- **RouterBar::updateControls** · function · [RouterBar.cpp:436](Source/Standalone/RouterBar.cpp#L436)
+- **RouterBar::setStatus** · function · [RouterBar.cpp:454](Source/Standalone/RouterBar.cpp#L454)
+- **RouterBar::openRackAudio** · function · [RouterBar.cpp:462](Source/Standalone/RouterBar.cpp#L462) — ==============================================================================
+- **RouterBar::insertRack** · function · [RouterBar.cpp:528](Source/Standalone/RouterBar.cpp#L528)
+- **RouterBar::removeRack** · function · [RouterBar.cpp:610](Source/Standalone/RouterBar.cpp#L610)
+- **RouterBar::showAppsMenu** · function · [RouterBar.cpp:625](Source/Standalone/RouterBar.cpp#L625) — ==============================================================================
+- **RouterBar::showMoreMenu** · function · [RouterBar.cpp:669](Source/Standalone/RouterBar.cpp#L669)
+- **RouterBar::timerCallback** · function · [RouterBar.cpp:708](Source/Standalone/RouterBar.cpp#L708)
+- **RouterBar::showGuide** · function · [RouterBar.cpp:784](Source/Standalone/RouterBar.cpp#L784) — ==============================================================================
+- **RouterBar::closeGuide** · function · [RouterBar.cpp:797](Source/Standalone/RouterBar.cpp#L797)
+- **RouterBar::nextStepHint** · function · [RouterBar.cpp:806](Source/Standalone/RouterBar.cpp#L806)
+- **RouterBar::paint** · function · [RouterBar.cpp:818](Source/Standalone/RouterBar.cpp#L818) — ==============================================================================
+- **RouterBar::resized** · function · [RouterBar.cpp:911](Source/Standalone/RouterBar.cpp#L911)
+- **startCommand** · function · [RouterBar.cpp:954](Source/Standalone/RouterBar.cpp#L954)
+- **autostartFile** · function · [RouterBar.cpp:963](Source/Standalone/RouterBar.cpp#L963)
+- **RouterBar::isStartingWithComputer** · function · [RouterBar.cpp:970](Source/Standalone/RouterBar.cpp#L970)
+- **RouterBar::setStartingWithComputer** · function · [RouterBar.cpp:979](Source/Standalone/RouterBar.cpp#L979)
 
 **[Source/Standalone/RouterBar.h](Source/Standalone/RouterBar.h)**
 
-- **RouterBar** · class · [RouterBar.h:23](Source/Standalone/RouterBar.h#L23)
-- **RouterBar::isInserted** · function · [RouterBar.h:48](Source/Standalone/RouterBar.h#L48)
+- **RouterBar** · class · [RouterBar.h:25](Source/Standalone/RouterBar.h#L25)
+- **RouterBar::currentHeight** · function · [RouterBar.h:40](Source/Standalone/RouterBar.h#L40) — How tall the bar is now (taller while the getting-started strip is open).
+- **RouterBar::isInserted** · function · [RouterBar.h:55](Source/Standalone/RouterBar.h#L55)
 
 **[Source/Standalone/StandaloneApp.cpp](Source/Standalone/StandaloneApp.cpp)**
 
 - **EnhRouterContent** · class · [StandaloneApp.cpp:40](Source/Standalone/StandaloneApp.cpp#L40)
 - **EnhRouterContent::EnhRouterContent** · function · [StandaloneApp.cpp:44](Source/Standalone/StandaloneApp.cpp#L44)
-- **EnhRouterContent::getBar** · function · [StandaloneApp.cpp:81](Source/Standalone/StandaloneApp.cpp#L81)
-- **EnhRouterContent::resized** · function · [StandaloneApp.cpp:83](Source/Standalone/StandaloneApp.cpp#L83)
-- **EnhRouterContent::componentMovedOrResized** · function · [StandaloneApp.cpp:96](Source/Standalone/StandaloneApp.cpp#L96)
-- **EnhTrayIcon** · class · [StandaloneApp.cpp:112](Source/Standalone/StandaloneApp.cpp#L112)
-- **EnhTrayIcon::mouseDown** · function · [StandaloneApp.cpp:125](Source/Standalone/StandaloneApp.cpp#L125)
-- **EnhTrayIcon::drawIcon** · function · [StandaloneApp.cpp:141](Source/Standalone/StandaloneApp.cpp#L141) — Three rack units in a dark case, the middle one lit: drawn here, so no image file is needed.
-- **EnhInstanceLink** · class · [StandaloneApp.cpp:160](Source/Standalone/StandaloneApp.cpp#L160)
-- **EnhInstanceLink::EnhInstanceLink** · function · [StandaloneApp.cpp:163](Source/Standalone/StandaloneApp.cpp#L163)
-- **EnhInstanceLink::pipeName** · function · [StandaloneApp.cpp:170](Source/Standalone/StandaloneApp.cpp#L170)
-- **EnhInstanceLink::connectionMade** · function · [StandaloneApp.cpp:172](Source/Standalone/StandaloneApp.cpp#L172)
-- **EnhInstanceLink::connectionLost** · function · [StandaloneApp.cpp:174](Source/Standalone/StandaloneApp.cpp#L174)
-- **EnhInstanceLink::messageReceived** · function · [StandaloneApp.cpp:181](Source/Standalone/StandaloneApp.cpp#L181)
-- **EnhRouterWindow** · class · [StandaloneApp.cpp:197](Source/Standalone/StandaloneApp.cpp#L197) — ==============================================================================
-- **EnhRouterWindow::closeButtonPressed** · function · [StandaloneApp.cpp:256](Source/Standalone/StandaloneApp.cpp#L256)
-- **EnhRouterWindow::hideToTray** · function · [StandaloneApp.cpp:267](Source/Standalone/StandaloneApp.cpp#L267)
-- **EnhRouterWindow::bringBack** · function · [StandaloneApp.cpp:287](Source/Standalone/StandaloneApp.cpp#L287)
-- **EnhRouterWindow::getHolder** · function · [StandaloneApp.cpp:295](Source/Standalone/StandaloneApp.cpp#L295)
-- **EnhRouterWindow::isRackIn** · function · [StandaloneApp.cpp:296](Source/Standalone/StandaloneApp.cpp#L296)
-- **EnhRouterWindow::updateTray** · function · [StandaloneApp.cpp:299](Source/Standalone/StandaloneApp.cpp#L299)
-- **EnhStandaloneApp** · class · [StandaloneApp.cpp:314](Source/Standalone/StandaloneApp.cpp#L314) — ==============================================================================
-- **EnhStandaloneApp::getApplicationName** · function · [StandaloneApp.cpp:333](Source/Standalone/StandaloneApp.cpp#L333)
-- **EnhStandaloneApp::getApplicationVersion** · function · [StandaloneApp.cpp:334](Source/Standalone/StandaloneApp.cpp#L334)
-- **EnhStandaloneApp::moreThanOneInstanceAllowed** · function · [StandaloneApp.cpp:335](Source/Standalone/StandaloneApp.cpp#L335)
-- **EnhStandaloneApp::anotherInstanceStarted** · function · [StandaloneApp.cpp:336](Source/Standalone/StandaloneApp.cpp#L336)
-- **EnhStandaloneApp::initialise** · function · [StandaloneApp.cpp:338](Source/Standalone/StandaloneApp.cpp#L338)
-- **EnhStandaloneApp::shutdown** · function · [StandaloneApp.cpp:408](Source/Standalone/StandaloneApp.cpp#L408)
-- **EnhStandaloneApp::systemRequestedQuit** · function · [StandaloneApp.cpp:420](Source/Standalone/StandaloneApp.cpp#L420)
-- **juce_CreateApplication** · function · [StandaloneApp.cpp:448](Source/Standalone/StandaloneApp.cpp#L448)
+- **EnhRouterContent::getBar** · function · [StandaloneApp.cpp:83](Source/Standalone/StandaloneApp.cpp#L83)
+- **EnhRouterContent::resized** · function · [StandaloneApp.cpp:85](Source/Standalone/StandaloneApp.cpp#L85)
+- **EnhRouterContent::componentMovedOrResized** · function · [StandaloneApp.cpp:98](Source/Standalone/StandaloneApp.cpp#L98)
+- **EnhTrayIcon** · class · [StandaloneApp.cpp:114](Source/Standalone/StandaloneApp.cpp#L114)
+- **EnhTrayIcon::mouseDown** · function · [StandaloneApp.cpp:127](Source/Standalone/StandaloneApp.cpp#L127)
+- **EnhTrayIcon::drawIcon** · function · [StandaloneApp.cpp:143](Source/Standalone/StandaloneApp.cpp#L143) — Three rack units in a dark case, the middle one lit: drawn here, so no image file is needed.
+- **EnhInstanceLink** · class · [StandaloneApp.cpp:162](Source/Standalone/StandaloneApp.cpp#L162)
+- **EnhInstanceLink::EnhInstanceLink** · function · [StandaloneApp.cpp:165](Source/Standalone/StandaloneApp.cpp#L165)
+- **EnhInstanceLink::pipeName** · function · [StandaloneApp.cpp:172](Source/Standalone/StandaloneApp.cpp#L172)
+- **EnhInstanceLink::connectionMade** · function · [StandaloneApp.cpp:174](Source/Standalone/StandaloneApp.cpp#L174)
+- **EnhInstanceLink::connectionLost** · function · [StandaloneApp.cpp:176](Source/Standalone/StandaloneApp.cpp#L176)
+- **EnhInstanceLink::messageReceived** · function · [StandaloneApp.cpp:183](Source/Standalone/StandaloneApp.cpp#L183)
+- **EnhRouterWindow** · class · [StandaloneApp.cpp:199](Source/Standalone/StandaloneApp.cpp#L199) — ==============================================================================
+- **EnhRouterWindow::closeButtonPressed** · function · [StandaloneApp.cpp:258](Source/Standalone/StandaloneApp.cpp#L258)
+- **EnhRouterWindow::hideToTray** · function · [StandaloneApp.cpp:269](Source/Standalone/StandaloneApp.cpp#L269)
+- **EnhRouterWindow::bringBack** · function · [StandaloneApp.cpp:289](Source/Standalone/StandaloneApp.cpp#L289)
+- **EnhRouterWindow::getHolder** · function · [StandaloneApp.cpp:297](Source/Standalone/StandaloneApp.cpp#L297)
+- **EnhRouterWindow::isRackIn** · function · [StandaloneApp.cpp:298](Source/Standalone/StandaloneApp.cpp#L298)
+- **EnhRouterWindow::updateTray** · function · [StandaloneApp.cpp:301](Source/Standalone/StandaloneApp.cpp#L301)
+- **EnhStandaloneApp** · class · [StandaloneApp.cpp:316](Source/Standalone/StandaloneApp.cpp#L316) — ==============================================================================
+- **EnhStandaloneApp::getApplicationName** · function · [StandaloneApp.cpp:335](Source/Standalone/StandaloneApp.cpp#L335)
+- **EnhStandaloneApp::getApplicationVersion** · function · [StandaloneApp.cpp:336](Source/Standalone/StandaloneApp.cpp#L336)
+- **EnhStandaloneApp::moreThanOneInstanceAllowed** · function · [StandaloneApp.cpp:337](Source/Standalone/StandaloneApp.cpp#L337)
+- **EnhStandaloneApp::anotherInstanceStarted** · function · [StandaloneApp.cpp:338](Source/Standalone/StandaloneApp.cpp#L338)
+- **EnhStandaloneApp::initialise** · function · [StandaloneApp.cpp:340](Source/Standalone/StandaloneApp.cpp#L340)
+- **EnhStandaloneApp::shutdown** · function · [StandaloneApp.cpp:410](Source/Standalone/StandaloneApp.cpp#L410)
+- **EnhStandaloneApp::systemRequestedQuit** · function · [StandaloneApp.cpp:422](Source/Standalone/StandaloneApp.cpp#L422)
+- **juce_CreateApplication** · function · [StandaloneApp.cpp:450](Source/Standalone/StandaloneApp.cpp#L450)
 
 **[Source/Standalone/SystemAudioDevice.cpp](Source/Standalone/SystemAudioDevice.cpp)**
 
@@ -1987,11 +1996,11 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **methodsDoc** · function · [EnhDspTests.cpp:1441](Tests/EnhDspTests.cpp#L1441) — ========================================================================== The method registry as the referen…
 - **methodsDocFile** · function · [EnhDspTests.cpp:1495](Tests/EnhDspTests.cpp#L1495)
 - **runMethodTests** · function · [EnhDspTests.cpp:1508](Tests/EnhDspTests.cpp#L1508)
-- **runDeepSubTests** · function · [EnhDspTests.cpp:1911](Tests/EnhDspTests.cpp#L1911) — ==========================================================================
-- **runNewUnitsMode** · function · [EnhDspTests.cpp:1999](Tests/EnhDspTests.cpp#L1999)
-- **runGolden** · function · [EnhDspTests.cpp:2007](Tests/EnhDspTests.cpp#L2007)
-- **runCpuBenchmark** · function · [EnhDspTests.cpp:2058](Tests/EnhDspTests.cpp#L2058)
-- **main** · function · [EnhDspTests.cpp:2140](Tests/EnhDspTests.cpp#L2140)
+- **runDeepSubTests** · function · [EnhDspTests.cpp:1920](Tests/EnhDspTests.cpp#L1920) — ==========================================================================
+- **runNewUnitsMode** · function · [EnhDspTests.cpp:2008](Tests/EnhDspTests.cpp#L2008)
+- **runGolden** · function · [EnhDspTests.cpp:2016](Tests/EnhDspTests.cpp#L2016)
+- **runCpuBenchmark** · function · [EnhDspTests.cpp:2067](Tests/EnhDspTests.cpp#L2067)
+- **main** · function · [EnhDspTests.cpp:2149](Tests/EnhDspTests.cpp#L2149)
 
 **[Tests/MasteringTests.h](Tests/MasteringTests.h)**
 

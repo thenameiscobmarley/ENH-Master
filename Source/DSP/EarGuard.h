@@ -41,7 +41,8 @@ namespace enh::dsp
             sr = sampleRate > 0.0 ? sampleRate : 48000.0;
             kWeighting (sr, pre, rlb);
             attackK = (float) std::exp (-1.0 / (0.0008 * sr));
-            releaseK = (float) std::exp (-1.0 / (1.5 * sr));
+            releaseK = (float) std::exp (-1.0 / (0.06 * sr));   // quick: the budget, not a slow release, keeps a blast out -
+                                                                 // and the footsteps after a shot are not left ducked
             lookahead = decisionEvery * std::max (2, (int) std::lround (0.005 * sr / decisionEvery));   // whole blocks
             for (auto& d : delay) d.assign ((size_t) lookahead, 0.0f);
             kDelay.assign ((size_t) lookahead, 0.0f);
