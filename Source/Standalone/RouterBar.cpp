@@ -26,6 +26,15 @@ namespace pad
             return juce::Font (bold ? o.withStyle ("Bold") : o);
         }
 
+        /** VB-Audio's free virtual cable: the recommended RACK INPUT on Windows. */
+        bool isVbCable (const juce::String& name)
+        {
+            return name.containsIgnoreCase ("CABLE Input") || name.containsIgnoreCase ("VB-Audio");
+        }
+
+        constexpr const char* vbCableGetId = "__get-vb-cable__";   // the RACK INPUT entry that points to the download
+        constexpr const char* vbCableUrl = "https://vb-audio.com/Cable/";
+
         bool looksLikeVirtualCable (const juce::String& name)
         {
             for (auto* hint : { "cable", "virtual", "voicemeeter", "vb-audio", "loopback" })
@@ -162,6 +171,20 @@ namespace pad
             c->onChange = [this] { saveChoices(); updateControls(); };
         }
 
+        // "Use VB-Audio Cable (Recommended)" with no cable installed yet: take them to its download page
+        rackInputBox->onChange = [this]
+        {
+            if (rackInputIds[rackInputBox->getSelectedItemIndex()] == vbCableGetId)
+            {
+                juce::URL (vbCableUrl).launchInDefaultBrowser();
+                setStatus ("Install VB-Audio Cable (free) from the page that just opened, restart the computer, "
+                           "then open ENH Master again: the cable is picked for you.");
+                return;
+            }
+            saveChoices();
+            updateControls();
+        };
+
         // LEVEL: the rack's LOUDNESS TARGET (OUTPUT MONITOR's panel), here too because it is what a
         // router wants most: every app and game at one loudness
         if (rack != nullptr)
@@ -239,6 +262,10 @@ namespace pad
         refreshLists();
         updateControls();
         setStatus (recovered.isNotEmpty() ? recovered : "Rack out. Your audio plays as it did before.");
+       #if JUCE_WINDOWS
+        if (recovered.isEmpty() && rackInputIds.contains (vbCableGetId))
+            setStatus ("Tip: install VB-Audio Cable (free) - pick \"Use VB-Audio Cable (Recommended)\" under RACK INPUT.");
+       #endif
 
         const bool autoInsert = (props != nullptr && props->getBoolValue ("router.autoInsert", false))
                              || juce::SystemStats::getEnvironmentVariable ("PAD_ROUTER_TEST_INSERT", {}) == "1";
@@ -311,13 +338,21 @@ namespace pad
 
             if (! isOurs)
             {
-                rackInputBox->addItem (e.name, rackInputIds.size() + 1);
+                rackInputBox->addItem (isVbCable (e.name) ? "Use VB-Audio Cable (Recommended) - " + e.name : e.name, rackInputIds.size() + 1);
                 rackInputIds.add (e.id);
 
                 listenBox->addItem (e.name + (e.isDefault ? "  (default now)" : ""), listenIds.size() + 1);
                 listenIds.add (e.id);
             }
         }
+
+       #if JUCE_WINDOWS
+        if (std::none_of (endpoints.begin(), endpoints.end(), [] (const routing::Endpoint& e) { return isVbCable (e.name); }))
+        {
+            rackInputBox->addItem ("Use VB-Audio Cable (Recommended) - get it (free)...", rackInputIds.size() + 1);
+            rackInputIds.add (vbCableGetId);
+        }
+       #endif
 
         auto pick = [] (juce::ComboBox& box, const juce::StringArray& ids, juce::StringArray preferred, int fallback)
         {
@@ -346,6 +381,10 @@ namespace pad
             rackFallback = -1;
 
             for (int i = 0; i < rackInputIds.size() && rackFallback < 0; ++i)
+                if (isVbCable (nameOfEndpoint (rackInputIds[i])))
+                    rackFallback = i;
+
+            for (int i = 0; i < rackInputIds.size() && rackFallback < 0; ++i)
                 if (looksLikeVirtualCable (nameOfEndpoint (rackInputIds[i])))
                     rackFallback = i;
 
@@ -356,7 +395,7 @@ namespace pad
             rackFallback = juce::jmax (0, rackFallback);
         }
 
-        pick (*rackInputBox, rackInputIds, { wasRack, savedRack }, rackFallback);
+        pick (*rackInputBox, rackInputIds, { wasRack == vbCableGetId ? juce::String() : wasRack, savedRack }, rackFallback);
         if (backend->canCreateRackInput() && wasRack.isEmpty() && savedRack.isEmpty())
             rackInputBox->setSelectedItemIndex (0, juce::dontSendNotification);
 
@@ -495,6 +534,12 @@ namespace pad
         juce::String token;
         auto rackId = plan.rackInputId;
 
+        if (rackId == vbCableGetId)
+        {
+            setStatus ("Install VB-Audio Cable first (free, " + juce::String (vbCableUrl) + "), then restart ENH Master.", true);
+            return;
+        }
+
         if (rackId.isEmpty() && backend->canCreateRackInput())
         {
             rackId = backend->createRackInput().id;
@@ -545,62 +590,6 @@ namespace pad
 
         setStatus (message);
         updateControls();
-    }
-
-    void RouterBar::followDefaultSwitch()
-    {
-        if (! router.isInserted() || ! router.isWholeSystem() || rackInputInUse.isEmpty())
-            return;
-
-        const auto now = backend->defaultOutput();
-        if (now.isEmpty() || now == rackInputInUse)
-            return;
-
-        if (listenIds.indexOf (now) < 0)
-        {
-            endpoints = backend->outputs();   // a device that has just appeared (a headset plugged in)
-            listenBox->clear (juce::dontSendNotification);
-            listenIds.clear();
-            for (auto& e : endpoints)
-                if (e.id != "enh_rack_input")
-                {
-                    listenBox->addItem (e.name, listenIds.size() + 1);
-                    listenIds.add (e.id);
-                }
-            if (listenIds.indexOf (now) < 0)
-                return;
-        }
-
-        const auto was = router.listenId();
-        if (now != was)
-        {
-            // Play there. If it cannot be opened, keep listening where we were and take the default back.
-            setMuted (true);
-            juce::String audioError;
-            if (! openRackAudio (rackInputInUse, now, audioError))
-            {
-                backend->setDefaultOutput (rackInputInUse);
-                juce::String again;
-                const bool back = openRackAudio (rackInputInUse, was, again);
-                setMuted (! back);
-                setStatus ("Could not play on " + nameOfEndpoint (now) + " (" + audioError + "). The rack stays on "
-                           + nameOfEndpoint (was) + ".", true);
-                return;
-            }
-        }
-
-        if (! router.retarget (now))
-        {
-            setStatus ("Rack in, but " + router.getLastError(), true);
-            setMuted (false);
-            return;
-        }
-
-        listenBox->setSelectedItemIndex (listenIds.indexOf (now), juce::dontSendNotification);
-        saveChoices();
-        setMuted (false);
-        router.followNewStreams();
-        setStatus ("You switched to " + nameOfEndpoint (now) + ": the rack plays there now, and your audio still goes through it.");
     }
 
     void RouterBar::removeRack()
@@ -728,17 +717,6 @@ namespace pad
                 levelBox->setSelectedId (id, juce::dontSendNotification);
         }
 
-        // Someone switched the default device while the rack is in (Windows' sound settings, the taskbar's
-        // speaker menu, a headset's own app). Windows would now send everything straight there, past the
-        // rack - so the rack follows: it plays there, and takes the default back at once. (Ten times a
-        // second on Windows, where asking is cheap; once a second elsewhere.)
-       #if JUCE_WINDOWS
-        if (tick % 2 == 0)
-       #else
-        if (tick % 20 == 0)
-       #endif
-            followDefaultSwitch();
-
         if (tick % 20 != 0)
             return;
 
@@ -776,7 +754,7 @@ namespace pad
             }
 
             // Apps that start (or open a new stream) while the rack is in follow the others into it.
-            if (tick % 40 == 0)
+            if (plan.source == routing::Plan::Source::chosenApps && tick % 40 == 0)
                 if (auto n = router.followNewStreams(); n > 0)
                     setStatus ("Rack in. Moved " + juce::String (n) + " new stream" + (n == 1 ? "" : "s") + " into it.");
         }

@@ -11,7 +11,7 @@ namespace pad::shaders
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
         paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
         waveScreen, balancerDisplay, present, wood,
-        glassPanel, blurPass, outlineFrame, outlineHull,
+        glassPanel, blurPass, outlineFrame, outlineHull, studioWall,
         numMaterials
     };
 
@@ -390,6 +390,14 @@ namespace pad::shaders
     alpha = uParams.w;
 )GLSL", "", false };
 
+    /*  The studio wall behind the rack (walnut slats, a lamp's pool, the window's shafts): baked once into
+        uTex by StudioWall.h, read back here - one fetch, antialiased by its mip chain.
+        uParams = (left x, floor y, width, height) of the baked area, in world metres */
+    inline const hwk::shaders::Material studioWallMaterial { "studioWall", R"GLSL(
+    vec3 c = texture (uTex, vec2 ((vWorld.x - uParams.x) / uParams.z, (vWorld.y - uParams.y) / uParams.w)).rgb;
+    col = c * c * 0.6;
+)GLSL" };
+
     inline const hwk::shaders::Material& materialFor (int m)
     {
         namespace lib = hwk::shaders::library;
@@ -423,6 +431,7 @@ namespace pad::shaders
             case valueArc:      return lib::valueArc;
             case lens:          return lib::magnifierLens;
             case sunlight:      return lib::windowLight;
+            case studioWall:    return studioWallMaterial;
             default:            return lib::plastic;
         }
     }

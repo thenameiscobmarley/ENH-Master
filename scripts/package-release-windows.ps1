@@ -52,14 +52,14 @@ ENH Master $Version - the app for gamers (Windows)
 ENH Master.exe runs the ENH Master rack on everything your PC plays - no DAW, no plugin host.
 
 ONE-TIME SETUP
-  1. Install VB-CABLE (free, vb-audio.com/Cable). It gives Windows a playback device nobody listens
-     to, which is where the rack picks your audio up. (An HDMI or monitor output with nothing plugged
-     in works too.)
+  1. Install VB-Audio Cable (free, vb-audio.com/Cable) and restart. It gives Windows a playback
+     device nobody listens to, which is where the rack picks your audio up. (ENH Master can open the
+     download page for you: RACK INPUT > "Use VB-Audio Cable (Recommended)".)
   2. Start ENH Master.exe (no installation needed; keep it anywhere).
 
 EVERY DAY
   - SOURCE:     Whole system (everything) or Chosen apps (tick your game / Discord under Apps...).
-  - RACK INPUT: CABLE Input (picked for you when VB-CABLE is installed).
+  - RACK INPUT: Use VB-Audio Cable (Recommended) - picked for you once it is installed.
   - LISTEN ON:  your headset or speakers.
   - LEVEL:      -18 LUFS makes the game, music and voice chat equally loud (optional).
   - Press INSERT RACK. Press it again (RACK IN - REMOVE) to put everything back as it was.

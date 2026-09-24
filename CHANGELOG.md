@@ -5,6 +5,18 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.10.12 — a warmer room, and a faster one
+
+- **New:** a walnut slat wall behind the rack, with a lamp glowing behind it, instead of a black void.
+- **Softer window light:** the sun no longer cuts dark bars across the units. Every panel reads evenly,
+  with warm light falling across the rack.
+- **Faster:** the wall is worked out once when the window opens (about 25 ms), and the full-screen
+  "light in the air" pass is gone. On an integrated GPU a frame went from 14.9 to 13.5 ms.
+- **Router (Windows):** RACK INPUT now offers **Use VB-Audio Cable (Recommended)** and picks it for
+  you; without the cable installed, that entry opens its free download page.
+- **Router:** the 3.7.9.12 "follow your device switch" is taken out again: it made Windows' device
+  list jump around.
+
 ## 3.7.9.12 — the FOOTSTEP RADAR
 
 - **New unit: FOOTSTEP RADAR.** Footsteps have their own unit now: CHARACTER's look in olive drab, with

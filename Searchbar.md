@@ -11,7 +11,7 @@ Jump to: [GitHub pages](#github-pages) · [Units](#units) · [Presets](#presets)
 
 ## GitHub pages
 
-Releases, downloads, issues, builds, HardwareKit, and every version. (58)
+Releases, downloads, issues, builds, HardwareKit, and every version. (60)
 
 - **ENH Master on GitHub** · GitHub: the repository home page · [github.com/thenameiscobmarley/ENH-Master](https://github.com/thenameiscobmarley/ENH-Master)
 - **Latest release / download** · GitHub: releases (Windows zip for gamers, Linux zip, VST3) · [releases/latest](https://github.com/thenameiscobmarley/ENH-Master/releases/latest)
@@ -47,6 +47,8 @@ Releases, downloads, issues, builds, HardwareKit, and every version. (58)
 - **workflow release.yml** · its source · [.github/workflows/release.yml](.github/workflows/release.yml)
 - **workflow windows-converter.yml** · GitHub Actions: its runs · [actions/workflows/windows-converter.yml](https://github.com/thenameiscobmarley/ENH-Master/actions/workflows/windows-converter.yml)
 - **workflow windows-converter.yml** · its source · [.github/workflows/windows-converter.yml](.github/workflows/windows-converter.yml)
+- **release v3.7.9.12** · GitHub: that version's page and downloads · [releases/tag/v3.7.9.12](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.9.12)
+- **source at v3.7.9.12** · GitHub: the code as it was in that version · [tree/v3.7.9.12](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.9.12)
 - **release v3.6.8.10** · GitHub: that version's page and downloads · [releases/tag/v3.6.8.10](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.6.8.10)
 - **source at v3.6.8.10** · GitHub: the code as it was in that version · [tree/v3.6.8.10](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.6.8.10)
 - **release v2.5.4.1** · GitHub: that version's page and downloads · [releases/tag/v2.5.4.1](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v2.5.4.1)
@@ -122,6 +124,7 @@ Every factory preset, with its description. (13)
 Every doc and every section in it. (209)
 
 - **What changed** · doc · [CHANGELOG.md](CHANGELOG.md)
+- **3.7.10.12 — a warmer room, and a faster one** · doc section · [CHANGELOG.md › 3.7.10.12 — a warmer room, and a faster one](CHANGELOG.md#371012--a-warmer-room-and-a-faster-one) — in What changed
 - **3.7.9.12 — the FOOTSTEP RADAR** · doc section · [CHANGELOG.md › 3.7.9.12 — the FOOTSTEP RADAR](CHANGELOG.md#37912--the-footstep-radar) — in What changed
 - **3.6.9.12 — COLOUR, and two display fixes** · doc section · [CHANGELOG.md › 3.6.9.12 — COLOUR, and two display fixes](CHANGELOG.md#36912--colour-and-two-display-fixes) — in What changed
 - **3.6.8.10 — a real self-test** · doc section · [CHANGELOG.md › 3.6.8.10 — a real self-test](CHANGELOG.md#36810--a-real-self-test) — in What changed
@@ -313,7 +316,6 @@ Every doc and every section in it. (209)
 - **07 The router app (for gamers)** · doc · [Vault/Tutorial/07 The router app.md](Vault/Tutorial/07%20The%20router%20app.md)
 - **Use it** · doc section · [Vault/Tutorial/07 The router app.md › Use it](Vault/Tutorial/07%20The%20router%20app.md#use-it) — in 07 The router app (for gamers)
 - **The … menu** · doc section · [Vault/Tutorial/07 The router app.md › The … menu](Vault/Tutorial/07%20The%20router%20app.md#the--menu) — in 07 The router app (for gamers)
-- **Changing your headset or speakers** · doc section · [Vault/Tutorial/07 The router app.md › Changing your headset or speakers](Vault/Tutorial/07%20The%20router%20app.md#changing-your-headset-or-speakers) — in 07 The router app (for gamers)
 - **Windows: one thing to set up** · doc section · [Vault/Tutorial/07 The router app.md › Windows: one thing to set up](Vault/Tutorial/07%20The%20router%20app.md#windows-one-thing-to-set-up) — in 07 The router app (for gamers)
 - **Linux** · doc section · [Vault/Tutorial/07 The router app.md › Linux](Vault/Tutorial/07%20The%20router%20app.md#linux) — in 07 The router app (for gamers)
 - **If something goes wrong** · doc section · [Vault/Tutorial/07 The router app.md › If something goes wrong](Vault/Tutorial/07%20The%20router%20app.md#if-something-goes-wrong) — in 07 The router app (for gamers)
@@ -642,10 +644,10 @@ Every environment variable the code reads, and where. (73)
 - **MASTER_DEBUG** · dev setting (environment variable) · [Tests/MasteringTests.h:88](Tests/MasteringTests.h#L88)
 - **OUT** · dev setting (environment variable) · [Tools/LayoutViz.cpp:116](Tools/LayoutViz.cpp#L116)
 - **OUT** · dev setting (environment variable) · [Tools/LayoutViz.cpp:116](Tools/LayoutViz.cpp#L116)
-- **PAD_ROUTER_TEST_APPS** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:232](Source/Standalone/RouterBar.cpp#L232)
-- **PAD_ROUTER_TEST_INSERT** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:244](Source/Standalone/RouterBar.cpp#L244)
-- **PAD_ROUTER_TEST_LISTEN** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:234](Source/Standalone/RouterBar.cpp#L234)
-- **PAD_ROUTER_TEST_SOURCE** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:229](Source/Standalone/RouterBar.cpp#L229)
+- **PAD_ROUTER_TEST_APPS** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:255](Source/Standalone/RouterBar.cpp#L255)
+- **PAD_ROUTER_TEST_INSERT** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:271](Source/Standalone/RouterBar.cpp#L271)
+- **PAD_ROUTER_TEST_LISTEN** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:257](Source/Standalone/RouterBar.cpp#L257)
+- **PAD_ROUTER_TEST_SOURCE** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:252](Source/Standalone/RouterBar.cpp#L252)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:62](Source/UI/HardwareView.cpp#L62)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:63](Source/UI/HardwareView.cpp#L63)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/Scene/LayoutAudit.h:8](Source/UI/Scene/LayoutAudit.h#L8)
@@ -653,18 +655,18 @@ Every environment variable the code reads, and where. (73)
 - **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:232](Source/Standalone/StandaloneApp.cpp#L232)
 - **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:233](Source/Standalone/StandaloneApp.cpp#L233)
 - **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/HardwareView.h:67](Source/UI/HardwareView.h#L67)
-- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1385](Source/UI/Scene/HardwareRenderer.cpp#L1385)
-- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1503](Source/UI/Scene/HardwareRenderer.cpp#L1503)
+- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1391](Source/UI/Scene/HardwareRenderer.cpp#L1391)
+- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1509](Source/UI/Scene/HardwareRenderer.cpp#L1509)
 - **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:81](Source/UI/HardwareView.cpp#L81)
 - **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:82](Source/UI/HardwareView.cpp#L82)
-- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:220](Source/UI/Scene/HardwareRenderer.h#L220)
-- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:221](Source/UI/Scene/HardwareRenderer.h#L221)
+- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:225](Source/UI/Scene/HardwareRenderer.h#L225)
+- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:226](Source/UI/Scene/HardwareRenderer.h#L226)
 - **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:849](Source/UI/HardwareView.cpp#L849)
 - **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:857](Source/UI/HardwareView.cpp#L857)
-- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:255](Source/UI/Scene/HardwareRenderer.h#L255)
-- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:256](Source/UI/Scene/HardwareRenderer.h#L256)
-- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:310](Source/UI/Scene/HardwareRenderer.h#L310)
-- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:311](Source/UI/Scene/HardwareRenderer.h#L311)
+- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:260](Source/UI/Scene/HardwareRenderer.h#L260)
+- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:261](Source/UI/Scene/HardwareRenderer.h#L261)
+- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:315](Source/UI/Scene/HardwareRenderer.h#L315)
+- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:316](Source/UI/Scene/HardwareRenderer.h#L316)
 - **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:801](Source/UI/HardwareView.cpp#L801)
 - **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:802](Source/UI/HardwareView.cpp#L802)
 - **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:88](Source/UI/HardwareView.cpp#L88)
@@ -675,10 +677,10 @@ Every environment variable the code reads, and where. (73)
 - **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:589](Source/UI/HardwareView.cpp#L589)
 - **PAD_UI_TEST_SIZE** · dev setting (environment variable) · [Source/PluginEditor.cpp:13](Source/PluginEditor.cpp#L13)
 - **PAD_UI_TEST_SIZE** · dev setting (environment variable) · [Source/PluginEditor.cpp:14](Source/PluginEditor.cpp#L14)
-- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:873](Source/UI/Scene/HardwareRenderer.cpp#L873)
-- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:874](Source/UI/Scene/HardwareRenderer.cpp#L874)
+- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:879](Source/UI/Scene/HardwareRenderer.cpp#L879)
+- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:880](Source/UI/Scene/HardwareRenderer.cpp#L880)
 - **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/HardwareView.h:114](Source/UI/HardwareView.h#L114)
-- **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:313](Source/UI/Scene/HardwareRenderer.h#L313)
+- **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:318](Source/UI/Scene/HardwareRenderer.h#L318)
 - **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:621](Tests/EnhDspTests.cpp#L621)
 - **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:895](Tests/EnhDspTests.cpp#L895)
 - **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:898](Tests/EnhDspTests.cpp#L898)
@@ -698,7 +700,7 @@ Every environment variable the code reads, and where. (73)
 
 ## Code
 
-Every class, struct, enum and function, by file, with the first line of its comment. (1145)
+Every class, struct, enum and function, by file, with the first line of its comment. (1146)
 
 
 **[Source/PluginEditor.cpp](Source/PluginEditor.cpp)**
@@ -1364,13 +1366,12 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Router::readJournal** · function · [AudioRouting.cpp:59](Source/Standalone/AudioRouting.cpp#L59)
 - **Router::save** · function · [AudioRouting.cpp:68](Source/Standalone/AudioRouting.cpp#L68)
 - **Router::insert** · function · [AudioRouting.cpp:83](Source/Standalone/AudioRouting.cpp#L83)
-- **Router::retarget** · function · [AudioRouting.cpp:143](Source/Standalone/AudioRouting.cpp#L143)
-- **Router::followNewStreams** · function · [AudioRouting.cpp:165](Source/Standalone/AudioRouting.cpp#L165)
-- **Router::undo** · function · [AudioRouting.cpp:232](Source/Standalone/AudioRouting.cpp#L232)
-- **Router::remove** · function · [AudioRouting.cpp:282](Source/Standalone/AudioRouting.cpp#L282)
-- **Router::recoverLeftovers** · function · [AudioRouting.cpp:301](Source/Standalone/AudioRouting.cpp#L301)
-- **runWatchdog** · function · [AudioRouting.cpp:328](Source/Standalone/AudioRouting.cpp#L328) — ==============================================================================
-- **startWatchdog** · function · [AudioRouting.cpp:343](Source/Standalone/AudioRouting.cpp#L343)
+- **Router::followNewStreams** · function · [AudioRouting.cpp:142](Source/Standalone/AudioRouting.cpp#L142)
+- **Router::undo** · function · [AudioRouting.cpp:202](Source/Standalone/AudioRouting.cpp#L202)
+- **Router::remove** · function · [AudioRouting.cpp:252](Source/Standalone/AudioRouting.cpp#L252)
+- **Router::recoverLeftovers** · function · [AudioRouting.cpp:271](Source/Standalone/AudioRouting.cpp#L271)
+- **runWatchdog** · function · [AudioRouting.cpp:298](Source/Standalone/AudioRouting.cpp#L298) — ==============================================================================
+- **startWatchdog** · function · [AudioRouting.cpp:313](Source/Standalone/AudioRouting.cpp#L313)
 
 **[Source/Standalone/AudioRouting.h](Source/Standalone/AudioRouting.h)**
 
@@ -1387,10 +1388,8 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Plan** · struct · [AudioRouting.h:87](Source/Standalone/AudioRouting.h#L87) — ============================================================================== What the user asked for.
 - **Router** · class · [AudioRouting.h:100](Source/Standalone/AudioRouting.h#L100)
 - **Router::isInserted** · function · [AudioRouting.h:111](Source/Standalone/AudioRouting.h#L111)
-- **Router::listenId** · function · [AudioRouting.h:125](Source/Standalone/AudioRouting.h#L125)
-- **Router::isWholeSystem** · function · [AudioRouting.h:126](Source/Standalone/AudioRouting.h#L126)
-- **Router::getLastError** · function · [AudioRouting.h:132](Source/Standalone/AudioRouting.h#L132)
-- **Router::getJournalFile** · function · [AudioRouting.h:133](Source/Standalone/AudioRouting.h#L133)
+- **Router::getLastError** · function · [AudioRouting.h:121](Source/Standalone/AudioRouting.h#L121)
+- **Router::getJournalFile** · function · [AudioRouting.h:122](Source/Standalone/AudioRouting.h#L122)
 
 **[Source/Standalone/AudioRoutingLinux.cpp](Source/Standalone/AudioRoutingLinux.cpp)**
 
@@ -1461,37 +1460,37 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/Standalone/RouterBar.cpp](Source/Standalone/RouterBar.cpp)**
 
 - **uiFont** · function · [RouterBar.cpp:23](Source/Standalone/RouterBar.cpp#L23)
-- **looksLikeVirtualCable** · function · [RouterBar.cpp:29](Source/Standalone/RouterBar.cpp#L29)
-- **RouterBar** · class · [RouterBar.cpp:40](Source/Standalone/RouterBar.cpp#L40) — ============================================================================== Square, dark, white text: the…
-- **RouterBar::drawComboBox** · function · [RouterBar.cpp:58](Source/Standalone/RouterBar.cpp#L58)
-- **RouterBar::getComboBoxFont** · function · [RouterBar.cpp:76](Source/Standalone/RouterBar.cpp#L76)
-- **RouterBar::positionComboBoxText** · function · [RouterBar.cpp:78](Source/Standalone/RouterBar.cpp#L78)
-- **RouterBar::getPopupMenuFont** · function · [RouterBar.cpp:84](Source/Standalone/RouterBar.cpp#L84)
-- **RouterBar::drawPopupMenuBackground** · function · [RouterBar.cpp:86](Source/Standalone/RouterBar.cpp#L86)
-- **RouterBar::drawButtonBackground** · function · [RouterBar.cpp:93](Source/Standalone/RouterBar.cpp#L93)
-- **RouterBar::getTextButtonFont** · function · [RouterBar.cpp:113](Source/Standalone/RouterBar.cpp#L113)
-- **RouterBar** · class · [RouterBar.cpp:117](Source/Standalone/RouterBar.cpp#L117) — A combo box that re-reads the devices just before it opens, so the list is never stale.
-- **RouterBar::showPopup** · function · [RouterBar.cpp:122](Source/Standalone/RouterBar.cpp#L122)
-- **RouterBar::currentPlan** · function · [RouterBar.cpp:265](Source/Standalone/RouterBar.cpp#L265) — ==============================================================================
-- **RouterBar::nameOfEndpoint** · function · [RouterBar.cpp:275](Source/Standalone/RouterBar.cpp#L275)
-- **RouterBar::refreshLists** · function · [RouterBar.cpp:283](Source/Standalone/RouterBar.cpp#L283)
-- **RouterBar::refreshAppsButton** · function · [RouterBar.cpp:366](Source/Standalone/RouterBar.cpp#L366)
-- **RouterBar::saveChoices** · function · [RouterBar.cpp:371](Source/Standalone/RouterBar.cpp#L371)
-- **RouterBar::updateControls** · function · [RouterBar.cpp:382](Source/Standalone/RouterBar.cpp#L382)
-- **RouterBar::setStatus** · function · [RouterBar.cpp:400](Source/Standalone/RouterBar.cpp#L400)
-- **RouterBar::openRackAudio** · function · [RouterBar.cpp:408](Source/Standalone/RouterBar.cpp#L408) — ==============================================================================
-- **RouterBar::insertRack** · function · [RouterBar.cpp:474](Source/Standalone/RouterBar.cpp#L474)
-- **RouterBar::followDefaultSwitch** · function · [RouterBar.cpp:550](Source/Standalone/RouterBar.cpp#L550)
-- **RouterBar::removeRack** · function · [RouterBar.cpp:606](Source/Standalone/RouterBar.cpp#L606)
-- **RouterBar::showAppsMenu** · function · [RouterBar.cpp:621](Source/Standalone/RouterBar.cpp#L621) — ==============================================================================
-- **RouterBar::showMoreMenu** · function · [RouterBar.cpp:665](Source/Standalone/RouterBar.cpp#L665)
-- **RouterBar::timerCallback** · function · [RouterBar.cpp:704](Source/Standalone/RouterBar.cpp#L704)
-- **RouterBar::paint** · function · [RouterBar.cpp:791](Source/Standalone/RouterBar.cpp#L791) — ==============================================================================
-- **RouterBar::resized** · function · [RouterBar.cpp:848](Source/Standalone/RouterBar.cpp#L848)
-- **startCommand** · function · [RouterBar.cpp:888](Source/Standalone/RouterBar.cpp#L888)
-- **autostartFile** · function · [RouterBar.cpp:897](Source/Standalone/RouterBar.cpp#L897)
-- **RouterBar::isStartingWithComputer** · function · [RouterBar.cpp:904](Source/Standalone/RouterBar.cpp#L904)
-- **RouterBar::setStartingWithComputer** · function · [RouterBar.cpp:913](Source/Standalone/RouterBar.cpp#L913)
+- **isVbCable** · function · [RouterBar.cpp:30](Source/Standalone/RouterBar.cpp#L30) — VB-Audio's free virtual cable: the recommended RACK INPUT on Windows.
+- **looksLikeVirtualCable** · function · [RouterBar.cpp:38](Source/Standalone/RouterBar.cpp#L38)
+- **RouterBar** · class · [RouterBar.cpp:49](Source/Standalone/RouterBar.cpp#L49) — ============================================================================== Square, dark, white text: the…
+- **RouterBar::drawComboBox** · function · [RouterBar.cpp:67](Source/Standalone/RouterBar.cpp#L67)
+- **RouterBar::getComboBoxFont** · function · [RouterBar.cpp:85](Source/Standalone/RouterBar.cpp#L85)
+- **RouterBar::positionComboBoxText** · function · [RouterBar.cpp:87](Source/Standalone/RouterBar.cpp#L87)
+- **RouterBar::getPopupMenuFont** · function · [RouterBar.cpp:93](Source/Standalone/RouterBar.cpp#L93)
+- **RouterBar::drawPopupMenuBackground** · function · [RouterBar.cpp:95](Source/Standalone/RouterBar.cpp#L95)
+- **RouterBar::drawButtonBackground** · function · [RouterBar.cpp:102](Source/Standalone/RouterBar.cpp#L102)
+- **RouterBar::getTextButtonFont** · function · [RouterBar.cpp:122](Source/Standalone/RouterBar.cpp#L122)
+- **RouterBar** · class · [RouterBar.cpp:126](Source/Standalone/RouterBar.cpp#L126) — A combo box that re-reads the devices just before it opens, so the list is never stale.
+- **RouterBar::showPopup** · function · [RouterBar.cpp:131](Source/Standalone/RouterBar.cpp#L131)
+- **RouterBar::currentPlan** · function · [RouterBar.cpp:292](Source/Standalone/RouterBar.cpp#L292) — ==============================================================================
+- **RouterBar::nameOfEndpoint** · function · [RouterBar.cpp:302](Source/Standalone/RouterBar.cpp#L302)
+- **RouterBar::refreshLists** · function · [RouterBar.cpp:310](Source/Standalone/RouterBar.cpp#L310)
+- **RouterBar::refreshAppsButton** · function · [RouterBar.cpp:405](Source/Standalone/RouterBar.cpp#L405)
+- **RouterBar::saveChoices** · function · [RouterBar.cpp:410](Source/Standalone/RouterBar.cpp#L410)
+- **RouterBar::updateControls** · function · [RouterBar.cpp:421](Source/Standalone/RouterBar.cpp#L421)
+- **RouterBar::setStatus** · function · [RouterBar.cpp:439](Source/Standalone/RouterBar.cpp#L439)
+- **RouterBar::openRackAudio** · function · [RouterBar.cpp:447](Source/Standalone/RouterBar.cpp#L447) — ==============================================================================
+- **RouterBar::insertRack** · function · [RouterBar.cpp:513](Source/Standalone/RouterBar.cpp#L513)
+- **RouterBar::removeRack** · function · [RouterBar.cpp:595](Source/Standalone/RouterBar.cpp#L595)
+- **RouterBar::showAppsMenu** · function · [RouterBar.cpp:610](Source/Standalone/RouterBar.cpp#L610) — ==============================================================================
+- **RouterBar::showMoreMenu** · function · [RouterBar.cpp:654](Source/Standalone/RouterBar.cpp#L654)
+- **RouterBar::timerCallback** · function · [RouterBar.cpp:693](Source/Standalone/RouterBar.cpp#L693)
+- **RouterBar::paint** · function · [RouterBar.cpp:769](Source/Standalone/RouterBar.cpp#L769) — ==============================================================================
+- **RouterBar::resized** · function · [RouterBar.cpp:826](Source/Standalone/RouterBar.cpp#L826)
+- **startCommand** · function · [RouterBar.cpp:866](Source/Standalone/RouterBar.cpp#L866)
+- **autostartFile** · function · [RouterBar.cpp:875](Source/Standalone/RouterBar.cpp#L875)
+- **RouterBar::isStartingWithComputer** · function · [RouterBar.cpp:882](Source/Standalone/RouterBar.cpp#L882)
+- **RouterBar::setStartingWithComputer** · function · [RouterBar.cpp:891](Source/Standalone/RouterBar.cpp#L891)
 
 **[Source/Standalone/RouterBar.h](Source/Standalone/RouterBar.h)**
 
@@ -1691,7 +1690,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/UI/Render/PluginMaterials.h](Source/UI/Render/PluginMaterials.h)**
 
 - **Material** · enum · [PluginMaterials.h:9](Source/UI/Render/PluginMaterials.h#L9)
-- **materialFor** · function · [PluginMaterials.h:393](Source/UI/Render/PluginMaterials.h#L393)
+- **materialFor** · function · [PluginMaterials.h:401](Source/UI/Render/PluginMaterials.h#L401)
 
 **[Source/UI/Scene/CameraRig.h](Source/UI/Scene/CameraRig.h)**
 
@@ -1760,81 +1759,83 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **caseFrontRails** · function · [GeometryFactory.cpp:323](Source/UI/Scene/GeometryFactory.cpp#L323)
 - **caseRailHoles** · function · [GeometryFactory.cpp:344](Source/UI/Scene/GeometryFactory.cpp#L344)
 - **caseEdges** · function · [GeometryFactory.cpp:382](Source/UI/Scene/GeometryFactory.cpp#L382)
-- **caseFloor** · function · [GeometryFactory.cpp:405](Source/UI/Scene/GeometryFactory.cpp#L405)
-- **faceplateHoles** · function · [GeometryFactory.cpp:413](Source/UI/Scene/GeometryFactory.cpp#L413) — ============================================================================== Panel-local parts (y = out of…
-- **faceplateEdges** · function · [GeometryFactory.cpp:421](Source/UI/Scene/GeometryFactory.cpp#L421)
-- **faceplateTop** · function · [GeometryFactory.cpp:428](Source/UI/Scene/GeometryFactory.cpp#L428)
-- **displayWalls** · function · [GeometryFactory.cpp:433](Source/UI/Scene/GeometryFactory.cpp#L433)
-- **displayGlass** · function · [GeometryFactory.cpp:434](Source/UI/Scene/GeometryFactory.cpp#L434)
-- **displayBezel** · function · [GeometryFactory.cpp:436](Source/UI/Scene/GeometryFactory.cpp#L436)
-- **earSlotWalls** · function · [GeometryFactory.cpp:447](Source/UI/Scene/GeometryFactory.cpp#L447)
-- **earSlotFloors** · function · [GeometryFactory.cpp:455](Source/UI/Scene/GeometryFactory.cpp#L455)
-- **screwHeads** · function · [GeometryFactory.cpp:463](Source/UI/Scene/GeometryFactory.cpp#L463)
-- **screwSlots** · function · [GeometryFactory.cpp:472](Source/UI/Scene/GeometryFactory.cpp#L472)
-- **knobScaleRing** · function · [GeometryFactory.cpp:488](Source/UI/Scene/GeometryFactory.cpp#L488) — ============================================================================== Knob (local to knob centre)
-- **tubeFaceTop** · function · [GeometryFactory.cpp:495](Source/UI/Scene/GeometryFactory.cpp#L495) — ============================================================================== SERAPH tube unit
-- **tubeFaceEdges** · function · [GeometryFactory.cpp:502](Source/UI/Scene/GeometryFactory.cpp#L502)
-- **tubeEarSlotWalls** · function · [GeometryFactory.cpp:509](Source/UI/Scene/GeometryFactory.cpp#L509)
-- **tubeEarSlotFloors** · function · [GeometryFactory.cpp:517](Source/UI/Scene/GeometryFactory.cpp#L517)
-- **tubeScrewHeads** · function · [GeometryFactory.cpp:525](Source/UI/Scene/GeometryFactory.cpp#L525)
-- **tubeScrewSlots** · function · [GeometryFactory.cpp:534](Source/UI/Scene/GeometryFactory.cpp#L534)
-- **seraphDisplayWalls** · function · [GeometryFactory.cpp:545](Source/UI/Scene/GeometryFactory.cpp#L545)
-- **seraphDisplayGlass** · function · [GeometryFactory.cpp:550](Source/UI/Scene/GeometryFactory.cpp#L550)
-- **seraphDisplayBezel** · function · [GeometryFactory.cpp:555](Source/UI/Scene/GeometryFactory.cpp#L555)
-- **oneUFaceTop** · function · [GeometryFactory.cpp:575](Source/UI/Scene/GeometryFactory.cpp#L575) — ============================================================================== The outboard units (the three…
-- **oneUFaceEdges** · function · [GeometryFactory.cpp:587](Source/UI/Scene/GeometryFactory.cpp#L587)
-- **oneUEarWalls** · function · [GeometryFactory.cpp:594](Source/UI/Scene/GeometryFactory.cpp#L594)
-- **oneUEarFloors** · function · [GeometryFactory.cpp:602](Source/UI/Scene/GeometryFactory.cpp#L602)
-- **oneUScrewHeads** · function · [GeometryFactory.cpp:610](Source/UI/Scene/GeometryFactory.cpp#L610)
-- **oneUScrewSlots** · function · [GeometryFactory.cpp:619](Source/UI/Scene/GeometryFactory.cpp#L619)
-- **windowWalls** · function · [GeometryFactory.cpp:632](Source/UI/Scene/GeometryFactory.cpp#L632) — A display window: its well, the glass at the bottom of it (uv 0..1 across), and a bezel round it
-- **windowGlass** · function · [GeometryFactory.cpp:633](Source/UI/Scene/GeometryFactory.cpp#L633)
-- **windowBezel** · function · [GeometryFactory.cpp:635](Source/UI/Scene/GeometryFactory.cpp#L635)
+- **floorHeight** · function · [GeometryFactory.cpp:405](Source/UI/Scene/GeometryFactory.cpp#L405)
+- **caseFloor** · function · [GeometryFactory.cpp:410](Source/UI/Scene/GeometryFactory.cpp#L410)
+- **backWall** · function · [GeometryFactory.cpp:416](Source/UI/Scene/GeometryFactory.cpp#L416)
+- **faceplateHoles** · function · [GeometryFactory.cpp:425](Source/UI/Scene/GeometryFactory.cpp#L425) — ============================================================================== Panel-local parts (y = out of…
+- **faceplateEdges** · function · [GeometryFactory.cpp:433](Source/UI/Scene/GeometryFactory.cpp#L433)
+- **faceplateTop** · function · [GeometryFactory.cpp:440](Source/UI/Scene/GeometryFactory.cpp#L440)
+- **displayWalls** · function · [GeometryFactory.cpp:445](Source/UI/Scene/GeometryFactory.cpp#L445)
+- **displayGlass** · function · [GeometryFactory.cpp:446](Source/UI/Scene/GeometryFactory.cpp#L446)
+- **displayBezel** · function · [GeometryFactory.cpp:448](Source/UI/Scene/GeometryFactory.cpp#L448)
+- **earSlotWalls** · function · [GeometryFactory.cpp:459](Source/UI/Scene/GeometryFactory.cpp#L459)
+- **earSlotFloors** · function · [GeometryFactory.cpp:467](Source/UI/Scene/GeometryFactory.cpp#L467)
+- **screwHeads** · function · [GeometryFactory.cpp:475](Source/UI/Scene/GeometryFactory.cpp#L475)
+- **screwSlots** · function · [GeometryFactory.cpp:484](Source/UI/Scene/GeometryFactory.cpp#L484)
+- **knobScaleRing** · function · [GeometryFactory.cpp:500](Source/UI/Scene/GeometryFactory.cpp#L500) — ============================================================================== Knob (local to knob centre)
+- **tubeFaceTop** · function · [GeometryFactory.cpp:507](Source/UI/Scene/GeometryFactory.cpp#L507) — ============================================================================== SERAPH tube unit
+- **tubeFaceEdges** · function · [GeometryFactory.cpp:514](Source/UI/Scene/GeometryFactory.cpp#L514)
+- **tubeEarSlotWalls** · function · [GeometryFactory.cpp:521](Source/UI/Scene/GeometryFactory.cpp#L521)
+- **tubeEarSlotFloors** · function · [GeometryFactory.cpp:529](Source/UI/Scene/GeometryFactory.cpp#L529)
+- **tubeScrewHeads** · function · [GeometryFactory.cpp:537](Source/UI/Scene/GeometryFactory.cpp#L537)
+- **tubeScrewSlots** · function · [GeometryFactory.cpp:546](Source/UI/Scene/GeometryFactory.cpp#L546)
+- **seraphDisplayWalls** · function · [GeometryFactory.cpp:557](Source/UI/Scene/GeometryFactory.cpp#L557)
+- **seraphDisplayGlass** · function · [GeometryFactory.cpp:562](Source/UI/Scene/GeometryFactory.cpp#L562)
+- **seraphDisplayBezel** · function · [GeometryFactory.cpp:567](Source/UI/Scene/GeometryFactory.cpp#L567)
+- **oneUFaceTop** · function · [GeometryFactory.cpp:587](Source/UI/Scene/GeometryFactory.cpp#L587) — ============================================================================== The outboard units (the three…
+- **oneUFaceEdges** · function · [GeometryFactory.cpp:599](Source/UI/Scene/GeometryFactory.cpp#L599)
+- **oneUEarWalls** · function · [GeometryFactory.cpp:606](Source/UI/Scene/GeometryFactory.cpp#L606)
+- **oneUEarFloors** · function · [GeometryFactory.cpp:614](Source/UI/Scene/GeometryFactory.cpp#L614)
+- **oneUScrewHeads** · function · [GeometryFactory.cpp:622](Source/UI/Scene/GeometryFactory.cpp#L622)
+- **oneUScrewSlots** · function · [GeometryFactory.cpp:631](Source/UI/Scene/GeometryFactory.cpp#L631)
+- **windowWalls** · function · [GeometryFactory.cpp:644](Source/UI/Scene/GeometryFactory.cpp#L644) — A display window: its well, the glass at the bottom of it (uv 0..1 across), and a bezel round it
+- **windowGlass** · function · [GeometryFactory.cpp:645](Source/UI/Scene/GeometryFactory.cpp#L645)
+- **windowBezel** · function · [GeometryFactory.cpp:647](Source/UI/Scene/GeometryFactory.cpp#L647)
 
 **[Source/UI/Scene/HardwareRenderer.cpp](Source/UI/Scene/HardwareRenderer.cpp)**
 
-- **mixVec** · function · [HardwareRenderer.cpp:28](Source/UI/Scene/HardwareRenderer.cpp#L28)
-- **saturateUi** · function · [HardwareRenderer.cpp:29](Source/UI/Scene/HardwareRenderer.cpp#L29)
-- **HardwareRenderer::GpuModel::upload** · function · [HardwareRenderer.cpp:78](Source/UI/Scene/HardwareRenderer.cpp#L78) — ==============================================================================
-- **HardwareRenderer::GpuModel::release** · function · [HardwareRenderer.cpp:101](Source/UI/Scene/HardwareRenderer.cpp#L101)
-- **HardwareRenderer::drawModel** · function · [HardwareRenderer.cpp:108](Source/UI/Scene/HardwareRenderer.cpp#L108)
-- **HardwareRenderer::queueGlow** · function · [HardwareRenderer.cpp:143](Source/UI/Scene/HardwareRenderer.cpp#L143)
-- **HardwareRenderer::parameterFor** · function · [HardwareRenderer.cpp:150](Source/UI/Scene/HardwareRenderer.cpp#L150)
-- **HardwareRenderer::detailFor** · function · [HardwareRenderer.cpp:158](Source/UI/Scene/HardwareRenderer.cpp#L158)
-- **HardwareRenderer::newOpenGLContextCreated** · function · [HardwareRenderer.cpp:175](Source/UI/Scene/HardwareRenderer.cpp#L175) — ==============================================================================
-- **HardwareRenderer::openGLContextClosing** · function · [HardwareRenderer.cpp:374](Source/UI/Scene/HardwareRenderer.cpp#L374)
-- **HardwareRenderer::uploadScope** · function · [HardwareRenderer.cpp:429](Source/UI/Scene/HardwareRenderer.cpp#L429) — ============================================================================== The analyser curve as a 1 x N…
-- **HardwareRenderer::uploadDisplays** · function · [HardwareRenderer.cpp:455](Source/UI/Scene/HardwareRenderer.cpp#L455) — ============================================================================== The two new displays' data, re…
-- **HardwareRenderer::uploadLevelLabelsIfChanged** · function · [HardwareRenderer.cpp:637](Source/UI/Scene/HardwareRenderer.cpp#L637)
-- **HardwareRenderer::drawWindows** · function · [HardwareRenderer.cpp:655](Source/UI/Scene/HardwareRenderer.cpp#L655) — The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window.
-- **HardwareRenderer::uploadOverlayIfChanged** · function · [HardwareRenderer.cpp:697](Source/UI/Scene/HardwareRenderer.cpp#L697)
-- **HardwareRenderer::uploadCalloutIfChanged** · function · [HardwareRenderer.cpp:717](Source/UI/Scene/HardwareRenderer.cpp#L717)
-- **HardwareRenderer::renderLoupeView** · function · [HardwareRenderer.cpp:743](Source/UI/Scene/HardwareRenderer.cpp#L743)
-- **HardwareRenderer::renderScaleFor** · function · [HardwareRenderer.cpp:796](Source/UI/Scene/HardwareRenderer.cpp#L796)
-- **HardwareRenderer::presentScene** · function · [HardwareRenderer.cpp:801](Source/UI/Scene/HardwareRenderer.cpp#L801)
-- **HardwareRenderer::drawLoupe** · function · [HardwareRenderer.cpp:819](Source/UI/Scene/HardwareRenderer.cpp#L819)
-- **HardwareRenderer::updatePanel** · function · [HardwareRenderer.cpp:871](Source/UI/Scene/HardwareRenderer.cpp#L871) — ============================================================================== Glass panel
-- **HardwareRenderer::uploadPanelIfChanged** · function · [HardwareRenderer.cpp:907](Source/UI/Scene/HardwareRenderer.cpp#L907)
-- **HardwareRenderer::blurBehindPanel** · function · [HardwareRenderer.cpp:935](Source/UI/Scene/HardwareRenderer.cpp#L935)
-- **HardwareRenderer::drawPanelConnector** · function · [HardwareRenderer.cpp:988](Source/UI/Scene/HardwareRenderer.cpp#L988)
-- **HardwareRenderer::drawGlassPanel** · function · [HardwareRenderer.cpp:1056](Source/UI/Scene/HardwareRenderer.cpp#L1056)
-- **HardwareRenderer::drawOutlines** · function · [HardwareRenderer.cpp:1093](Source/UI/Scene/HardwareRenderer.cpp#L1093)
-- **HardwareRenderer::pollPointer** · function · [HardwareRenderer.cpp:1131](Source/UI/Scene/HardwareRenderer.cpp#L1131)
-- **HardwareRenderer::handleInteraction** · function · [HardwareRenderer.cpp:1168](Source/UI/Scene/HardwareRenderer.cpp#L1168)
-- **rangeOf** · function · [HardwareRenderer.cpp:1258](Source/UI/Scene/HardwareRenderer.cpp#L1258) — A parameter's value in its own units, and back (the spec's range and skew).
-- **HardwareRenderer::autoTurnedValue** · function · [HardwareRenderer.cpp:1270](Source/UI/Scene/HardwareRenderer.cpp#L1270)
-- **HardwareRenderer::updateAnimation** · function · [HardwareRenderer.cpp:1303](Source/UI/Scene/HardwareRenderer.cpp#L1303)
-- **HardwareRenderer::paceFrame** · function · [HardwareRenderer.cpp:1561](Source/UI/Scene/HardwareRenderer.cpp#L1561) — ==============================================================================
-- **HardwareRenderer::recordStats** · function · [HardwareRenderer.cpp:1588](Source/UI/Scene/HardwareRenderer.cpp#L1588)
-- **HardwareRenderer::renderOpenGL** · function · [HardwareRenderer.cpp:1616](Source/UI/Scene/HardwareRenderer.cpp#L1616)
-- **HardwareRenderer::use** · function · [HardwareRenderer.cpp:1707](Source/UI/Scene/HardwareRenderer.cpp#L1707) — ==============================================================================
-- **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:1732](Source/UI/Scene/HardwareRenderer.cpp#L1732)
-- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:1741](Source/UI/Scene/HardwareRenderer.cpp#L1741)
-- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:1751](Source/UI/Scene/HardwareRenderer.cpp#L1751)
-- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:1759](Source/UI/Scene/HardwareRenderer.cpp#L1759)
-- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:1770](Source/UI/Scene/HardwareRenderer.cpp#L1770)
-- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:1866](Source/UI/Scene/HardwareRenderer.cpp#L1866) — The cover glass over a unit's meters, drawn with everything else transparent.
-- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:1881](Source/UI/Scene/HardwareRenderer.cpp#L1881)
+- **mixVec** · function · [HardwareRenderer.cpp:29](Source/UI/Scene/HardwareRenderer.cpp#L29)
+- **saturateUi** · function · [HardwareRenderer.cpp:30](Source/UI/Scene/HardwareRenderer.cpp#L30)
+- **HardwareRenderer::GpuModel::upload** · function · [HardwareRenderer.cpp:79](Source/UI/Scene/HardwareRenderer.cpp#L79) — ==============================================================================
+- **HardwareRenderer::GpuModel::release** · function · [HardwareRenderer.cpp:102](Source/UI/Scene/HardwareRenderer.cpp#L102)
+- **HardwareRenderer::drawModel** · function · [HardwareRenderer.cpp:109](Source/UI/Scene/HardwareRenderer.cpp#L109)
+- **HardwareRenderer::queueGlow** · function · [HardwareRenderer.cpp:144](Source/UI/Scene/HardwareRenderer.cpp#L144)
+- **HardwareRenderer::parameterFor** · function · [HardwareRenderer.cpp:151](Source/UI/Scene/HardwareRenderer.cpp#L151)
+- **HardwareRenderer::detailFor** · function · [HardwareRenderer.cpp:159](Source/UI/Scene/HardwareRenderer.cpp#L159)
+- **HardwareRenderer::newOpenGLContextCreated** · function · [HardwareRenderer.cpp:176](Source/UI/Scene/HardwareRenderer.cpp#L176) — ==============================================================================
+- **HardwareRenderer::openGLContextClosing** · function · [HardwareRenderer.cpp:380](Source/UI/Scene/HardwareRenderer.cpp#L380)
+- **HardwareRenderer::uploadScope** · function · [HardwareRenderer.cpp:435](Source/UI/Scene/HardwareRenderer.cpp#L435) — ============================================================================== The analyser curve as a 1 x N…
+- **HardwareRenderer::uploadDisplays** · function · [HardwareRenderer.cpp:461](Source/UI/Scene/HardwareRenderer.cpp#L461) — ============================================================================== The two new displays' data, re…
+- **HardwareRenderer::uploadLevelLabelsIfChanged** · function · [HardwareRenderer.cpp:643](Source/UI/Scene/HardwareRenderer.cpp#L643)
+- **HardwareRenderer::drawWindows** · function · [HardwareRenderer.cpp:661](Source/UI/Scene/HardwareRenderer.cpp#L661) — The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window.
+- **HardwareRenderer::uploadOverlayIfChanged** · function · [HardwareRenderer.cpp:703](Source/UI/Scene/HardwareRenderer.cpp#L703)
+- **HardwareRenderer::uploadCalloutIfChanged** · function · [HardwareRenderer.cpp:723](Source/UI/Scene/HardwareRenderer.cpp#L723)
+- **HardwareRenderer::renderLoupeView** · function · [HardwareRenderer.cpp:749](Source/UI/Scene/HardwareRenderer.cpp#L749)
+- **HardwareRenderer::renderScaleFor** · function · [HardwareRenderer.cpp:802](Source/UI/Scene/HardwareRenderer.cpp#L802)
+- **HardwareRenderer::presentScene** · function · [HardwareRenderer.cpp:807](Source/UI/Scene/HardwareRenderer.cpp#L807)
+- **HardwareRenderer::drawLoupe** · function · [HardwareRenderer.cpp:825](Source/UI/Scene/HardwareRenderer.cpp#L825)
+- **HardwareRenderer::updatePanel** · function · [HardwareRenderer.cpp:877](Source/UI/Scene/HardwareRenderer.cpp#L877) — ============================================================================== Glass panel
+- **HardwareRenderer::uploadPanelIfChanged** · function · [HardwareRenderer.cpp:913](Source/UI/Scene/HardwareRenderer.cpp#L913)
+- **HardwareRenderer::blurBehindPanel** · function · [HardwareRenderer.cpp:941](Source/UI/Scene/HardwareRenderer.cpp#L941)
+- **HardwareRenderer::drawPanelConnector** · function · [HardwareRenderer.cpp:994](Source/UI/Scene/HardwareRenderer.cpp#L994)
+- **HardwareRenderer::drawGlassPanel** · function · [HardwareRenderer.cpp:1062](Source/UI/Scene/HardwareRenderer.cpp#L1062)
+- **HardwareRenderer::drawOutlines** · function · [HardwareRenderer.cpp:1099](Source/UI/Scene/HardwareRenderer.cpp#L1099)
+- **HardwareRenderer::pollPointer** · function · [HardwareRenderer.cpp:1137](Source/UI/Scene/HardwareRenderer.cpp#L1137)
+- **HardwareRenderer::handleInteraction** · function · [HardwareRenderer.cpp:1174](Source/UI/Scene/HardwareRenderer.cpp#L1174)
+- **rangeOf** · function · [HardwareRenderer.cpp:1264](Source/UI/Scene/HardwareRenderer.cpp#L1264) — A parameter's value in its own units, and back (the spec's range and skew).
+- **HardwareRenderer::autoTurnedValue** · function · [HardwareRenderer.cpp:1276](Source/UI/Scene/HardwareRenderer.cpp#L1276)
+- **HardwareRenderer::updateAnimation** · function · [HardwareRenderer.cpp:1309](Source/UI/Scene/HardwareRenderer.cpp#L1309)
+- **HardwareRenderer::paceFrame** · function · [HardwareRenderer.cpp:1567](Source/UI/Scene/HardwareRenderer.cpp#L1567) — ==============================================================================
+- **HardwareRenderer::recordStats** · function · [HardwareRenderer.cpp:1594](Source/UI/Scene/HardwareRenderer.cpp#L1594)
+- **HardwareRenderer::renderOpenGL** · function · [HardwareRenderer.cpp:1622](Source/UI/Scene/HardwareRenderer.cpp#L1622)
+- **HardwareRenderer::use** · function · [HardwareRenderer.cpp:1713](Source/UI/Scene/HardwareRenderer.cpp#L1713) — ==============================================================================
+- **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:1738](Source/UI/Scene/HardwareRenderer.cpp#L1738)
+- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:1747](Source/UI/Scene/HardwareRenderer.cpp#L1747)
+- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:1757](Source/UI/Scene/HardwareRenderer.cpp#L1757)
+- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:1765](Source/UI/Scene/HardwareRenderer.cpp#L1765)
+- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:1776](Source/UI/Scene/HardwareRenderer.cpp#L1776)
+- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:1872](Source/UI/Scene/HardwareRenderer.cpp#L1872) — The cover glass over a unit's meters, drawn with everything else transparent.
+- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:1887](Source/UI/Scene/HardwareRenderer.cpp#L1887)
 
 **[Source/UI/Scene/HardwareRenderer.h](Source/UI/Scene/HardwareRenderer.h)**
 
@@ -1846,8 +1847,9 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **HardwareRenderer::GpuModel** · struct · [HardwareRenderer.h:83](Source/UI/Scene/HardwareRenderer.h#L83) — A HardwareKit model on the GPU: one mesh per part plus its material hints.
 - **HardwareRenderer::GpuModel::Part** · struct · [HardwareRenderer.h:85](Source/UI/Scene/HardwareRenderer.h#L85)
 - **HardwareRenderer::draw** · function · [HardwareRenderer.h:125](Source/UI/Scene/HardwareRenderer.h#L125)
-- **HardwareRenderer::Needle** · struct · [HardwareRenderer.h:183](Source/UI/Scene/HardwareRenderer.h#L183)
-- **HardwareRenderer::vuModelFor** · function · [HardwareRenderer.h:195](Source/UI/Scene/HardwareRenderer.h#L195)
+- **HardwareRenderer::wallRackCentreY** · function · [HardwareRenderer.h:178](Source/UI/Scene/HardwareRenderer.h#L178)
+- **HardwareRenderer::Needle** · struct · [HardwareRenderer.h:188](Source/UI/Scene/HardwareRenderer.h#L188)
+- **HardwareRenderer::vuModelFor** · function · [HardwareRenderer.h:200](Source/UI/Scene/HardwareRenderer.h#L200)
 
 **[Source/UI/Scene/LayoutAudit.cpp](Source/UI/Scene/LayoutAudit.cpp)**
 
@@ -1903,6 +1905,10 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 - **pickControl** · function · [Picking.h:10](Source/UI/Scene/Picking.h#L10)
 - **pickUnit** · function · [Picking.h:44](Source/UI/Scene/Picking.h#L44) — Which unit's faceplate is under a normalised device coordinate, or -1 (the case, the room).
+
+**[Source/UI/Scene/StudioWall.h](Source/UI/Scene/StudioWall.h)**
+
+- **bake** · function · [StudioWall.h:23](Source/UI/Scene/StudioWall.h#L23)
 
 **[Tests/CharacterTests.h](Tests/CharacterTests.h)**
 
@@ -2020,7 +2026,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **sinkExists** · function · [RouterTests.cpp:66](Tests/RouterTests.cpp#L66)
 - **sinkGone** · function · [RouterTests.cpp:75](Tests/RouterTests.cpp#L75) — The sound server removes a sink a moment after it is asked to (longer when the machine is busy).
 - **main** · function · [RouterTests.cpp:84](Tests/RouterTests.cpp#L84)
-- **reaper** · function · [RouterTests.cpp:238](Tests/RouterTests.cpp#L238)
+- **reaper** · function · [RouterTests.cpp:205](Tests/RouterTests.cpp#L205)
 
 **[Tools/AudioLab.cpp](Tools/AudioLab.cpp)**
 
@@ -2100,7 +2106,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 ## Files
 
-Every source, script and workflow file. (102)
+Every source, script and workflow file. (103)
 
 - **PluginEditor.cpp** · file · [Source/PluginEditor.cpp](Source/PluginEditor.cpp)
 - **PluginEditor.h** · file · [Source/PluginEditor.h](Source/PluginEditor.h)
@@ -2183,6 +2189,7 @@ Every source, script and workflow file. (102)
 - **PanelArtwork.cpp** · file · [Source/UI/Scene/PanelArtwork.cpp](Source/UI/Scene/PanelArtwork.cpp)
 - **PanelArtwork.h** · file · [Source/UI/Scene/PanelArtwork.h](Source/UI/Scene/PanelArtwork.h)
 - **Picking.h** · file · [Source/UI/Scene/Picking.h](Source/UI/Scene/Picking.h)
+- **StudioWall.h** · file · [Source/UI/Scene/StudioWall.h](Source/UI/Scene/StudioWall.h)
 - **CharacterTests.h** · file · [Tests/CharacterTests.h](Tests/CharacterTests.h)
 - **EnhDspTests.cpp** · file · [Tests/EnhDspTests.cpp](Tests/EnhDspTests.cpp)
 - **MasteringTests.h** · file · [Tests/MasteringTests.h](Tests/MasteringTests.h)

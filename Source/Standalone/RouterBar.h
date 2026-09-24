@@ -66,7 +66,6 @@ namespace pad
         routing::Plan currentPlan() const;
         juce::String nameOfEndpoint (const juce::String& id) const;
         bool openRackAudio (const juce::String& rackInputId, const juce::String& listenId, juce::String& errorOut);
-        void followDefaultSwitch();   // the user made another device the default while the rack is in
 
         juce::AudioDeviceManager& devices;
         std::function<void (bool)> setMuted;   // must take effect at once, not on the next message

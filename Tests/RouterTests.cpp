@@ -156,39 +156,6 @@ int main()
     }
 
     {
-        std::printf ("2b. Whole system: the user switches the default device while the rack is in\n");
-        // A second device to switch to (as a Windows user picks their headset in the taskbar)
-        juce::ChildProcess load;
-        load.start (juce::StringArray { "pactl", "load-module", "module-null-sink", "sink_name=enh_test_other" });
-        const auto module = load.readAllProcessOutput().trim();
-        const juce::String other = "enh_test_other";
-
-        auto rack = backend->createRackInput();
-        Plan plan;
-        plan.listenId = originalDefault;
-        Router router (*backend, dir.getChildFile ("journal-2b.json"));
-        check (router.insert (plan, rack.id, backend->rackInputToken()), "insert " + router.getLastError());
-
-        backend->setDefaultOutput (other);           // the user's switch: everything would now go past the rack
-        check (router.retarget (other), "retarget " + router.getLastError());   // what the app does when it sees it
-        check (backend->defaultOutput() == rack.id, "the rack input is the default again (" + backend->defaultOutput() + ")");
-        check (router.listenId() == other, "the rack now plays to the device the user picked");
-        check (Router::readJournal (router.getJournalFile())["defaultBefore"].toString() == other, "the journal remembers the new choice");
-
-        check (router.remove(), "remove " + router.getLastError());
-        check (backend->defaultOutput() == other, "taking the rack out leaves the user on the device they picked (" + backend->defaultOutput() + ")");
-
-        backend->setDefaultOutput (originalDefault);
-        if (module.isNotEmpty())
-        {
-            juce::ChildProcess unload;
-            unload.start (juce::StringArray { "pactl", "unload-module", module });
-            unload.waitForProcessToFinish (5000);
-        }
-        check (backend->defaultOutput() == originalDefault, "the test put the default device back");
-    }
-
-    {
         std::printf ("3. Recovery after a crash\n");
 
         // A process that has already exited stands in for the one that crashed.

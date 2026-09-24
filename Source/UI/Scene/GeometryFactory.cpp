@@ -402,10 +402,22 @@ namespace pad::geo
         return mesh;
     }
 
+    float floorHeight()
+    {
+        return arcPoint (-caseOverhang, 0.0f).y - caseBoardT - 0.05f;   // under the plinth's feet
+    }
+
     MeshData caseFloor()
     {
         const auto bottom = arcPoint (-caseOverhang, 0.0f);
-        return horizontalQuad ({ 0.0f, bottom.z - 6.0f, 26.0f, 26.0f }, bottom.y - caseBoardT - 0.05f);   // under the plinth's feet
+        return horizontalQuad ({ 0.0f, bottom.z - 6.0f, 26.0f, 26.0f }, floorHeight());
+    }
+
+    MeshData backWall()
+    {
+        // Two metres behind the case, from the floor up past anything the camera can see
+        const float z = arcCentreZ - arcRadius - 2.2f, y0 = floorHeight(), y1 = y0 + 24.0f;
+        return quad ({ -30.0f, y0, z }, { 30.0f, y0, z }, { 30.0f, y1, z }, { -30.0f, y1, z });
     }
 
     //==============================================================================

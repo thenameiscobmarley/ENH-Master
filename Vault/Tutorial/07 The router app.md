@@ -27,17 +27,12 @@ between your games and your headset, and takes it out again. You never touch you
 - start with the computer
 - refresh devices, and the full audio settings
 
-## Changing your headset or speakers
-
-Just switch as you always do (the speaker icon in the taskbar, or Windows' sound settings) while the
-rack is in. The app notices within a tenth of a second: the rack starts playing to the device you
-picked, and Windows' default goes back to the rack input, so nothing skips the rack. Apps you've set
-to a device of their own in *App volume and device preferences* are brought into the rack as well.
-
 ## Windows: one thing to set up
 
-Windows needs a spare output for the rack to listen to. Either install the free **VB-CABLE** (the app
-picks it by itself) or pick an output with nothing plugged in, like HDMI.
+Install **VB-Audio Cable** (free, [vb-audio.com/Cable](https://vb-audio.com/Cable/)). Under **RACK INPUT**
+it shows as **Use VB-Audio Cable (Recommended)** and is picked for you. Until it's installed, choosing
+that entry opens its download page. Windows plays to the cable, the rack picks it up, and you hear the
+result on LISTEN ON. (An output with nothing plugged in, like HDMI, works too.)
 
 ## Linux
 

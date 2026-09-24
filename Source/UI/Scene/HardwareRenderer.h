@@ -39,7 +39,7 @@ namespace pad
     private:
         struct Meshes
         {
-            gfx::GpuMesh table, quad,
+            gfx::GpuMesh table, wall, quad,
                          faceEdges, faceTop, displayWalls, displayGlass, displayBezel,
                          earWalls, earFloors, screws, screwSlots,
                          scaleRing, arcRing, led,
@@ -52,7 +52,7 @@ namespace pad
 
             template <typename Fn> void forEach (Fn&& fn)
             {
-                for (auto* m : { &table, &quad,
+                for (auto* m : { &table, &wall, &quad,
                                  &faceEdges, &faceTop, &displayWalls, &displayGlass, &displayBezel,
                                  &earWalls, &earFloors, &screws, &screwSlots,
                                  &scaleRing, &arcRing, &led,
@@ -174,6 +174,11 @@ namespace pad
         gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex, deepDecalTex, deepLabelTex;
         gfx::Texture2D characterDecalTex, characterLabelTex;
         gfx::Texture2D radarDecalTex, radarVuFaceTex;   // FOOTSTEP RADAR: panel print, its meter's dial
+        gfx::Texture2D wallTex;                          // the studio wall, baked (StudioWall.h)
+        static float wallRackCentreY() noexcept
+        {
+            return 0.5f * (layout::unitOrigin (layout::rackOrder.front()).y + layout::unitOrigin (layout::rackOrder.back()).y);
+        }
         std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
         gfx::Texture2D levelDecalTex, balancerDecalTex, monitorDecalTex, monitorLabelTex, balancerLabelTex, levelFaceTex;
         std::array<gfx::Texture2D, 2> monitorFaceTex;    // MOMENTARY and SHORT-TERM faces

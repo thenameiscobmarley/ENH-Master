@@ -1,3 +1,4 @@
+#include "StudioWall.h"
 #include "HardwareRenderer.h"
 #include "GeometryFactory.h"
 #include "Picking.h"
@@ -188,6 +189,11 @@ namespace pad
         }
 
         meshes.table.upload (geo::caseFloor());
+        meshes.wall.upload (geo::backWall());
+        {
+            const auto baked = studiowall::bake (arcCentreZ - arcRadius - 2.2f, geo::floorHeight(), wallRackCentreY());
+            wallTex.upload (baked.data(), studiowall::texW, studiowall::texH, 4, true, 4);
+        }
         meshes.quad.upload (geo::unitQuad());
         meshes.enhBody.upload (geo::unitBody (faceHalfH));
         meshes.tubeBody.upload (geo::unitBody (tubeHalfH));
@@ -402,7 +408,7 @@ namespace pad
                            &monitorFaceTex[0], &monitorFaceTex[1],
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
                            &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex,
-                           &radarDecalTex, &radarVuFaceTex })
+                           &radarDecalTex, &radarVuFaceTex, &wallTex })
             tex->release();
         loupeTarget.release();
         sceneTarget.release();
@@ -2191,6 +2197,11 @@ namespace pad
         use (shaders::table);
         draw (meshes.table, I, zero);
 
+        // The wall behind, last of the opaque surfaces: only the pixels the rack and the floor leave are shaded
+        wallTex.bind (0);
+        use (shaders::studioWall).set ("uParams", studiowall::x0, geo::floorHeight(), studiowall::width, studiowall::height);
+        draw (meshes.wall, I, zero);
+
         // =============================================================================
         // Blended: printed knob scales, then soft shadows
         // =============================================================================
@@ -2301,18 +2312,8 @@ namespace pad
 
         drawOutlines (cam, vw);
 
-        // The room: shafts of window light and the dust drifting through them, over the frame
-        if (vignette > 0.5f)
-        {
-            glDisable (GL_DEPTH_TEST);
-            glEnable (GL_BLEND);
-            glBlendFunc (GL_SRC_ALPHA, GL_ONE);
-            auto& sun = use (shaders::sunlight);
-            sun.set ("uViewProj", Mat4::identity());
-            sun.set ("uParams", 1.0f, (float) vw / (float) juce::jmax (1, vh), 0.0f, 0.0f);
-            draw (meshes.quad, gfx::screenQuad (vw, vh, 0.5f * (float) vw, 0.5f * (float) vh, 0.5f * (float) vw, 0.0f, 0.0f, 0.5f * (float) vh), {});
-            glEnable (GL_DEPTH_TEST);
-        }
+        // (The window's shafts in the air used to be a full-screen pass here, ~1.8 ms a frame on an integrated
+        // GPU; their haze is baked into the wall now - StudioWall.h - and the hardware carries the light itself.)
 
         // LED / lamp halos, additive, on top of everything. Blending is switched on here, not inherited:
         // the loupe's pass has no window light before this, and the outlines leave blending off, so the

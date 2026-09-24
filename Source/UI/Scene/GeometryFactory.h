@@ -29,6 +29,8 @@ namespace pad::geo
     MeshData caseRailHoles();   // the square rack holes punched down those rails
     MeshData caseEdges();       // bright chamfer along the front edges of the cheeks
     MeshData caseFloor();       // the surface the case is standing on
+    MeshData backWall();        // the studio wall behind it (walnut slats, see studioWall)
+    float floorHeight();        // where caseFloor lies
 
     // --- panel-local ---------------------------------------------------------------
     MeshData faceplateEdges();
