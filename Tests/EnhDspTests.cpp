@@ -413,6 +413,7 @@ namespace
         double seconds = 0.0;
         bool finite = true;
         float peak = 0.0f;
+        float earGuardMaxDb = 0.0f;   // how far the EAR GUARD held a jump down, at most
     };
 
     RunResult run (const Scene& scene, double sr, int blockSize, const EnhEngine::Parameters& p,
@@ -451,6 +452,7 @@ namespace
             }
 
             res.confidence.push_back (engine.getFootstepConfidence());
+            res.earGuardMaxDb = std::max (res.earGuardMaxDb, engine.getMeters().earGuardDb.load());
 
             float blockAbs = 0.0f;
             for (auto& g : engine.getMeters().bandGainDb)
@@ -925,9 +927,13 @@ namespace
             const auto r = run (scene, sr, 256, p);
             const double outDb = rmsDb (r.outL, r.outR, (size_t) (4.0 * sr));
             const auto hit = runLimiterScene (sr, true, false, 256, 0.0f, false, &p);
-            std::printf ("  TRANSPARENT: level %+.2f dB, limiter cut %.2f dB, compressor GR %.2f dB\n", outDb - inDb, hit.cutDuringDb, hit.compressorGrDuringDb);
-            check (std::abs (outDb - inDb) < 0.5 && hit.cutDuringDb < 0.01f && hit.compressorGrDuringDb < 0.01f,
-                   "TRANSPARENT (ALL OUT): level unchanged, no unit processing");
+            std::printf ("  TRANSPARENT: level %+.2f dB, limiter cut %.2f dB, compressor GR %.2f dB, EAR GUARD up to %.1f dB\n",
+                         outDb - inDb, hit.cutDuringDb, hit.compressorGrDuringDb, r.earGuardMaxDb);
+            // The units do nothing; the always-on safety stages still may: the EAR GUARD holds this scene's
+            // gunfire volleys (25 dB over the footsteps around them) down, and only ever takes level away
+            const bool levelOk = std::abs (outDb - inDb) < 0.5 || (outDb < inDb && r.earGuardMaxDb > 3.0f);
+            check (levelOk && hit.cutDuringDb < 0.01f && hit.compressorGrDuringDb < 0.01f,
+                   "TRANSPARENT (ALL OUT): no unit processing; the level unchanged but for what the EAR GUARD took off jumps");
         }
     }
     //==========================================================================
@@ -1139,6 +1145,7 @@ namespace
 
 #define ENH_HAS_OLD_FOOTSTEP_DETECTOR 0
 #include "RadarTests.h"
+#include "PrecisionTests.h"
 
 namespace
 {
@@ -1558,6 +1565,14 @@ namespace
                 sc.right = a.r;
                 return sc;
             }();
+            Scene jumpScene;    // the EAR GUARD's: 5 s quiet, then a blast 30 dB louder - held at 12, 15 or 18 dB over
+            {
+                juce::Random rnd (6);
+                Pink pk;
+                for (int i = 0; i < (int) (8.0 * sr); ++i)
+                    jumpScene.left.push_back (dbfs (i < (int) (5.0 * sr) ? -46.0f : -16.0f) * pk.next (rnd) * 4.0f);
+                jumpScene.right = jumpScene.left;
+            }
             Scene quietScene;   // quiet pink noise, -34 dBFS, 8 s: the leveler lifts it well past LIFT's limits
             {
                 juce::Random rnd (4);
@@ -1599,7 +1614,8 @@ namespace
                 // A ceiling only shows on material that reaches it, so it gets the scene pushed to the top
                 return st.id == m::outputCeiling ? hotScene
                      : st.unitIndex == 4 ? limiterScene
-                     : st.id == m::levelerLift ? quietScene : st.unitIndex == 10 ? radarScene : gameScene;
+                     : st.id == m::levelerLift ? quietScene : st.id == m::earGuard ? jumpScene
+                     : st.unitIndex == 10 ? radarScene : gameScene;
             };
             std::map<std::pair<const Scene*, bool>, RunResult> references;   // per scene, with CHARACTER in or out
             int runs = 0, failed = 0, placebo = 0;
@@ -2328,6 +2344,13 @@ int main (int argc, char** argv)
         return 0;
     }
 
+    if (argc > 1 && juce::String (argv[1]) == "--precision")
+    {
+        precisiontests::runPrecisionTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
     if (argc > 1 && juce::String (argv[1]) == "--diagnose")
     {
         radartests::runRadarTests (sr, true, false);   // every scene, what it found (RADAR_DUMP=<scene> for its every decision)
@@ -2338,6 +2361,7 @@ int main (int argc, char** argv)
     // Footsteps: the FOOTSTEP RADAR on every surface and distance, under game audio, against look-alikes,
     // and on the scenes the old detector was tuned on (the same ground truth)
     radartests::runRadarTests (sr, false, false);
+    precisiontests::runPrecisionTests (sr);
 
     //==========================================================================
     std::printf ("\n== Neutral settings on a 1 kHz tone (-12 dBFS) ==\n");

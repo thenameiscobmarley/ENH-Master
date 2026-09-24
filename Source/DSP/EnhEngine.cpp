@@ -12,7 +12,7 @@ namespace enh::dsp
         const double controlRate = sr / controlInterval;
 
         analyzer.prepare (sr, controlRate);
-        spectrum.prepare (sr);
+        precision.prepare (sr, numChannels);
         planner.prepare (analyzer);
         eq.prepare (sr, controlRate, analyzer, numChannels);
         sub.prepare (sr, controlRate);
@@ -24,6 +24,7 @@ namespace enh::dsp
         balancer.prepare (sr, numChannels);
         deep.prepare (sr);
         output.prepare (sr);
+        earGuard.prepare (sr);
         target.prepare (sr);
         character.prepare (sr, maxBlock, numChannels);
         radar.prepare (sr, maxBlock);
@@ -51,7 +52,7 @@ namespace enh::dsp
     void EnhEngine::reset()
     {
         analyzer.reset();
-        spectrum.reset();
+        precision.reset();
         planner.reset();
         eq.reset();
         sub.reset();
@@ -68,6 +69,7 @@ namespace enh::dsp
         samplesToTick = controlInterval;
         planCountdown = 0;
         output.reset();
+        earGuard.reset();
         target.reset();
         character.reset();
         radar.reset();
@@ -104,6 +106,17 @@ namespace enh::dsp
         }
 
         eq.update (analyzer, { normalize, boost, std::min (speed, 1.5f), planner.depth, planner.clarity, strength }, dt);
+        {
+            const int m = p.methods[(size_t) methods::enhancerPrecision];   // PRECISION: 8 bands, 4, off
+            precision.update ({ m == 1 ? 4 : m == 2 ? 0 : 8, normalize, strength, 6.0f * std::pow (0.8f / 6.0f, speed) }, dt);
+            const auto& pb = precision.getBands();
+            for (int b = 0; b < PrecisionEQ::maxBands; ++b)
+            {
+                meters.precisionHz[(size_t) b].store (pb[(size_t) b].hz, std::memory_order_relaxed);
+                meters.precisionQ[(size_t) b].store (pb[(size_t) b].q, std::memory_order_relaxed);
+                meters.precisionDb[(size_t) b].store (pb[(size_t) b].gainDb, std::memory_order_relaxed);
+            }
+        }
         sub.update ({ subAmount, p.subBoost, std::min (speed, 1.5f), planner.bassHz, strength }, dt);
 
         const float t = saturate01 ((analyzer.fullTransientDb - analyzer.fullShortDb) / 6.0f);
@@ -445,7 +458,7 @@ namespace enh::dsp
             {
                 const float mono = chans == 2 ? 0.5f * (write[0][at + i] + write[1][at + i]) : write[0][at + i];
                 analyzer.push (mono);
-                spectrum.push (mono);
+                precision.push (mono);
                 sub.measure (mono);
             }
 
@@ -458,6 +471,7 @@ namespace enh::dsp
             }
 
             eq.process (write, chans, at, seg);
+            precision.process (write, chans, at, seg);
 
             sub.process (write, chans, at, seg);
             pos += seg;
@@ -516,6 +530,13 @@ namespace enh::dsp
         for (int c = 0; c < chans; ++c)
             for (int i = 0; i < n; ++i)
                 chunk[c][i] = protectState[(size_t) c].process (protectHp, chunk[c][i]).high;
+        {
+            const int g = p.methods[(size_t) methods::earGuard];   // 12 dB (strict), 15, 18 (cinematic)
+            earGuard.setJumpDb (g == 1 ? 15.0f : g == 2 ? 18.0f : 12.0f);
+        }
+        earGuard.process (chunk, chans, n);
+        meters.earGuardDb.store (earGuard.getReductionDb(), std::memory_order_relaxed);
+        meters.earGuardUsualLufs.store (earGuard.getUsualLufs(), std::memory_order_relaxed);
         output.setCeilingMethod (p.methods[(size_t) methods::outputCeiling]);
         output.process (chunk, chans, n);
     }

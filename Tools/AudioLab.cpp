@@ -478,7 +478,7 @@ namespace lab
     }
 
     /** Through the engine, in blocks; the output shifted back by the reported latency. */
-    Buffer run (const Buffer& input, const enh::dsp::EnhEngine::Parameters& p, int& latency, int block = 256)
+    Buffer run (const Buffer& input, const enh::dsp::EnhEngine::Parameters& p, int& latency, int block = 256, float* earGuardMaxDb = nullptr)
     {
         enh::dsp::EnhEngine engine;
         engine.prepare (sr, block, 2);
@@ -495,8 +495,12 @@ namespace lab
                 for (int i = 0; i < len; ++i)
                     chunk.setSample (c, i, pos + i < n ? input.getSample (c, pos + i) : 0.0f);
             engine.process (chunk, p);
+            if (earGuardMaxDb != nullptr)
+                *earGuardMaxDb = std::max (*earGuardMaxDb, engine.getMeters().earGuardDb.load());
             for (int c = 0; c < 2; ++c)
                 out.copyFrom (c, pos, chunk, c, 0, len);
+            if (std::getenv ("LAB_GUARD_TRACE") != nullptr && (pos / block) % 16 == 0)
+                std::printf ("   t %.2f  ear guard %5.1f dB  usual %6.1f LUFS\n", pos / sr, engine.getMeters().earGuardDb.load(), engine.getMeters().earGuardUsualLufs.load());
             if (std::getenv ("LAB_FOOTSTEP_TRACE") != nullptr && (pos / block) % 8 == 0)
                 std::printf ("   t %.2f  footstep confidence %.2f\n", pos / sr, engine.getMeters().footstepConfidence.load());
         }
@@ -1155,6 +1159,7 @@ namespace lab
         float surgeDb = 0;          // "start": how far the output rises past where it settles, more than the input does
         float tailDb = -200;        // "silence": the output's level over its last 2 s (the input is digital silence there)
         float balanceDb = 0;        // left minus right, out against in: does the rack lean to one side
+        float earGuardDb = 0;       // how far the EAR GUARD held a jump down, at most
     };
 
     Buffer inputFor (const Job& job)
@@ -1740,7 +1745,9 @@ namespace lab
         // under a wide bed rightly leaves a wide output.)
         if (r.in.correlation > 0.999f && r.out.correlation < 0.5f) f.add ("mono in, not mono-compatible out (correlation " + fmt (r.out.correlation, 2) + ")");
         if (r.in.correlation >= 0.0f && r.out.correlation < -0.1f) f.add ("out of phase (correlation " + fmt (r.out.correlation, 2) + ")");
-        if (r.in.lufsI > -40.0f && std::abs (r.out.lufsI - r.in.lufsI) > 9.0f) f.add ("loudness moved " + fmt (r.out.lufsI - r.in.lufsI) + " LU");
+        // (The EAR GUARD holding a jump down - a blast after a quiet stretch - takes loudness away on purpose)
+        const bool guarded = r.earGuardDb > 3.0f && r.out.lufsI < r.in.lufsI;
+        if (r.in.lufsI > -40.0f && std::abs (r.out.lufsI - r.in.lufsI) > 9.0f && ! guarded) f.add ("loudness moved " + fmt (r.out.lufsI - r.in.lufsI) + " LU");
         return f;
     }
 
@@ -1808,8 +1815,10 @@ namespace lab
                     auto& c = plan[(size_t) i];
                     const auto input = makeScene (c.scene, 8.0);
                     int latency = 0;
-                    const auto output = run (input, parametersFor ({ c.preset, c.sets }), latency);
+                    float guard = 0.0f;
+                    const auto output = run (input, parametersFor ({ c.preset, c.sets }), latency, 256, &guard);
                     c.r = analyse (input, output, c.scene);
+                    c.r.earGuardDb = guard;
                     const int d = ++done;
                     if (d % 10 == 0 || d == (int) plan.size())
                     {

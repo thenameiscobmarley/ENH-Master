@@ -2,7 +2,7 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "BandAnalyzer.h"
-#include "SpectralAnalyzer.h"
+#include "PrecisionEQ.h"
 #include "HarmonicPlanner.h"
 #include "FootstepRadar.h"
 #include "AdaptiveEQ.h"
@@ -16,6 +16,7 @@
 #include "SpectralLimiter.h"
 #include "SpectrumScope.h"
 #include "FinalLimiter.h"
+#include "EarGuard.h"
 #include "LoudnessTarget.h"
 #include "Character.h"
 #include "LoudnessMeter.h"
@@ -70,7 +71,7 @@ namespace enh::dsp
         void reset();
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
-        int getLatencySamples() const noexcept { return analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + output.getLatencySamples(); }
+        int getLatencySamples() const noexcept { return analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + earGuard.getLatencySamples() + output.getLatencySamples(); }
 
         /** The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again. */
         void resetLoudness() noexcept { loudnessResetPending.store (true, std::memory_order_relaxed); }
@@ -113,7 +114,7 @@ namespace enh::dsp
         void processChunk (juce::AudioBuffer<float>&, int start, int n, const Parameters&) noexcept;
 
         BandAnalyzer analyzer;
-        SpectralAnalyzer spectrum;
+        PrecisionEQ precision;   // CLARITY's precision layer: moving bells with their own Q
         FootstepRadar radar;
         void publishRadar() noexcept;   // its readouts to the meters, for the display
         HarmonicPlanner planner;
@@ -154,6 +155,7 @@ namespace enh::dsp
         float startGain = 0.0f, startStep = 1.0f;
         LoudnessTarget target;   // LOUDNESS TARGET, just before the output limiter
         FinalLimiter output;
+        EarGuard earGuard;   // always on: no sudden jump far over how loud it has been
 
         double sampleRate = 48000.0;
         int maxBlock = 512;

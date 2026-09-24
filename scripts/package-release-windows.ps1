@@ -9,6 +9,16 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
+# Fingerprints of everything in a folder, as "hash  path" lines (the format sha256sum -c reads)
+function Write-Checksums([string] $folder) {
+    $root = (Resolve-Path $folder).Path
+    $lines = Get-ChildItem -Recurse -File $folder | Where-Object { $_.Name -ne "CHECKSUMS.txt" } | Sort-Object FullName | ForEach-Object {
+        $rel = $_.FullName.Substring($root.Length).TrimStart('\').Replace('\', '/')
+        "{0}  ./{1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower(), $rel
+    }
+    $lines | Set-Content -Encoding ASCII (Join-Path $folder "CHECKSUMS.txt")
+}
+
 $bundle = Join-Path $Build "EnhMaster_artefacts/Release/VST3/ENH Master.vst3"
 if (-not (Test-Path $bundle)) { throw "no VST3 bundle at $bundle - build first" }
 $standalone = Join-Path $Build "EnhMaster_artefacts/Release/Standalone/ENH Master.exe"
@@ -87,11 +97,13 @@ foreach ($f in "LICENSE", "NOTICE") {
     $p = Join-Path $Source $f
     if (Test-Path $p) { Copy-Item $p $gstage }
 }
+Write-Checksums $gstage
 $gzip = Join-Path $Dist "$gname.zip"
 if (Test-Path $gzip) { Remove-Item -Force $gzip }
 Compress-Archive -Path $gstage -DestinationPath $gzip
 Write-Host "Packaged $gzip"
 
+Write-Checksums $stage
 $zip = Join-Path $Dist "$name.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path $stage -DestinationPath $zip

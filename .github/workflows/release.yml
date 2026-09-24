@@ -84,3 +84,41 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.zip
+
+  checksums:
+    # After both builds: SHA-256 of every download and every script people run, as one file on the
+    # release, so anyone can check that what they downloaded is exactly what was built here
+    runs-on: ubuntu-22.04
+    needs: [linux, windows]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: plugin }
+
+      - name: Fingerprint the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          mkdir sums && cd sums
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.zip'
+          cp ../plugin/build.sh ../plugin/convert-to-windows.bat .
+          cp ../plugin/scripts/*.sh ../plugin/scripts/*.ps1 .
+          sha256sum -- *.zip *.sh *.bat *.ps1 | sort -k2 > SHA256SUMS.txt
+          cat > HOW-TO-CHECK.txt <<'TXT'
+          How to check a download is the real one
+          =======================================
+          SHA256SUMS.txt lists a fingerprint (SHA-256) for every download on this release and for every
+          script in the repository people run (build.sh, convert-to-windows.bat, the scripts/ folder).
+          Work out the fingerprint of your copy and compare it with the line for that file: if even one
+          character differs, the file is not the one GitHub built here - don't run it.
+
+          Windows (PowerShell):   Get-FileHash .\ENH-Master-...-windows-gamer-app.zip -Algorithm SHA256
+          Windows (cmd):          certutil -hashfile ENH-Master-...-windows-gamer-app.zip SHA256
+          Linux / macOS:          sha256sum -c SHA256SUMS.txt --ignore-missing
+
+          Inside every zip, CHECKSUMS.txt does the same for the files in it (ENH Master.exe, the plugin).
+          TXT
+          sed -i 's/^          //' HOW-TO-CHECK.txt
+          gh release upload "$TAG" SHA256SUMS.txt HOW-TO-CHECK.txt --repo "$GITHUB_REPOSITORY" --clobber

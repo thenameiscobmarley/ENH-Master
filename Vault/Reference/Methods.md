@@ -22,6 +22,16 @@ PROCESSING. Parameter `levelGlide`.
 
 ## ADAPTIVE ENHANCER
 
+### PRECISION - How finely CLARITY shapes the sound
+
+PROCESSING. Parameter `enhancerPrecision`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **8** Eight precision bands (default) | Besides the 24 fixed bands, up to eight moving bells, each with its own frequency, width (Q) and depth, found on a 1/24-octave spectrum: narrow dips where something rings, wide ones for a build-up, gentle lifts into holes. | Resonances and holes the fixed bands are too broad for are fixed exactly where they are, without dulling what is around them. You can watch each band and its width move on the display. | Zero latency. An FFT every ~43 ms and eight filters: about the CPU the old footstep analyser used (default). |
+| **4** Four precision bands | The same, with at most four moving bells: only the strongest resonances and holes. | A lighter touch: only the most obvious spots are fixed. | Zero latency, a little less CPU. |
+| **OFF** Fixed bands only | Only the 24 fixed bands (Q 1.6): the broad, smooth curve. | The CLARITY curve as it was before the precision layer. | Zero latency, the least CPU. |
+
 ### HARMONICS - What the exciters generate
 
 PROCESSING. Parameter `enhancerHarmonics`.
@@ -389,6 +399,16 @@ OUTPUT. Parameter `outputTarget`.
 | **23** -23 LUFS | Its own input's loudness (K-weighted, 3 s), and a gain that brings it to -23 LUFS: slowly, holding through bursts and pauses, 12 dB at most either way. | Everything comes out at one quiet, broadcast level: films, games and voice calls sit together, with lots of room for peaks. For late nights and wide dynamics. | No latency. One K-weighting filter pair per channel. |
 | **18** -18 LUFS | The same, to -18 LUFS. | One comfortable level for everything: a game, a song and a call come out equally loud, and explosions still stand out above it. | No latency. One K-weighting filter pair per channel. |
 | **14** -14 LUFS | The same, to -14 LUFS (the level streaming services play music at). | Loud and even: quiet games are brought right up. The output limiter works harder on material with big peaks. | No latency. One K-weighting filter pair per channel. |
+
+### EAR GUARD - How far the sound may suddenly jump
+
+OUTPUT. Parameter `earGuard`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **12** Strict: 12 dB (default) | The EAR GUARD (always on): how far over its usual loudness the sound may jump, measured like LUFS over 400 ms. Here 12 dB, about four times as loud. | The safest: a blast after a quiet stretch is held at +12 dB before you hear it. Explosions keep less of their punch. | 5 ms look-ahead, reported to the host. No other cost (default). |
+| **15** 15 dB | The same guard, allowing jumps of up to 15 dB (nearly three times as loud). | More room for cinematic hits; extreme jumps are still held. | 5 ms look-ahead. Glides with the guard's release. |
+| **18** Cinematic: 18 dB | The same guard, allowing jumps of up to 18 dB (three and a half times as loud). | Explosions and gunfire keep most of their punch; only the most extreme jumps are held. It can't be switched off. | 5 ms look-ahead. Glides with the guard's release. |
 
 ### TONE RANGE - The tone-change curve's scale
 

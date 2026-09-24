@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- No trackers, no cookies, no fonts or scripts from anywhere else: this page asks nothing of any
+     server but GitHub Pages, and tells no one where a visitor goes next. -->
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<title>ENH Master</title>
+<meta name="description" content="A rack of adaptive audio processors in one plugin, drawn as real 3D hardware in a walnut case. VST3 for Windows and Linux, and an app for gamers.">
+<style>
+  :root {
+    --bg: #120d0a; --bg2: #1b1410; --panel: #221a14; --line: #3a2c22;
+    --ink: #f1e8dc; --muted: #b9a996; --brass: #e0a84a; --brass2: #f3c77a; --teal: #6fb7b4; --red: #d9705a;
+    --radius: 14px; --maxw: 1180px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; color: var(--ink); background: var(--bg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brass2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  img { max-width: 100%; height: auto; display: block; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+  /* The room: warm walnut dark, a lamp glowing behind the hero */
+  .hero {
+    position: relative; overflow: hidden; padding: 72px 0 40px;
+    background:
+      radial-gradient(ellipse 60% 55% at 50% 38%, rgba(224,168,74,.20), transparent 70%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 2px, transparent 2px 15px),
+      linear-gradient(180deg, #2a1a10 0%, #1a110b 55%, var(--bg) 100%);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: .28em; font-size: 13px; color: var(--muted); }
+  .brand .lamp { width: 10px; height: 10px; border-radius: 50%; background: #ff4a3a; box-shadow: 0 0 12px 3px rgba(255,74,58,.55); }
+  h1 { font-size: clamp(40px, 7vw, 84px); line-height: 1.02; margin: 18px 0 14px; letter-spacing: -.02em; }
+  h1 span { background: linear-gradient(180deg, var(--brass2), var(--brass) 60%, #a86c1c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { font-size: clamp(17px, 2.1vw, 21px); color: var(--muted); max-width: 720px; margin: 0 0 28px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 44px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px; padding: 13px 22px; border-radius: 999px; font-weight: 650;
+    border: 1px solid var(--line); color: var(--ink); background: rgba(255,255,255,.04); transition: transform .15s, background .15s, border-color .15s;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); border-color: #5a4533; background: rgba(255,255,255,.07); }
+  .btn.primary { background: linear-gradient(180deg, var(--brass2), var(--brass)); color: #1b1208; border-color: transparent; box-shadow: 0 8px 28px rgba(224,168,74,.25); }
+  .shot { border-radius: var(--radius); border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03) inset; overflow: hidden; background: #000; }
+  .hero .shot { margin: 0 auto; }
+
+  section { padding: 76px 0; border-bottom: 1px solid var(--line); }
+  section:nth-of-type(even) { background: var(--bg2); }
+  .kicker { color: var(--brass); font-weight: 700; letter-spacing: .22em; font-size: 12px; text-transform: uppercase; margin: 0 0 10px; }
+  h2 { font-size: clamp(28px, 4vw, 42px); line-height: 1.12; margin: 0 0 16px; letter-spacing: -.01em; }
+  h3 { margin: 0 0 8px; font-size: 20px; }
+  p { margin: 0 0 14px; }
+  .muted { color: var(--muted); }
+
+  .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 44px; align-items: center; }
+  .split.flip { grid-template-columns: 1fr 1.15fr; }
+  .split.flip .text { order: 2; }
+  @media (max-width: 860px) { .split, .split.flip { grid-template-columns: 1fr; } .split.flip .text { order: 0; } }
+
+  .ticks { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; }
+  .ticks li { padding-left: 28px; position: relative; color: var(--muted); }
+  .ticks li::before { content: ""; position: absolute; left: 4px; top: .55em; width: 10px; height: 10px; border-radius: 50%; background: var(--brass); box-shadow: 0 0 10px rgba(224,168,74,.6); }
+  .ticks b { color: var(--ink); font-weight: 650; }
+  .ticks + p { margin-top: 18px; }
+
+  .units { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-top: 26px; }
+  .unit { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .unit b { display: block; letter-spacing: .12em; font-size: 13px; color: var(--brass2); margin-bottom: 4px; }
+  .unit span { color: var(--muted); font-size: 15px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 26px 0 8px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .stat .n { font-size: 32px; font-weight: 750; color: var(--brass2); line-height: 1.1; }
+  .stat .l { color: var(--muted); font-size: 14px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-top: 26px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  code, pre { font-family: ui-monospace, "Cascadia Code", "Fira Code", Menlo, Consolas, monospace; font-size: 14px; }
+  pre { background: #0d0907; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 10px 0 0; color: #e9dcc9; }
+  code { color: #f3d9a8; }
+
+  footer { padding: 40px 0 60px; color: var(--muted); font-size: 14px; }
+  footer .row { display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brand"><span class="lamp"></span>ENH MASTER · VST3 + GAMER APP</div>
+    <h1>A studio rack for<br><span>everything you hear.</span></h1>
+    <p class="lede">Eleven adaptive processors in one plugin, drawn as real 3D hardware in a walnut case. Footsteps and detail come
+      forward, loud bangs stop ducking everything else, and nothing ever leaves it too loud for your ears.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">Download the latest release</a>
+      <a class="btn" href="https://github.com/thenameiscobmarley/ENH-Master">Source on GitHub</a>
+      <a class="btn" href="#verify">Check your download</a>
+    </div>
+    <div class="shot"><img src="img/rack.jpg" alt="The whole ENH Master rack in its walnut case, in front of a slatted walnut wall" width="1366" height="643"></div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap split">
+      <div class="text">
+        <p class="kicker">Clarity</p>
+        <h2>An EQ that listens, and shows you what it's doing.</h2>
+        <p class="muted">There's no fixed "smile" curve. CLARITY builds its curve from the sound itself, and you can watch it live over the spectrum.</p>
+        <ul class="ticks">
+          <li><b>24 adaptive bands</b> rebalance treble and bass against the midrange, but only when the sound really needs it.</li>
+          <li><b>Up to 8 precision bands</b>, each with its own frequency, width (Q) and depth: a narrow dip where something rings, a wide one for a build-up, a gentle lift into a hole. You can watch every one move.</li>
+          <li><b>Harmonics</b> add definition and body where they're missing, never at a fixed spot.</li>
+        </ul>
+      </div>
+      <div class="shot"><img src="img/clarity.jpg" alt="The ADAPTIVE ENHANCER's display: the EQ curve with its precision bands marked" width="1366" height="643" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split flip">
+      <div class="text">
+        <p class="kicker">Footstep Radar</p>
+        <h2>Hear every step, and hear how far away it is.</h2>
+        <p class="muted">A detector built from scratch that recognises footsteps by how they start, die away and ring. It tells them apart from gunshots, voices, music, rain and reloads.</p>
+        <div class="stats">
+          <div class="stat"><div class="n">100%</div><div class="l">near steps found, 10 surfaces</div></div>
+          <div class="stat"><div class="n">98%</div><div class="l">very far steps (−60 dBFS)</div></div>
+          <div class="stat"><div class="n">158 → 4</div><div class="l">false lifts a minute on music</div></div>
+        </div>
+        <p class="muted">Far steps get more lift and a room behind them; near ones stay dry and close. The needle kicks with every step.</p>
+      </div>
+      <div class="shot"><img src="img/radar.jpg" alt="The FOOTSTEP RADAR unit in olive drab, with its STEP LIFT meter" width="1302" height="646" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div class="text">
+        <p class="kicker">Character &amp; Tone</p>
+        <h2>Consoles, tape and valves, and a finish that shines.</h2>
+        <p class="muted">CHARACTER blends two of nine hardware models (British and American consoles, class-A, tape at 15 and 30 ips, a breathing valve, and two tuned for games and film), with COLOUR at any volume and DRIVE for grit. TONE &amp; SPACE adds polish, air, width and room.</p>
+        <ul class="ticks">
+          <li><b>Every setting explained:</b> click any unit and its glass panel lists every option, with what it does to the sound.</li>
+          <li><b>Built to be heard, not just seen:</b> every stage is tested, from phase and clicks to aliasing and loudness.</li>
+        </ul>
+      </div>
+      <div class="shot"><img src="img/character.jpg" alt="CHARACTER: A and B model selectors, BLEND, COLOUR and DRIVE, with its harmonics meter" width="1366" height="643" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="kicker">The rack</p>
+      <h2>Eleven units, bottom to top, in signal order.</h2>
+      <div class="units">
+        <div class="unit"><b>LEVEL CONTROL</b><span>How loud the rack runs.</span></div>
+        <div class="unit"><b>ADAPTIVE ENHANCER</b><span>CLARITY, precision bands, sub.</span></div>
+        <div class="unit"><b>UPWARD LEVELER</b><span>Lifts quiet detail in three bands.</span></div>
+        <div class="unit"><b>DEEP SUB</b><span>A deep sub and a ringing "steel hull".</span></div>
+        <div class="unit"><b>SPECTRAL LIMITER</b><span>Takes a bang down where it is.</span></div>
+        <div class="unit"><b>MIX BALANCER</b><span>Keeps the six bands of the mix in balance.</span></div>
+        <div class="unit"><b>ADAPTIVE COMPRESSOR</b><span>Evens out the level.</span></div>
+        <div class="unit"><b>FOOTSTEP RADAR</b><span>Finds every step, near and far.</span></div>
+        <div class="unit"><b>TONE &amp; SPACE</b><span>Polish, air, width and room.</span></div>
+        <div class="unit"><b>CHARACTER</b><span>Nine hardware models, two at once.</span></div>
+        <div class="unit"><b>OUTPUT MONITOR</b><span>Before and after, loudness, who ducks.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split flip">
+      <div class="text">
+        <p class="kicker">Safe for your ears</p>
+        <h2>Always on, whatever you turn.</h2>
+        <ul class="ticks">
+          <li><b>EAR GUARD:</b> the sound never suddenly gets more than 12 dB (about four times) louder than it has been. It looks ahead 5 ms, so a blast after a quiet stretch is held down before you hear it. Want more punch? Set it to 15 or 18 dB; it can't be switched off.</li>
+          <li><b>Never over full scale</b>, including the peaks between samples.</li>
+          <li><b>No pops</b> when audio starts, and <b>silence instead of a blast</b> if anything ever goes wrong inside.</li>
+          <li><b>No DC or rumble</b> below 8 Hz reaches your speakers.</li>
+        </ul>
+        <p class="muted">Every one of these is checked by the automated tests on every build. Your headset's volume is still yours to set: start low.</p>
+      </div>
+      <div class="shot"><img src="img/panel.jpg" alt="A glass panel open beside the rack, listing the ADAPTIVE ENHANCER's settings" width="1366" height="643" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="kicker">Get it</p>
+      <h2>Three ways to use it.</h2>
+      <div class="cards">
+        <div class="card"><h3>Gamers (Windows)</h3><p class="muted">The standalone app puts the rack between your games and your headset, and takes it out again. Install the free VB-Audio Cable, pick your headset, press INSERT RACK.</p><a href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">windows-gamer-app.zip →</a></div>
+        <div class="card"><h3>Producers</h3><p class="muted">The VST3 plugin for any DAW on Windows or Linux: mastering tools, level-matched A/B, and every unit's settings in its glass panel.</p><a href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">windows-x64.zip / linux-x64.zip →</a></div>
+        <div class="card"><h3>Build it yourself</h3><p class="muted">Open source. One script checks your tools, fetches what it needs and builds.</p><pre>./build.sh</pre></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="verify">
+    <div class="wrap">
+      <p class="kicker">Check your download</p>
+      <h2>Make sure it's the real one.</h2>
+      <p class="muted">Every release has a <code>SHA256SUMS.txt</code> with a fingerprint of each download and of every script (<code>build.sh</code>, <code>convert-to-windows.bat</code>, the <code>scripts/</code> folder). Each zip also has a <code>CHECKSUMS.txt</code> for the files inside it. Work out the fingerprint of your copy and compare it with the list. If even one character differs, don't run it.</p>
+      <div class="cards">
+        <div class="card"><h3>Windows (PowerShell)</h3><pre>Get-FileHash .\ENH-Master-*-windows-gamer-app.zip -Algorithm SHA256</pre></div>
+        <div class="card"><h3>Windows (Command Prompt)</h3><pre>certutil -hashfile ENH-Master-...-windows-gamer-app.zip SHA256</pre></div>
+        <div class="card"><h3>Linux / macOS</h3><pre>sha256sum -c SHA256SUMS.txt --ignore-missing</pre></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap row">
+    <span>ENH Master is open source (Apache 2.0). Screenshots are the real app.</span>
+    <span>This page has no trackers, no cookies, and loads nothing from anywhere but this site.</span>
+  </div>
+</footer>
+
+</body>
+</html>

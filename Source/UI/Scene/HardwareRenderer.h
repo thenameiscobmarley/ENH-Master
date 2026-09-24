@@ -299,6 +299,7 @@ namespace pad
         float parallaxX = 0.0f, parallaxY = 0.0f;
         float focusAmount = 0.0f;      // animated toward shared.focusTarget
         std::array<float, enh::dsp::numBands> displayBands {};
+        std::array<float, 24> displayPrecision {};   // CLARITY's precision bands: (Hz, Q, dB) x 8
         std::array<float, 48> limitCurve {};       // SPECTRAL LIMITER cut on the analyser's axis (dB), smoothed
         float limitBroadband = 0.0f;
         float stepFlash = 0.0f, activityGlow = 0.0f;

@@ -45,6 +45,7 @@ namespace enh::dsp::methods
         charComponents,
         tideStereo, levelerStereo, limiterStereo, balancerStereo, seraphStereo, charStereo,
         radarDetection, radarRoom,
+        enhancerPrecision, earGuard,
         numMethodIds,
         fixedStage = -1
     };
@@ -390,6 +391,20 @@ namespace enh::dsp::methods
           "Room for lossy encoding and sample-rate conversion to overshoot without clipping.",
           "3 ms lookahead, unchanged. Glides with the limiter's release." },
     }};
+    inline constexpr std::array<Method, 3> earGuardMethods {{
+        { "12", "Strict: 12 dB",
+          "The EAR GUARD (always on): how far over its usual loudness the sound may jump, measured like LUFS over 400 ms. Here 12 dB, about four times as loud.",
+          "The safest: a blast after a quiet stretch is held at +12 dB before you hear it. Explosions keep less of their punch.",
+          "5 ms look-ahead, reported to the host. No other cost (default)." },
+        { "15", "15 dB",
+          "The same guard, allowing jumps of up to 15 dB (nearly three times as loud).",
+          "More room for cinematic hits; extreme jumps are still held.",
+          "5 ms look-ahead. Glides with the guard's release." },
+        { "18", "Cinematic: 18 dB",
+          "The same guard, allowing jumps of up to 18 dB (three and a half times as loud).",
+          "Explosions and gunfire keep most of their punch; only the most extreme jumps are held. It can't be switched off.",
+          "5 ms look-ahead. Glides with the guard's release." },
+    }};
     inline constexpr std::array<Method, 4> outputTargetMethods {{
         { "OFF", "No target",
           "Nothing: what leaves the rack is as loud as the units made it.",
@@ -540,7 +555,23 @@ namespace enh::dsp::methods
         { "UPWARD LEVELER", 3, "PROCESSING", "BAND BALANCE", "Where the lift goes", "levelerBalance", levelerBalance, "", levelerBalanceMethods.data(), 3 },
         { "UPWARD LEVELER", 3, "STEREO", "STEREO", "Which part of the image it works on", "levelerStereo", levelerStereo, "", stereoMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 1> enhancerStages {{
+    inline constexpr std::array<Method, 3> enhancerPrecisionMethods {{
+        { "8", "Eight precision bands",
+          "Besides the 24 fixed bands, up to eight moving bells, each with its own frequency, width (Q) and depth, found on a 1/24-octave spectrum: narrow dips where something rings, wide ones for a build-up, gentle lifts into holes.",
+          "Resonances and holes the fixed bands are too broad for are fixed exactly where they are, without dulling what is around them. You can watch each band and its width move on the display.",
+          "Zero latency. An FFT every ~43 ms and eight filters: about the CPU the old footstep analyser used (default)." },
+        { "4", "Four precision bands",
+          "The same, with at most four moving bells: only the strongest resonances and holes.",
+          "A lighter touch: only the most obvious spots are fixed.",
+          "Zero latency, a little less CPU." },
+        { "OFF", "Fixed bands only",
+          "Only the 24 fixed bands (Q 1.6): the broad, smooth curve.",
+          "The CLARITY curve as it was before the precision layer.",
+          "Zero latency, the least CPU." },
+    }};
+
+    inline constexpr std::array<Stage, 2> enhancerStages {{
+        { "ADAPTIVE ENHANCER", 0, "PROCESSING", "PRECISION", "How finely CLARITY shapes the sound", "enhancerPrecision", enhancerPrecision, "", enhancerPrecisionMethods.data(), 3 },
         { "ADAPTIVE ENHANCER", 0, "PROCESSING", "HARMONICS", "What the exciters generate", "enhancerHarmonics", enhancerHarmonics, "", enhancerHarmonicsMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 4> seraphStages {{
@@ -552,9 +583,10 @@ namespace enh::dsp::methods
     inline constexpr std::array<Stage, 1> levelStages {{
         { "LEVEL CONTROL", 5, "PROCESSING", "GLIDE", "How fast LEVEL moves", "levelGlide", levelGlide, "", levelGlideMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 5> monitorStages {{
+    inline constexpr std::array<Stage, 6> monitorStages {{
         { "OUTPUT MONITOR", 7, "OUTPUT", "CEILING", "The output limiter's ceiling", "outputCeiling", outputCeiling, "", outputCeilingMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "OUTPUT", "LOUDNESS TARGET", "How loud everything leaves the rack", "outputTarget", outputTarget, "", outputTargetMethods.data(), 4 },
+        { "OUTPUT MONITOR", 7, "OUTPUT", "EAR GUARD", "How far the sound may suddenly jump", "earGuard", earGuard, "", earGuardMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "TONE RANGE", "The tone-change curve's scale", "displayToneRange", displayToneRange, "", displayToneRangeMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "DUCK HOLD", "How long DUCK holds a reading", "displayDuckHold", displayDuckHold, "", displayDuckHoldMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "WAVEFORM", "What each waveform column shows", "displayWaveform", displayWaveform, "", displayWaveformMethods.data(), 2 },

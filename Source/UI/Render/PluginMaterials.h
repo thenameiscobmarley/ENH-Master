@@ -24,6 +24,7 @@ namespace pad::shaders
         uParams  = (_, brightness, SPECTRAL LIMITER broadband protection dB, footstep confidence)
         uParams2 = (spectrum floor dB, spectrum top dB, EQ range dB, scope 1 = have data)
         uBands   = the 24 adaptive EQ gains in dB
+        uPrec    = CLARITY's precision bands, 8 x (Hz, Q, gain dB): added to the curve and marked
         uLimit   = the SPECTRAL LIMITER's cut (dB >= 0) at 48 points, 20 Hz - 20 kHz on the graticule's
                    log axis: drawn hanging from the top of the plot, where and as deep as it is cutting
 
@@ -58,13 +59,24 @@ namespace pad::shaders
     float dPeak = abs (v - peakV) * (plotB - plotT);
     col = mix (col, ink, (1.0 - smoothstep (px * 0.5, px * 1.4, dPeak)) * step (0.5, fract (uv.x * 160.0)) * 0.35 * inPlot);
 
-    // What the EQ is doing, in sepia ink on its own 0 dB line
-    float t = u * 23.0;
+    // What the EQ is doing, in sepia ink on its own 0 dB line. The printed axis is 20 Hz - 20 kHz;
+    // the 24 bands sit from 40 Hz to 16 kHz (BandAnalyzer::centreHz), so find each pixel's band by its frequency
+    float fHz = 20.0 * pow (1000.0, u);
+    float t = clamp (log (fHz / 40.0) / log (400.0) * 23.0, 0.0, 22.999);
     int k = int (floor (t));
     float f = t - float (k);
     float p0 = uBands[max (k - 1, 0)], p1 = uBands[k], p2 = uBands[min (k + 1, 23)], p3 = uBands[min (k + 2, 23)];
     float gainDb = 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f
                           + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f);
+    // ... plus the precision bands: moving bells, each with its own width
+    for (int pb = 0; pb < 8; ++pb)
+    {
+        float bdb = uPrec[pb * 3 + 2];
+        if (abs (bdb) < 0.05) continue;
+        float bw = 2.0 / 0.693147 * asinh (1.0 / (2.0 * max (0.1, uPrec[pb * 3 + 1])));
+        float x = log2 (fHz / uPrec[pb * 3]) / max (0.02, bw / 2.3548);
+        gainDb += bdb * exp (-0.5 * x * x);
+    }
     float eqRange = max (uParams2.z, 1.0), eqMid = 0.5;
     float eqV = eqMid - clamp (gainDb / eqRange, -0.5, 0.5) * 0.92;
     float zero = (1.0 - smoothstep (px * 0.5, px * 1.4, abs (v - eqMid) * (plotB - plotT))) * step (0.45, fract (uv.x * 90.0));
@@ -72,6 +84,32 @@ namespace pad::shaders
     float eqLine = 1.0 - smoothstep (px * 0.8, px * 2.0, abs (v - eqV) * (plotB - plotT));
     float eqFill = step (min (eqV, eqMid), v) * step (v, max (eqV, eqMid));
     col = mix (col, sepia, (eqLine * 0.85 + eqFill * 0.12) * inPlot);
+
+    // Each precision band marked: a dot at its depth on a stem from the 0 dB line, and a bar across its
+    // width (where it is half as deep) - red for a cut, deep teal for a lift
+    float pxu = fwidth (uv.x);
+    for (int pb = 0; pb < 8; ++pb)
+    {
+        float bhz = uPrec[pb * 3], bq = uPrec[pb * 3 + 1], bdb = uPrec[pb * 3 + 2];
+        float on = smoothstep (0.05, 0.6, abs (bdb));
+        if (on <= 0.0) continue;
+        float bw = 2.0 / 0.693147 * asinh (1.0 / (2.0 * max (0.1, bq)));
+        float uc = plotL + (plotR - plotL) * log (bhz / 20.0) / log (1000.0);
+        float vd = plotT + (plotB - plotT) * (eqMid - clamp (bdb / eqRange, -0.5, 0.5) * 0.92);
+        float vh = plotT + (plotB - plotT) * (eqMid - clamp (0.5 * bdb / eqRange, -0.5, 0.5) * 0.92);
+        float vz = plotT + (plotB - plotT) * eqMid;
+        vec3 inkB = bdb < 0.0 ? red : vec3 (0.08, 0.34, 0.38);
+        vec2 dpx = vec2 ((uv.x - uc) / max (pxu, 1.0e-6), (uv.y - vd) / max (px, 1.0e-6));
+        float r = length (dpx);
+        float mark = (1.0 - smoothstep (3.0, 4.2, r)) * 0.35 + (1.0 - smoothstep (0.8, 1.6, abs (r - 4.0))) * 0.9;
+        float stem = (1.0 - smoothstep (0.4, 1.2, abs (dpx.x))) * step (min (vd, vz), uv.y) * step (uv.y, max (vd, vz))
+                   * step (0.5, fract (uv.y / (px * 6.0))) * 0.55;
+        float halfW = bw / log2 (1000.0) * (plotR - plotL) * 0.5;
+        float bar = (1.0 - smoothstep (0.4, 1.3, abs ((uv.y - vh) / max (px, 1.0e-6)))) * step (uc - halfW, uv.x) * step (uv.x, uc + halfW) * 0.8;
+        float ends = (1.0 - smoothstep (0.5, 1.3, min (abs (uv.x - (uc - halfW)), abs (uv.x - (uc + halfW))) / max (pxu, 1.0e-6)))
+                   * (1.0 - smoothstep (2.5, 3.5, abs ((uv.y - vh) / max (px, 1.0e-6)))) * 0.8;
+        col = mix (col, inkB, clamp (mark + stem + bar + ends, 0.0, 1.0) * on);
+    }
 
     // SPECTRAL LIMITER: where it is cutting, hanging from the top in red ink
     float lt = u * 47.0;
@@ -91,7 +129,7 @@ namespace pad::shaders
     lit += vec3 (1.0, 0.92, 0.72) * (uParams.y) * 0.08 * (1.0 - smoothstep (0.0, 0.9, length (uv - vec2 (0.5, 0.15))));
     col = lit * (amb * 0.30 + wrap * lightCol * 0.55 + 0.35 + fill);
     col += envColor (R) * (0.02 + 0.14 * pow (facing, 4.0));
-)GLSL", "uniform float uBands[24];   // adaptive EQ gains, dB\nuniform float uLimit[48];   // SPECTRAL LIMITER cut, dB\n" };
+)GLSL", "uniform float uBands[24];   // adaptive EQ gains, dB\nuniform float uLimit[48];   // SPECTRAL LIMITER cut, dB\nuniform float uPrec[24];    // CLARITY precision bands: Hz, Q, dB\n" };
 
     inline const hwk::shaders::Material seraphLive { "seraphLive", R"GLSL(
     vec2 uv = vUV;

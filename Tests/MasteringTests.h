@@ -324,6 +324,79 @@ static void runSafetyTests (double sr)
                                        + ", finite");
     }
 
+    // 7. EAR GUARD: quiet for a while (the rack lifting it), then a sudden +35 dB - the jump is held to
+    //    about 12 dB over how loud it had been; loud material that stays loud is never touched
+    {
+        // Loudness as BS.1770 measures it (K-weighted), over a window
+        enh::dsp::BiquadCoeffs kPre, kRlb;
+        enh::dsp::kWeighting (sr, kPre, kRlb);
+        auto kWeighted = [&] (const std::vector<float>& x)
+        {
+            std::vector<float> y (x.size());
+            enh::dsp::BiquadState a, b;
+            for (size_t i = 0; i < x.size(); ++i) y[i] = b.process (kRlb, a.process (kPre, x[i]));
+            return y;
+        };
+        auto windowDb = [] (const std::vector<float>& l, const std::vector<float>& r, int from, int len)
+        {
+            double e = 0.0;
+            for (int i = from; i < from + len && i < (int) l.size(); ++i)
+                e += (double) l[(size_t) i] * l[(size_t) i] + (double) r[(size_t) i] * r[(size_t) i];
+            return 10.0 * std::log10 (e / len + 1.0e-20) - 0.691;
+        };
+        std::vector<float> l, r, ol, orr;
+        noise (l, r, (int) (sr * 12.0), 0.01f, 61);                                   // about -45 dBFS
+        for (size_t i = (size_t) (sr * 8.0); i < l.size(); ++i) { l[i] *= 56.0f; r[i] *= 56.0f; }   // +35 dB
+        EnhEngine e; e.prepare (sr, 256, 2);
+        float guardMost = 0.0f;
+        float usualBefore = 0.0f;
+        render (e, l, r, base, ol, orr, [&] (int at, EnhEngine::Parameters&)
+        {
+            guardMost = std::max (guardMost, e.getMeters().earGuardDb.load());
+            if (at < (int) (sr * 8.0)) usualBefore = e.getMeters().earGuardUsualLufs.load();
+            if (std::getenv ("EAR_TRACE") != nullptr && at % (int) (sr * 0.25) < 256)
+                std::printf ("    t %5.2f usual %6.1f guard %5.1f\n", at / sr, e.getMeters().earGuardUsualLufs.load(), e.getMeters().earGuardDb.load());
+        });
+        const int w = (int) (0.4 * sr);   // momentary loudness: 400 ms, as BS.1770 measures it
+        ol = kWeighted (ol);
+        orr = kWeighted (orr);
+        const double before = windowDb (ol, orr, (int) (sr * 6.0), (int) (sr * 2.0));
+        double after = -200.0;
+        for (int at = (int) (sr * 8.0); at + w < (int) (sr * 10.0); at += w / 4)   // the first two seconds of it
+            after = std::max (after, windowDb (ol, orr, at, w));
+        std::printf ("  EAR GUARD: before the jump %.1f LUFS, loudest 400 ms after it %.1f LUFS (+%.1f), guard up to %.1f dB\n",
+                     before, after, after - before, guardMost);
+        check (after - before < 14.0, "a sudden +35 dB after a quiet stretch comes out at most ~12 dB louder (+" + juce::String (after - before, 1) + " dB, < 14)");
+
+        std::vector<float> ll, rr, ol2, or2;
+        noise (ll, rr, (int) (sr * 10.0), 0.3f, 71);                                  // loud, and it stays loud
+        EnhEngine e2; e2.prepare (sr, 256, 2);
+        float most = 0.0f;
+        render (e2, ll, rr, base, ol2, or2, [&] (int at, EnhEngine::Parameters&) { if (at > (int) sr) most = std::max (most, e2.getMeters().earGuardDb.load()); });
+        check (most < 0.5f, "loud material that stays loud is left alone (guard " + juce::String (most, 2) + " dB, < 0.5)");
+
+        // Music, a quiet break (the rack still running), and the music back at the level it had: not a jump
+        std::vector<float> bl, br, ob, obr;
+        noise (bl, br, (int) (sr * 16.0), 0.2f, 91);
+        for (size_t i = (size_t) (sr * 6.0); i < (size_t) (sr * 10.0); ++i) { bl[i] *= 0.003f; br[i] *= 0.003f; }   // -50 dB for 4 s
+        EnhEngine eb; eb.prepare (sr, 256, 2);
+        float backMost = 0.0f;
+        render (eb, bl, br, base, ob, obr, [&] (int at, EnhEngine::Parameters&) { if (at > (int) (sr * 10.0)) backMost = std::max (backMost, eb.getMeters().earGuardDb.load()); });
+        check (backMost < 0.5f, "music back after a 4 s quiet break, at the level it had: not held (guard " + juce::String (backMost, 2) + " dB, < 0.5)");
+
+        std::vector<float> ml, mr, ol3, or3;
+        noise (ml, mr, (int) (sr * 12.0), 0.1f, 81);
+        for (size_t i = 0; i < ml.size(); ++i)   // music-like swells: +-6 dB every couple of seconds
+        {
+            const float g = std::pow (10.0f, 6.0f * std::sin (6.2831853f * (float) i / (float) (2.2 * sr)) / 20.0f);
+            ml[i] *= g; mr[i] *= g;
+        }
+        EnhEngine e3; e3.prepare (sr, 256, 2);
+        float musicMost = 0.0f;
+        render (e3, ml, mr, base, ol3, or3, [&] (int at, EnhEngine::Parameters&) { if (at > (int) sr) musicMost = std::max (musicMost, e3.getMeters().earGuardDb.load()); });
+        check (musicMost < 0.5f, "ordinary ups and downs (+-6 dB) are left alone (guard " + juce::String (musicMost, 2) + " dB, < 0.5)");
+    }
+
     // 6. GRIT off: CHARACTER at full DRIVE stays clean in every model
     for (int m = 0; m < enh::dsp::Character::numModels; ++m)
     {

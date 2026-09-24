@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 3.7.10.12 LANGUAGES C CXX)
+project(EnhMaster VERSION 3.7.11.12 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,7 +36,7 @@ endif()
 
 set(ENH_DSP_SOURCES
     Source/DSP/BandAnalyzer.cpp
-    Source/DSP/SpectralAnalyzer.cpp
+    Source/DSP/PrecisionEQ.cpp
     Source/DSP/FootstepRadar.cpp
     Source/DSP/HarmonicPlanner.cpp
     Source/DSP/AdaptiveEQ.cpp

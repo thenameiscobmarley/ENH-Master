@@ -5,6 +5,23 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.11.12 — precision bands, and an ear guard
+
+- **New: CLARITY's precision bands.** Besides the 24 fixed bands, up to 8 moving bells, each with its own
+  frequency, width (Q) and depth: a narrow dip where something rings, a wide one for a build-up, a gentle
+  lift into a hole. On the display each band shows as a dot and a bar across its width, moving live.
+  In a test, a +10 dB resonance at 2.3 kHz (Q 8) is found at 2299.9 Hz with Q 9.5 and cut 5.6 dB. Glass
+  panel **PRECISION**: 8 bands, 4, or off. Notes, hums and test tones are left alone. It replaces an FFT analyser that ran for nothing, so it costs no extra CPU.
+- **New: EAR GUARD**, always on. The sound never suddenly gets more than 12 dB louder than it has been:
+  a +35 dB blast after a quiet stretch comes out at +13.6 dB. Short sounds are barely touched, and loud
+  music that stays loud is never touched, and music coming back after a pause isn't held. 5 ms of
+  look-ahead (reported to your DAW). OUTPUT MONITOR's glass panel: 12 dB (default), 15, or 18 dB (cinematic).
+- **Fixed:** the enhancer's EQ curve was drawn slightly off in frequency (its bands sit from 40 Hz to
+  16 kHz, the printed scale runs from 20 Hz to 20 kHz).
+- **Checksums:** every release now has `SHA256SUMS.txt` (every download and every script) and
+  `HOW-TO-CHECK.txt`; every zip has `CHECKSUMS.txt` for the files inside it.
+- **Website:** [thenameiscobmarley.github.io/ENH-Master](https://thenameiscobmarley.github.io/ENH-Master/).
+
 ## 3.7.10.12 — a warmer room, and a faster one
 
 - **New:** a walnut slat wall behind the rack, with a lamp glowing behind it, instead of a black void.

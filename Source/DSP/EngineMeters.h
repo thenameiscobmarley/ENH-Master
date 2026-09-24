@@ -12,6 +12,10 @@ namespace enh::dsp
     {
         std::array<std::atomic<float>, numBands> bandGainDb {};   // adaptive EQ gains
         std::atomic<float> footstepConfidence { 0.0f };           // 0..1
+        std::atomic<float> earGuardDb { 0.0f };                   // EAR GUARD: how far it is holding a jump down (dB)
+        std::atomic<float> earGuardUsualLufs { -200.0f };         // ... and how loud it has usually been
+        // CLARITY's precision layer: each moving bell's frequency, Q and gain (0 dB = idle)
+        std::array<std::atomic<float>, 8> precisionHz {}, precisionQ {}, precisionDb {};
         std::atomic<float> enhancement { 0.0f };                  // 0..1 overall activity
         std::atomic<float> subLiftDb { 0.0f };
         std::atomic<float> autoGainDb { 0.0f };

@@ -46,6 +46,9 @@ Documentation lives in the repository's Vault/ folder (an Obsidian vault):
 https://github.com/thenameiscobmarley/ENH-Master
 EOF
 
+# Fingerprints of everything inside, to check a copy against (sha256sum -c CHECKSUMS.txt)
+( cd "$stage" && find . -type f ! -name CHECKSUMS.txt -print0 | sort -z | xargs -0 sha256sum > CHECKSUMS.txt )
+
 mkdir -p "$dist"
 ( cd "$dist" && zip -qr "$name.zip" "$name" )
 rm -rf "$stage"

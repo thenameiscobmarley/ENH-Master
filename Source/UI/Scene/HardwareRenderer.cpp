@@ -1505,6 +1505,24 @@ namespace pad
         const float meterK = 1.0f - std::exp (-dt / 0.06f);
         for (int b = 0; b < enh::dsp::numBands; ++b)
             displayBands[(size_t) b] += (meters.bandGainDb[(size_t) b].load (std::memory_order_relaxed) - displayBands[(size_t) b]) * meterK;
+        for (int b = 0; b < 8; ++b)
+        {
+            // The precision bands as the DSP glides them (the demo walks three about, for screenshots)
+            float hz = meters.precisionHz[(size_t) b].load (std::memory_order_relaxed);
+            float q = meters.precisionQ[(size_t) b].load (std::memory_order_relaxed);
+            float db = meters.precisionDb[(size_t) b].load (std::memory_order_relaxed);
+            if (demoMeters)
+            {
+                const float t = (float) timeSeconds;
+                hz = b == 0 ? 180.0f * std::pow (2.0f, 0.3f * std::sin (t * 0.4f)) : b == 1 ? 2400.0f * std::pow (2.0f, 0.2f * std::sin (t * 0.3f + 1.0f))
+                   : b == 2 ? 650.0f : b == 3 ? 7200.0f : 1000.0f;
+                q = b == 0 ? 2.0f : b == 1 ? 9.0f : b == 2 ? 5.0f : 4.0f;
+                db = b == 0 ? -3.5f + 1.5f * std::sin (t * 0.7f) : b == 1 ? -6.0f - 1.5f * std::sin (t * 1.1f) : b == 2 ? 2.0f : b == 3 ? -2.5f : 0.0f;
+            }
+            displayPrecision[(size_t) (b * 3)] = hz;
+            displayPrecision[(size_t) (b * 3 + 1)] = q;
+            displayPrecision[(size_t) (b * 3 + 2)] = db;
+        }
 
         // PAD_UI_TEST_DEMO=1: music-like meter movement, so the ladders can be looked at without audio
         const float demoT = (float) timeSeconds;
@@ -2147,6 +2165,7 @@ namespace pad
         // Show the top 78 dB of the strip's range, and +/- 12 dB of EQ against it
         display.set ("uParams2", 0.135f, 1.0f, 24.0f, 1.0f);
         display.setArray ("uBands", displayBands.data(), enh::dsp::numBands);
+        display.setArray ("uPrec", displayPrecision.data(), (int) displayPrecision.size());
         draw (meshes.displayGlass, panel, zero);
 
         auto& recess = use (shaders::recess);
