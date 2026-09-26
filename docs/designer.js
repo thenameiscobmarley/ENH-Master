@@ -31,7 +31,40 @@
     screw:   { label: "Screw", w: 5, h: 5, defaults: {} },
     vent:    { label: "Vent slots", w: 40, h: 16, defaults: { count: 6 } },
   };
-  const FINISHES = ["anodised", "brushed", "paint", "hammertone"], EARS = ["slots", "holes", "none"];
+  /* Finishes: name, the colour it comes in (null: keeps the panel's), how it looks in 3D (roughness,
+     metalness, clear coat), how strong the 2D sheen is, and the surface effects drawn over the colour */
+  const FINISH = {
+    anodised:    ["Anodised",             null,      0.42, 0.45, 0.2,  0.7, []],
+    brushed:     ["Brushed aluminium",    "#b4b6ba", 0.35, 0.85, 0.2,  1.0, ["brushed"]],
+    paint:       ["Paint",                null,      0.50, 0.10, 0.6,  1.0, []],
+    hammertone:  ["Hammertone",           null,      0.50, 0.10, 0.6,  1.0, ["hammer"]],
+    gloss:       ["Piano gloss",          null,      0.12, 0.05, 1.0,  1.6, ["mirror"]],
+    satin:       ["Satin lacquer",        null,      0.38, 0.05, 0.4,  0.6, []],
+    wrinkle:     ["Wrinkle paint",        null,      0.70, 0.05, 0.1,  0.5, ["wrinkle"]],
+    powder:      ["Powder coat",          null,      0.62, 0.05, 0.15, 0.6, ["grain"]],
+    enamel:      ["Vintage enamel",       null,      0.28, 0.05, 0.8,  1.2, ["grain", "mottle"]],
+    sandblast:   ["Bead-blasted aluminium", "#a9abaf", 0.55, 0.8, 0.0, 0.5, ["grain"]],
+    spun:        ["Spun aluminium",       "#c3c5c9", 0.30, 0.9,  0.2,  1.0, ["spun"]],
+    chrome:      ["Mirror chrome",        "#d9dbe0", 0.04, 1.0,  0.3,  1.8, ["mirror"]],
+    blackchrome: ["Black chrome",         "#2a2b2f", 0.06, 1.0,  0.3,  1.8, ["mirror"]],
+    gold:        ["Brushed gold",         "#c9a24a", 0.30, 1.0,  0.3,  1.2, ["brushed"]],
+    copper:      ["Brushed copper",       "#b8683f", 0.32, 1.0,  0.3,  1.2, ["brushed"]],
+    titanium:    ["Brushed titanium",     "#7d7f84", 0.36, 0.9,  0.2,  1.0, ["brushed"]],
+    carbon:      ["Carbon fibre",         "#1a1b1e", 0.20, 0.2,  1.0,  1.4, ["carbon"]],
+    walnut:      ["Walnut veneer",        "#5a3721", 0.35, 0.0,  0.9,  1.1, ["wood"]],
+    rosewood:    ["Rosewood veneer",      "#4a1f1a", 0.32, 0.0,  0.9,  1.1, ["wood"]],
+    bakelite:    ["Bakelite",             "#3b2417", 0.22, 0.0,  0.8,  1.3, ["mottle"]],
+    pearl:       ["Pearl",                "#e9e4ea", 0.25, 0.3,  1.0,  1.3, ["pearl"]],
+    candy:       ["Candy metallic",       null,      0.20, 0.5,  1.0,  1.5, ["flake", "mirror"]],
+    flake:       ["Metal-flake",          null,      0.28, 0.6,  0.9,  1.2, ["flake"]],
+    tolex:       ["Tolex vinyl",          "#1c1c1d", 0.75, 0.0,  0.0,  0.4, ["tolex"]],
+    diamond:     ["Diamond plate",        "#a7a9ad", 0.35, 0.9,  0.1,  1.0, ["diamond"]],
+    perforated:  ["Perforated steel",     "#6f7176", 0.45, 0.8,  0.1,  0.8, ["perf"]],
+    patina:      ["Verdigris patina",     "#8a5a3a", 0.60, 0.6,  0.0,  0.5, ["patina"]],
+    rust:        ["Raw steel, rusted",    "#5d5f63", 0.70, 0.7,  0.0,  0.4, ["rust"]],
+  };
+  const FINISHES = Object.keys (FINISH), FINISH_NAMES = Object.fromEntries (FINISHES.map ((k) => [k, FINISH[k][0]]));
+  const EARS = ["slots", "holes", "none"];
   const HANDLES = ["none", "bar", "loop"], SCREWS = ["phillips", "hex", "thumb"];
   const TOGGLES = ["bat", "rocker", "rockerred"], BUTTONS = ["square", "round"], VUS = ["cream", "amber", "black"], JACKS = ["trs", "xlr"];
   const EDGES = ["square", "rounded", "bevel"], FONTS = ["sans", "serif", "mono", "condensed"], EARCOLS = ["match", "black", "silver"];
@@ -43,7 +76,7 @@
 
   const blank = () => ({ v: 1, unit: { name: "MY UNIT", model: "EM-X", height: 1, finish: "anodised", colour: "#16171a",
     ink: "#e8e8ea", ears: "slots", handles: "none", screws: "phillips", wear: 15, edge: "rounded", font: "sans", badge: "",
-    earColour: "match", sub: "" }, parts: [] });
+    earColour: "match", sub: "", shine: 50, desc: "" }, parts: [] });
 
   let design = blank(), selected = [], history = [], future = [], play = false, zoom = 1, snap = true, nextId = 1;
 
@@ -58,6 +91,8 @@
     return v.replace (/[^\p{L}\p{N} .,:;!?&%+\-/'()#°|_]/gu, "").slice (0, max);
   };
   const bool = (v, d) => (typeof v === "boolean" ? v : d);
+  // A description: the same printable text, in up to 20 lines
+  const textBlock = (v, max) => (typeof v !== "string" ? "" : v.replace (/\r\n?/g, "\n").split ("\n").slice (0, 20).map ((l) => text (l, max, "")).join ("\n").slice (0, max));
 
   function sanitize (raw) {
     const d = blank();
@@ -70,6 +105,7 @@
       handles: pick (u.handles, HANDLES, "none"), screws: pick (u.screws, SCREWS, "phillips"), wear: Math.round (clamp (u.wear, 0, 100, 15)),
       edge: pick (u.edge, EDGES, "rounded"), font: pick (u.font, FONTS, "sans"), badge: text (u.badge, 16, ""),
       earColour: pick (u.earColour, EARCOLS, "match"), sub: text (u.sub, 40, ""),
+      shine: Math.round (clamp (u.shine, 0, 100, 50)), desc: textBlock (u.desc, 600),
     };
     const H = d.unit.height * U;
     const parts = Array.isArray (raw.parts) ? raw.parts.slice (0, MAX_PARTS * 4) : [];   // (read a bounded amount)
@@ -115,7 +151,9 @@
   }
 
   // ---------------------------------------------------------------------------------------------------
-  // Share codes: short keys -> JSON -> deflate -> base64url, prefixed "ENH1."
+  /* Share codes: short keys, anything left at its default left out -> JSON -> deflate -> base 62 (letters
+     and digits), in groups of four: "ENH2-7KQ2-M9XA-...". The code IS the design; nothing is stored anywhere.
+     (Older "ENH1." / "ENH0." codes still open.) */
   const SHORT = { type: "t", x: "x", y: "y", w: "w", h: "h", rot: "r", style: "s", value: "v", text: "l", scale: "c", min: "a", max: "b",
     on: "o", colour: "k", segments: "g", size: "z", bold: "d", round: "n", count: "u", align: "e", pointer: "i", fill: "f", lock: "q",
     steps: "st", nums: "nu", lean: "le", sweep: "sw", arcText: "at", bend: "be", curve: "cu", radius: "ra", start: "sa", flip: "fl", grp: "gp" };
@@ -123,7 +161,18 @@
   const round1 = (n) => Math.round (n * 10) / 10;
 
   function pack (d) {
-    return { v: 1, u: d.unit, p: d.parts.map ((p) => { const o = {}; for (const k in SHORT) if (k in p) o[SHORT[k]] = typeof p[k] === "number" ? round1 (p[k]) : p[k]; return o; }) };
+    const bu = blank().unit, u = {};
+    for (const k in d.unit) if (d.unit[k] !== bu[k]) u[k] = d.unit[k];
+    return { v: 2, u, p: d.parts.map ((p) => {
+      const t = TYPES[p.type], def = t.defaults, o = {};
+      for (const k in SHORT) {
+        if (!(k in p) || k === "id") continue;
+        const v = typeof p[k] === "number" ? round1 (p[k]) : p[k];
+        // what sanitize would fill in anyway stays out of the code
+        if (k !== "type" && (v === def[k] || (k === "w" && v === t.w) || (k === "h" && v === t.h) || (k === "rot" && v === 0) || (k === "lock" && v === false))) continue;
+        o[SHORT[k]] = v;
+      }
+      return o; }) };
   }
   function unpack (o) {
     if (!o || typeof o !== "object") return null;
@@ -135,18 +184,33 @@
     const out = new Response (new Blob ([bytes]).stream().pipeThrough (stream));
     return new Uint8Array (await out.arrayBuffer());
   }
+  const B62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  function toB62 (bytes) {   // a leading 1 byte keeps any leading zero bytes
+    let n = BigInt ("0x01" + Array.from (bytes, (b) => b.toString (16).padStart (2, "0")).join ("")), out = "";
+    while (n > 0n) { out = B62[Number (n % 62n)] + out; n /= 62n; }
+    return out;
+  }
+  function fromB62 (str) {
+    let n = 0n;
+    for (const c of str) { const i = B62.indexOf (c); if (i < 0) throw new Error ("That code has a character a design code never has."); n = n * 62n + BigInt (i); }
+    let hex = n.toString (16); if (hex.length % 2) hex = "0" + hex;
+    if (!hex.startsWith ("01")) throw new Error ("That code is damaged (a character is missing or wrong).");
+    return Uint8Array.from (hex.slice (2).match (/../g) || [], (h) => parseInt (h, 16));
+  }
   async function encode (d) {
     const json = new TextEncoder().encode (JSON.stringify (pack (d)));
-    const z = typeof CompressionStream === "function" ? await streamBytes (json, new CompressionStream ("deflate-raw")) : null;
-    return z ? "ENH1." + b64u (z) : "ENH0." + b64u (json);
+    if (typeof CompressionStream !== "function") return "ENH0." + b64u (json);
+    const z = await streamBytes (json, new CompressionStream ("deflate-raw"));
+    return "ENH2-" + toB62 (z).match (/.{1,4}/g).join ("-");
   }
   async function decode (code) {
     code = String (code || "").trim().replace (/^.*#d=/, "").replace (/\s+/g, "");
     if (code.length > MAX_CODE) throw new Error ("That code is too long to be a design.");
-    const m = /^ENH([01])\.([A-Za-z0-9_-]+)$/.exec (code);
-    if (!m) throw new Error ("That is not an ENH Master design code (they start with ENH1.).");
-    let bytes = unb64u (m[2]);
-    if (m[1] === "1") {
+    const m2 = /^ENH2-?([0-9A-Za-z-]+)$/.exec (code);
+    const m = m2 ? null : /^ENH([01])\.([A-Za-z0-9_-]+)$/.exec (code);
+    if (!m && !m2) throw new Error ("That is not an ENH Master design code (they start with ENH2-).");
+    let bytes = m2 ? fromB62 (m2[1].replace (/-/g, "")) : unb64u (m[2]);
+    if (m2 || m[1] === "1") {
       if (typeof DecompressionStream !== "function") throw new Error ("This browser cannot open compressed codes.");
       bytes = await streamBytes (bytes, new DecompressionStream ("deflate-raw"));
     }
@@ -224,27 +288,56 @@
     el ("feComposite", { in: "l", in2: "SourceGraphic", operator: "arithmetic", k1: 0.9, k2: 0, k3: 0, k4: 0 }, hm);
     const sh = el ("filter", { id: "drop", x: -0.5, y: -0.5, width: 2, height: 2 }, d);
     el ("feDropShadow", { dx: 0.9, dy: 1.6, stdDeviation: 1.1, "flood-color": "#000", "flood-opacity": 0.55 }, sh);
+    // The finishes' surfaces: each filter draws only its own marks (alpha), over the panel's colour
+    const noiseFilter = (id, type, freq, oct, seed, matrix) => { const f = el ("filter", { id, x: 0, y: 0, width: 1, height: 1 }, d);
+      el ("feTurbulence", { type, baseFrequency: freq, numOctaves: oct, seed, result: "n" }, f);
+      el ("feColorMatrix", { in: "n", type: "matrix", values: matrix, result: "a" }, f);
+      el ("feComposite", { in: "a", in2: "SourceGraphic", operator: "in" }, f); };
+    noiseFilter ("grain", "fractalNoise", 1.1, 1, 5, "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.9 0.9 0.9 0 -1.05");
+    noiseFilter ("flake", "fractalNoise", 1.8, 1, 9, "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  14 0 0 0 -10.2");   // (only the highest of the noise: sparse glints)
+    noiseFilter ("wood", "fractalNoise", "0.005 0.32", 3, 4, "0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0 0.02  1.6 0 0 0 -0.55");
+    noiseFilter ("mottle", "fractalNoise", 0.025, 3, 12, "0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0 0.01  1.3 0 0 0 -0.55");
+    noiseFilter ("patina", "fractalNoise", 0.035, 4, 21, "0 0 0 0 0.30  0 0 0 0 0.62  0 0 0 0 0.52  2.6 0 0 0 -1.25");
+    noiseFilter ("rust", "fractalNoise", 0.05, 4, 31, "0 0 0 0 0.52  0 0 0 0 0.22  0 0 0 0 0.08  3.0 0 0 0 -1.55");
+    const litFilter = (id, freq, scale, seed) => { const f = el ("filter", { id, x: 0, y: 0, width: 1, height: 1 }, d);
+      el ("feTurbulence", { type: "turbulence", baseFrequency: freq, numOctaves: 2, seed, result: "n" }, f);
+      el ("feDiffuseLighting", { in: "n", "surface-scale": scale, "lighting-color": "#ffffff", result: "l" }, f).appendChild (el ("feDistantLight", { azimuth: 225, elevation: 50 }));
+      el ("feComposite", { in: "l", in2: "SourceGraphic", operator: "arithmetic", k1: 0.9, k2: 0, k3: 0, k4: 0 }, f); };
+    litFilter ("wrinkle", 0.4, 2.2, 17);
+    litFilter ("tolex", 0.8, 1.0, 23);
+    const pat = (id, w, h, build) => { const p = el ("pattern", { id, width: w, height: h, patternUnits: "userSpaceOnUse" }, d); build (p); };
+    pat ("carbon", 2.4, 2.4, (p) => { el ("rect", { width: 2.4, height: 2.4, fill: "#0e0f11" }, p);
+      el ("rect", { x: 0, y: 0, width: 1.2, height: 1.2, fill: "#2b2d32" }, p); el ("rect", { x: 1.2, y: 1.2, width: 1.2, height: 1.2, fill: "#2b2d32" }, p);
+      el ("rect", { x: 0, y: 0.5, width: 1.2, height: 0.2, fill: "#3b3e44" }, p); el ("rect", { x: 1.7, y: 1.2, width: 0.2, height: 1.2, fill: "#3b3e44" }, p); });
+    pat ("diamond", 7, 7, (p) => { for (const [x, y, a] of [[1.75, 1.75, 45], [5.25, 5.25, -45]]) {
+      el ("rect", { x: x - 1.9, y: y - 0.45, width: 3.8, height: 0.9, rx: 0.45, fill: "#ffffff", opacity: 0.45, transform: `rotate(${a} ${x} ${y})` }, p);
+      el ("rect", { x: x - 1.9, y: y + 0.1, width: 3.8, height: 0.4, rx: 0.2, fill: "#000000", opacity: 0.35, transform: `rotate(${a} ${x} ${y})` }, p); } });
+    pat ("perf", 3.2, 3.2, (p) => { el ("circle", { cx: 1.6, cy: 1.6, r: 0.75, fill: "#050506" }, p); el ("circle", { cx: 1.6, cy: 1.35, r: 0.75, fill: "#ffffff", opacity: 0.12 }, p); });
+    g ("mirror", [[0, "#ffffff", 0.55], [0.18, "#ffffff", 0.05], [0.42, "#000000", 0.35], [0.55, "#ffffff", 0.35], [0.7, "#000000", 0.25], [1, "#ffffff", 0.2]]);
+    g ("pearl", [[0, "#ffc9ea"], [0.35, "#bff7ef"], [0.65, "#fff0bd"], [1, "#d5c9ff"]], 1, 0.3);
     const wear = el ("filter", { id: "wear", x: 0, y: 0, width: 1, height: 1 }, d);
     el ("feTurbulence", { type: "fractalNoise", baseFrequency: "0.02 0.3", numOctaves: 3, seed: 11, result: "n" }, wear);
     el ("feColorMatrix", { in: "n", type: "matrix", values: "0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 2.2 -1.35" }, wear);
   }
 
-  function render (root = svg, rmode = "edit") {
+  /* `ownDefs` false: the pictures on the page (dropdowns, preset cards) use the stage's gradients and
+     filters instead of copies with the same ids - a copy inside a hidden tab would be the one the browser
+     finds first, and paints nothing: they all find the set at the top of the page (#d-defs). Exports and
+     the 3D print carry their own. */
+  function render (root = svg, rmode = "edit", ownDefs = true) {
     mode = rmode;
     while (root.lastChild && root.lastChild.nodeName !== "title") root.removeChild (root.lastChild);
     const u = design.unit, H = u.height * U, print = mode === "print";
     root.setAttribute ("viewBox", print ? `0 0 ${W} ${H}` : `-6 -6 ${W + 12} ${H + 12}`);
     root.setAttribute ("width", print ? W : (W + 12) * 2 * zoom);
     root.setAttribute ("height", print ? H : (H + 12) * 2 * zoom);
-    defs (root);
+    if (ownDefs) defs (root);
     const face = el ("g", {}, root);
     const rx = u.edge === "square" ? 0.2 : u.edge === "bevel" ? 0.6 : 1.4;
     // The plate: shadow, body, finish, edge highlight, wear
     if (!print) el ("rect", { x: 0.8, y: 1.6, width: W, height: H, rx, fill: "#000", opacity: 0.55, filter: "url(#drop)" }, face);
     el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: u.colour }, face);
-    if (u.finish === "brushed") el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: "#fff", filter: "url(#brushed)", opacity: 0.35 }, face);
-    if (u.finish === "hammertone") el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: u.colour, filter: "url(#hammer)", opacity: 0.45 }, face);
-    if (!print) el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: "url(#sheen)", opacity: u.finish === "anodised" ? 0.7 : 1 }, face);
+    drawFinish (face, 0, 0, W, H, rx, u.finish, u.colour, print);
     if (u.wear > 0) el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: "#fff", filter: "url(#wear)", opacity: u.wear / 400 }, face);
     // Ears in their own finish (black or silver) where asked
     if (u.ears !== "none" && u.earColour !== "match")
@@ -286,6 +379,32 @@
     }
     mode = "edit";
     if (root === svg) notify();
+  }
+
+  /** A finish's surface over a panel already filled with its colour: its marks, then (not in print: the 3D
+      view lights it itself) the sheen. Spun rings are centred on the area. */
+  function drawFinish (parent, x, y, w, h, rx, fin, col, print, shine = design.unit.shine ?? 50) {
+    const f = FINISH[fin] || FINISH.anodised, box = { x, y, width: w, height: h, rx };
+    const gloss = f[5] * shine / 50;   // SHINE: 50 is the finish as it comes
+    for (const fx of f[6]) {
+      if (fx === "brushed") el ("rect", Object.assign ({ fill: "#fff", filter: "url(#brushed)", opacity: 0.35 }, box), parent);
+      else if (fx === "hammer") el ("rect", Object.assign ({ fill: col, filter: "url(#hammer)", opacity: 0.45 }, box), parent);
+      else if (fx === "wrinkle") el ("rect", Object.assign ({ fill: col, filter: "url(#wrinkle)", opacity: 0.55 }, box), parent);
+      else if (fx === "tolex") el ("rect", Object.assign ({ fill: col, filter: "url(#tolex)", opacity: 0.6 }, box), parent);
+      else if (["grain", "flake", "wood", "mottle", "patina", "rust"].includes (fx))
+        el ("rect", Object.assign ({ fill: "#fff", filter: `url(#${fx})`, opacity: fx === "grain" ? 0.35 : fx === "flake" ? 0.55 : 0.9 }, box), parent);
+      else if (["carbon", "diamond", "perf"].includes (fx)) el ("rect", Object.assign ({ fill: `url(#${fx})`, opacity: fx === "carbon" ? 0.92 : 1 }, box), parent);
+      else if (fx === "pearl") el ("rect", Object.assign ({ fill: "url(#pearl)", opacity: 0.32 }, box), parent);
+      else if (fx === "mirror" && !print) el ("rect", Object.assign ({ fill: "url(#mirror)", opacity: 0.5 }, box), parent);
+      else if (fx === "spun") {
+        const id = "spun" + (++pathSeq), rg = el ("radialGradient", { id, gradientUnits: "userSpaceOnUse", cx: x + w / 2, cy: y + h / 2, r: Math.max (0.9, w / 400), spreadMethod: "repeat" }, parent);
+        for (const [o, a] of [[0, 0], [0.5, 0.28], [1, 0]]) el ("stop", { offset: o, "stop-color": "#ffffff", "stop-opacity": a }, rg);
+        el ("rect", Object.assign ({ fill: `url(#${id})` }, box), parent);
+      }
+    }
+    if (!print) el ("rect", Object.assign ({ fill: "url(#sheen)", opacity: Math.min (1, gloss) }, box), parent);
+    if (!print && gloss > 1) el ("rect", Object.assign ({ fill: "url(#sheen)", opacity: Math.min (1, gloss - 1) }, box), parent);
+    if (!print && gloss > 1.6) el ("rect", Object.assign ({ fill: "url(#mirror)", opacity: Math.min (0.5, (gloss - 1.6) * 0.4) }, box), parent);
   }
 
   function screw (parent, x, y, style, r) {
@@ -482,7 +601,8 @@
     });
   }
   window.ENHDesigner = Object.freeze ({
-    W, U, KNOBS, knobAngle, extent, get: () => design, selected: () => selected.slice(),
+    W, U, KNOBS, knobAngle, extent, finishPbr: (k, shine = 50) => { const f = FINISH[k] || FINISH.anodised, t = shine / 100;
+      return { roughness: Math.min (1, Math.max (0.02, f[2] * (1.6 - 1.2 * t))), metalness: f[3], clearcoat: Math.min (1, f[4] * 2 * t + Math.max (0, t - 0.6)) }; }, get: () => design, selected: () => selected.slice(),
     subscribe: (f) => { listeners.push (f); f (design, selected); },
     select: (id) => { if (byId (id)) { selected = withGroups ([id]); render(); props(); } },
     printCanvas,
@@ -492,7 +612,7 @@
   // Pickers: dropdowns that show each choice as a small picture next to its name
   function thumb (kind, value) {
     const t = document.createElementNS (NS, "svg"); t.setAttribute ("viewBox", "-14 -14 28 28"); t.setAttribute ("width", 34); t.setAttribute ("height", 34);
-    t.setAttribute ("aria-hidden", "true"); defs (t);
+    t.setAttribute ("aria-hidden", "true");   // (drawn with the stage's gradients: see render)
     const g = el ("g", {}, t), was = design;
     if (kind === "knob") knob (g, value, 9, 30);
     else if (kind === "pointer") { knob (g, "matte", 9, 30, value === "auto" ? "white" : value); }
@@ -507,10 +627,9 @@
     else if (kind === "finish" || kind === "edge" || kind === "ears" || kind === "handles" || kind === "earColour" || kind === "font") {
       const u = design.unit, fin = kind === "finish" ? value : u.finish;
       const rx = kind === "edge" ? (value === "square" ? 0.3 : value === "bevel" ? 2 : 5) : 3;
-      el ("rect", { x: -13, y: -10, width: 26, height: 20, rx, fill: u.colour }, g);
-      if (fin === "brushed") el ("rect", { x: -13, y: -10, width: 26, height: 20, rx, fill: "#fff", filter: "url(#brushed)", opacity: 0.5 }, g);
-      if (fin === "hammertone") el ("rect", { x: -13, y: -10, width: 26, height: 20, rx, fill: u.colour, filter: "url(#hammer)", opacity: 0.6 }, g);
-      el ("rect", { x: -13, y: -10, width: 26, height: 20, rx, fill: "url(#sheen)" }, g);
+      const col = kind === "finish" && FINISH[value] && FINISH[value][1] ? FINISH[value][1] : u.colour;
+      el ("rect", { x: -13, y: -10, width: 26, height: 20, rx, fill: col }, g);
+      drawFinish (g, -13, -10, 26, 20, rx, fin, col, false);
       if (kind === "edge" && value === "bevel") el ("rect", { x: -11, y: -8, width: 22, height: 16, rx: 1, fill: "none", stroke: shade (u.colour, 0.5), "stroke-width": 0.8 }, g);
       if (kind === "ears") { if (value !== "none") for (const x of [-10, 10]) value === "slots" ? el ("rect", { x: x - 2.2, y: -1.2, width: 4.4, height: 2.4, rx: 1.2, fill: "#050506" }, g) : el ("circle", { cx: x, cy: 0, r: 1.6, fill: "#050506" }, g); }
       if (kind === "earColour" && value !== "match") for (const x of [-13, 7]) el ("rect", { x, y: -10, width: 6, height: 20, fill: value === "black" ? "#0d0d0f" : "#c3c4c8" }, g);
@@ -711,7 +830,7 @@
   }, { passive: false });
 
   document.addEventListener ("keydown", (e) => {
-    if (e.target.closest && e.target.closest ("input, textarea, select, dialog")) return;
+    if (e.target.closest && e.target.closest ("input, textarea, select, dialog, [role=tab], .d-pick")) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
@@ -738,7 +857,8 @@
     const u = design.unit;
     $("u-name").value = u.name; $("u-model").value = u.model; $("u-height").value = String (u.height);
     $("u-colour").value = u.colour; $("u-ink").value = u.ink; $("u-wear").value = String (u.wear); $("u-grid").checked = snap;
-    $("u-sub").value = u.sub; $("u-badge").value = u.badge;
+    $("u-sub").value = u.sub; $("u-badge").value = u.badge; $("u-shine").value = String (u.shine); $("u-desc").value = u.desc;
+    showAbout();
     for (const k in unitPickers) unitPickers[k].setValue (u[k]);
     rebuildUnitPickers();   // (their pictures show this panel's colour)
   }
@@ -750,24 +870,39 @@
     on ("u-height", (e) => { design.unit.height = Number (e.value); const H = design.unit.height * U; design.parts.forEach ((p) => (p.y = Math.min (p.y, H))); }, "change"); done ("u-height");
     on ("u-sub", (e) => (design.unit.sub = text (e.value, 40, ""))); done ("u-sub");
     on ("u-badge", (e) => (design.unit.badge = text (e.value, 16, ""))); done ("u-badge");
+    on ("u-shine", (e) => (design.unit.shine = Math.round (clamp (e.value, 0, 100, 50)))); done ("u-shine");
+    $("u-desc").addEventListener ("input", () => { design.unit.desc = textBlock ($("u-desc").value, 600); save(); showAbout(); });
+    done ("u-desc");
     const unitPick = (key, list, names) => {
-      const w = picker (key, list, names, design.unit[key], (v) => { design.unit[key] = pick (v, list, design.unit[key]); commit(); refreshPickers(); }, key);
+      const w = picker (key, list, names, design.unit[key], (v) => {
+        design.unit[key] = pick (v, list, design.unit[key]);
+        // a metal, a wood, a plastic comes in its own colour (change it after if you like)
+        if (key === "finish" && FINISH[v][1]) { design.unit.colour = FINISH[v][1]; $("u-colour").value = design.unit.colour; }
+        commit(); refreshPickers(); if (key === "finish") rebuildUnitPickers(); }, key);
       $("u-" + key).replaceChildren (w); unitPickers[key] = w;
     };
-    unitPick ("finish", FINISHES, { anodised: "Anodised", brushed: "Brushed aluminium", paint: "Paint", hammertone: "Hammertone" });
+    unitPick ("finish", FINISHES, FINISH_NAMES);
     unitPick ("edge", EDGES, { square: "Square", rounded: "Rounded", bevel: "Bevelled" });
     unitPick ("font", FONTS, { sans: "Sans", serif: "Serif", mono: "Mono", condensed: "Condensed" });
     unitPick ("ears", EARS, { slots: "Slotted", holes: "Round holes", none: "None (500 module)" });
     unitPick ("earColour", EARCOLS, { match: "As the panel", black: "Black", silver: "Silver" });
     unitPick ("handles", HANDLES, { none: "None", bar: "Bar handles", loop: "Loop handles" });
     unitPick ("screws", SCREWS, { phillips: "Phillips", hex: "Hex", thumb: "Thumb screws" });
-    rebuildUnitPickers = () => { unitPick ("finish", FINISHES, { anodised: "Anodised", brushed: "Brushed aluminium", paint: "Paint", hammertone: "Hammertone" });
+    rebuildUnitPickers = () => { unitPick ("finish", FINISHES, FINISH_NAMES);
       unitPick ("edge", EDGES, { square: "Square", rounded: "Rounded", bevel: "Bevelled" }); unitPick ("earColour", EARCOLS, { match: "As the panel", black: "Black", silver: "Silver" }); };
     on ("u-colour", (e) => (design.unit.colour = colour (e.value, design.unit.colour))); done ("u-colour");
     $("u-colour").addEventListener ("change", rebuildUnitPickers);
     on ("u-ink", (e) => (design.unit.ink = colour (e.value, design.unit.ink))); done ("u-ink");
     on ("u-wear", (e) => (design.unit.wear = Number (e.value))); done ("u-wear");
     $("u-grid").addEventListener ("change", (e) => (snap = e.target.checked));
+  }
+
+  // The description under the stage: what the unit does and how it works (text only, never markup)
+  function showAbout () {
+    const box = $("about"), d = design.unit.desc;
+    box.hidden = !d;
+    $("about-text").textContent = d;
+    $("about-title").textContent = "About " + (design.unit.name || "this unit");
   }
 
   // The pictures follow the panel's colour and finish: redraw them when those change
@@ -910,7 +1045,99 @@
       { type: "ladder", x: 440, y: 110, w: 5, h: 50, segments: 12, value: 50 },
       { type: "button", x: 120, y: 140, w: 14, h: 9, style: "square", on: true, colour: "#46e070", text: "IN" },
       { type: "jack", x: 360, y: 140, w: 16, h: 16, style: "xlr", text: "OUT" } ]),
+    "Opto leveler": () => T ({ name: "LEVELING AMPLIFIER", model: "EM-2A", height: 3, colour: "#8e9296", ink: "#15161a", finish: "wrinkle", badge: "TUBE", wear: 20 }, [
+      { type: "knob", x: 95, y: 70, w: 44, h: 44, style: "tophat", value: 45, text: "GAIN", scale: true, min: 0, max: 100, steps: 10, nums: "all" },
+      { type: "vu", x: 241, y: 62, w: 120, h: 70, style: "cream", value: 40, text: "GAIN REDUCTION" },
+      { type: "knob", x: 387, y: 70, w: 44, h: 44, style: "tophat", value: 60, text: "PEAK REDUCTION", scale: true, min: 0, max: 100, steps: 10, nums: "all" },
+      { type: "toggle", x: 180, y: 112, style: "bat", on: true, text: "LIMIT" },
+      { type: "toggle", x: 302, y: 112, style: "bat", on: false, text: "METER" } ]),
+    "Console channel": () => T ({ name: "CLASS A CHANNEL", model: "EM-73", height: 3, colour: "#5b6f86", ink: "#f3f3f3", finish: "enamel", sub: "DISCRETE  -  TRANSFORMER COUPLED" }, [
+      { type: "box", x: 170, y: 72, w: 200, h: 92, text: "EQUALIZER", round: 3 },
+      ...["HIGH", "MID", "LOW"].map ((t, i) => ({ type: "knob", x: 110 + i * 60, y: 55, w: 22, h: 22, style: "redtrim", value: 50, text: t, scale: true, min: -16, max: 16, steps: 8, nums: "ends" })),
+      ...["12K", "FREQ", "HPF"].map ((t, i) => ({ type: "knob", x: 110 + i * 60, y: 100, w: 16, h: 16, style: "matte", value: 35 + i * 10, text: t, scale: false })),
+      { type: "knob", x: 330, y: 66, w: 36, h: 36, style: "redtrim", value: 55, text: "GAIN", scale: true, min: -20, max: 70, steps: 18, nums: "all", lean: true },
+      { type: "button", x: 400, y: 50, w: 12, h: 9, style: "square", on: false, colour: "#e8e3d6", text: "PHASE" },
+      { type: "button", x: 400, y: 80, w: 12, h: 9, style: "square", on: true, colour: "#ff5a3c", text: "48V" },
+      { type: "jack", x: 440, y: 110, w: 16, h: 16, style: "xlr", text: "LINE" } ]),
+    "Bus compressor": () => T ({ name: "BUS COMPRESSOR", model: "EM-G", height: 1, colour: "#1b1c1f", ink: "#e8e8ea", finish: "powder" }, [
+      ...["THRESHOLD", "RATIO", "ATTACK", "RELEASE", "MAKE-UP"].map ((t, i) => ({ type: "knob", x: 110 + i * 42, y: 20, w: 14, h: 14, style: "capwhite", value: 30 + i * 9, text: t, scale: false })),
+      { type: "vu", x: 360, y: 22, w: 56, h: 30, style: "black", value: 30, text: "GR" },
+      { type: "toggle", x: 425, y: 21, style: "rocker", on: true, text: "IN" } ]),
+    "Mastering limiter": () => T ({ name: "MASTERING LIMITER", model: "EM-L2", height: 1, finish: "brushed", colour: "#b4b6ba", ink: "#1a1b1e" }, [
+      { type: "display", x: 150, y: 22, w: 100, h: 26, colour: "#56c8f5", text: "CEILING -0.3" },
+      ...["INPUT", "CEILING", "RELEASE"].map ((t, i) => ({ type: "knob", x: 250 + i * 40, y: 20, w: 16, h: 16, style: "knurled", value: 40 + i * 12, text: t, scale: false })),
+      { type: "ladder", x: 382, y: 22, w: 5, h: 32, segments: 16, value: 70 },
+      { type: "ladder", x: 392, y: 22, w: 5, h: 32, segments: 16, value: 64 },
+      { type: "button", x: 430, y: 20, w: 10, h: 10, style: "round", on: true, colour: "#46e070", text: "LINK" } ]),
+    "Tape echo": () => T ({ name: "TAPE ECHO", model: "EM-201", height: 2, colour: "#3f5f45", ink: "#efe6cf", finish: "paint", wear: 30 }, [
+      ...["REPEAT RATE", "INTENSITY", "ECHO", "REVERB", "BASS", "TREBLE"].map ((t, i) => ({ type: "knob", x: 70 + i * 55, y: 44, w: 22, h: 22, style: "chicken", value: 30 + i * 8, text: t, scale: true, min: 0, max: 10, steps: 10, nums: "ends" })),
+      { type: "vu", x: 420, y: 36, w: 56, h: 32, style: "cream", value: 35, text: "INPUT" },
+      { type: "led", x: 395, y: 20, w: 4, h: 4, colour: "#ff3b30", on: true, text: "PEAK" },
+      { type: "toggle", x: 420, y: 72, style: "bat", on: true, text: "BYPASS" } ]),
+    "Plate reverb": () => T ({ name: "PLATE REVERB", model: "EM-140", height: 2, finish: "spun", colour: "#c3c5c9", ink: "#1b1c20" }, [
+      { type: "display", x: 170, y: 36, w: 130, h: 36, colour: "#ffb347", text: "PLATE  2.4 s" },
+      { type: "vent", x: 170, y: 72, w: 130, h: 8, count: 22 },
+      ...["DECAY", "PRE-DELAY", "DAMP", "MIX"].map ((t, i) => ({ type: "knob", x: 290 + i * 42, y: 42, w: 18, h: 18, style: "knurled", value: 35 + i * 10, text: t, scale: true, min: 0, max: 10, steps: 10, nums: "none" })) ]),
+    "Twin mic preamp": () => T ({ name: "TWIN MIC PREAMP", model: "EM-P2", height: 1, colour: "#7a1c1c", ink: "#f4f4f4", finish: "anodised" }, [
+      ...[0, 1].flatMap ((c) => [
+        { type: "jack", x: 70 + c * 190, y: 22, w: 14, h: 14, style: "xlr", text: "IN " + (c + 1) },
+        { type: "knob", x: 115 + c * 190, y: 20, w: 18, h: 18, style: "capwhite", value: 55, text: "GAIN", scale: false },
+        { type: "button", x: 155 + c * 190, y: 20, w: 9, h: 9, style: "round", on: c === 0, colour: "#ff5a3c", text: "48V" },
+        { type: "button", x: 180 + c * 190, y: 20, w: 9, h: 9, style: "round", on: false, colour: "#e0a84a", text: "PAD" },
+        { type: "led", x: 205 + c * 190, y: 18, w: 3, h: 3, colour: "#46e070", on: true, text: "" } ]),
+      { type: "line", x: 238, y: 22, w: 0.5, h: 34 } ]),
+    "Headphone amp": () => T ({ name: "HEADPHONE AMPLIFIER", model: "EM-HA", height: 1, colour: "#1a1b1e", ink: "#e9e9ea", finish: "carbon", sub: "CLASS A" }, [
+      { type: "jack", x: 190, y: 22, w: 12, h: 12, style: "trs", text: "PHONES A" },
+      { type: "jack", x: 230, y: 22, w: 12, h: 12, style: "trs", text: "PHONES B" },
+      { type: "knob", x: 320, y: 20, w: 26, h: 26, style: "knurled", value: 45, text: "", scale: true, min: 0, max: 10, steps: 20, nums: "none" },
+      { type: "led", x: 385, y: 20, w: 3, h: 3, colour: "#56c8f5", on: true, text: "ON" },
+      { type: "toggle", x: 425, y: 21, style: "rocker", on: true, text: "POWER" } ]),
+    "Power conditioner": () => T ({ name: "POWER CONDITIONER", model: "EM-PC8", height: 1, colour: "#0c0c0e", ink: "#e8e8ea", finish: "gloss" }, [
+      { type: "display", x: 210, y: 22, w: 60, h: 18, colour: "#ffb347", text: "120 V" },
+      { type: "ladder", x: 260, y: 22, w: 5, h: 30, segments: 10, value: 50 },
+      { type: "button", x: 330, y: 20, w: 12, h: 9, style: "square", on: false, colour: "#e8e3d6", text: "LIGHTS" },
+      { type: "toggle", x: 425, y: 21, style: "rockerred", on: true, text: "POWER" } ]),
+    "Boutique EQ": () => T ({ name: "PASSIVE EQUALIZER", model: "EM-GOLD", height: 2, colour: "#c9a24a", ink: "#2a2215", finish: "gold", badge: "HAND WIRED" }, [
+      ...["LOW", "LO MID", "HI MID", "HIGH"].map ((t, i) => ({ type: "knob", x: 110 + i * 62, y: 34, w: 22, h: 22, style: "knurled", value: 50, text: t, scale: true, min: -12, max: 12, steps: 8, nums: "all", lean: true })),
+      ...["Hz", "Hz", "kHz", "kHz"].map ((t, i) => ({ type: "knob", x: 110 + i * 62, y: 72, w: 13, h: 13, style: "knurled", value: 40, text: "", scale: false })),
+      { type: "toggle", x: 400, y: 45, style: "bat", on: true, text: "EQ IN" },
+      { type: "led", x: 400, y: 20, w: 4, h: 4, colour: "#ffb347", on: true, text: "" } ]),
+    "Broadcast limiter": () => T ({ name: "PROGRAM LIMITER", model: "EM-BL", height: 3, colour: "#3b2417", ink: "#e9dcc0", finish: "bakelite", badge: "BROADCAST", wear: 35 }, [
+      { type: "knob", x: 95, y: 66, w: 36, h: 36, style: "chicken", value: 40, text: "INPUT", scale: true, min: 0, max: 10, steps: 10, nums: "all" },
+      { type: "vu", x: 241, y: 58, w: 118, h: 66, style: "amber", value: 50, text: "PROGRAM LEVEL" },
+      { type: "knob", x: 387, y: 66, w: 36, h: 36, style: "chicken", value: 55, text: "OUTPUT", scale: true, min: 0, max: 10, steps: 10, nums: "all" },
+      { type: "toggle", x: 185, y: 112, style: "bat", on: true, text: "AGC" },
+      { type: "toggle", x: 297, y: 112, style: "bat", on: true, text: "POWER" } ]),
+    "Walnut tube preamp": () => T ({ name: "TUBE PREAMPLIFIER", model: "EM-12AX7", height: 2, colour: "#5a3721", ink: "#f0e2c8", finish: "walnut", earColour: "black" }, [
+      ...["DRIVE", "TONE", "OUTPUT"].map ((t, i) => ({ type: "knob", x: 90 + i * 70, y: 42, w: 26, h: 26, style: "tophat", value: 40 + i * 10, text: t, scale: true, min: 0, max: 10, steps: 10, nums: "ends", arcText: true })),
+      { type: "toggle", x: 300, y: 40, style: "bat", on: false, text: "HI-Z" },
+      { type: "vu", x: 390, y: 42, w: 70, h: 40, style: "cream", value: 45, text: "VU" } ]),
+    "DI box": () => T ({ name: "DIRECT BOX", model: "EM-DI", height: 1, colour: "#a7a9ad", ink: "#111214", finish: "diamond", edge: "square" }, [
+      { type: "jack", x: 80, y: 22, w: 14, h: 14, style: "trs", text: "INST" },
+      { type: "toggle", x: 190, y: 21, style: "bat", on: false, text: "GND LIFT" },
+      { type: "toggle", x: 240, y: 21, style: "bat", on: true, text: "PAD" },
+      { type: "jack", x: 400, y: 22, w: 14, h: 14, style: "xlr", text: "OUT" } ]),
+    "Synth voice": () => T ({ name: "ANALOG VOICE", model: "EM-VCO", height: 3, colour: "#3b1f6b", ink: "#ffffff", finish: "flake" }, [
+      ...["PITCH", "FINE", "SHAPE", "PWM", "CUTOFF", "RES", "ENV", "LFO"].map ((t, i) => ({ type: "knob", x: 70 + (i % 4) * 58, y: 40 + Math.floor (i / 4) * 52, w: 20, h: 20,
+        style: i < 4 ? "capblue" : "capred", value: 30 + i * 7, text: t, scale: true, min: 0, max: 10, steps: 10, nums: "none" })),
+      { type: "display", x: 370, y: 44, w: 110, h: 36, colour: "#b77dff", text: "SAW" },
+      { type: "ladder", x: 440, y: 100, w: 5, h: 30, segments: 12, value: 60 },
+      { type: "button", x: 370, y: 100, w: 12, h: 12, style: "round", on: true, colour: "#b77dff", text: "GATE" } ]),
   };
+
+  // The gradients and filters every picture on the page shares: first in the page, never hidden (see render)
+  defs (document.getElementById ("d-defs"));
+
+  /** A whole design as a small picture (the preset cards): drawn as the editor draws it. */
+  function designThumb (d, width = 150) {
+    const t = document.createElementNS (NS, "svg"), was = design, wasSel = selected;
+    design = d; selected = [];
+    render (t, "edit", false);
+    design = was; selected = wasSel;
+    t.setAttribute ("width", width); t.setAttribute ("height", Math.round (width * (d.unit.height * U + 12) / (W + 12)));
+    t.setAttribute ("aria-hidden", "true");
+    return t;
+  }
 
   // ---------------------------------------------------------------------------------------------------
   // Saving in this browser only (a convenience; it never leaves it), share, export
@@ -944,19 +1171,42 @@
     if (!writeLib (a)) alert ("This browser would not keep it (private mode or storage is full)."); showLib();
   });
 
+  // Sharing: a link (the design rides in the part after "#", which browsers never send to any server), the
+  // system's own share sheet where there is one, or a small file - no typing anywhere
   const dialog = $("share-dialog");
+  const shareLink = () => location.href.split ("#")[0] + "#d=" + $("share-code").value;
   $("share").addEventListener ("click", async () => {
     const code = await encode (design); $("share-code").value = code; $("import-msg").textContent = "";
+    $("send-native").hidden = typeof navigator.share !== "function";
     dialog.showModal();
   });
   $("share-close").addEventListener ("click", () => dialog.close());
   const copy = async (s, btn) => { try { await navigator.clipboard.writeText (s); const t = btn.textContent; btn.textContent = "Copied"; setTimeout (() => (btn.textContent = t), 1400); } catch (_) { $("share-code").select(); } };
   $("copy-code").addEventListener ("click", (e) => copy ($("share-code").value, e.currentTarget));
-  $("copy-link").addEventListener ("click", (e) => copy (location.href.split ("#")[0] + "#d=" + $("share-code").value, e.currentTarget));
-  $("import-go").addEventListener ("click", async () => {
-    try { replaceDesign (await decode ($("import-code").value)); dialog.close(); }
-    catch (err) { $("import-msg").textContent = err && err.message ? err.message : "That code could not be opened."; }
+  $("copy-link").addEventListener ("click", (e) => copy (shareLink(), e.currentTarget));
+  $("send-native").addEventListener ("click", async () => { try { await navigator.share ({ title: design.unit.name || "My rack unit", text: "A rack unit I designed", url: shareLink() }); } catch (_) { /* cancelled */ } });
+  $("save-file").addEventListener ("click", () => download (new Blob ([$("share-code").value + "\n"], { type: "text/plain" }), fileName ("enh")));
+  // Opening: a pasted link or code, a chosen file, a file dropped on the stage - all through the decoder
+  async function openCode (text, msgEl) {
+    try { replaceDesign (await decode (text)); if (dialog.open) dialog.close(); return true; }
+    catch (err) { if (msgEl) msgEl.textContent = err && err.message ? err.message : "That could not be opened."; return false; }
+  }
+  const readFile = (f) => (f && f.size <= MAX_CODE + 64 ? f.text() : Promise.reject (new Error ("That file is not a design (too big).")));
+  $("import-go").addEventListener ("click", () => openCode ($("import-code").value, $("import-msg")));
+  $("open-file").addEventListener ("click", () => $("open-file-input").click());
+  $("open-file-input").addEventListener ("change", async (e) => {
+    try { await openCode (await readFile (e.target.files[0]), $("import-msg")); } catch (err) { $("import-msg").textContent = err.message; }
+    e.target.value = "";
   });
+  const stageEl = $("stage");
+  stageEl.addEventListener ("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes ("Files")) { e.preventDefault(); stageEl.classList.add ("drop"); } });
+  stageEl.addEventListener ("dragleave", () => stageEl.classList.remove ("drop"));
+  stageEl.addEventListener ("drop", async (e) => {
+    e.preventDefault(); stageEl.classList.remove ("drop");
+    try { await openCode (await readFile (e.dataTransfer.files[0]), null); } catch (_) { /* not a design */ }
+  });
+  // A link clicked while the designer is already open
+  window.addEventListener ("hashchange", () => { if (location.hash.startsWith ("#d=")) openCode (location.hash, null); });
 
   function download (blob, name) { const a = document.createElement ("a"); a.href = URL.createObjectURL (blob); a.download = name; a.click(); setTimeout (() => URL.revokeObjectURL (a.href), 2000); }
   const fileName = (ext) => (design.unit.name || "unit").toLowerCase().replace (/[^a-z0-9]+/g, "-").replace (/^-|-$/g, "") + "." + ext;
@@ -976,9 +1226,26 @@
   $("zoom-in").addEventListener ("click", () => setZoom (zoom * 1.2)); $("zoom-out").addEventListener ("click", () => setZoom (zoom / 1.2));
   $("zoom-fit").addEventListener ("click", () => { const w = $("stage").clientWidth - 24; setZoom (w / ((W + 12) * 2)); });
 
+  // Tool tabs (the rail on the left): one panel at a time, arrow keys between them, the last one used remembered
+  const tabs = [...document.querySelectorAll ('.d-rail [role="tab"]')];
+  function showTab (t, focus) {
+    for (const b of tabs) { const on = b === t; b.setAttribute ("aria-selected", String (on)); b.tabIndex = on ? 0 : -1; $(b.getAttribute ("aria-controls")).hidden = !on; }
+    if (focus) t.focus();
+    try { localStorage.setItem ("enh-designer-tab", t.id); } catch (_) { /* fine */ }
+  }
+  tabs.forEach ((b, i) => {
+    b.addEventListener ("click", () => showTab (b));
+    b.addEventListener ("keydown", (e) => { const k = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (k) { e.preventDefault(); showTab (tabs[(i + k + tabs.length) % tabs.length], true); } });
+  });
+  try { const t = document.getElementById (localStorage.getItem ("enh-designer-tab") || ""); if (t && tabs.includes (t)) showTab (t); } catch (_) { /* fine */ }
+
   // Palette and templates
   for (const type in TYPES) { const b = document.createElement ("button"); b.type = "button"; b.textContent = TYPES[type].label; b.addEventListener ("click", () => addPart (type)); $("palette").appendChild (b); }
-  for (const name in templates) { const b = document.createElement ("button"); b.type = "button"; b.textContent = name;
+  for (const name in templates) {
+    const b = document.createElement ("button"); b.type = "button"; b.className = "d-tpl";
+    b.appendChild (designThumb (sanitize (templates[name]())));
+    const n = document.createElement ("span"); n.textContent = name; b.appendChild (n);
     b.addEventListener ("click", () => replaceDesign (sanitize (templates[name]()))); $("templates").appendChild (b); }
 
   // ?selftest: hostile share codes through the decoder, and a round trip (results printed on the page)
@@ -996,6 +1263,11 @@
     ok (d.parts.length === MAX_PARTS, "at most " + MAX_PARTS + " parts (" + d.parts.length + ")");
     const k = d.parts[0]; ok (k.x === W && k.y === 0 && k.value === 100 && k.style === "ribbed" && k.text.length <= 40 && !/[<>]/.test (k.text), "part numbers clamp, styles checked, text limited");
     ok (!({}).polluted, "no prototype pollution");
+    const sd = sanitize ({ unit: { desc: "Line one\n<script>x</script>\n" + "z".repeat (900), shine: 900 } });
+    ok (!/[<>]/.test (sd.unit.desc) && sd.unit.desc.length <= 600 && sd.unit.desc.includes ("\n") && sd.unit.shine === 100, "descriptions keep lines, lose markup, and are limited");
+    const c2 = await encode (sanitize (templates["Console channel"]()));
+    ok (/^ENH2(-[0-9A-Za-z]{1,4})+$/.test (c2), "codes come in dashed groups of four (" + c2.split ("-").length + " groups)");
+    let bad = false; try { await decode (c2.slice (0, -3) + "!!!"); } catch (_) { bad = true; } ok (bad, "a damaged code is refused");
     const odd = await decode (await mk ({ v: 1, u: {}, p: [{ t: "label", be: "evil", ra: 1e9, cu: -1e9, gp: -4, fl: "yes" }, { t: "knob", st: 999, nu: "<x>", sw: 5, le: 1 }] }));
     const [ol, ok2] = odd.parts;
     ok (ol.bend === "none" && ol.radius === 240 && ol.curve === -100 && !("grp" in ol) && ol.flip === false, "text-bending fields are checked and clamped");

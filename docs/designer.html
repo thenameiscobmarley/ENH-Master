@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <title>Rack Unit Designer</title>
-<meta name="description" content="Design your own rack unit in the ENH Master style - faceplate, knobs, meters, switches, print - and share it with a code. Nothing is stored anywhere.">
+<meta name="description" content="Design your own rack unit in the ENH Master style - faceplate, finish, knobs, meters, switches, print - and share it with a code. Nothing is stored anywhere.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#050608">
 <link rel="stylesheet" href="site.css">
@@ -17,32 +17,53 @@
 <script type="module" src="designer3d.js"></script>
 </head>
 <body class="designer">
+<svg id="d-defs" class="d-defs" aria-hidden="true" focusable="false"></svg>
 <a class="skip" href="#stage">Skip to the design</a>
 <header class="d-top">
   <a class="d-home" href="index.html">← ENH Master</a>
   <h1>Rack Unit Designer</h1>
   <div class="d-top-actions">
-    <button type="button" id="undo" title="Undo (Ctrl+Z)">Undo</button>
-    <button type="button" id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    <div class="d-group" role="group" aria-label="History">
+      <button type="button" id="undo" title="Undo (Ctrl+Z)">Undo</button>
+      <button type="button" id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    </div>
     <button type="button" id="play" aria-pressed="false" title="Turn the knobs and flip the switches (P)">Play</button>
+    <div class="d-group" role="group" aria-label="File">
+      <button type="button" id="clear" title="Start again from a blank unit">New</button>
+      <button type="button" id="export-png" title="Save a picture of the unit">PNG</button>
+      <button type="button" id="export-svg" title="Save the unit as a vector drawing">SVG</button>
+    </div>
     <button type="button" id="share" class="primary">Share</button>
   </div>
 </header>
 
 <main id="main" class="d-main">
-  <aside class="d-panel d-left" aria-label="Unit and parts">
-    <section>
-      <h2>Unit</h2>
-      <label>Name <input id="u-name" maxlength="40" autocomplete="off"></label>
-      <label>Model <input id="u-model" maxlength="24" autocomplete="off"></label>
-      <label>Second line <input id="u-sub" maxlength="40" autocomplete="off" placeholder="e.g. CLASS A  -  DISCRETE"></label>
-      <label>Badge <input id="u-badge" maxlength="16" autocomplete="off" placeholder="(none)"></label>
+  <nav class="d-rail" role="tablist" aria-label="Tools" aria-orientation="vertical">
+    <button type="button" role="tab" id="t-look" aria-controls="p-look" aria-selected="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z"/></svg><span>Look</span></button>
+    <button type="button" role="tab" id="t-details" aria-controls="p-details" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h14M5 16h9"/></svg><span>Details</span></button>
+    <button type="button" role="tab" id="t-parts" aria-controls="p-parts" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M16 6v12M13 9h6"/></svg><span>Parts</span></button>
+    <button type="button" role="tab" id="t-presets" aria-controls="p-presets" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="5" rx="1"/><rect x="4" y="14" width="16" height="5" rx="1"/></svg><span>Presets</span></button>
+    <button type="button" role="tab" id="t-library" aria-controls="p-library" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M9 11h6M9 15h6"/></svg><span>Mine</span></button>
+  </nav>
+
+  <aside class="d-panel d-left" aria-label="Tools">
+    <section role="tabpanel" id="p-look" aria-labelledby="t-look">
+      <h2>Look</h2>
       <label>Height <select id="u-height"><option value="1">1U</option><option value="2">2U</option><option value="3">3U</option><option value="4">4U</option></select></label>
       <div class="d-field"><span>Finish</span><div id="u-finish"></div></div>
+      <label>Shine <input type="range" id="u-shine" min="0" max="100" aria-describedby="shine-hint"></label>
+      <p class="muted small d-hint-inline" id="shine-hint">Left: matte. Middle: as the finish comes. Right: wet gloss.</p>
+      <div class="d-row2">
+        <label class="row">Panel <input type="color" id="u-colour"></label>
+        <label class="row">Print <input type="color" id="u-ink"></label>
+      </div>
       <div class="d-field"><span>Edge</span><div id="u-edge"></div></div>
       <div class="d-field"><span>Lettering</span><div id="u-font"></div></div>
-      <label class="row">Panel <input type="color" id="u-colour"></label>
-      <label class="row">Print <input type="color" id="u-ink"></label>
       <div class="d-field"><span>Ears</span><div id="u-ears"></div></div>
       <div class="d-field"><span>Ear finish</span><div id="u-earColour"></div></div>
       <div class="d-field"><span>Handles</span><div id="u-handles"></div></div>
@@ -50,19 +71,29 @@
       <label>Wear <input type="range" id="u-wear" min="0" max="100"></label>
       <label class="row"><input type="checkbox" id="u-grid"> Snap to grid</label>
     </section>
-    <section>
+    <section role="tabpanel" id="p-details" aria-labelledby="t-details" hidden>
+      <h2>Details</h2>
+      <label>Name <input id="u-name" maxlength="40" autocomplete="off"></label>
+      <label>Model <input id="u-model" maxlength="24" autocomplete="off"></label>
+      <label>Second line <input id="u-sub" maxlength="40" autocomplete="off" placeholder="e.g. CLASS A  -  DISCRETE"></label>
+      <label>Badge <input id="u-badge" maxlength="16" autocomplete="off" placeholder="(none)"></label>
+      <label>Description <textarea id="u-desc" rows="9" maxlength="600" placeholder="What does this unit do, and how does it work? Whoever opens your design reads this."></textarea></label>
+      <p class="muted small">Plain text, up to 600 characters. It travels with the design in its share code.</p>
+    </section>
+    <section role="tabpanel" id="p-parts" aria-labelledby="t-parts" hidden>
+      <h2>Add a part</h2>
+      <div class="d-palette" id="palette" role="group" aria-label="Parts to add"></div>
+      <p class="muted small">It lands in the middle of the panel; drag it where you want it.</p>
+    </section>
+    <section role="tabpanel" id="p-presets" aria-labelledby="t-presets" hidden>
+      <h2>Start from a preset</h2>
+      <div class="d-templates" id="templates"></div>
+    </section>
+    <section role="tabpanel" id="p-library" aria-labelledby="t-library" hidden>
       <h2>My designs</h2>
       <p class="muted small">Kept in this browser only - never uploaded.</p>
       <div class="d-save"><input id="lib-name" maxlength="40" placeholder="Name this design" autocomplete="off" aria-label="Design name"><button type="button" id="lib-save">Save</button></div>
       <ul class="d-lib" id="lib-list"></ul>
-    </section>
-    <section>
-      <h2>Add</h2>
-      <div class="d-palette" id="palette" role="group" aria-label="Parts to add"></div>
-    </section>
-    <section>
-      <h2>Start from</h2>
-      <div class="d-templates" id="templates"></div>
     </section>
   </aside>
 
@@ -76,18 +107,24 @@
       <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
       <button type="button" id="zoom-fit">Fit</button>
     </div>
-    <div class="d-stage3d" id="stage3d" hidden><canvas id="c3d" aria-label="Your unit in 3D: drag to turn it, the wheel to come closer, click a part to select it"></canvas>
-      <p class="d-3dnote" id="note3d"></p></div>
-    <div class="d-stage" id="stage" tabindex="0" aria-label="The faceplate. Arrow keys move the selected part; Delete removes it.">
-      <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="svg-title"><title id="svg-title">Your rack unit</title></svg>
+    <div class="d-stage-scroll">
+      <div class="d-stage3d" id="stage3d" hidden><canvas id="c3d" aria-label="Your unit in 3D: drag to turn it, the wheel to come closer, click a part to select it"></canvas>
+        <p class="d-3dnote" id="note3d"></p></div>
+      <div class="d-stage" id="stage" tabindex="0" aria-label="The faceplate. Arrow keys move the selected part; Delete removes it.">
+        <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="svg-title"><title id="svg-title">Your rack unit</title></svg>
+      </div>
+      <article class="d-about" id="about" hidden>
+        <h2 id="about-title">About this unit</h2>
+        <p id="about-text"></p>
+      </article>
     </div>
-    <p class="d-hint">Click a part to select it · drag on empty space to box-select · Shift adds · Alt-click picks one part of a group · drag to move · arrows nudge (Shift: 10×) · Ctrl+C / X / V copy, cut, paste · Ctrl+A all · Ctrl+G group (Shift: ungroup) · Ctrl+D duplicate · Delete removes · P plays</p>
+    <p class="d-hint">Click a part to select it · drag on empty space to box-select · Shift adds · Alt-click picks one part of a group · arrows nudge (Shift: 10×) · Ctrl+C / X / V · Ctrl+A all · Ctrl+G group · Ctrl+D duplicate · Delete removes · P plays</p>
   </section>
 
   <aside class="d-panel d-right" aria-label="Selected part">
     <section id="props">
       <h2>Selected</h2>
-      <p class="muted small" id="props-empty">Nothing selected. Click a part on the faceplate, or add one.</p>
+      <p class="muted small" id="props-empty">Nothing selected. Click a part on the faceplate, or add one from Parts.</p>
       <div id="props-body"></div>
     </section>
     <section id="align" hidden>
@@ -99,26 +136,28 @@
         <button type="button" data-align="hdist">Spread across</button><button type="button" data-align="vdist">Spread down</button>
       </div>
     </section>
-    <section>
-      <h2>Export</h2>
-      <div class="d-btns">
-        <button type="button" id="export-png">Save PNG</button>
-        <button type="button" id="export-svg">Save SVG</button>
-        <button type="button" id="clear">New blank unit</button>
-      </div>
-    </section>
   </aside>
 </main>
 
 <dialog id="share-dialog" aria-labelledby="share-title">
   <h2 id="share-title">Share your design</h2>
-  <p class="muted small">The code below <b>is</b> your design, packed and compressed. It is never uploaded or stored anywhere:
-    whoever you send it to opens it in their own browser. It holds only the design (the parts, their places and
-    settings, the names you typed) - nothing about you or your computer.</p>
-  <label>Share code <textarea id="share-code" readonly rows="4"></textarea></label>
-  <div class="d-btns"><button type="button" id="copy-code">Copy code</button><button type="button" id="copy-link">Copy link</button></div>
+  <p class="muted small">Nothing is uploaded: the link and the file carry the design itself, and only the design (its parts,
+    settings, names and description) - nothing about you or your computer.</p>
+  <div class="d-share-send">
+    <button type="button" id="send-native" class="primary" hidden>Send…</button>
+    <button type="button" id="copy-link" class="primary">Copy link</button>
+    <button type="button" id="save-file">Save as a file</button>
+  </div>
+  <p class="muted small">Paste the link in a chat: whoever clicks it opens your design. Or send the file: they open it here
+    (Open a file, or drop it on the unit).</p>
+  <details class="d-code"><summary>Show the code</summary>
+    <label>Share code <textarea id="share-code" readonly rows="5"></textarea></label>
+    <div class="d-btns"><button type="button" id="copy-code">Copy code</button></div>
+  </details>
   <hr>
-  <label>Open a design from a code <textarea id="import-code" rows="3" placeholder="Paste a share code (starts with ENH1.)"></textarea></label>
+  <h3 class="d-sub">Open a design</h3>
+  <div class="d-btns"><button type="button" id="open-file">Open a file…</button><input type="file" id="open-file-input" accept=".enh,.txt,text/plain" hidden></div>
+  <label>…or paste a link or code <textarea id="import-code" rows="3" placeholder="A link, or a code starting with ENH2-"></textarea></label>
   <p class="small" id="import-msg" role="status"></p>
   <div class="d-btns"><button type="button" id="import-go" class="primary">Open design</button><button type="button" id="share-close">Close</button></div>
 </dialog>

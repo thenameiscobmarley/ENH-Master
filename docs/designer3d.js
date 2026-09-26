@@ -190,16 +190,17 @@ async function rebuild () {
 
   // The faceplate: a plate of the design's edge, its print laid on the front
   const rx = u.edge === "square" ? 0.3 : u.edge === "bevel" ? 0.8 : 1.6;
-  const plateMat = new MeshPhysicalMaterial ({ color: u.colour, roughness: u.finish === "brushed" ? 0.35 : u.finish === "anodised" ? 0.42 : 0.5,
-    metalness: u.finish === "brushed" ? 0.85 : u.finish === "anodised" ? 0.45 : 0.1, clearcoat: u.finish === "paint" || u.finish === "hammertone" ? 0.6 : 0.2, clearcoatRoughness: 0.25 });
+  // Each finish's own surface: how rough, how metallic, how much clear coat (the designer's finish table)
+  const pbr = D.finishPbr (u.finish, u.shine);
+  const plateMat = new MeshPhysicalMaterial ({ color: u.colour, roughness: pbr.roughness, metalness: pbr.metalness, clearcoat: pbr.clearcoat, clearcoatRoughness: 0.12 });
   root.add (mesh (new ExtrudeGeometry (rrect (W, H, rx), { depth: 3, bevelEnabled: u.edge !== "square", bevelThickness: 0.6, bevelSize: u.edge === "bevel" ? 1.0 : 0.5, bevelSegments: u.edge === "bevel" ? 1 : 3, curveSegments: 8 })
     .translate (0, 0, -3.65), plateMat));   // (its front, bevel and all, just behind the printed face)
   const canvasTex = await D.printCanvas (6);
   if (canvasTex) {
     if (texture) texture.dispose();
     texture = new CanvasTexture (canvasTex); texture.colorSpace = SRGBColorSpace; texture.anisotropy = 4;
-    const face = mesh (new PlaneGeometry (W - 0.6, H - 0.6), new MeshPhysicalMaterial ({ map: texture, roughness: u.finish === "brushed" ? 0.34 : u.finish === "anodised" ? 0.4 : 0.48,
-      metalness: u.finish === "brushed" ? 0.75 : u.finish === "anodised" ? 0.35 : 0.05, clearcoat: u.finish === "paint" || u.finish === "hammertone" ? 0.55 : 0.2, clearcoatRoughness: 0.22 }), false);
+    const face = mesh (new PlaneGeometry (W - 0.6, H - 0.6), new MeshPhysicalMaterial ({ map: texture, roughness: pbr.roughness,
+      metalness: pbr.metalness * 0.9, clearcoat: pbr.clearcoat, clearcoatRoughness: 0.1 }), false);
     face.position.z = 0.02; root.add (face);
   }
   // The chassis behind it
