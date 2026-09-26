@@ -22,6 +22,8 @@
 #include "Character.h"
 #include "Lunchbox.h"
 #include "OutputStage.h"
+#include "HeadphoneEQ.h"
+#include "HeadphoneCare.h"
 #include "LoudnessMeter.h"
 #include "MixBalancer.h"
 #include "EngineMeters.h"
@@ -172,6 +174,9 @@ namespace enh::dsp
         SvfCoeffs protectHp {};
         std::array<SvfState, 2> protectState {};
         float startGain = 0.0f, startStep = 1.0f;
+        SessionCare sessionCare; // LONG SESSIONS: a forward balance eased over tens of seconds
+        HeadphoneRoom room;      // HEADPHONE ROOM: early reflections, out of the head
+        HeadphoneEQ headphones;  // HEADPHONES: the listener's headphones corrected (after COMPARE: A and B alike)
         LoudnessTarget target;   // LOUDNESS TARGET, just before the output limiter
         FinalLimiter output;
         EarGuard earGuard;   // always on: no sudden jump far over how loud it has been

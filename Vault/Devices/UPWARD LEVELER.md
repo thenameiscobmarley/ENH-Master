@@ -19,6 +19,12 @@ high), so a quiet mid can come up even under loud bass. Loud sounds are left alo
 - It measures each channel, so wide and out-of-phase sounds are treated like mono ones.
 - While the SPECTRAL LIMITER handles a bass hit, it holds still.
 
+## What keeps it from brightening
+
+The top band (above 2.2 kHz) only rises with the midrange, plus a little (BAND BALANCE: 0.5, 1.5 or
+3 dB). Music's treble sits well under its mids; lifted on its own, it made a mix brighter than it was made
+and tiring after a while. Quiet detail still comes up, with the midrange where footsteps and voices are.
+
 ## In its glass panel
 
 **LIFT** (standard, gentle, big) · **GATE** (how quiet is "too quiet to lift") · **BAND BALANCE** ·

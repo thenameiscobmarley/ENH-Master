@@ -49,6 +49,14 @@ namespace enh::dsp
         const float liftScale = s.lift == 1 ? 0.6f : s.lift == 2 ? 1.3f : 1.0f;
         const float gateDb = s.gate == 1 ? 66.0f : s.gate == 2 ? 50.0f : 58.0f;
 
+        // The top band keeps the material's own tilt: it rises with the midrange, plus a little (BAND
+        // BALANCE's allowance), never on its own. With only its own target (1.5 dB under the mids') it went to
+        // its full 9 dB on music while the mids took 2.5 - a mix brighter than it was made, and tiring after a
+        // while (EnhAudioLab listen). A "restore the usual tilt" exception let the gaps between hi-hat hits
+        // read as lost detail and did the same, so there is none: quiet detail comes up with the midrange,
+        // where footsteps and voices mostly are.
+        const float allowDb = s.balance == 1 ? 0.5f : s.balance == 2 ? 3.0f : 1.5f;
+
         float sum = 0.0f, active = 0.0f;
 
         for (int b = 0; b < numBands; ++b)
@@ -115,6 +123,8 @@ namespace enh::dsp
                 // BIG did nothing wherever the standard lift did not reach its ceiling. Never past the target.
                 wanted = std::min ({ deficit * relative * gate * liftScale, deficit, maxGain[(size_t) b] });
             }
+            if (b == 2)
+                wanted = std::min (wanted, bands[1].gainDb + allowDb);
 
             // Hold after loud material: do not start lifting the moment a loud passage ends.
             if (levelDb > targetDb)

@@ -410,6 +410,35 @@ OUTPUT. Parameter `earGuard`.
 | **15** 15 dB | The same guard, allowing jumps of up to 15 dB (nearly three times as loud). | More room for cinematic hits; extreme jumps are still held. | 5 ms look-ahead. Glides with the guard's release. |
 | **18** Cinematic: 18 dB | The same guard, allowing jumps of up to 18 dB (three and a half times as loud). | Explosions and gunfire keep most of their punch; only the most extreme jumps are held. It can't be switched off. | 5 ms look-ahead. Glides with the guard's release. |
 
+### HEADPHONES - Which headphones to correct for
+
+OUTPUT. Parameter `outputHeadphones`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **OFF** No correction (default) | Nothing: for speakers, or headphones you like as they are. | The original. | No cost (default). |
+| **599** Sennheiser HD 599 / 599 SE | This model's measured response (oratory1990, via AutoEQ), corrected toward the Harman over-ear target. | The open back's missing deep bass comes back (+6 dB shelf), the mid-bass hump and the 3 and 5.8 kHz peaks go down (less tiring), the mids fill out and the air above 8 kHz returns. As loud as without. | No latency. Ten filters per channel. |
+
+### HEADPHONE ROOM - Where the sound sits on headphones
+
+OUTPUT. Parameter `outputRoom`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **OFF** Off (default) | Nothing: each ear hears only its own channel. | The original headphone image. | No cost (default). |
+| **NR** Near | Eight early reflections per ear from a small room, 14 - 26 dB down; the far side's through the head's shadow, the two ears' timing a hair apart. The direct sound is untouched. | The sound moves out of your head to just in front of you. Directions and footstep timing stay where they were. | No latency. Delay lines; next to no CPU. |
+| **RM** Room | The same from a larger room, 13 - 25 dB down, up to 29 ms. | More depth and distance; music and films sit further away, like good speakers. | No latency. Delay lines; next to no CPU. |
+
+### LONG SESSIONS - How it keeps a long session from tiring you
+
+OUTPUT. Parameter `outputSessions`.
+
+| Method | What it measures / does | How the sound changes | CPU / latency |
+|---|---|---|---|
+| **OFF** Off (default) | Nothing. | The original balance. | No cost (default). |
+| **GEN** Gentle | The balance of 2 - 6 kHz (where the ear is most sensitive) against 200 Hz - 2 kHz, over seconds. When it leans further forward than a well-balanced mix, a broad bell at 3.4 kHz and a gentle shelf above 7 kHz come down - 1.5 dB at most. | A long session tires you less. It moves over tens of seconds, so you never hear it move; balanced material is left alone. | No latency. Two EQ bands per channel. |
+| **CAR** Care | The same, up to 3 dB. | For bright, forward material or sensitive ears; still never dull. | No latency. Two EQ bands per channel. |
+
 ### TONE RANGE - The tone-change curve's scale
 
 DISPLAY. Parameter `displayToneRange`.

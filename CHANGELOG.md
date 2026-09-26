@@ -5,6 +5,25 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.13.14 — easier on the ears, made for headphones
+
+- **Less fatiguing by default.** The UPWARD LEVELER lifted a mix's whole top end by itself - on music its
+  treble went to +9 dB while the mids took +2.5 - so everything came out brighter than it was made and tired
+  the ear after a while. The top band now only rises with the midrange (plus 0.5 - 3 dB, by BAND BALANCE).
+  Across every factory preset, the presence it adds to music halved (+0.6 -> +0.3 dB on average) and music
+  is less sharp on every one. Quiet detail - footsteps, voices - still comes up.
+- **New in the OUTPUT MONITOR's glass panel, for headphones** (no latency, next to no CPU; presets don't
+  change them):
+  - **HEADPHONES: Sennheiser HD 599 / 599 SE** - that model's own colouring taken out, from its published
+    measurement (oratory1990, via AutoEQ) toward the Harman target: the open back's missing deep bass back,
+    the mid-bass hump and the tiring 3.2 and 5.8 kHz peaks down, the thin 1.7 kHz mids filled out. Just as loud.
+  - **HEADPHONE ROOM: NEAR / ROOM** - quiet early reflections, like a real room's, so the sound sits in front
+    of you instead of inside your head. Directions and footstep timing don't move.
+  - **LONG SESSIONS: GENTLE / CARE** - a forward balance (too much 2 - 6 kHz, where the ear tires) eased back
+    by up to 1.5 / 3 dB, over tens of seconds, so you never hear it move.
+- **EnhAudioLab listen:** a listening benchmark for every preset - sharpness, narrow resonances, 2 - 6 kHz
+  sting, presence balance and IACC (how far the sound is from "inside the head"); every report has them too.
+
 ## 3.7.13.13 — a calmer rack, and a clearer delay
 
 - **The analog engine behaves like circuits, not curves.** In CHARACTER every model now has its own

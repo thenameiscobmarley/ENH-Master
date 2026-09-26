@@ -25,5 +25,15 @@ Shows what the rack did to your sound: the input in pencil, the output in ink.
 - **CEILING** — 0, −0.3 or −1 dBFS.
 - **LOUDNESS TARGET** — OFF, −23, −18 or −14 LUFS: brings everything to one loudness. It moves
   slowly, ignores short bangs and pauses, and never lifts near-silence.
+- **HEADPHONES** — OFF or **Sennheiser HD 599 / 599 SE**: takes that model's own colouring out (its
+  measured response, oratory1990 via AutoEQ, toward the Harman target): the missing deep bass back, the
+  mid-bass hump and the 3 and 5.8 kHz peaks down, the mids filled out. Just as loud. No latency.
+- **HEADPHONE ROOM** — OFF, NEAR or ROOM: a few quiet early reflections, like a real room's, so the sound
+  sits in front of you instead of inside your head. Directions and footstep timing don't move.
+- **LONG SESSIONS** — OFF, GENTLE or CARE: when the sound leans forward (too much 2–6 kHz, where the ear
+  tires), eases it back by up to 1.5 or 3 dB, over tens of seconds, so you never hear it move.
+  Balanced sound is left alone.
 
-Code: `LoudnessMeter.h`, `LoudnessTarget.h`, `FinalLimiter.h`.
+These three are for your headphones, not the sound: presets don't change them.
+
+Code: `LoudnessMeter.h`, `LoudnessTarget.h`, `FinalLimiter.h`, `HeadphoneEQ.h`, `HeadphoneCare.h`.

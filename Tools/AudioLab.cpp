@@ -24,6 +24,7 @@
       EnhAudioLab trace   (--scene NAME | --in FILE.wav) [--preset NAME] [--set param=value]... --out DIR
       EnhAudioLab compare A.wav B.wav --out DIR
       EnhAudioLab suite   --out DIR         every scene through a set of presets, with a summary table
+      EnhAudioLab listen  [PRESET]          the listening benchmark: sharpness, resonances, sting, presence, IACC
       EnhAudioLab check   [--update] [--only TEXT] [--threads N] [--baseline FILE] [--out DIR]
                           the self-test: every factory preset through the scenes, held to hard rules and compared with
                           Tests/lab-baseline.json; exit code 0 only when everything holds (--update: accept as the new baseline)
@@ -555,6 +556,92 @@ namespace lab
 
     float dbOf (double power) { return (float) (10.0 * std::log10 (power + 1.0e-20)); }
 
+    //==============================================================================
+    // Listening: fatigue and "expensive", measured. Relative figures - compare OUT with IN, or two presets.
+    struct Tone
+    {
+        float sharp = 0;      // sharpness (after DIN 45692, from third-octave levels; ~acum): how bright it feels
+        float spikes = 0;     // the most a narrow (1/12 octave) peak stands over its 2/3-octave neighbourhood, 2 - 8 kHz, dB
+        float sting = 0;      // 2 - 6 kHz in 10 ms steps: the 99th percentile over the median, dB (spiky, stinging moments)
+        float presence = 0;   // 1 - 6 kHz against 100 Hz - 1 kHz, dB (a forward, shouty balance tires the ear)
+        float iacc = 1;       // interaural cross-correlation, 500 Hz - 4 kHz, +-1 ms: 1 = both ears the same (inside the head)
+    };
+
+    Buffer bandPassed (const Buffer& b, float lo, float hi)
+    {
+        Buffer o (b);
+        for (int c = 0; c < o.getNumChannels(); ++c)
+        {
+            juce::dsp::IIR::Filter<float> h1, h2, l1, l2;
+            h1.coefficients = h2.coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass (sr, lo);
+            l1.coefficients = l2.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass (sr, hi);
+            auto* x = o.getWritePointer (c);
+            for (int i = 0; i < o.getNumSamples(); ++i)
+                x[i] = l2.processSample (l1.processSample (h2.processSample (h1.processSample (x[i]))));
+        }
+        return o;
+    }
+
+    Tone toneOf (const Buffer& b)
+    {
+        Tone t;
+        const auto sp = averageSpectrum (b);
+        auto bark = [] (float f) { return 26.81f * f / (1960.0f + f) - 0.53f; };
+        double num = 0.0, den = 0.0;
+        for (float f = 25.0f; f <= 16000.0f; f *= std::pow (2.0f, 1.0f / 3.0f))
+        {
+            const float lo = f * std::pow (2.0f, -1.0f / 6.0f), hi = f * std::pow (2.0f, 1.0f / 6.0f);
+            const double intensity = std::pow (10.0, bandDb (sp, lo, hi) / 10.0);
+            const double dz = std::max (0.05f, bark (hi) - bark (lo)), z = bark (f);
+            const double loud = std::pow (intensity / dz, 0.23) * dz;   // Stevens' power law, per Bark
+            const double g = z < 15.8 ? 1.0 : 0.85 + 0.15 * std::exp (0.42 * (z - 15.8));
+            num += loud * g * z;
+            den += loud;
+        }
+        t.sharp = den > 0.0 ? (float) (0.11 * num / den) : 0.0f;
+        t.spikes = -100.0f;
+        for (float f = 2000.0f; f <= 8000.0f; f *= std::pow (2.0f, 1.0f / 48.0f))
+            t.spikes = std::max (t.spikes, bandDb (sp, f * std::pow (2.0f, -1.0f / 24.0f), f * std::pow (2.0f, 1.0f / 24.0f))
+                                          - bandDb (sp, f * std::pow (2.0f, -1.0f / 3.0f), f * std::pow (2.0f, 1.0f / 3.0f)) + 9.03f);
+        t.presence = bandDb (sp, 1000.0f, 6000.0f) - bandDb (sp, 100.0f, 1000.0f);
+        {
+            const auto h = bandPassed (b, 2000.0f, 6000.0f);
+            const int frame = (int) (0.010 * sr);
+            std::vector<float> lv;
+            for (int pos = 0; pos + frame <= h.getNumSamples(); pos += frame)
+            {
+                double e = 0.0;
+                for (int i = pos; i < pos + frame; ++i) { const float m = 0.5f * (h.getSample (0, i) + h.getSample (1, i)); e += (double) m * m; }
+                lv.push_back (dbOf (e / frame));
+            }
+            if (! lv.empty())
+            {
+                const float top = *std::max_element (lv.begin(), lv.end());
+                lv.erase (std::remove_if (lv.begin(), lv.end(), [top] (float x) { return x < top - 60.0f; }), lv.end());
+                std::sort (lv.begin(), lv.end());
+                if (lv.size() > 10) t.sting = lv[(size_t) (0.99 * (double) (lv.size() - 1))] - lv[lv.size() / 2];
+            }
+        }
+        {
+            const auto h = bandPassed (b, 500.0f, 4000.0f);
+            const float* l = h.getReadPointer (0);
+            const float* r = h.getReadPointer (1);
+            const int n = h.getNumSamples(), lag = (int) (0.001 * sr);
+            double ll = 0.0, rr = 0.0;
+            for (int i = 0; i < n; ++i) { ll += (double) l[i] * l[i]; rr += (double) r[i] * r[i]; }
+            double best = -1.0;
+            for (int k = -lag; k <= lag; ++k)
+            {
+                double x = 0.0;
+                for (int i = std::max (0, -k); i < std::min (n, n - k); ++i) x += (double) l[i] * r[i + k];
+                best = std::max (best, x / std::sqrt (ll * rr + 1.0e-30));
+            }
+            t.iacc = (float) best;
+        }
+        return t;
+    }
+
+
     struct Stats
     {
         float peakDb = -200, truePeakDb = -200, rmsDb = -200, lufsI = -70, maxMomentary = -120, maxShortTerm = -120, lra = 0;
@@ -1036,6 +1123,15 @@ namespace lab
         r << "correlation L/R     " << fmt (si.correlation, 3).paddedLeft (' ', 8) << "  " << fmt (so.correlation, 3).paddedLeft (' ', 8) << "\n";
         r << "DC offset           " << juce::String (si.dc, 6).paddedLeft (' ', 8) << "  " << juce::String (so.dc, 6).paddedLeft (' ', 8) << "\n";
         r << "samples over 0 dBFS " << juce::String (si.clipped).paddedLeft (' ', 8) << "  " << juce::String (so.clipped).paddedLeft (' ', 8) << "\n\n";
+        {
+            const auto ti = toneOf (in), to = toneOf (out);
+            r << "How it sits on the ear (relative figures: fatigue, harshness, depth)\n";
+            row ("sharpness", ti.sharp, to.sharp, "~acum (lower: less bright / tiring)");
+            row ("resonances", ti.spikes, to.spikes, "dB, narrow peaks 2-8 kHz (lower: smoother)");
+            row ("sting", ti.sting, to.sting, "dB, 2-6 kHz bursts over the usual (lower: gentler)");
+            row ("presence", ti.presence, to.presence, "dB, 1-6 kHz against 100 Hz - 1 kHz");
+            r << "IACC (500 Hz - 4 kHz)" << fmt (ti.iacc, 3).paddedLeft (' ', 5) << "  " << fmt (to.iacc, 3).paddedLeft (' ', 8) << "   (lower: wider / less inside the head)\n\n";
+        }
 
         r << "Third-octave bands (mid signal, long-term average, dB):\n";
         r << "      Hz      IN     OUT   CHANGE\n";
@@ -1160,6 +1256,7 @@ namespace lab
         float tailDb = -200;        // "silence": the output's level over its last 2 s (the input is digital silence there)
         float balanceDb = 0;        // left minus right, out against in: does the rack lean to one side
         float earGuardDb = 0;       // how far the EAR GUARD held a jump down, at most
+        Tone tIn, tOut;             // how it sits on the ear: sharpness, resonances, sting, presence, IACC
     };
 
     Buffer inputFor (const Job& job)
@@ -1243,6 +1340,8 @@ namespace lab
             };
             res.balanceDb = (channelDb (output, 0) - channelDb (output, 1)) - (channelDb (input, 0) - channelDb (input, 1));
         }
+        res.tIn = toneOf (input);
+        res.tOut = toneOf (output);
         return res;
     }
 
@@ -1638,6 +1737,36 @@ namespace lab
         save (img, job.out.getChildFile ("ducks.png"));
     }
 
+    /** The listening benchmark: every factory preset on music, game, voice, pink noise and drums & bass -
+        how each changes sharpness, resonances, sting, presence and IACC. Lower is better for the first
+        four (less fatiguing, smoother); IACC lower is wider / more outside the head. */
+    int listen (const juce::String& only)
+    {
+        std::printf ("EnhAudioLab listen: OUT minus IN (IACC: out)\n\n%-10s %-28s %8s %8s %8s %8s %7s\n",
+                     "scene", "preset", "sharp", "reson", "sting", "presence", "IACC");
+        float sums[4] {};
+        int count = 0;
+        for (auto* scene : { "music", "game", "voice", "pink", "drumsbass" })
+        {
+            const auto input = makeScene (scene, 10.0);
+            for (auto& p : pad::presets::factory())
+            {
+                if (only.isNotEmpty() && ! p.name.containsIgnoreCase (only)) continue;
+                int latency = 0;
+                const auto output = run (input, parametersFor ({ p.name, {} }), latency);
+                const auto ti = toneOf (input), to = toneOf (output);
+                const float d[4] { to.sharp - ti.sharp, to.spikes - ti.spikes, to.sting - ti.sting, to.presence - ti.presence };
+                for (int k = 0; k < 4; ++k) sums[k] += d[k];
+                ++count;
+                std::printf ("%-10s %-28s %+8.3f %+8.2f %+8.2f %+8.2f %7.3f\n", scene, p.name.substring (0, 28).toRawUTF8(), d[0], d[1], d[2], d[3], to.iacc);
+                std::fflush (stdout);
+            }
+        }
+        if (count > 0)
+            std::printf ("\n%-39s %+8.3f %+8.2f %+8.2f %+8.2f\n", "AVERAGE", sums[0] / count, sums[1] / count, sums[2] / count, sums[3] / count);
+        return 0;
+    }
+
     int suite (const juce::File& dir)
     {
         const std::vector<std::pair<const char*, std::vector<const char*>>> plan {
@@ -1943,6 +2072,7 @@ int main (int argc, char** argv)
         return 0;
     }
     if (command == "suite") return suite (out);
+    if (command == "listen") return listen (args.size() > 1 ? args[1] : juce::String());
     if (command == "check") return check (args);
     std::printf ("unknown command (EnhAudioLab --help)\n");
     return 1;

@@ -45,7 +45,7 @@ namespace enh::dsp::methods
         charComponents,
         tideStereo, levelerStereo, limiterStereo, balancerStereo, seraphStereo, charStereo,
         radarDetection, radarRoom,
-        enhancerPrecision, earGuard,
+        enhancerPrecision, earGuard, outputHeadphones, outputSessions, outputRoom,
         numMethodIds,
         fixedStage = -1
     };
@@ -405,6 +405,44 @@ namespace enh::dsp::methods
           "Explosions and gunfire keep most of their punch; only the most extreme jumps are held. It can't be switched off.",
           "5 ms look-ahead. Glides with the guard's release." },
     }};
+    inline constexpr std::array<Method, 2> outputHeadphonesMethods {{
+        { "OFF", "No correction",
+          "Nothing: for speakers, or headphones you like as they are.",
+          "The original.",
+          "No cost (default)." },
+        { "599", "Sennheiser HD 599 / 599 SE",
+          "This model's measured response (oratory1990, via AutoEQ), corrected toward the Harman over-ear target.",
+          "The open back's missing deep bass comes back (+6 dB shelf), the mid-bass hump and the 3 and 5.8 kHz peaks go down (less tiring), the mids fill out and the air above 8 kHz returns. As loud as without.",
+          "No latency. Ten filters per channel." },
+    }};
+    inline constexpr std::array<Method, 3> outputSessionsMethods {{
+        { "OFF", "Off",
+          "Nothing.",
+          "The original balance.",
+          "No cost (default)." },
+        { "GEN", "Gentle",
+          "The balance of 2 - 6 kHz (where the ear is most sensitive) against 200 Hz - 2 kHz, over seconds. When it leans further forward than a well-balanced mix, a broad bell at 3.4 kHz and a gentle shelf above 7 kHz come down - 1.5 dB at most.",
+          "A long session tires you less. It moves over tens of seconds, so you never hear it move; balanced material is left alone.",
+          "No latency. Two EQ bands per channel." },
+        { "CAR", "Care",
+          "The same, up to 3 dB.",
+          "For bright, forward material or sensitive ears; still never dull.",
+          "No latency. Two EQ bands per channel." },
+    }};
+    inline constexpr std::array<Method, 3> outputRoomMethods {{
+        { "OFF", "Off",
+          "Nothing: each ear hears only its own channel.",
+          "The original headphone image.",
+          "No cost (default)." },
+        { "NR", "Near",
+          "Eight early reflections per ear from a small room, 14 - 26 dB down; the far side's through the head's shadow, the two ears' timing a hair apart. The direct sound is untouched.",
+          "The sound moves out of your head to just in front of you. Directions and footstep timing stay where they were.",
+          "No latency. Delay lines; next to no CPU." },
+        { "RM", "Room",
+          "The same from a larger room, 13 - 25 dB down, up to 29 ms.",
+          "More depth and distance; music and films sit further away, like good speakers.",
+          "No latency. Delay lines; next to no CPU." },
+    }};
     inline constexpr std::array<Method, 4> outputTargetMethods {{
         { "OFF", "No target",
           "Nothing: what leaves the rack is as loud as the units made it.",
@@ -583,10 +621,13 @@ namespace enh::dsp::methods
     inline constexpr std::array<Stage, 1> levelStages {{
         { "LEVEL CONTROL", 5, "PROCESSING", "GLIDE", "How fast LEVEL moves", "levelGlide", levelGlide, "", levelGlideMethods.data(), 3 },
     }};
-    inline constexpr std::array<Stage, 6> monitorStages {{
+    inline constexpr std::array<Stage, 9> monitorStages {{
         { "OUTPUT MONITOR", 7, "OUTPUT", "CEILING", "The output limiter's ceiling", "outputCeiling", outputCeiling, "", outputCeilingMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "OUTPUT", "LOUDNESS TARGET", "How loud everything leaves the rack", "outputTarget", outputTarget, "", outputTargetMethods.data(), 4 },
         { "OUTPUT MONITOR", 7, "OUTPUT", "EAR GUARD", "How far the sound may suddenly jump", "earGuard", earGuard, "", earGuardMethods.data(), 3 },
+        { "OUTPUT MONITOR", 7, "OUTPUT", "HEADPHONES", "Which headphones to correct for", "outputHeadphones", outputHeadphones, "", outputHeadphonesMethods.data(), 2 },
+        { "OUTPUT MONITOR", 7, "OUTPUT", "HEADPHONE ROOM", "Where the sound sits on headphones", "outputRoom", outputRoom, "", outputRoomMethods.data(), 3 },
+        { "OUTPUT MONITOR", 7, "OUTPUT", "LONG SESSIONS", "How it keeps a long session from tiring you", "outputSessions", outputSessions, "", outputSessionsMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "TONE RANGE", "The tone-change curve's scale", "displayToneRange", displayToneRange, "", displayToneRangeMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "DUCK HOLD", "How long DUCK holds a reading", "displayDuckHold", displayDuckHold, "", displayDuckHoldMethods.data(), 3 },
         { "OUTPUT MONITOR", 7, "DISPLAY", "WAVEFORM", "What each waveform column shows", "displayWaveform", displayWaveform, "", displayWaveformMethods.data(), 2 },

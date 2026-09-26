@@ -29,6 +29,9 @@ namespace enh::dsp
         character.prepare (sr, maxBlock, numChannels);
         lunchbox.prepare (sr, maxBlock);
         outputStage.prepare (sr);
+        headphones.prepare (sr, numChannels);
+        sessionCare.prepare (sr);
+        room.prepare (sr);
         radar.prepare (sr, maxBlock);
 
         for (auto& v : msScratch)
@@ -76,6 +79,9 @@ namespace enh::dsp
         character.reset();
         lunchbox.reset();
         outputStage.reset();
+        headphones.reset();
+        sessionCare.reset();
+        room.reset();
         radar.reset();
         for (auto& d : keepDelays) { std::fill (d.line.begin(), d.line.end(), 0.0f); d.pos = 0; }
         for (auto& v : compareLine) std::fill (v.begin(), v.end(), 0.0f);
@@ -540,6 +546,10 @@ namespace enh::dsp
 
         // COMPARE, then the speakers' protection: both go through the output limiter below
         compareStage (chunk, chans, n, start, p.compare);
+        // For headphones: the balance eased on long sessions, the room, then the headphones themselves
+        sessionCare.process (chunk, chans, n, p.methods[(size_t) methods::outputSessions]);
+        room.process (chunk, chans, n, p.methods[(size_t) methods::outputRoom]);
+        headphones.process (chunk, chans, n, p.methods[(size_t) methods::outputHeadphones]);
         for (int c = 0; c < chans; ++c)
             for (int i = 0; i < n; ++i)
                 chunk[c][i] = protectState[(size_t) c].process (protectHp, chunk[c][i]).high;
