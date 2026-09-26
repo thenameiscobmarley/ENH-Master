@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Nothing leaves this page: a design lives in your browser, and a share code IS the design (packed
+     into the code itself), so no server ever stores or sees anything. -->
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Rack Unit Designer</title>
+<meta name="description" content="Design your own rack unit in the ENH Master style - faceplate, knobs, meters, switches, print - and share it with a code. Nothing is stored anywhere.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050608">
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="designer.css">
+<script src="designer.js" defer></script>
+<script type="module" src="designer3d.js"></script>
+</head>
+<body class="designer">
+<a class="skip" href="#stage">Skip to the design</a>
+<header class="d-top">
+  <a class="d-home" href="index.html">← ENH Master</a>
+  <h1>Rack Unit Designer</h1>
+  <div class="d-top-actions">
+    <button type="button" id="undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button type="button" id="redo" title="Redo (Ctrl+Y)">Redo</button>
+    <button type="button" id="play" aria-pressed="false" title="Turn the knobs and flip the switches (P)">Play</button>
+    <button type="button" id="share" class="primary">Share</button>
+  </div>
+</header>
+
+<main id="main" class="d-main">
+  <aside class="d-panel d-left" aria-label="Unit and parts">
+    <section>
+      <h2>Unit</h2>
+      <label>Name <input id="u-name" maxlength="40" autocomplete="off"></label>
+      <label>Model <input id="u-model" maxlength="24" autocomplete="off"></label>
+      <label>Second line <input id="u-sub" maxlength="40" autocomplete="off" placeholder="e.g. CLASS A  -  DISCRETE"></label>
+      <label>Badge <input id="u-badge" maxlength="16" autocomplete="off" placeholder="(none)"></label>
+      <label>Height <select id="u-height"><option value="1">1U</option><option value="2">2U</option><option value="3">3U</option><option value="4">4U</option></select></label>
+      <div class="d-field"><span>Finish</span><div id="u-finish"></div></div>
+      <div class="d-field"><span>Edge</span><div id="u-edge"></div></div>
+      <div class="d-field"><span>Lettering</span><div id="u-font"></div></div>
+      <label class="row">Panel <input type="color" id="u-colour"></label>
+      <label class="row">Print <input type="color" id="u-ink"></label>
+      <div class="d-field"><span>Ears</span><div id="u-ears"></div></div>
+      <div class="d-field"><span>Ear finish</span><div id="u-earColour"></div></div>
+      <div class="d-field"><span>Handles</span><div id="u-handles"></div></div>
+      <div class="d-field"><span>Rack screws</span><div id="u-screws"></div></div>
+      <label>Wear <input type="range" id="u-wear" min="0" max="100"></label>
+      <label class="row"><input type="checkbox" id="u-grid"> Snap to grid</label>
+    </section>
+    <section>
+      <h2>My designs</h2>
+      <p class="muted small">Kept in this browser only - never uploaded.</p>
+      <div class="d-save"><input id="lib-name" maxlength="40" placeholder="Name this design" autocomplete="off" aria-label="Design name"><button type="button" id="lib-save">Save</button></div>
+      <ul class="d-lib" id="lib-list"></ul>
+    </section>
+    <section>
+      <h2>Add</h2>
+      <div class="d-palette" id="palette" role="group" aria-label="Parts to add"></div>
+    </section>
+    <section>
+      <h2>Start from</h2>
+      <div class="d-templates" id="templates"></div>
+    </section>
+  </aside>
+
+  <section class="d-stage-wrap" aria-label="Your unit">
+    <div class="d-zoom">
+      <div class="d-views" role="group" aria-label="View">
+        <button type="button" data-view="2d" aria-pressed="true">2D</button><button type="button" data-view="3d" aria-pressed="false">3D</button><button type="button" data-view="both" aria-pressed="false">Both</button>
+      </div>
+      <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+      <output id="zoom-val">100%</output>
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-fit">Fit</button>
+    </div>
+    <div class="d-stage3d" id="stage3d" hidden><canvas id="c3d" aria-label="Your unit in 3D: drag to turn it, the wheel to come closer, click a part to select it"></canvas>
+      <p class="d-3dnote" id="note3d"></p></div>
+    <div class="d-stage" id="stage" tabindex="0" aria-label="The faceplate. Arrow keys move the selected part; Delete removes it.">
+      <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="svg-title"><title id="svg-title">Your rack unit</title></svg>
+    </div>
+    <p class="d-hint">Click a part to select it · drag to move · Shift-click to select several · arrows nudge (Shift: 10×) · Ctrl+D duplicate · Delete removes · P plays</p>
+  </section>
+
+  <aside class="d-panel d-right" aria-label="Selected part">
+    <section id="props">
+      <h2>Selected</h2>
+      <p class="muted small" id="props-empty">Nothing selected. Click a part on the faceplate, or add one.</p>
+      <div id="props-body"></div>
+    </section>
+    <section id="align" hidden>
+      <h2>Arrange</h2>
+      <div class="d-btns">
+        <button type="button" data-align="left">Align left</button><button type="button" data-align="hcenter">Centre</button>
+        <button type="button" data-align="right">Align right</button><button type="button" data-align="top">Align top</button>
+        <button type="button" data-align="vcenter">Middle</button><button type="button" data-align="bottom">Align bottom</button>
+        <button type="button" data-align="hdist">Spread across</button><button type="button" data-align="vdist">Spread down</button>
+      </div>
+    </section>
+    <section>
+      <h2>Export</h2>
+      <div class="d-btns">
+        <button type="button" id="export-png">Save PNG</button>
+        <button type="button" id="export-svg">Save SVG</button>
+        <button type="button" id="clear">New blank unit</button>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<dialog id="share-dialog" aria-labelledby="share-title">
+  <h2 id="share-title">Share your design</h2>
+  <p class="muted small">The code below <b>is</b> your design, packed and compressed. It is never uploaded or stored anywhere:
+    whoever you send it to opens it in their own browser. It holds only the design (the parts, their places and
+    settings, the names you typed) - nothing about you or your computer.</p>
+  <label>Share code <textarea id="share-code" readonly rows="4"></textarea></label>
+  <div class="d-btns"><button type="button" id="copy-code">Copy code</button><button type="button" id="copy-link">Copy link</button></div>
+  <hr>
+  <label>Open a design from a code <textarea id="import-code" rows="3" placeholder="Paste a share code (starts with ENH1.)"></textarea></label>
+  <p class="small" id="import-msg" role="status"></p>
+  <div class="d-btns"><button type="button" id="import-go" class="primary">Open design</button><button type="button" id="share-close">Close</button></div>
+</dialog>
+<noscript><p class="d-noscript">The designer needs JavaScript. Everything runs in your browser; nothing is sent anywhere.</p></noscript>
+</body>
+</html>

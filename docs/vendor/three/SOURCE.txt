@@ -1,0 +1,6 @@
+three.js 0.186.1, from the npm registry: https://registry.npmjs.org/three/-/three-0.186.1.tgz
+  sha512 integrity: blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==
+three.module.min.js is the package's src/ bundled with esbuild 0.28.2 (--bundle --format=esm --minify
+--target=es2020), keeping only the exports the site's rack3d.js imports. Entry file:
+  export { WebGLRenderer,Scene,PerspectiveCamera,Group,Mesh,BufferGeometry,Float32BufferAttribute,BoxGeometry,PlaneGeometry,CircleGeometry,CylinderGeometry,LatheGeometry,ExtrudeGeometry,SphereGeometry,Shape,Vector2,Vector3,Matrix4,Quaternion,Euler,Color,Raycaster,Fog,MeshPhysicalMaterial,MeshStandardMaterial,MeshBasicMaterial,LineBasicMaterial,LineSegments,EdgesGeometry,SpriteMaterial,Sprite,DirectionalLight,HemisphereLight,PMREMGenerator,CanvasTexture,SRGBColorSpace,RepeatWrapping,ACESFilmicToneMapping,PCFShadowMap,BackSide,AdditiveBlending,DoubleSide } from 'three/src/Three.js';
+Licence: MIT (LICENSE). The page loads it from this site only; nothing is fetched from anywhere else.
