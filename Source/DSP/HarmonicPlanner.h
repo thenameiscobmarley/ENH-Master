@@ -35,6 +35,7 @@ namespace enh::dsp
             float amount = 0.0f;   // exciter drive: max (need, rescue)
             float need = 0.0f;     // harmonics missing at the planned source (0..1)
             float rescue = 0.0f;   // harmonics currently falling away (0..1)
+            float need2 = 0.5f, need3 = 0.5f;   // each harmonic on its own: how empty the 2nd's region is, and the 3rd's
         };
 
         void prepare (const BandAnalyzer&);

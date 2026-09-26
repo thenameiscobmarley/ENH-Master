@@ -17,8 +17,11 @@
 #include "SpectrumScope.h"
 #include "FinalLimiter.h"
 #include "EarGuard.h"
+#include <array>
 #include "LoudnessTarget.h"
 #include "Character.h"
+#include "Lunchbox.h"
+#include "OutputStage.h"
 #include "LoudnessMeter.h"
 #include "MixBalancer.h"
 #include "EngineMeters.h"
@@ -64,6 +67,7 @@ namespace enh::dsp
             std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
             DeepSub::Settings deep {};                          // DEEP SUB: sub-harmonic synth and resonant hull
             Character::Settings character {};                   // CHARACTER: consoles, tape, valves (out by default)
+            Lunchbox::Settings lunchbox {};                     // LUNCHBOX: CLASS-A EQ, DE-HARSH, CROSSFEED (all out by default)
             bool compare = false;                               // COMPARE: hear the input instead, at the output's loudness
         };
 
@@ -72,6 +76,19 @@ namespace enh::dsp
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
         int getLatencySamples() const noexcept { return analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + earGuard.getLatencySamples() + output.getLatencySamples(); }
+
+        /** Where the delay comes from, stage by stage (samples at the prepared rate): for the latency
+            checks and the app's readout. The sum is getLatencySamples(). */
+        struct LatencyPart { const char* stage; int samples; };
+        std::array<LatencyPart, 6> getLatencyBreakdown() const noexcept
+        {
+            return {{ { "ADAPTIVE ENHANCER (oversampled exciters)", analog.getLatencySamples() },
+                      { "FOOTSTEP RADAR (look-ahead)", radar.getLatencySamples() },
+                      { "TONE & SPACE (oversampled TONE)", seraph.getLatencySamples() },
+                      { "CHARACTER (oversampled models)", character.getLatencySamples() },
+                      { "EAR GUARD (look-ahead)", earGuard.getLatencySamples() },
+                      { "OUTPUT LIMITER (look-ahead)", output.getLatencySamples() } }};
+        }
 
         /** The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again. */
         void resetLoudness() noexcept { loudnessResetPending.store (true, std::memory_order_relaxed); }
@@ -136,6 +153,8 @@ namespace enh::dsp
 
         /** The one output limiter: lookahead, holds through a bass cycle, never wobbles inside one. */
         Character character;     // CHARACTER, after TONE & SPACE
+        Lunchbox lunchbox;       // LUNCHBOX, after CHARACTER (zero latency)
+        OutputStage outputStage; // the rack's output amplifier: one analog signal path (only while an analog unit is in)
 
         std::array<std::vector<float>, 3> msScratch;   // mid/side: the part worked on (two channels), the part kept
         std::array<KeepDelay, 6> keepDelays;            // one per unit with a STEREO setting

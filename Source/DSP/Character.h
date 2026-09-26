@@ -117,11 +117,24 @@ namespace enh::dsp
             if (nc <= 0 || n <= 0 || os == nullptr)
                 return;
 
+            // While COLOUR glides, work in short steps: the voicing EQs are redesigned at each, and at full
+            // COLOUR (eight times the voicing) one redesign per block is a step big enough to click
+            if (n > 32 && nc <= 2 && std::abs (std::clamp (s.colour, 0.0f, 10.0f) - colourNow) > 0.01f)
+            {
+                for (int o = 0; o < n; o += 32)
+                {
+                    float* part[2] = { ch[0] + o, nc > 1 ? ch[1] + o : nullptr };
+                    process (part, nc, std::min (32, n - o), s);
+                }
+                return;
+            }
+
             // COLOUR glides (~40 ms); the voicing EQs are redesigned as it moves (a few coefficients per
-            // model, only while it moves). COLOUR 2.5 is the voicing as designed, 5 twice that, 10 four times.
+            // model, only while it moves). COLOUR 2.5 is the voicing as designed, 5 twice that - and the top
+            // half of the knob opens up: 10 is eight times it, so full COLOUR is unmistakably the model.
             const float blockSeconds = (float) n / (float) sr;
             colourNow += (std::clamp (s.colour, 0.0f, 10.0f) - colourNow) * std::min (1.0f, blockSeconds / 0.040f);
-            const float toneWanted = colourNow / 2.5f;
+            const float toneWanted = colourNow <= 5.0f ? colourNow / 2.5f : 2.0f + (colourNow - 5.0f) / 5.0f * 6.0f;
             // COMPONENTS changed, or COLOUR moved: the parts are redesigned (no allocation)
             if (s.components != designedComponents || std::abs (toneWanted - designedTone) > 0.004f)
             {
@@ -169,8 +182,10 @@ namespace enh::dsp
                     voices[v].model = -1;
             }
 
-            // How close to the sweet spot COLOUR takes the music: none at 0, halfway (in level) at 5, all the way at 10
-            colourDepth = colourNow / 10.0f;
+            // How far toward the sweet spot COLOUR takes the music: none at 0, halfway (in level) at 5, and on
+            // the top half of the knob past it - up to twice the clean peak at 10: warm, plainly audible
+            // harmonics (a few percent), still not DRIVE's grit
+            colourDepth = colourNow <= 5.0f ? colourNow / 10.0f : 0.5f + (colourNow - 5.0f) / 5.0f * 1.5f;
             const float driveTarget = dbToGain ((std::clamp (s.drive, 0.0f, 10.0f) - 5.0f) * 3.0f);
             const float driveFrom = driveGain;
             driveGain += (driveTarget - driveGain) * std::min (1.0f, blockS / 0.020f);
@@ -226,12 +241,14 @@ namespace enh::dsp
                         // model's sweet spot (its clean peak, ~1 % THD) and the lift is taken off again after
                         // it, so the character is there at any playback level - quiet music too - and not only
                         // once DRIVE pushes it. Only ever a lift (up to 24 dB): hot music is left to DRIVE.
-                        const float sweet = k.cleanPeak * colourDepth * (s.grit ? 1.8f : 1.0f);
+                        const float sweet = k.cleanPeak * std::min (colourDepth, k.colourHeadroom) * (s.grit ? 1.8f : 1.0f);
                         const float env = colourEnv[(size_t) c];
-                        const float lift = env > 1.0e-6f ? std::clamp (sweet / env, 1.0f, 16.0f) : 1.0f;
-                        // GRIT off: what reaches the curves never passes the clean peak, lift included
+                        const float lift = env > 1.0e-6f ? std::clamp (sweet / env, 1.0f, 32.0f) : 1.0f;
+                        // GRIT off: what reaches the curves never passes the clean peak, lift included - or, on
+                        // COLOUR's top half, the colour ceiling it asks for (up to twice it)
+                        const float ceiling = k.cleanPeak * std::clamp (colourDepth, 1.0f, k.colourHeadroom);
                         const float hot = guardEnv[(size_t) c] * lift;
-                        const float guard = s.grit || hot <= k.cleanPeak ? 1.0f : k.cleanPeak / hot;
+                        const float guard = s.grit || hot <= ceiling ? 1.0f : ceiling / hot;
                         y += w * runModel (voice.model, k, voice.state[(size_t) c], u, res, lift * guard);
                         residual += (double) (w * res) * (w * res);
                     }
@@ -323,6 +340,7 @@ namespace enh::dsp
 
             float inputTrim = 1.0f;                // where this model's 0 VU sits against its curves
             float cleanPeak = 1.0f;                // GRIT off: the most that may go in (about 1 % THD for this model)
+            float colourHeadroom = 2.0f;           // how far past it full COLOUR may take it (warm, a few percent, never grit)
 
             float fluxR = 0.0f;                    // transformer: leaky integrator pole (0 = none)
             float fluxLimit = 1.0f, fluxBias = 0.0f;
@@ -333,6 +351,18 @@ namespace enh::dsp
             float ampK = 1.0f, ampBias = 0.0f, ampLimit = 1.0f;
             float sag = 0.0f, envAtt = 0.0f, envRel = 0.0f;   // valve: bias follows the programme
             float slew = 0.0f;                     // op-amp: most a sample may move (0 = no limit)
+
+            // --- Behaviour over time, frequency and transients (each model its own) -------------------
+            float even = 0.0f;                     // a static tilt of the curve: 2nd (and 4th) beside the odd ones
+            float transientDrive = 0.0f;           // how much harder a transient hits the core than the sustain
+            float thermal = 0.0f;                  // heat: long hard driving shifts the bias (even content) a little
+            float coupling = 0.0f;                 // coupling capacitor: big lows charge it, the operating point
+                                                   // moves, and recovers over ~250 ms (blocking-type squash)
+            float hysteresis = 0.0f;               // iron: the core's magnetisation lags its drive (a loop, not a curve)
+            float fluxMemory = 0.0f;               // iron: a core pushed hard saturates sooner for a while after
+            float bandwidthLoss = 0.0f;            // driven hard, the stage's top end closes a little (0..1)
+            float lowEmphasisDb = 0.0f;            // lows fed hotter into the core, cut back after: thick, compressed lows
+            SvfEqCoeffs emphPre {}, emphPost {};   // (designed from lowEmphasisDb: exact mirrors)
         };
 
         struct State
@@ -343,6 +373,13 @@ namespace enh::dsp
             float flux = 0.0f, fluxRes = 0.0f, flux2 = 0.0f, flux2Res = 0.0f;
             float env = 0.0f, slewed = 0.0f;
             float dcX = 0.0f, dcY = 0.0f;
+            float fast = 0.0f, slow = 0.0f;        // transient detection: the drive's peak, fast and slow
+            float heat = 0.0f;                     // thermal memory (seconds)
+            float couple = 0.0f;                   // the coupling capacitor's charge
+            float mag = 0.0f;                      // iron: the lagging magnetisation
+            float fluxPeak = 0.0f;                 // iron: how hard the core has been pushed lately
+            float bw = 0.0f;                       // level-dependent bandwidth: the low-passed output
+            SvfEqState emphPre {}, emphPost {};
         };
 
         struct Voice
@@ -408,14 +445,32 @@ namespace enh::dsp
                      / (135135.0f + x2 * (62370.0f + x2 * (3150.0f + x2 * 28.0f)));
         }
 
-        static inline float fluxStage (float x, float& flux, float& res, float r, float invLimit2, float bias, float biasSat) noexcept
+        static inline float fluxStage (float x, float& flux, float& res, float r, float invLimit2, float bias, float biasSat,
+                                       float* mag = nullptr, float* peak = nullptr, float hysteresis = 0.0f, float memory = 0.0f,
+                                       float peakK = 0.0f, float peakAttK = 0.0f) noexcept
         {
             // Flux = the voltage integrated (leaky, unity at DC); the iron saturates on flux; what the
             // saturation takes away is turned back into voltage by the exact inverse of the integrator.
             flux = r * flux + (1.0f - r) * x;
+            // Magnetic memory: a core driven hard lately saturates a little sooner, and recovers (~400 ms)
+            if (peak != nullptr)
+            {
+                // (up over ~5 ms, not at once: a sudden change of the curve, through the integrator's
+                // inverse, would be a click)
+                const float a = std::abs (flux);
+                *peak = a > *peak ? a + peakAttK * (*peak - a) : *peak * peakK;
+                invLimit2 *= 1.0f + memory * std::min (4.0f, *peak * *peak * invLimit2);
+            }
             const float f = flux + bias;
             const float sat = f / std::sqrt (1.0f + f * f * invLimit2);
-            const float d = (sat - biasSat) - flux;
+            float d = (sat - biasSat) - flux;
+            // Hysteresis: the magnetisation lags its drive, so the saturation traces a loop (only the part
+            // the iron takes away lags: at small levels it is still a wire)
+            if (mag != nullptr && hysteresis > 0.0f)
+            {
+                *mag += (d - *mag) * (1.0f - hysteresis);
+                d = *mag;
+            }
             const float out = (d - r * res) / (1.0f - r);
             res = d;
             return x + out;
@@ -447,29 +502,65 @@ namespace enh::dsp
             for (int i = 0; i < k.numPre; ++i)
                 x = s.pre[(size_t) i].process (k.pre[(size_t) i], x);
 
+            if (k.lowEmphasisDb != 0.0f)
+                x = s.emphPre.process (k.emphPre, x);   // lows in hotter (cut back after the core)
+
             const float beforeNl = x;
-            x *= nlGain;
+
+            // A transient hits the core harder than the sustain behind it (each model by its own amount): the
+            // drive's peak followed fast and slow, and how far the fast one stands above the slow
+            const float drive = std::abs (x * nlGain);
+            s.fast = drive > s.fast ? drive + tAtt * (s.fast - drive) : drive + tRelFast * (s.fast - drive);
+            s.slow = drive > s.slow ? drive + tAttSlow * (s.slow - drive) : drive + tRelSlow * (s.slow - drive);   // a peak too, 10 ms up
+            const float trans = std::clamp ((s.fast - 1.15f * s.slow) / (s.fast + 1.0e-6f), 0.0f, 1.0f);
+            const float g = nlGain * (1.0f + k.transientDrive * trans);
+            x *= g;
+
+            // Heat (seconds) and the coupling capacitor (charged by big positive swings, ~250 ms to recover):
+            // both move the operating point a little - the colour follows what the music has been doing
+            s.heat += (x * x - s.heat) * heatK;
+            const float hn = s.heat / (4.0f * k.cleanPeak * k.cleanPeak);   // (how hot, against the model's clean point)
+            const float warm = k.thermal * 2.0f * hn / (1.0f + hn);       // grows with heat, eases toward its limit
+            if (k.coupling > 0.0f)
+                s.couple = std::max (s.couple * coupleK, (x - 0.8f * k.cleanPeak) * 0.02f);
+            const float shift = warm + k.coupling * std::min (0.3f, s.couple / k.cleanPeak);
 
             if (k.fluxR > 0.0f)
-                x = fluxStage (x, s.flux, s.fluxRes, k.fluxR, k.fluxInvLimit2, k.fluxBias, k.fluxBiasSat);
+                x = fluxStage (x, s.flux, s.fluxRes, k.fluxR, k.fluxInvLimit2, k.fluxBias, k.fluxBiasSat,
+                               &s.mag, &s.fluxPeak, k.hysteresis, k.fluxMemory, fluxPeakK, fluxAttK);
+
+            // A tilt of the curve: even harmonics beside the odd ones (the static part, and the part heat and
+            // the capacitor add). x + e x^2 is linear at small levels, so quiet music stays clean
+            const float e = k.even + (k.amp == 1 ? 0.0f : shift);
+            if (e != 0.0f)
+                x += e * x * x;
 
             switch (k.amp)
             {
                 case 1:
                 {
-                    float bias = k.ampBias;
+                    float bias = k.ampBias + shift;
                     if (k.sag > 0.0f)
                     {
                         const float a = std::abs (x);
                         s.env = (a > s.env ? k.envAtt : k.envRel) * (s.env - a) + a;
-                        bias = std::min (0.5f, bias + k.sag * s.env);   // sags, but never past the curve's reach
+                        bias += k.sag * s.env;
                     }
-                    x = biasedStage (x, k.ampK, bias);
+                    x = biasedStage (x, k.ampK, std::min (0.5f, bias));   // sags, but never past the curve's reach
                     break;
                 }
                 case 2: x = tapeCurve (x, k.ampLimit); break;
                 case 3: x = k.ampLimit * fastTanh (x / k.ampLimit); break;
                 default: break;
+            }
+
+            // Driven hard, the stage's top closes a little (its bandwidth follows the level): quiet music
+            // passes untouched, hot passages lose some glare above ~12 kHz
+            if (k.bandwidthLoss > 0.0f)
+            {
+                s.bw += bwK * (x - s.bw);
+                const float driven = k.bandwidthLoss * std::clamp (s.slow / (1.5f * k.cleanPeak) - 0.35f, 0.0f, 1.0f);
+                x += (s.bw - x) * driven;
             }
 
             if (k.slew > 0.0f)
@@ -482,8 +573,8 @@ namespace enh::dsp
             if (k.flux2R > 0.0f)
                 x = fluxStage (x, s.flux2, s.flux2Res, k.flux2R, k.flux2InvLimit2, 0.0f, 0.0f);
 
-            // The biased stages make a little DC; take it off (4 Hz)
-            if (k.amp == 1 || k.fluxBias != 0.0f)
+            // The biased and tilted stages make a little DC; take it off (4 Hz)
+            if (k.amp == 1 || k.fluxBias != 0.0f || e != 0.0f || k.even != 0.0f || k.thermal > 0.0f || k.coupling > 0.0f)
             {
                 const float y = x - s.dcX + dcCoeff * s.dcY;
                 s.dcX = x;
@@ -491,8 +582,10 @@ namespace enh::dsp
                 x = y;
             }
 
-            x /= nlGain;
+            x /= g;
             residual = x - beforeNl;
+            if (k.lowEmphasisDb != 0.0f)
+                x = s.emphPost.process (k.emphPost, x);
 
             for (int i = 0; i < k.numPost; ++i)
                 x = s.post[(size_t) i].process (k.post[(size_t) i], x);
@@ -510,14 +603,23 @@ namespace enh::dsp
         void designAll (int components) noexcept
         {
             designedComponents = components;
-            const float spread = components == 1 ? 1.0f : components == 2 ? 3.0f : 0.0f;
+            // Even "matched" channels are not identical, as no two channels of real hardware are: a hair of
+            // difference in drive, corners and bias (inaudible as width, it keeps the two sides alive)
+            const float spread = components == 1 ? 1.0f : components == 2 ? 3.0f : 0.12f;
             rightDrive = dbToGain (0.4f * spread);
             dcCoeff = (float) std::exp (-2.0 * 3.141592653589793 * 4.0 / osr);
+            auto pole = [this] (double seconds) { return (float) std::exp (-1.0 / (seconds * osr)); };
+            tAtt = pole (0.0003); tRelFast = pole (0.015); tAttSlow = pole (0.010); tRelSlow = pole (0.120);
+            heatK = 1.0f - pole (2.0);
+            coupleK = pole (0.25);
+            fluxPeakK = pole (0.40);
+            fluxAttK = pole (0.005);
+            bwK = 1.0f - (float) std::exp (-2.0 * 3.141592653589793 * 12000.0 / osr);
 
             for (int c = 0; c < 2; ++c)
             {
                 const double f = c == 1 ? 1.0 + 0.025 * spread : 1.0;       // corner frequencies
-                const float b = c == 1 ? 1.0f + 0.12f * spread : 1.0f;       // bias
+                const float b = c == 1 ? 1.0f + (spread < 0.5f ? 0.04f : 0.12f) * spread : 1.0f;   // bias
                 for (int m = 0; m < numModels; ++m)
                     coeffs[(size_t) c][(size_t) m] = design (m, f, b, designedTone);
             }
@@ -616,6 +718,7 @@ namespace enh::dsp
 
                 case arena:
                     k.cleanPeak = 0.65f;
+                    k.colourHeadroom = 1.3f;   // its odd-order curve bites sooner past the clean peak
                     // Made for games: tight low end, a clear upper mid for steps and callouts, clean
                     // peaks - impact without mud
                     k.amp = 3; k.ampLimit = 1.1f; k.inputTrim = 0.55f;
@@ -638,6 +741,29 @@ namespace enh::dsp
                     break;
 
                 default: break;
+            }
+
+            // How each model behaves over time, frequency and transients - its own, not a different amount of
+            // the same thing:     even   transient thermal coupling hyster. memory bwLoss lowEmph
+            struct B { float even, trans, thermal, coupling, hyst, mem, bw, lowDb; };
+            static constexpr std::array<B, numModels> behaviour {{
+                { 0.000f, 0.05f, 0.000f, 0.00f, 0.0f, 0.0f, 0.10f, 0.0f },   // clean: all but a wire
+                { 0.010f, 0.15f, 0.010f, 0.00f, 0.0f, 0.0f, 0.25f, 0.0f },   // british op-amp console: controlled
+                { 0.000f, 0.30f, 0.000f, 0.00f, 0.4f, 0.3f, 0.20f, 1.5f },   // american: punchy, iron after it
+                { 0.000f, 0.20f, 0.030f, 0.22f, 0.5f, 0.35f, 0.35f, 1.0f },   // vintage class A: iron both ends, rounded peaks
+                { 0.020f, 0.40f, 0.000f, 0.00f, 0.0f, 0.0f, 0.50f, 0.0f },   // tape 15: softens peaks progressively
+                { 0.015f, 0.30f, 0.000f, 0.00f, 0.0f, 0.0f, 0.30f, 0.0f },   // tape 30: the same, gentler
+                { 0.000f, 0.35f, 0.025f, 0.25f, 0.0f, 0.0f, 0.30f, 1.5f },   // valve: soft compression, blocking, heat
+                { 0.000f, 0.10f, 0.000f, 0.00f, 0.0f, 0.0f, 0.10f, 0.0f },   // arena: clean, tight
+                { 0.000f, 0.25f, 0.020f, 0.10f, 0.4f, 0.4f, 0.30f, 2.0f },   // cinema: weight, iron, a smooth top
+            }};
+            const auto& b = behaviour[(size_t) std::clamp (model, 0, numModels - 1)];
+            k.even = b.even; k.transientDrive = b.trans; k.thermal = b.thermal * biasScale; k.coupling = b.coupling;
+            k.hysteresis = b.hyst; k.fluxMemory = b.mem; k.bandwidthLoss = b.bw; k.lowEmphasisDb = b.lowDb;
+            if (k.lowEmphasisDb != 0.0f)
+            {
+                k.emphPre = SvfEqCoeffs::lowShelf (o, 140.0 * f, 0.6, k.lowEmphasisDb);
+                k.emphPost = SvfEqCoeffs::lowShelf (o, 140.0 * f, 0.6, -k.lowEmphasisDb);
             }
 
             k.fluxInvLimit2 = 1.0f / (k.fluxLimit * k.fluxLimit);
@@ -699,6 +825,7 @@ namespace enh::dsp
         std::array<std::array<Coeffs, numModels>, 2> coeffs {};
         int designedComponents = -1;
         float rightDrive = 1.0f, dcCoeff = 0.9999f;
+        float tAtt = 0.0f, tRelFast = 0.0f, tAttSlow = 0.0f, tRelSlow = 0.0f, heatK = 0.0f, coupleK = 0.0f, fluxPeakK = 0.0f, fluxAttK = 0.0f, bwK = 0.0f;
 
         std::array<Voice, numVoices> voices {};
         float wet = 0.0f, driveGain = 1.0f;

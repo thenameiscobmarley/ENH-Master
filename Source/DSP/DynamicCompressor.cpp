@@ -18,6 +18,7 @@ namespace enh::dsp
         rmsWindowCoeff = 1.0f - (float) std::exp (-1.0 / (0.050 * sr));
         kwtShelf = BiquadCoeffs::highShelf (sr, 1500.0, 0.7071, 4.0);
         scHp150 = BiquadCoeffs::highPass (sr, 150.0, 0.7071);
+        cellHeatK = 1.0f - (float) std::exp (-1.0 / (1.5 * sr));
         reset();
     }
 
@@ -32,6 +33,8 @@ namespace enh::dsp
         thresholdDb = -20.0f;
         ratio = 2.0f;
         gainDb = makeupDb = slowDb = fastDb = singleDb = 0.0f;
+        cellHeat = 0.0f;
+        cellLag = {};
         rmsWindowEnergy = kwtEnergy = optoDb = 0.0f;
         for (auto& k : kwtState) k.reset();
         for (auto& st : scState150) st.reset();
@@ -361,10 +364,26 @@ namespace enh::dsp
 
             const float wetGain = fromDb (gainDb + makeupDb);
 
+            // The gain cell is not a perfect multiplier: the harder it works the more it bends the signal
+            // (odd, gentle: a few tenths of a percent at heavy reduction), and after working hard for a while
+            // it bends a little more for a moment (heat). With no gain reduction it is exact.
+            const float grN = std::clamp (-gainDb / 12.0f, 0.0f, 1.0f);
+            cellHeat += (grN - cellHeat) * cellHeatK;
+            const float bend = 0.020f * grN * (0.7f + 0.6f * cellHeat);
+
             for (int c = 0; c < ch; ++c)
             {
                 const float dry = data[c][i];
-                const float wet = dry * wetGain;
+                float wet = dry * wetGain;
+                if (bend > 0.0f)
+                {
+                    // (and it responds a hair late to steep edges: a touch of lag at heavy reduction only)
+                    auto& lag = cellLag[(size_t) std::min (c, 1)];
+                    lag += (wet - lag) * (1.0f - 0.25f * grN);
+                    wet = lag - bend * lag * lag * lag / (1.0f + lag * lag);
+                }
+                else
+                    cellLag[(size_t) std::min (c, 1)] = wet;
                 const float y = dry + (wet - dry) * mix;
                 data[c][i] = y;
                 outPeak = std::max (outPeak, std::abs (y));

@@ -459,7 +459,20 @@ namespace pad
                 }
             const auto& info = layout::unitInfo[(size_t) unit];
             text (juce::String (info.name), { x0 + 14.0f, y0 + 13.0f, pw - 28.0f, 20.0f }, font (15.5f, true, 0.02f), white);
-            text (juce::String (settings) + " SETTINGS" + (changed > 0 ? "   /   " + juce::String (changed) + " CHANGED" : juce::String()),
+            // What this unit delays the sound by (look-ahead, oversampling): gamers want to know
+            juce::String delay;
+            {
+                // EnhEngine::getLatencyBreakdown order: enhancer, radar, tone & space, character, ear guard, limiter
+                const int stage = unit == layout::enhUnit ? 0 : unit == layout::radarUnit ? 1 : unit == layout::tubeUnit ? 2
+                                : unit == layout::characterUnit ? 3 : -1;
+                if (unit == layout::monitorUnit)
+                    delay = "RACK DELAY " + juce::String (processor.getRackLatencyMs(), 1) + " MS";   // the whole rack, as it leaves
+                else if (stage >= 0)
+                    delay = "DELAY " + juce::String (processor.getStageLatencyMs (stage), 1) + " MS";
+                else
+                    delay = "NO DELAY";
+            }
+            text (juce::String (settings) + " SETTINGS   /   " + delay + (changed > 0 ? "   /   " + juce::String (changed) + " CHANGED" : juce::String()),
                   { x0 + 14.0f, y0 + 35.0f, pw - 28.0f, 13.0f }, font (9.0f, true, 0.16f), soft);
             g.setColour (faint);
             g.fillRect (x0 + 14.0f, y0 + headerH - 1.0f, pw - 28.0f, 1.0f);

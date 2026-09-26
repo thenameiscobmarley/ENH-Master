@@ -18,7 +18,7 @@ Glass-panel settings are listed in [Methods](Methods.md).
 | [`subBoost`](../../Source/Parameters/ParameterSpecs.cpp#L14) | +BOOST | Sub Boost | off / on | off |
 | [`footstep`](../../Source/Parameters/ParameterSpecs.cpp#L15) | IN | Footstep Radar In | Out / In | Out |
 | [`radarSens`](../../Source/Parameters/ParameterSpecs.cpp#L16) | SENSITIVITY | Footstep Sensitivity | 0 – 10 | 6 |
-| [`radarBoost`](../../Source/Parameters/ParameterSpecs.cpp#L17) | BOOST | Footstep Boost | 0 – 12 dB | 6 |
+| [`radarBoost`](../../Source/Parameters/ParameterSpecs.cpp#L17) | BOOST | Footstep Boost | 0 – 34 dB | 6 |
 | [`radarSpace`](../../Source/Parameters/ParameterSpecs.cpp#L18) | SPACE | Footstep Space | 0 – 10 | 4 |
 | [`radarListen`](../../Source/Parameters/ParameterSpecs.cpp#L19) | LISTEN | Footstep Listen | off / on | off |
 | [`enhMultiply`](../../Source/Parameters/ParameterSpecs.cpp#L20) | MULTIPLY | Enhancer Multiply | 0 – 3 x | 1 |
@@ -80,5 +80,20 @@ Glass-panel settings are listed in [Methods](Methods.md).
 | [`charGrit`](../../Source/Parameters/ParameterSpecs.cpp#L87) | GRIT | Character Grit | Clean drive / Drive + distortion | Drive + distortion |
 | [`abCompare`](../../Source/Parameters/ParameterSpecs.cpp#L88) | COMPARE | Compare | Rack / Input (level-matched) | Rack |
 | [`monitorSpeed`](../../Source/Parameters/ParameterSpecs.cpp#L89) | SPEED | Monitor Speed | 1 – 10 | 5 |
-| [`presetPrev`](../../Source/Parameters/ParameterSpecs.cpp#L91) | PREV | Preset Previous | off / on | off |
-| [`presetNext`](../../Source/Parameters/ParameterSpecs.cpp#L92) | NEXT | Preset Next | off / on | off |
+| [`lbEqIn`](../../Source/Parameters/ParameterSpecs.cpp#L90) | IN | EQ In | Out / In | Out |
+| [`lbHpf`](../../Source/Parameters/ParameterSpecs.cpp#L91) | HPF | EQ High-Pass | Off / 50 Hz / 80 Hz / 160 Hz / 300 Hz | Off |
+| [`lbLowFreq`](../../Source/Parameters/ParameterSpecs.cpp#L92) | LOW | EQ Low Freq | 35 Hz / 60 Hz / 110 Hz / 220 Hz | 60 Hz |
+| [`lbLowGain`](../../Source/Parameters/ParameterSpecs.cpp#L93) | LOW | EQ Low Gain | -16 – 16 dB | 0 |
+| [`lbMidFreq`](../../Source/Parameters/ParameterSpecs.cpp#L94) | MID | EQ Mid Freq | 360 Hz / 700 Hz / 1.6 kHz / 3.2 kHz / 4.8 kHz / 7.2 kHz | 1.6 kHz |
+| [`lbMidGain`](../../Source/Parameters/ParameterSpecs.cpp#L95) | MID | EQ Mid Gain | -18 – 18 dB | 0 |
+| [`lbMidHiQ`](../../Source/Parameters/ParameterSpecs.cpp#L96) | HI Q | EQ Mid Hi Q | off / on | off |
+| [`lbHighGain`](../../Source/Parameters/ParameterSpecs.cpp#L97) | HIGH | EQ High Gain | -16 – 16 dB | 0 |
+| [`lbIron`](../../Source/Parameters/ParameterSpecs.cpp#L98) | IRON | EQ Iron | off / on | off |
+| [`lbHarshIn`](../../Source/Parameters/ParameterSpecs.cpp#L99) | IN | De-Harsh In | Out / In | Out |
+| [`lbHarshAmount`](../../Source/Parameters/ParameterSpecs.cpp#L100) | AMOUNT | De-Harsh Amount | 0 – 10 | 5 |
+| [`lbHarshFreq`](../../Source/Parameters/ParameterSpecs.cpp#L101) | FREQ | De-Harsh Freq | 2.5 kHz / 4 kHz / 6.5 kHz | 4 kHz |
+| [`lbHarshSpeed`](../../Source/Parameters/ParameterSpecs.cpp#L102) | SPEED | De-Harsh Speed | 10 – 200 ms | 30 |
+| [`lbFeedIn`](../../Source/Parameters/ParameterSpecs.cpp#L103) | IN | Crossfeed In | Out / In | Out |
+| [`lbFeedAmount`](../../Source/Parameters/ParameterSpecs.cpp#L104) | AMOUNT | Crossfeed Amount | 0 – 10 | 5 |
+| [`presetPrev`](../../Source/Parameters/ParameterSpecs.cpp#L106) | PREV | Preset Previous | off / on | off |
+| [`presetNext`](../../Source/Parameters/ParameterSpecs.cpp#L107) | NEXT | Preset Next | off / on | off |

@@ -89,3 +89,4 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
 .d-stage3d canvas { display: block; width: 100%; height: min(58vh, 560px); cursor: grab; touch-action: none; }
 .d-stage3d canvas:active { cursor: grabbing; }
 .d-3dnote { position: absolute; left: 12px; bottom: 8px; margin: 0; font-size: .75rem; color: var(--dim); pointer-events: none; }
+.d-stage svg { max-width: none; }

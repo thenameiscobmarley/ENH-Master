@@ -25,6 +25,12 @@ namespace pad
         float renderScale     = 0.0f;   // supersampling: 0 = auto (1x), or 1..2 (draw finer than the screen, filter down)
         float parallaxAmount  = 1.0f;   // 0..2
         bool  reduceMotion    = false;  // disables idle sheen + parallax
+        float wetCoat         = 1.0f;   // 0..1: the clear coat's strength (the wet look); 0 saves ~2-4 ms a frame on a weak GPU
+        bool  simpleView      = false;  // SIMPLE: only the units you use are in the case (right-click the rack).
+                                        // A new config starts SIMPLE; one written before it existed stays FULL
+
+        /** Remember the view (right-click menu): rewrites only that key in the file. */
+        static void saveSimpleView (bool simple, const juce::File& file = getDefaultFile());
 
         juce::StringArray warnings;
 

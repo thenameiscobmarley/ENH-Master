@@ -16,14 +16,15 @@
     matte: "Smooth matte", redtrim: "Red anodised", capblue: "Blue cap", capred: "Red cap", capwhite: "White cap",
     chicken: "Chicken head", pointer: "Pointer bar" };
   const TYPES = {
-    knob:    { label: "Knob", w: 22, h: 22, defaults: { style: "ribbed", value: 50, text: "GAIN", scale: true, min: 0, max: 10, size: 22, pointer: "auto" } },
+    knob:    { label: "Knob", w: 22, h: 22, defaults: { style: "ribbed", value: 50, text: "GAIN", scale: true, min: 0, max: 10, size: 22, pointer: "auto",
+                                                   steps: 10, nums: "ends", lean: false, sweep: 270, arcText: false } },
     toggle:  { label: "Toggle", w: 10, h: 18, defaults: { style: "bat", on: true, text: "IN" } },
     button:  { label: "Button", w: 12, h: 10, defaults: { style: "square", on: false, colour: "#e0a84a", text: "BYPASS" } },
     led:     { label: "LED", w: 4, h: 4, defaults: { colour: "#46e070", on: true, text: "" } },
     vu:      { label: "VU meter", w: 64, h: 36, defaults: { style: "cream", value: 55, text: "VU" } },
     ladder:  { label: "LED ladder", w: 6, h: 40, defaults: { segments: 10, value: 60, text: "" } },
     display: { label: "Display", w: 90, h: 30, defaults: { colour: "#56c8f5", text: "ENH" } },
-    label:   { label: "Text", w: 40, h: 8, defaults: { text: "LABEL", size: 5, bold: true, align: "center" } },
+    label:   { label: "Text", w: 40, h: 8, defaults: { text: "LABEL", size: 5, bold: true, align: "center", bend: "none", curve: 40, radius: 20, start: 0, flip: false } },
     box:     { label: "Section box", w: 90, h: 34, defaults: { text: "SECTION", round: 3, fill: false } },
     line:    { label: "Line", w: 60, h: 1, defaults: {} },
     jack:    { label: "Jack", w: 14, h: 14, defaults: { style: "trs", text: "INPUT" } },
@@ -35,6 +36,7 @@
   const TOGGLES = ["bat", "rocker", "rockerred"], BUTTONS = ["square", "round"], VUS = ["cream", "amber", "black"], JACKS = ["trs", "xlr"];
   const EDGES = ["square", "rounded", "bevel"], FONTS = ["sans", "serif", "mono", "condensed"], EARCOLS = ["match", "black", "silver"];
   const ALIGNS = ["left", "center", "right"], POINTERS = ["auto", "white", "cream", "black", "red"];
+  const NUMS = ["ends", "all", "none"], BENDS = ["none", "curve", "circle"];
   const FONT_FAMILY = { sans: "Inter, Segoe UI, Helvetica, Arial, sans-serif", serif: "Georgia, Times New Roman, serif",
     mono: "ui-monospace, Menlo, Consolas, monospace", condensed: "Arial Narrow, Roboto Condensed, Helvetica Neue, sans-serif" };
   const POINTER_COLOUR = { white: "#f2f2f2", cream: "#e9dfc6", black: "#111111", red: "#d8322b" };
@@ -95,7 +97,18 @@
       if ("align" in def) q.align = pick (p.align, ALIGNS, def.align);
       if ("pointer" in def) q.pointer = pick (p.pointer, POINTERS, def.pointer);
       if ("fill" in def) q.fill = bool (p.fill, def.fill);
+      if ("steps" in def) q.steps = Math.round (clamp (p.steps, 2, 20, def.steps));
+      if ("nums" in def) q.nums = pick (p.nums, NUMS, def.nums);
+      if ("lean" in def) q.lean = bool (p.lean, def.lean);
+      if ("sweep" in def) q.sweep = clamp (p.sweep, 180, 330, def.sweep);
+      if ("arcText" in def) q.arcText = bool (p.arcText, def.arcText);
+      if ("bend" in def) q.bend = pick (p.bend, BENDS, def.bend);
+      if ("curve" in def) q.curve = clamp (p.curve, -100, 100, def.curve);
+      if ("radius" in def) q.radius = clamp (p.radius, 2, 240, def.radius);
+      if ("start" in def) q.start = clamp (p.start, -180, 180, def.start);
+      if ("flip" in def) q.flip = bool (p.flip, def.flip);
       q.lock = bool (p.lock, false);
+      const grp = Math.round (clamp (p.grp, 0, 9999, 0)); if (grp > 0) q.grp = grp;
       d.parts.push (q);
     }
     return d;
@@ -104,7 +117,8 @@
   // ---------------------------------------------------------------------------------------------------
   // Share codes: short keys -> JSON -> deflate -> base64url, prefixed "ENH1."
   const SHORT = { type: "t", x: "x", y: "y", w: "w", h: "h", rot: "r", style: "s", value: "v", text: "l", scale: "c", min: "a", max: "b",
-    on: "o", colour: "k", segments: "g", size: "z", bold: "d", round: "n", count: "u", align: "e", pointer: "i", fill: "f", lock: "q" };
+    on: "o", colour: "k", segments: "g", size: "z", bold: "d", round: "n", count: "u", align: "e", pointer: "i", fill: "f", lock: "q",
+    steps: "st", nums: "nu", lean: "le", sweep: "sw", arcText: "at", bend: "be", curve: "cu", radius: "ra", start: "sa", flip: "fl", grp: "gp" };
   const LONG = Object.fromEntries (Object.entries (SHORT).map (([a, b]) => [b, a]));
   const round1 = (n) => Math.round (n * 10) / 10;
 
@@ -150,6 +164,31 @@
       "font-weight": opts.bold === false ? 500 : 700, "letter-spacing": opts.spacing ?? size * 0.12, "dominant-baseline": "middle" }, parent);
     t.textContent = s;   // text, never markup
     return t;
+  };
+  // Text along a path: the path is drawn invisibly beside it and referred to by an id unique to this drawing
+  let pathSeq = 0;
+  const pathText = (parent, d, s, size, fill, opts = {}) => {
+    const id = "tp" + (++pathSeq);
+    el ("path", { id, d, fill: "none" }, parent);
+    const t = el ("text", { "font-size": size, fill, "text-anchor": opts.anchor || "middle", "font-family": FONT_FAMILY[design.unit.font] || FONT_FAMILY.sans,
+      "font-weight": opts.bold === false ? 500 : 700, "letter-spacing": opts.spacing ?? size * 0.12, "dominant-baseline": "middle" }, parent);
+    const tp = el ("textPath", { href: "#" + id, startOffset: opts.offset || "50%" }, t);
+    tp.textContent = s;   // text, never markup
+    return t;
+  };
+  // A whole circle of radius R round (0, 0), its middle at `at` degrees (0 = top, clockwise); `inside`: read
+  // from the inside (along the bottom, left to right) - the path runs the other way round
+  const circlePath = (R, at, inside) => {
+    const P = (a) => { const r = a * Math.PI / 180; return (R * Math.sin (r)).toFixed (3) + " " + (-R * Math.cos (r)).toFixed (3); };
+    const sw = inside ? 0 : 1;
+    return `M ${P (at + 180)} A ${R} ${R} 0 1 ${sw} ${P (at)} A ${R} ${R} 0 1 ${sw} ${P (at + 180)}`;
+  };
+  // An arc across width w, bowed by `curve` (-100..100: up to a half circle; + arches up)
+  const curvePath = (w, curve) => {
+    const sag = curve / 100 * w / 2;
+    if (Math.abs (sag) < 0.01) return `M ${-w / 2} 0 L ${w / 2} 0`;
+    const R = (w * w / 4 + sag * sag) / (2 * Math.abs (sag)), y = sag / 2;
+    return `M ${-w / 2} ${y.toFixed (3)} A ${R.toFixed (3)} ${R.toFixed (3)} 0 0 ${sag > 0 ? 1 : 0} ${w / 2} ${y.toFixed (3)}`;
   };
   const shade = (hex, f) => { const n = parseInt (hex.slice (1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map ((v) => Math.max (0, Math.min (255, Math.round (f >= 0 ? v + (255 - v) * f : v * (1 + f)))));
     return "#" + c.map ((v) => v.toString (16).padStart (2, "0")).join (""); };
@@ -238,7 +277,12 @@
     // Selection outlines
     if (!play && !print && root === svg) for (const p of design.parts) if (selected.includes (p.id)) {
       const b = bounds (p);
-      el ("rect", { x: b.x - 1.5, y: b.y - 1.5, width: b.w + 3, height: b.h + 3, rx: 1.5, fill: "none", stroke: p.lock ? "#f59bd6" : "#7fe3e0", "stroke-width": 0.6, "stroke-dasharray": "2 1.2", class: "d-sel" }, face);
+      el ("rect", { x: b.x - 1.5, y: b.y - 1.5, width: b.w + 3, height: b.h + 3, rx: 1.5, fill: "none", stroke: p.lock ? "#f59bd6" : p.grp ? "#c7a6ff" : "#7fe3e0", "stroke-width": 0.6, "stroke-dasharray": "2 1.2", class: "d-sel" }, face);
+    }
+    // The box being dragged out to select with
+    if (root === svg && drag && drag.mode === "box" && drag.cur) {
+      const r = boxRect (drag.start, drag.cur);
+      el ("rect", { x: r.x, y: r.y, width: r.w, height: r.h, fill: "#7fe3e0", "fill-opacity": 0.08, stroke: "#7fe3e0", "stroke-width": 0.4, "stroke-dasharray": "1.5 1" }, face);
     }
     mode = "edit";
     if (root === svg) notify();
@@ -251,26 +295,41 @@
     else { el ("circle", { cx: x, cy: y, r: r * 1.25, fill: "none", stroke: "#8f9095", "stroke-width": 0.5, "stroke-dasharray": "0.5 0.6" }, parent); }
   }
 
-  const bounds = (p) => ({ x: p.x - p.w / 2, y: p.y - p.h / 2, w: p.w, h: p.h });
-  const angle = (v) => -135 + 2.7 * v;   // 0..100 -> -135..+135 degrees
+  // How much room a part takes (text round a circle takes the circle's)
+  const extent = (p) => { if (p.type === "label" && p.bend === "circle") { const d = 2 * (p.radius + p.size * 0.7); return { w: d, h: d }; } return { w: p.w, h: p.h }; };
+  const bounds = (p) => { const e = extent (p); return { x: p.x - e.w / 2, y: p.y - e.h / 2, w: e.w, h: e.h }; };
+  const boxRect = (a, b) => ({ x: Math.min (a.x, b.x), y: Math.min (a.y, b.y), w: Math.abs (a.x - b.x), h: Math.abs (a.y - b.y) });
+  // A knob's angle for 0..100 (degrees from the top, clockwise), over its sweep (270 unless set)
+  const angle = (v, sweep = 270) => -sweep / 2 + sweep * v / 100;
+  const knobAngle = (p) => angle (p.value, p.sweep || 270);
+  const fmt = (n) => String (Math.round (n * 10) / 10);
 
   function drawPart (parent, p) {
     const g = el ("g", { "data-id": p.id, class: "d-part", transform: `translate(${p.x} ${p.y})${p.rot ? ` rotate(${p.rot})` : ""}` }, parent);
     const ink = design.unit.ink, r = Math.min (p.w, p.h) / 2;
     switch (p.type) {
       case "knob": {
-        if (p.scale) {   // eleven ticks and the ends numbered, round the knob
-          for (let i = 0; i <= 10; ++i) {
-            const a = (angle (i * 10) - 90) * Math.PI / 180, r0 = r * 1.18, r1 = r * (i % 5 === 0 ? 1.38 : 1.3);
-            el ("line", { x1: Math.cos (a) * r0, y1: Math.sin (a) * r0, x2: Math.cos (a) * r1, y2: Math.sin (a) * r1, stroke: ink, "stroke-width": i % 5 === 0 ? 0.5 : 0.3 }, g);
-          }
-          for (const [v, n] of [[0, p.min], [50, (p.min + p.max) / 2], [100, p.max]]) {
-            const a = (angle (v) - 90) * Math.PI / 180;
-            txt (g, Math.cos (a) * r * 1.62, Math.sin (a) * r * 1.62, String (Math.round (n * 10) / 10), r * 0.24, ink, { bold: false, spacing: 0 });
+        const sweep = p.sweep || 270, steps = p.steps || 10;
+        if (p.scale) {   // ticks round the knob; numbers at the ends and middle, at every step, or none
+          const half = steps % 2 === 0 ? steps / 2 : -1, every = p.nums === "all";
+          const nsize = r * (every ? Math.max (0.15, Math.min (0.24, 2.4 / steps)) : 0.24);
+          for (let i = 0; i <= steps; ++i) {
+            const deg = angle (i / steps * 100, sweep), a = (deg - 90) * Math.PI / 180;
+            const major = i === 0 || i === steps || i === half;
+            const r0 = r * 1.18, r1 = r * (major || every ? 1.38 : 1.3);
+            el ("line", { x1: Math.cos (a) * r0, y1: Math.sin (a) * r0, x2: Math.cos (a) * r1, y2: Math.sin (a) * r1, stroke: ink, "stroke-width": major ? 0.5 : 0.3 }, g);
+            if (p.nums === "none" || (!every && !major)) continue;
+            const x = Math.cos (a) * r * 1.62, y = Math.sin (a) * r * 1.62;
+            const t = txt (g, x, y, fmt (p.min + (p.max - p.min) * i / steps), nsize, ink, { bold: false, spacing: 0 });
+            if (p.lean) t.setAttribute ("transform", `rotate(${deg.toFixed (2)} ${x.toFixed (3)} ${y.toFixed (3)})`);   // turned with the dial
           }
         }
-        if (p.text) txt (g, 0, r * 1.62 + 3, p.text, 2.6, ink, { spacing: 0.45 });
-        if (mode !== "print") knob (g, p.style, r, angle (p.value), p.pointer);
+        if (p.text) {
+          const R = r * (p.scale ? 1.62 : 1.2) + 3;
+          if (p.arcText) pathText (g, circlePath (R, 180, true), p.text, 2.6, ink, { spacing: 0.45 });   // curved under the knob
+          else txt (g, 0, R, p.text, 2.6, ink, { spacing: 0.45 });
+        }
+        if (mode !== "print") knob (g, p.style, r, angle (p.value, sweep), p.pointer);
         break;
       }
       case "toggle": {
@@ -342,8 +401,14 @@
         el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h * 0.4, rx: 1.2, fill: "#fff", opacity: 0.05 }, g);
         break;
       }
-      case "label": txt (g, p.align === "left" ? -p.w / 2 : p.align === "right" ? p.w / 2 : 0, 0, p.text, p.size, ink,
-                               { bold: p.bold, spacing: p.size * 0.14, anchor: p.align === "left" ? "start" : p.align === "right" ? "end" : "middle" }); break;
+      case "label": {
+        const anchor = p.align === "left" ? "start" : p.align === "right" ? "end" : "middle";
+        const opts = { bold: p.bold, spacing: p.size * 0.14, anchor, offset: anchor === "start" ? "0%" : anchor === "end" ? "100%" : "50%" };
+        if (p.bend === "circle") { opts.anchor = "middle"; opts.offset = "50%"; pathText (g, circlePath (p.radius, p.start, p.flip), p.text, p.size, ink, opts); }
+        else if (p.bend === "curve") pathText (g, curvePath (p.w, p.curve), p.text, p.size, ink, opts);
+        else txt (g, p.align === "left" ? -p.w / 2 : p.align === "right" ? p.w / 2 : 0, 0, p.text, p.size, ink, opts);
+        break;
+      }
       case "box": {
         if (p.fill) el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: p.round, fill: shade (design.unit.colour, 0.1) }, g);
         el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: p.round, fill: "none", stroke: ink, "stroke-width": 0.35, opacity: 0.85 }, g);
@@ -368,7 +433,8 @@
       }
     }
     // an invisible hit area the size of the part, so small parts are easy to grab
-    el ("rect", { x: -p.w / 2 - 2, y: -p.h / 2 - 2, width: p.w + 4, height: p.h + 4, fill: "#000", opacity: 0 }, g);
+    const e = extent (p);
+    el ("rect", { x: -e.w / 2 - 2, y: -e.h / 2 - 2, width: e.w + 4, height: e.h + 4, fill: "#000", opacity: 0 }, g);
   }
 
   function knob (g, style, r, deg, pointer = "auto") {
@@ -416,9 +482,9 @@
     });
   }
   window.ENHDesigner = Object.freeze ({
-    W, U, KNOBS, get: () => design, selected: () => selected.slice(),
+    W, U, KNOBS, knobAngle, extent, get: () => design, selected: () => selected.slice(),
     subscribe: (f) => { listeners.push (f); f (design, selected); },
-    select: (id) => { if (byId (id)) { selected = [id]; render(); props(); } },
+    select: (id) => { if (byId (id)) { selected = withGroups ([id]); render(); props(); } },
     printCanvas,
   });
 
@@ -435,6 +501,9 @@
     else if (kind === "vu") { const q = sanitize ({ parts: [{ type: "vu", x: 0, y: 0, w: 26, h: 16, style: value, value: 55, text: "" }] }).parts[0]; drawPart (g, q); }
     else if (kind === "jack") drawPart (g, sanitize ({ parts: [{ type: "jack", x: 0, y: 0, w: 16, h: 16, style: value, text: "" }] }).parts[0]);
     else if (kind === "screws") screw (g, 0, 0, value, 8);
+    else if (kind === "nums") drawPart (g, sanitize ({ parts: [{ type: "knob", x: 0, y: 0, w: 10, h: 10, style: "ribbed", value: 50, text: "", scale: true, nums: value, steps: 10, min: 0, max: 10 }] }).parts[0]);
+    else if (kind === "bend") drawPart (g, sanitize ({ parts: [{ type: "label", x: 0, y: value === "circle" ? 0 : 3, w: 24, text: value === "circle" ? "ROUND AND ROUND ·" : "TEXT",
+      size: value === "circle" ? 3 : 5, bend: value, curve: 70, radius: 9, start: 0 }] }).parts[0]);
     else if (kind === "finish" || kind === "edge" || kind === "ears" || kind === "handles" || kind === "earColour" || kind === "font") {
       const u = design.unit, fin = kind === "finish" ? value : u.finish;
       const rx = kind === "edge" ? (value === "square" ? 0.3 : value === "bevel" ? 2 : 5) : 3;
@@ -513,18 +582,21 @@
   function removeSelected () { if (!selected.length) return; design.parts = design.parts.filter ((p) => !selected.includes (p.id)); selected = []; commit(); }
   function duplicate () {
     if (!selected.length) return;
-    const copies = selected.map (byId).filter (Boolean).map ((p) => Object.assign ({}, p, { id: nextId++, x: Math.min (W, p.x + 8), y: Math.min (design.unit.height * U, p.y + 4) }));
+    if (design.parts.length + selected.length > MAX_PARTS) return;
+    const regroup = groupMap();
+    const copies = selected.map (byId).filter (Boolean).map ((p) => Object.assign ({}, p, { id: nextId++, x: Math.min (W, p.x + 8), y: Math.min (design.unit.height * U, p.y + 4) }, p.grp ? { grp: regroup (p.grp) } : {}));
     design.parts.push (...copies); selected = copies.map ((p) => p.id); commit();
   }
   function align (how) {
     const ps = selected.map (byId).filter (Boolean); if (ps.length < 2) return;
     const xs = ps.map ((p) => p.x), ys = ps.map ((p) => p.y);
     const lo = (a) => Math.min (...a), hi = (a) => Math.max (...a);
-    if (how === "left") ps.forEach ((p) => (p.x = lo (ps.map ((q) => q.x - q.w / 2)) + p.w / 2));
-    if (how === "right") ps.forEach ((p) => (p.x = hi (ps.map ((q) => q.x + q.w / 2)) - p.w / 2));
+    const ew = (q) => extent (q).w, eh = (q) => extent (q).h;
+    if (how === "left") ps.forEach ((p) => (p.x = lo (ps.map ((q) => q.x - ew (q) / 2)) + ew (p) / 2));
+    if (how === "right") ps.forEach ((p) => (p.x = hi (ps.map ((q) => q.x + ew (q) / 2)) - ew (p) / 2));
     if (how === "hcenter") { const c = (lo (xs) + hi (xs)) / 2; ps.forEach ((p) => (p.x = c)); }
-    if (how === "top") ps.forEach ((p) => (p.y = lo (ps.map ((q) => q.y - q.h / 2)) + p.h / 2));
-    if (how === "bottom") ps.forEach ((p) => (p.y = hi (ps.map ((q) => q.y + q.h / 2)) - p.h / 2));
+    if (how === "top") ps.forEach ((p) => (p.y = lo (ps.map ((q) => q.y - eh (q) / 2)) + eh (p) / 2));
+    if (how === "bottom") ps.forEach ((p) => (p.y = hi (ps.map ((q) => q.y + eh (q) / 2)) - eh (p) / 2));
     if (how === "vcenter") { const c = (lo (ys) + hi (ys)) / 2; ps.forEach ((p) => (p.y = c)); }
     if (how === "hdist" && ps.length > 2) { ps.sort ((a, b) => a.x - b.x); const a = ps[0].x, b = ps[ps.length - 1].x; ps.forEach ((p, i) => (p.x = a + (b - a) * i / (ps.length - 1))); }
     if (how === "vdist" && ps.length > 2) { ps.sort ((a, b) => a.y - b.y); const a = ps[0].y, b = ps[ps.length - 1].y; ps.forEach ((p, i) => (p.y = a + (b - a) * i / (ps.length - 1))); }
@@ -535,12 +607,73 @@
     design.parts = dir > 0 ? rest.concat (moving) : moving.concat (rest); commit();
   }
 
+  // Groups: parts that select and move together (a knob and the text wrapped round it, a row of switches)
+  const newGroup = () => 1 + Math.max (0, ...design.parts.map ((p) => p.grp || 0));
+  const groupMap = () => { const m = new Map(); let n = newGroup(); return (g) => { if (!m.has (g)) m.set (g, n++); return m.get (g); }; };
+  const withGroups = (ids) => { const gs = new Set (ids.map (byId).filter ((p) => p && p.grp).map ((p) => p.grp));
+    return [...new Set (ids.concat (design.parts.filter ((p) => p.grp && gs.has (p.grp)).map ((p) => p.id)))]; };
+  function group () { if (selected.length < 2) return; const g = newGroup(); selected.map (byId).forEach ((p) => p && (p.grp = g)); commit(); }
+  function ungroup () { selected.map (byId).forEach ((p) => p && delete p.grp); commit(); }
+  function mirror () {   // left for right across the panel's middle
+    for (const p of selected.map (byId)) if (p && !p.lock) { p.x = W - p.x; if (p.rot) p.rot = -p.rot; if (p.type === "label" && p.bend === "circle") p.start = -p.start; }
+    commit();
+  }
+  function matchSize () {   // everything the size of the first picked
+    const ps = selected.map (byId).filter (Boolean); if (ps.length < 2) return;
+    for (const p of ps.slice (1)) { if (p.type === ps[0].type || (p.type !== "led" && p.type !== "screw")) { p.w = ps[0].w; p.h = p.type === "knob" ? ps[0].w : ps[0].h; } }
+    commit();
+  }
+  function setLock (on) { selected.map (byId).forEach ((p) => p && (p.lock = on)); commit(); }
+  /** Text round a part: centred on it, just outside it (its printed scale too), and grouped with it. */
+  function wrapAround (l, q) {
+    const r = Math.min (q.w, q.h) / 2;
+    const R = q.type === "knob" ? r * (q.scale ? 1.62 + 0.3 : 1.2) + 1.5 : Math.max (q.w, q.h) / 2 + 2;
+    Object.assign (l, { bend: "circle", x: q.x, y: q.y, radius: Math.round ((R + l.size * 0.55) * 10) / 10, start: l.flip ? 180 : 0 });
+    const g = q.grp || l.grp || newGroup(); q.grp = g; l.grp = g;
+    commit();
+  }
+
+  // Copy, cut and paste: the parts go to the clipboard as a small tagged text, so they paste into another
+  // design (another tab) too. What comes back in is sanitized like any share code.
+  const CLIP = "ENHPARTS1.";
+  let clip = "", pasteN = 0;
+  function copyParts () {
+    const ps = selected.map (byId).filter (Boolean); if (!ps.length) return "";
+    clip = CLIP + JSON.stringify (pack ({ unit: design.unit, parts: ps }).p); pasteN = 1;
+    return clip;
+  }
+  function pasteParts (s) {
+    if (!s || !s.startsWith (CLIP) || s.length > MAX_JSON) return false;
+    let arr; try { arr = JSON.parse (s.slice (CLIP.length)); } catch (_) { return false; }
+    if (!Array.isArray (arr)) return false;
+    const room = MAX_PARTS - design.parts.length; if (room <= 0) return true;
+    const ps = sanitize (unpack ({ u: design.unit, p: arr.slice (0, room) })).parts, H = design.unit.height * U, off = 6 * pasteN++;
+    const regroup = groupMap();
+    for (const p of ps) { p.x = clamp (p.x + off, 0, W, p.x); p.y = clamp (p.y + off, 0, H, p.y); if (p.grp) p.grp = regroup (p.grp); }
+    design.parts.push (...ps); selected = ps.map ((p) => p.id); commit();
+    return true;
+  }
+  const typingElsewhere = (e) => (e.target && e.target.closest && e.target.closest ("input, textarea, select, dialog")) || String (window.getSelection() || "").length > 0;
+  document.addEventListener ("copy", (e) => { if (typingElsewhere (e) || !selected.length) return; e.preventDefault(); e.clipboardData.setData ("text/plain", copyParts()); });
+  document.addEventListener ("cut", (e) => { if (typingElsewhere (e) || !selected.length) return; e.preventDefault(); e.clipboardData.setData ("text/plain", copyParts()); pasteN = 0; removeSelected(); });
+  document.addEventListener ("paste", (e) => {
+    if (typingElsewhere (e)) return;
+    const s = (e.clipboardData && e.clipboardData.getData ("text/plain")) || "";
+    if (pasteParts (s.startsWith (CLIP) ? s : clip)) e.preventDefault();
+  });
+
   // Pointer: select, drag, and in Play mode turn knobs / flip switches
   let drag = null;
   function svgPoint (e) { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform (svg.getScreenCTM().inverse()); }
   svg.addEventListener ("pointerdown", (e) => {
     const g = e.target.closest (".d-part"); const pt = svgPoint (e);
-    if (!g) { if (!play) { selected = []; render(); props(); } return; }
+    if (!g) {   // empty space: drag a box to select what it touches (Shift adds to what is selected)
+      if (play) return;
+      try { svg.setPointerCapture (e.pointerId); } catch (_) { /* a synthetic pointer: no capture needed */ }
+      drag = { mode: "box", start: pt, cur: null, base: e.shiftKey ? selected.slice() : [] };
+      if (!e.shiftKey) { selected = []; render(); props(); }
+      return;
+    }
     const p = byId (Number (g.getAttribute ("data-id"))); if (!p) return;
     e.preventDefault(); try { svg.setPointerCapture (e.pointerId); } catch (_) { /* a synthetic pointer: no capture needed */ }
     if (play) {
@@ -548,20 +681,29 @@
       if ("value" in p) drag = { mode: "turn", p, y0: e.clientY, v0: p.value };
       return;
     }
-    if (e.shiftKey) selected = selected.includes (p.id) ? selected.filter ((i) => i !== p.id) : selected.concat (p.id);
-    else if (!selected.includes (p.id)) selected = [p.id];
+    // a part in a group picks the whole group (Alt: just that part)
+    const ids = e.altKey ? [p.id] : withGroups ([p.id]);
+    if (e.shiftKey) selected = selected.includes (p.id) ? selected.filter ((i) => !ids.includes (i)) : [...new Set (selected.concat (ids))];
+    else if (!selected.includes (p.id)) selected = ids;
     drag = { mode: "move", start: pt, moved: false, orig: selected.map (byId).filter ((q) => q && !q.lock).map ((q) => ({ q, x: q.x, y: q.y })) };
     render(); props();
   });
   svg.addEventListener ("pointermove", (e) => {
     if (!drag) return;
     if (drag.mode === "turn") { drag.p.value = clamp (drag.v0 + (drag.y0 - e.clientY) * 0.6, 0, 100, 0); render(); return; }
+    if (drag.mode === "box") {
+      drag.cur = svgPoint (e); const r = boxRect (drag.start, drag.cur);
+      const hit = design.parts.filter ((p) => { const b = bounds (p); return b.x < r.x + r.w && b.x + b.w > r.x && b.y < r.y + r.h && b.y + b.h > r.y; }).map ((p) => p.id);
+      selected = [...new Set (drag.base.concat (withGroups (hit)))];
+      render(); return;
+    }
     const pt = svgPoint (e), dx = pt.x - drag.start.x, dy = pt.y - drag.start.y, H = design.unit.height * U;
     if (Math.abs (dx) + Math.abs (dy) > 0.2) drag.moved = true;
     for (const o of drag.orig) { o.q.x = clamp (snapV (o.x + dx), 0, W, o.x); o.q.y = clamp (snapV (o.y + dy), 0, H, o.y); }
     render();
   });
-  const endDrag = () => { if (drag) { if (drag.mode === "turn" || drag.moved) commit(); drag = null; } };
+  const endDrag = () => { if (!drag) return; const d = drag; drag = null;
+    if (d.mode === "box") { render(); props(); } else if (d.mode === "turn" || d.moved) commit(); };
   svg.addEventListener ("pointerup", endDrag); svg.addEventListener ("pointercancel", endDrag);
   svg.addEventListener ("wheel", (e) => {
     if (!play) return; const g = e.target.closest (".d-part"); const p = g && byId (Number (g.getAttribute ("data-id")));
@@ -569,11 +711,14 @@
   }, { passive: false });
 
   document.addEventListener ("keydown", (e) => {
-    if (e.target.closest ("input, textarea, select, dialog")) return;
+    if (e.target.closest && e.target.closest ("input, textarea, select, dialog")) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
     if (mod && e.key.toLowerCase() === "d") { e.preventDefault(); duplicate(); return; }
+    if (mod && e.key.toLowerCase() === "a") { e.preventDefault(); selected = design.parts.map ((p) => p.id); render(); props(); return; }
+    if (mod && e.key.toLowerCase() === "g") { e.preventDefault(); e.shiftKey ? ungroup() : group(); return; }
+    if (e.key === "Escape" && selected.length) { selected = []; render(); props(); return; }
     if (e.key === "Delete" || e.key === "Backspace") { if (selected.length) { e.preventDefault(); removeSelected(); } return; }
     if (e.key.toLowerCase() === "p" && !mod) { setPlay (!play); return; }
     const step = e.shiftKey ? 5 : 0.5, H = design.unit.height * U;
@@ -630,52 +775,110 @@
   function refreshPickers () { for (const k in unitPickers) unitPickers[k].setValue (design.unit[k]); }
 
   function field (parent, label, input) { const l = document.createElement ("label"); l.textContent = label + " "; l.appendChild (input); parent.appendChild (l); return input; }
+  const partName = (q) => TYPES[q.type].label + (q.text ? " “" + q.text + "”" : "");
+  /** The selected part's settings - or, with several selected, the settings they share: a change goes to
+      all of them (a field they differ on shows "mixed" until it is set). */
   function props () {
     const body = $("props-body"); body.replaceChildren();
-    $("props-empty").hidden = selected.length > 0;
-    $("align").hidden = selected.length < 2;
-    if (selected.length !== 1) { if (selected.length > 1) { const p = document.createElement ("p"); p.className = "muted small"; p.textContent = selected.length + " parts selected"; body.appendChild (p); } return; }
-    const p = byId (selected[0]); if (!p) return;
-    const h = document.createElement ("p"); h.className = "d-kind"; h.textContent = TYPES[p.type].label; body.appendChild (h);
-    const num = (key, label, lo, hi, step = 0.5) => { const i = document.createElement ("input"); i.type = "number"; i.min = lo; i.max = hi; i.step = step; i.value = Math.round (p[key] * 10) / 10;
-      i.addEventListener ("input", () => { p[key] = clamp (i.value, lo, hi, p[key]); if (p.type === "knob" && key === "w") p.h = p.w; render(); save(); }); i.addEventListener ("change", commit); field (body, label, i); };
-    const choice = (key, label, list, names) => { const s = document.createElement ("select"); for (const v of list) { const o = document.createElement ("option"); o.value = v; o.textContent = names ? names[v] : v[0].toUpperCase() + v.slice (1); s.appendChild (o); }
-      s.value = p[key]; s.addEventListener ("change", () => { p[key] = pick (s.value, list, p[key]); commit(); }); field (body, label, s); };
-    const str = (key, label, max) => { const i = document.createElement ("input"); i.maxLength = max; i.value = p[key]; i.autocomplete = "off";
-      i.addEventListener ("input", () => { p[key] = text (i.value, max, ""); render(); save(); }); i.addEventListener ("change", commit); field (body, label, i); };
-    const chk = (key, label) => { const i = document.createElement ("input"); i.type = "checkbox"; i.checked = p[key]; i.addEventListener ("change", () => { p[key] = i.checked; commit(); });
+    const ps = selected.map (byId).filter (Boolean);
+    $("props-empty").hidden = ps.length > 0;
+    $("align").hidden = ps.length < 2;
+    if (!ps.length) return;
+    const p = ps[0], many = ps.length > 1, sameType = ps.every ((q) => q.type === p.type);
+    const has = (key) => ps.every ((q) => key in q);
+    const same = (key) => ps.every ((q) => q[key] === p[key]);
+    const setAll = (key, v) => { for (const q of ps) if (key in q || key === "lock") q[key] = v; };
+    const h = document.createElement ("p"); h.className = "d-kind";
+    h.textContent = many ? ps.length + " parts" + (sameType ? " (" + TYPES[p.type].label.toLowerCase() + ")" : "") + (ps.every ((q) => q.grp && q.grp === p.grp) ? " · grouped" : "") : TYPES[p.type].label;
+    body.appendChild (h);
+    const mixed = (i, key) => { if (!same (key)) { i.value = ""; i.placeholder = "mixed"; } };
+    const num = (key, label, lo, hi, step = 0.5, after) => { const i = document.createElement ("input"); i.type = "number"; i.min = lo; i.max = hi; i.step = step; i.value = Math.round (p[key] * 10) / 10; mixed (i, key);
+      i.addEventListener ("input", () => { if (i.value === "") return; const v = clamp (i.value, lo, hi, p[key]); for (const q of ps) { q[key] = v; if (q.type === "knob" && key === "w") q.h = v; } if (after) after(); render(); save(); });
+      i.addEventListener ("change", commit); field (body, label, i); };
+    const str = (key, label, max) => { const i = document.createElement ("input"); i.maxLength = max; i.value = p[key]; i.autocomplete = "off"; mixed (i, key);
+      i.addEventListener ("input", () => { setAll (key, text (i.value, max, "")); render(); save(); }); i.addEventListener ("change", commit); field (body, label, i); };
+    const chk = (key, label) => { const i = document.createElement ("input"); i.type = "checkbox"; i.checked = !!p[key]; i.indeterminate = !same (key);
+      i.addEventListener ("change", () => { setAll (key, i.checked); commit(); });
       const l = document.createElement ("label"); l.className = "row"; l.appendChild (i); l.appendChild (document.createTextNode (" " + label)); body.appendChild (l); };
-    const col = (key, label) => { const i = document.createElement ("input"); i.type = "color"; i.value = p[key]; i.addEventListener ("input", () => { p[key] = colour (i.value, p[key]); render(); save(); }); i.addEventListener ("change", commit);
+    const col = (key, label) => { const i = document.createElement ("input"); i.type = "color"; i.value = p[key]; i.addEventListener ("input", () => { setAll (key, colour (i.value, p[key])); render(); save(); }); i.addEventListener ("change", commit);
       const l = field (body, label, i); l.parentElement.classList.add ("row"); };
-    num ("x", "Across (mm)", 0, W); num ("y", "Down (mm)", 0, design.unit.height * U);
-    if (p.type === "knob") num ("w", "Size (mm)", 8, 60);
-    else if (!["led", "screw"].includes (p.type)) { num ("w", "Width (mm)", 1, W); if (!["label"].includes (p.type)) num ("h", "Height (mm)", 0.5, 4 * U); }
-    else num ("w", "Size (mm)", 2, 14);
-    if (["label", "box", "line", "display", "vent", "jack"].includes (p.type)) num ("rot", "Rotation (°)", -180, 180, 1);
-    const pick2 = (key, label, kind, list, names) => { const l = document.createElement ("div"); l.className = "d-field"; const t = document.createElement ("span"); t.textContent = label; l.appendChild (t);
-      l.appendChild (picker (kind, list, names, p[key], (v) => { p[key] = pick (v, list, p[key]); commit(); }, label)); body.appendChild (l); };
-    if (p.type === "knob") { pick2 ("style", "Knob", "knob", KNOBS, KNOB_NAMES); pick2 ("pointer", "Pointer", "pointer", POINTERS, { auto: "As the knob comes" });
-      chk ("scale", "Printed scale"); num ("min", "Scale from", -99, 999, 1); num ("max", "Scale to", -99, 999, 1); }
-    if (p.type === "toggle") pick2 ("style", "Switch", "toggle", TOGGLES, { bat: "Bat handle", rocker: "Rocker", rockerred: "Red rocker" });
-    if (p.type === "button") pick2 ("style", "Button", "button", BUTTONS);
-    if (p.type === "vu") pick2 ("style", "Dial", "vu", VUS);
-    if (p.type === "jack") pick2 ("style", "Socket", "jack", JACKS, { trs: "Jack (TRS)", xlr: "XLR" });
-    if ("align" in p) choice ("align", "Align", ALIGNS);
-    if ("fill" in p) chk ("fill", "Filled");
-    if ("value" in p) num ("value", p.type === "vu" ? "Needle" : p.type === "ladder" ? "Lit (%)" : "Position (%)", 0, 100, 1);
-    if ("on" in p) chk ("on", p.type === "toggle" ? "On" : "Lit");
-    if ("colour" in p) col ("colour", "Colour");
-    if ("segments" in p) num ("segments", "Segments", 3, 24, 1);
-    if ("count" in p) num ("count", "Slots", 2, 30, 1);
-    if ("size" in p) num ("size", "Text size", 2, 20, 0.5);
-    if ("bold" in p) chk ("bold", "Bold");
-    if ("round" in p) num ("round", "Corner", 0, 12, 0.5);
-    if ("text" in p) str ("text", p.type === "label" ? "Text" : "Label", 40);
+    const choice = (key, label, list, names) => { const sel = document.createElement ("select"); for (const v of list) { const o = document.createElement ("option"); o.value = v; o.textContent = names ? names[v] : v[0].toUpperCase() + v.slice (1); sel.appendChild (o); }
+      sel.value = p[key]; sel.addEventListener ("change", () => { setAll (key, pick (sel.value, list, p[key])); commit(); }); field (body, label, sel); };
+    const pick2 = (key, label, kind, list, names) => { const l = document.createElement ("div"); l.className = "d-field"; const t = document.createElement ("span"); t.textContent = label + (same (key) ? "" : " (mixed)"); l.appendChild (t);
+      l.appendChild (picker (kind, list, names, p[key], (v) => { setAll (key, pick (v, list, p[key])); commit(); }, label)); body.appendChild (l); };
+    const btns = (list) => { const b = document.createElement ("div"); b.className = "d-btns";
+      for (const [t, f, cls] of list) { const x = document.createElement ("button"); x.type = "button"; x.textContent = t; if (cls) x.className = cls; x.addEventListener ("click", f); b.appendChild (x); }
+      body.appendChild (b); };
+
+    // Where: one part's centre, or the whole selection moved as one
+    if (many) {
+      const cx = (Math.min (...ps.map ((q) => bounds (q).x)) + Math.max (...ps.map ((q) => bounds (q).x + bounds (q).w))) / 2;
+      const cy = (Math.min (...ps.map ((q) => bounds (q).y)) + Math.max (...ps.map ((q) => bounds (q).y + bounds (q).h))) / 2;
+      const moveAll = (label, c, axis, hi) => { const i = document.createElement ("input"); i.type = "number"; i.step = 0.5; i.value = Math.round (c * 10) / 10; let from = c;
+        i.addEventListener ("input", () => { if (i.value === "") return; const d = Number (i.value) - from; from = Number (i.value);
+          for (const q of ps) if (!q.lock) q[axis] = clamp (q[axis] + d, 0, hi, q[axis]); render(); save(); });
+        i.addEventListener ("change", commit); field (body, label, i); };
+      moveAll ("Across, middle (mm)", cx, "x", W); moveAll ("Down, middle (mm)", cy, "y", design.unit.height * U);
+    } else { num ("x", "Across (mm)", 0, W); num ("y", "Down (mm)", 0, design.unit.height * U); }
+
+    if (sameType) {
+      if (p.type === "knob") num ("w", "Size (mm)", 8, 60);
+      else if (!["led", "screw"].includes (p.type)) { if (!(p.type === "label" && p.bend === "circle")) num ("w", "Width (mm)", 1, W); if (p.type !== "label") num ("h", "Height (mm)", 0.5, 4 * U); }
+      else num ("w", "Size (mm)", 2, 14);
+    }
+    if (ps.every ((q) => ["label", "box", "line", "display", "vent", "jack"].includes (q.type))) num ("rot", "Rotation (°)", -180, 180, 1);
+    if (sameType && p.type === "knob") {
+      pick2 ("style", "Knob", "knob", KNOBS, KNOB_NAMES); pick2 ("pointer", "Pointer", "pointer", POINTERS, { auto: "As the knob comes" });
+      num ("sweep", "Turns through (°)", 180, 330, 5);
+      chk ("scale", "Printed scale");
+      if (ps.some ((q) => q.scale)) {
+        pick2 ("nums", "Scale numbers", "nums", NUMS, { ends: "Ends and middle", all: "At every step", none: "Ticks only" });
+        num ("steps", "Steps", 2, 20, 1); num ("min", "Scale from", -99, 999, 1); num ("max", "Scale to", -99, 999, 1);
+        chk ("lean", "Numbers turn with the dial");
+      }
+      chk ("arcText", "Label curves under the knob");
+    }
+    if (sameType && p.type === "toggle") pick2 ("style", "Switch", "toggle", TOGGLES, { bat: "Bat handle", rocker: "Rocker", rockerred: "Red rocker" });
+    if (sameType && p.type === "button") pick2 ("style", "Button", "button", BUTTONS);
+    if (sameType && p.type === "vu") pick2 ("style", "Dial", "vu", VUS);
+    if (sameType && p.type === "jack") pick2 ("style", "Socket", "jack", JACKS, { trs: "Jack (TRS)", xlr: "XLR" });
+    if (has ("bend")) {
+      pick2 ("bend", "Text shape", "bend", BENDS, { none: "Straight", curve: "Curved", circle: "Round a circle" });
+      if (ps.some ((q) => q.bend === "curve")) num ("curve", "Curve (− dips, + arches)", -100, 100, 1);
+      if (ps.some ((q) => q.bend === "circle")) { num ("radius", "Circle radius (mm)", 2, 240, 0.5); num ("start", "Centred at (°, 0 = top)", -180, 180, 1); chk ("flip", "Read from inside (along the bottom)"); }
+      if (!many) {   // wrap round another part
+        const others = design.parts.filter ((q) => q.id !== p.id && q.type !== "label");
+        if (others.length) {
+          const sel = document.createElement ("select"); const o0 = document.createElement ("option"); o0.value = ""; o0.textContent = "Choose a part…"; sel.appendChild (o0);
+          for (const q of others) { const o = document.createElement ("option"); o.value = String (q.id); o.textContent = partName (q); sel.appendChild (o); }
+          sel.addEventListener ("change", () => { const q = byId (Number (sel.value)); if (q) wrapAround (p, q); });
+          field (body, "Wrap round a part", sel);
+        }
+      }
+    }
+    if (many && ps.length === 2) {   // a text and one other part: wrap the one round the other
+      const l = ps.find ((q) => q.type === "label"), q = ps.find ((x) => x.type !== "label");
+      if (l && q) btns ([["Wrap the text round the " + TYPES[q.type].label.toLowerCase(), () => wrapAround (l, q), "primary"]]);
+    }
+    if (has ("align")) choice ("align", "Align", ALIGNS);
+    if (has ("fill")) chk ("fill", "Filled");
+    if (has ("value")) num ("value", sameType && p.type === "vu" ? "Needle" : sameType && p.type === "ladder" ? "Lit (%)" : "Position (%)", 0, 100, 1);
+    if (has ("on")) chk ("on", sameType && p.type === "toggle" ? "On" : "Lit");
+    if (has ("colour")) col ("colour", "Colour");
+    if (has ("segments")) num ("segments", "Segments", 3, 24, 1);
+    if (has ("count")) num ("count", "Slots", 2, 30, 1);
+    if (has ("size") && sameType && p.type === "label") num ("size", "Text size", 2, 20, 0.5, () => { for (const q of ps) if (q.bend === "circle") q.radius = Math.max (2, q.radius); });
+    if (has ("bold")) chk ("bold", "Bold");
+    if (has ("round")) num ("round", "Corner", 0, 12, 0.5);
+    if (has ("text")) str ("text", sameType && p.type === "label" ? "Text" : "Label", 40);
     chk ("lock", "Locked (can't be moved by accident)");
-    const b = document.createElement ("div"); b.className = "d-btns";
-    for (const [t, f] of [["Duplicate", duplicate], ["Bring forward", () => order (1)], ["Send back", () => order (-1)], ["Delete", removeSelected]]) {
-      const x = document.createElement ("button"); x.type = "button"; x.textContent = t; x.addEventListener ("click", f); b.appendChild (x); }
-    body.appendChild (b);
+    if (many) {
+      const grouped = ps.every ((q) => q.grp && q.grp === p.grp);
+      btns ([[grouped ? "Ungroup" : "Group", grouped ? ungroup : group], ["Duplicate", duplicate], ["Mirror left ↔ right", mirror], ["Match size", matchSize],
+             ["Lock all", () => setLock (true)], ["Unlock all", () => setLock (false)], ["Bring forward", () => order (1)], ["Send back", () => order (-1)], ["Delete", removeSelected, "danger"]]);
+    } else {
+      btns ([["Duplicate", duplicate], ["Mirror left ↔ right", mirror], ["Bring forward", () => order (1)], ["Send back", () => order (-1)]].concat (p.grp ? [["Leave group", ungroup]] : []).concat ([["Delete", removeSelected, "danger"]]));
+    }
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -793,6 +996,15 @@
     ok (d.parts.length === MAX_PARTS, "at most " + MAX_PARTS + " parts (" + d.parts.length + ")");
     const k = d.parts[0]; ok (k.x === W && k.y === 0 && k.value === 100 && k.style === "ribbed" && k.text.length <= 40 && !/[<>]/.test (k.text), "part numbers clamp, styles checked, text limited");
     ok (!({}).polluted, "no prototype pollution");
+    const odd = await decode (await mk ({ v: 1, u: {}, p: [{ t: "label", be: "evil", ra: 1e9, cu: -1e9, gp: -4, fl: "yes" }, { t: "knob", st: 999, nu: "<x>", sw: 5, le: 1 }] }));
+    const [ol, ok2] = odd.parts;
+    ok (ol.bend === "none" && ol.radius === 240 && ol.curve === -100 && !("grp" in ol) && ol.flip === false, "text-bending fields are checked and clamped");
+    ok (ok2.steps === 20 && ok2.nums === "ends" && ok2.sweep === 180 && ok2.lean === false, "scale fields are checked and clamped");
+    const before = design.parts.length; selected = design.parts.slice (0, 2).map ((q) => q.id);
+    const c = copyParts(); ok (c.startsWith (CLIP) && !/unit|name/.test (c), "copied parts carry only the parts");
+    pasteParts (c); ok (design.parts.length === before + selected.length, "copied parts paste back");
+    ok (pasteParts (CLIP + JSON.stringify ([{ t: "script" }, { t: "knob", x: 1e9 }])) && design.parts[design.parts.length - 1].x <= W, "pasted parts are sanitized");
+    undo(); undo();
     let threw = false; try { await decode ("ENH1." + "A".repeat (MAX_CODE + 10)); } catch (_) { threw = true; } ok (threw, "oversized codes are refused");
     threw = false; try { await decode ("<script>alert(1)</script>"); } catch (_) { threw = true; } ok (threw, "non-codes are refused");
     const zip = await mk ({ v: 1, u: {}, p: [], pad: "x".repeat (400000) }); threw = false; try { await decode (zip); } catch (_) { threw = true; } ok (threw, "a code that unpacks to too much is refused (" + zip.length + " chars)");

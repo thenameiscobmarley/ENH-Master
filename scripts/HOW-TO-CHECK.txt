@@ -1,0 +1,23 @@
+How to check a download is the real one
+=======================================
+
+Every release on GitHub has SHA256SUMS.txt: a fingerprint (SHA-256) of every download on it and of
+every script people run (build.sh, convert-to-windows.bat, the scripts/ folder). Work out the
+fingerprint of your copy and compare it with the line for that file. If even one character differs,
+the file is not the one GitHub built - don't run it.
+
+  Windows (PowerShell):   Get-FileHash .\ENH-Master-...-windows-gamer-app.zip -Algorithm SHA256
+  Windows (cmd):          certutil -hashfile ENH-Master-...-windows-gamer-app.zip SHA256
+  Linux / macOS:          sha256sum -c SHA256SUMS.txt --ignore-missing
+
+Inside every zip:
+  CHECKSUMS.txt        the fingerprint of every file in the zip (ENH Master.exe, the plugin...).
+                       Check them after unzipping, in this folder:
+                         Linux / macOS:  sha256sum -c CHECKSUMS.txt
+                         Windows:        Get-FileHash '.\ENH Master.exe' -Algorithm SHA256
+                                         and compare with its line
+  SCRIPTS-SHA256.txt   the fingerprints of the scripts, the same as on the release page.
+  HOW-TO-CHECK.txt     this file.
+
+A zip can't hold its own fingerprint (adding it would change the zip), so check the zip itself
+against SHA256SUMS.txt on the release page.

@@ -48,10 +48,24 @@ namespace pad
                          monitorWalls, monitorGlass, monitorBezel, balancerWalls, balancerGlass, balancerBezel,
                          enhBody, tubeBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
                          caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges,
-                         caseBoards, caseFeet, caseBrass;
+                         caseBoards, caseFeet, caseBrass,
+                         lbSlotWell, lbSlotRails, lbConnector, lbPins, lbStand, lbHardware, lbRailHoles,
+                         powerCables, wallOutlet, xlrBarrels, xlrRings, stripFaces, stripHoles, stripPlugs,
+                         loosePlug, loosePins, wallPlate, wallFaces, wallHoles, wallPlug;
+            std::array<gfx::GpuMesh, 4> lbPlates, lbPlateEdges, lbScrews;   // the LUNCHBOX's modules
+            std::array<gfx::GpuMesh, layout::numRackUnits> audioCables;      // one per unit, each its own colour
+            int numAudioCables = 0;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
+                for (auto* m : { &lbSlotWell, &lbSlotRails, &lbConnector, &lbPins, &lbStand, &lbHardware, &lbRailHoles,
+                                 &powerCables, &wallOutlet, &xlrBarrels, &xlrRings, &stripFaces, &stripHoles, &stripPlugs,
+                                 &loosePlug, &loosePins, &wallPlate, &wallFaces, &wallHoles, &wallPlug })
+                    fn (*m);
+                for (auto& m : lbPlates) fn (m);
+                for (auto& m : lbPlateEdges) fn (m);
+                for (auto& m : lbScrews) fn (m);
+                for (auto& m : audioCables) fn (m);
                 for (auto* m : { &table, &wall, &quad,
                                  &faceEdges, &faceTop, &displayWalls, &displayGlass, &displayBezel,
                                  &earWalls, &earFloors, &screws, &screwSlots,
@@ -88,12 +102,13 @@ namespace pad
                 hwk::models::Role role = hwk::models::Role::body;
                 bool rotates = true, brushed = false;
                 gfx::Vec3 colour;
-                float ridges = 0.0f, ridgesBelowY = 0.0f, polish = 0.6f;
+                float ridges = 0.0f, ridgesBelowY = 0.0f, polish = 0.6f, gloss = 1.0f;
             };
 
             std::vector<std::unique_ptr<Part>> parts;
             float footprint = 0.12f;
             float shadowRadius = 0.12f, beakLength = 0.0f, beakHalfWidth = 0.0f, pivotOffset = 0.0f;
+            float height = 0.06f;   // how far it stands out of the panel (for the lighting's stand-in)
 
             void upload (const hwk::models::Model&);
             void release();
@@ -164,6 +179,18 @@ namespace pad
 
         std::array<gfx::ShaderProgram, shaders::numMaterials> programs;
         std::array<juce::uint32, shaders::numMaterials> programFrame {};
+        // The lighting's light maps (HardwareKit's uOccMap): every unit's panel traced once against spheres
+        // standing in for its controls (bakeOcclusion), one atlas; which unit each program is set up for now
+        static constexpr int occW = 256, occH = 64, occUnit = 5;
+        gfx::Texture2D occTex;
+        unsigned occBakedHidden = ~0u;
+        std::array<gfx::Mat4, layout::numUnits> unitToPanel {};   // world -> each panel (this frame)
+        void bakeOcclusion();
+        std::array<int, shaders::numMaterials> programOccUnit {};
+        std::array<juce::uint32, shaders::numMaterials> programOccFrame {};
+        std::array<float, 27> roomSH {};
+        // Dev-only: PAD_UI_TEST_TRACE=0 turns the traced occlusion and the room's diffuse light off (A/B, timing)
+        const bool traceOn = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_TRACE", "1") != "0";   // the room's diffuse light (HardwareKit's uSH), from the baked room
         gfx::ShaderProgram* current = nullptr;
         juce::uint32 frameIndex = 1;
         CameraRig frameCamera;
@@ -174,10 +201,21 @@ namespace pad
         gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex, deepDecalTex, deepLabelTex;
         gfx::Texture2D characterDecalTex, characterLabelTex;
         gfx::Texture2D radarDecalTex, radarVuFaceTex;   // FOOTSTEP RADAR: panel print, its meter's dial
+        gfx::Texture2D powerDecalTex, lunchboxDecalTex, lunchboxVuFaceTex, blankTex;   // POWER, LUNCHBOX; blankTex: no print
+        void drawLunchbox (const gfx::Mat4& panel);
+        void drawPowerStrip (const gfx::Mat4& panel);
+        gfx::Texture2D envTex;                           // the room, for reflections (StudioRoom.h)
+        static constexpr int envUnit = 7;
+        gfx::Texture2D smudgeTex;                        // the coat's smudges, baked (StudioRoom.h)
+        static constexpr int smudgeUnit = 6;
+        bool envOn = true;
+        float coatScale = 1.0f;
         gfx::Texture2D wallTex;                          // the studio wall, baked (StudioWall.h)
+        void buildCase();
+        unsigned builtHidden = 0u;
         static float wallRackCentreY() noexcept
         {
-            return 0.5f * (layout::unitOrigin (layout::rackOrder.front()).y + layout::unitOrigin (layout::rackOrder.back()).y);
+            return 0.5f * (layout::unitOrigin (layout::bottomUnit()).y + layout::unitOrigin (layout::topUnit()).y);
         }
         std::array<gfx::Texture2D, 2> limiterLabelTex;   // SPECTRAL and BROADBAND faces
         gfx::Texture2D levelDecalTex, balancerDecalTex, monitorDecalTex, monitorLabelTex, balancerLabelTex, levelFaceTex;
@@ -194,19 +232,30 @@ namespace pad
         // [0] compressor, [1..3] leveler low / mid / high, [4..5] limiter spectral / broadband,
         // [6..7] loudness momentary / short-term (layout::firstNeedle)
         std::array<Needle, layout::numNeedles> needles {};
+        std::array<float, layout::numUnits> unitOut {};    // 1 while a unit is OUT: it rests in shade
+        static constexpr float outShade = 0.45f;
+        std::array<float, layout::numUnits> frameArcPos {};
+        float frameArcLength = 0.0f;
+        int unitAtPoint (gfx::Vec3) const noexcept;
         std::array<float, layout::numUnits> unitLamp {};   // backlight per outboard unit, on with IN (or always)
 
-        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu, characterVu, radarVu;   // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu, characterVu, radarVu, lunchboxVu;   // HardwareKit VU models, one per size
         GpuModel& vuModelFor (int unit) noexcept
         {
             return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu
                  : unit == layout::monitorUnit ? monitorVu : unit == layout::deepUnit ? deepVu
-                 : unit == layout::characterUnit ? characterVu : unit == layout::radarUnit ? radarVu : limiterVu;
+                 : unit == layout::characterUnit ? characterVu : unit == layout::radarUnit ? radarVu
+                 : unit == layout::lunchboxUnit ? lunchboxVu : limiterVu;
         }
 
         /** An outboard unit. faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
+        /** How an outboard unit's plate is finished (its reference hardware): brushed aluminium with
+            engraved dark print; anodised (black, charcoal) with light print; painted with light print;
+            painted light with dark print; hammertone paint. */
+        enum class Finish { brushed, anodised, paint, paintLight, hammertone };
         void drawOneU (int unit, const gfx::Mat4& panel, gfx::Vec3 colour, const gfx::Texture2D& decal,
-                       std::initializer_list<const gfx::Texture2D*> faces);
+                       std::initializer_list<const gfx::Texture2D*> faces, Finish finish = Finish::brushed,
+                       gfx::Vec3 faceTint = { 1.0f, 1.0f, 1.0f });   // faceTint: the meters' dial colour (an amber-lit one...)
         void drawWindows (const gfx::Mat4& monitorPanel, const gfx::Mat4& balancerPanel);
         void drawVuGlass (int unit, const gfx::Mat4& panel);
 
@@ -263,6 +312,7 @@ namespace pad
 
         // Fisheye loupe over hovered print
         gfx::RenderTarget loupeTarget;
+        float closeness = 0.0f;   // 0 = the whole rack in view, 1 = right up at a unit (eased): the loupe and vignette follow it
         float loupeAlpha = 0.0f, loupeZoom = 1.8f, loupeRadius = 90.0f, loupeCx = 0.0f, loupeCy = 0.0f;
         int loupeUnit = 0;
         float loupeX = 0.0f, loupeZ = 0.0f;

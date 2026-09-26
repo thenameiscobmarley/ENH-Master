@@ -85,6 +85,8 @@ namespace pad
         PluginProcessor& processor;
         ParameterBridge& bridge;
         const enh::dsp::EngineMeters& meters;
+        void showViewMenu();              // right-click: SIMPLE view or the FULL rack
+        void setSimpleView (bool simple);
         UIConfig config;
         SharedUIState shared;
 

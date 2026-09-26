@@ -27,6 +27,8 @@ GitHub, or open this `Vault` folder in [Obsidian](https://obsidian.md) as a vaul
 - [FOOTSTEP RADAR](Devices/FOOTSTEP%20RADAR.md) — finds every footstep, lifts it, and shows where it came from
 - [TONE and SPACE](Devices/TONE%20and%20SPACE.md) — polish, air, width and room
 - [CHARACTER](Devices/CHARACTER.md) — consoles, tape and valves
+- [LUNCHBOX](Devices/LUNCHBOX.md) — beside the rack: a class-A EQ, DE-HARSH and CROSSFEED for headphones
+- The POWER strip at the bottom: its LIGHTS switch turns on the lamps on top of the case
 
 ## Look things up
 

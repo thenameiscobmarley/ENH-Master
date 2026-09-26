@@ -5,6 +5,101 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.13.13 — a calmer rack, and a clearer delay
+
+- **The analog engine behaves like circuits, not curves.** In CHARACTER every model now has its own
+  behaviour, not a different amount of the same distortion:
+  - its own harmonic fingerprint (2nd to 5th);
+  - transients that hit the core harder than the sustain (tape softens them, valve squeezes, the
+    console stays controlled);
+  - iron with hysteresis and memory (it saturates sooner for a while after a hot passage);
+  - a coupling capacitor and heat that move the operating point after loud passages and recover
+    over seconds;
+  - lows fed hotter into the iron and cut back after (thick, compressed lows);
+  - a top end that closes a little only when driven hard.
+  Quiet music stays nearly clean (under 0.25 % at -40 dBFS at COLOUR 0). Left and right differ by a
+  hair even when "matched".
+  COLOUR turned end to end at once no longer clicks (the models' voicing follows it in short steps),
+  and the iron's memory builds up over a few milliseconds instead of at once (it clicked at DRIVE 9
+  with GRIT).
+- **ADAPTIVE COMPRESSOR:** the gain cell is no longer a perfect multiplier: it bends gently the harder
+  it works, lags a hair on steep edges, and remembers heavy work for a second or two.
+- **ADAPTIVE ENHANCER:** its exciters add mostly the harmonic that is missing (2nd or 3rd, judged
+  separately), and their share follows the band's level.
+- **New: the rack's output amplifier**, a last, very subtle analog stage (a soft curve and a top that
+  closes a little only on hot passages), so all the units sound like one signal path. It only runs
+  while an analog unit is in: TRANSPARENT stays bit-for-bit transparent.
+- **New: the LUNCHBOX**, a 500-series side rack on a walnut stand, in dark charcoal hardware with light
+  engraved print, modelled on the classic British console gear of the 1970s:
+  - **CLASS-A EQ:** the inductor low shelf with its overshoot and dip, a mid bell that sharpens as you
+    boost (with HI Q), a gentle 12 kHz shelf with no cramping near 20 kHz, an 18 dB/oct high-pass, and
+    **IRON**: transformer saturation that grows at low frequencies, and a class-A stage.
+  - **DE-HARSH:** a split-band de-esser for piercing 2.5 - 6.5 kHz peaks (gunshots, glass, sibilance),
+    with a soft knee and a release that adapts; untouched until it cuts.
+  - **CROSSFEED:** the classic Bauer crossfeed for headphones; centred sound passes exactly.
+  - An OUTPUT meter and one empty slot. All out by default, zero latency. The camera glides across to
+    it and back. See [LUNCHBOX](Vault/Devices/LUNCHBOX.md).
+- **New: a POWER strip** at the bottom of the rack, with eight US outlets on its front: the rack's plugs
+  in six of them, two empty (slots and ground hole showing), a lit mains switch. The cords drape out of
+  the plugs to the floor and round the case; the strip itself is plugged into a wall socket.
+- **Cables:** thick black XLRs run behind the case and across the floor in a loose bundle to the
+  lunchbox, where each one plugs in with its connector.
+- **Meters:** the thick bezels are gone: the glass sits flush in the panel.
+- **Every unit restyled after real studio hardware**, from reference photos: its panel finish (brushed
+  aluminium, black anodised, cream and off-white paint, navy, hammertone blue), its print, its meter
+  glow and its knobs - thirteen new knob models matched to photographs (fluted top hats, knurled
+  aluminium, fluted skirts, small ribbed, smooth matte black, red anodised trim, the vintage channel's
+  maroon and greys, coloured 500-series caps), each with its own gloss, collar and painted line.
+- **FOOTSTEP RADAR's BOOST goes to 34 dB** (it was 12): far, quiet steps can be made unmistakable. Near,
+  loud steps still get only a fraction of it, and EAR GUARD still holds any jump. The STEP LIFT meter
+  reads the real lift now, 0 - 36 dB.
+- **Lighting:** shadows and ambient occlusion are ray traced (once, when the rack is built) against every
+  knob, switch and button and the case's walnut cheeks, and the rack is lit by the room it reflects.
+  Reflections are sharp like still water, with much less haze. About 1 ms a frame on a UHD 600.
+- **Website: the rack unit designer** - bend text along a curve or round any part (a knob, a meter);
+  printed scales numbered at every step, numbers that turn with the dial, and your own number of steps
+  and sweep; Ctrl+C / X / V, box-select, groups, and changes made to several parts at once.
+- The wet look can be turned down or off in `ui-config.json` (`wetCoat`, 0 - 1) on a weak GPU.
+- **FOOTSTEP RADAR tuned on a real match.** Close footsteps in a loud mix are as loud and as broad as a
+  gunshot, and the radar took them for shots: on a real recording it found 3 of 11 close running steps.
+  Now 7, and still nothing on the gunfire. A shot is top-heavy (10 - 15 dB stronger in the high bands), a
+  footstep lands with weight (3 - 9 dB stronger low down): the radar tells them apart by that. A walker's
+  beat stays on the first hit of each step (a game's heel and toe), and a step that lands on the walker's
+  beat is no longer mistaken for a rattle. On the test bench: two walkers at once 85 -> 92 %, around
+  explosions 72 -> 76 %; every check still passes.
+
+- **Fixed: EAR GUARD let short spikes through.** Its 400 ms average was right, but a +35 dB blast's first
+  10 ms came through at +27 dB, and a held blast stuttered between +6 and +20 dB every 400 ms. It now
+  spends its allowance evenly: the first 10 ms stay under +20 dB and a held blast stays within about 3 dB.
+  A single shot up to +20 dB still passes untouched. New tests check both. (Found by the website's demo,
+  which runs the same maths.)
+- **Simple view:** right-click the rack. It shows the five units you turn yourself, bigger; the six
+  that work by themselves are put away (and keep working, as the preset set them). New installs
+  start in Simple view; right-click again for all 11 units.
+- **Units that are OUT rest in shade**, so you see at once what is working (less so when you walk up to one).
+- **Zooming with the wheel no longer jumps** to whatever unit the pointer crossed: it keeps the unit you
+  started on, and the camera glides between units instead of snapping.
+- **The magnifier is gentler up close:** 2.4x from the whole rack, about 1.3x walked up to a unit.
+  Walking up also calms the view's sway with the mouse and lets the room behind fall a little darker.
+- **Fixed:** the dots and rings on the enhancer's and MIX BALANCER's displays grew relative to the display the
+  further away the rack was (they were sized in screen pixels). They are printed at a fixed size on the display now.
+- **Every glass panel says how much its unit delays the sound** (most units: none; OUTPUT MONITOR: the whole rack's).
+- **A wet, lacquered look:** every glossy surface has a clear coat now. It mirrors the room the rack is in
+  sharply (a big soft white light behind you, as in a product photo, the window with its bars, a pendant,
+  a warm lamp, walnut), faintly face-on and strongly at grazing angles, with a tight glint of the key light.
+  Knobs, glass and lacquered panels are the wettest; brushed metal only gets a soft sheen. The room is
+  worked out once at start; the coat costs one texture read per pixel.
+- **Router: DELAY readout** while the rack is in, with its parts when you hover it. The rack itself adds
+  12 ms (checked by the tests at every sample rate, and measured, not just reported).
+- **Fixed (Linux router):** the rack's audio could open at 8 kHz with a big buffer (low quality, and
+  470 ms late). It now opens at 48 kHz with a 256-sample buffer, at start and on INSERT, unless you chose otherwise.
+- **Fixed: COLOUR on CHARACTER was too subtle to hear at full.** Its top half now opens up: at 10 each
+  model's voicing is 8x as designed (it was 4x) and the models are fed up to twice their clean point, so
+  you hear warm harmonics (2 - 4 %), not just a gentle EQ. Up to 5 nothing changed, so presets sound the same.
+- **Every zip has HOW-TO-CHECK.txt and SCRIPTS-SHA256.txt** besides CHECKSUMS.txt. (A zip can't hold its
+  own fingerprint: check the zip itself against SHA256SUMS.txt on the release page.)
+- Website redesigned, with a gallery of the test graphs.
+
 ## 3.7.12.12 — smarter radar, friendlier app
 
 - **FOOTSTEP RADAR hears a drum machine for what it is.** A drum beat plays on a grid exact to the

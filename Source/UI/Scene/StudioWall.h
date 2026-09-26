@@ -72,7 +72,7 @@ namespace pad::studiowall
             float b = smooth (1.95f, 1.05f, std::abs (across - 0.35f))
                     + 0.80f * smooth (1.35f, 0.55f, std::abs (across + 1.75f))
                     + 0.65f * smooth (1.25f, 0.45f, std::abs (across - 2.85f));
-            b += 0.18f * smooth (3.2f, 1.0f, std::abs (across - 0.35f));
+            b += 0.05f * smooth (3.2f, 1.0f, std::abs (across - 0.35f));
             beamTab[(size_t) k] = std::clamp (b, 0.0f, 1.6f);
         }
 
@@ -90,7 +90,7 @@ namespace pad::studiowall
             const float qy = (y - rackCentreY) / 3.4f, poolY = std::exp (-qy * qy);
             const float sy = std::sin (y * 3.1f), cy = std::cos (y * 3.1f), y23 = y * 23.0f;
             const float fadeY = (0.45f + 0.55f * smooth (0.0f, 1.2f, y - floorY)) * (1.0f - 0.60f * smooth (2.5f, 8.0f, y - rackCentreY));
-            const float hazeY = 0.030f * (1.0f - smooth (4.0f, 11.0f, y - floorY));
+            const float hazeY = 0.008f * (1.0f - smooth (4.0f, 11.0f, y - floorY));
             const float acrossY = (y * by + wallZ * bz) / bn;
 
             for (int i = 0; i < texW; ++i)

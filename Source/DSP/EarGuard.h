@@ -25,8 +25,8 @@ namespace enh::dsp
 
         It works as an energy budget: the output's last 400 ms may hold only so much energy, and with 5 ms of
         look-ahead it knows exactly what is about to play, so it lets through as much of it as still fits.
-        A sustained blast is held at +12 dB from its first moments; a gunshot 50 ms long fits most of its
-        energy in the budget and is barely touched; loud material that stays loud, and ordinary ups and
+        A sustained blast is held at +12 dB from its first moments; a gunshot 50 ms long up to about +20 dB
+        fits in the budget and is not touched at all (a +35 dB one is held down too); loud material that stays loud, and ordinary ups and
         downs, are never touched at all - a DAW mastering session is not affected.
 
         5 ms of latency (the look-ahead), reported to the host. */
@@ -199,12 +199,30 @@ namespace enh::dsp
             for (int j = 0, n = lookahead / decisionEvery; j < n; ++j)
                 leaving += outBlocks[(size_t) ((blockPos + j) % windowBlocks)];
             const double room = allowed - std::max (0.0, outSum - leaving);
-            const double g2 = room / std::max (aheadPower, 1.0e-20);
+            double g2 = room / std::max (aheadPower, 1.0e-20);
+
+            // Spend it evenly. The budget alone let the whole 400 ms allowance out in a few milliseconds
+            // (a +35 dB blast's first 10 ms came through at +27 dB), and it echoed: what left the window
+            // 400 ms ago decided what may come in now, so a held blast stuttered between +6 and +20 dB,
+            // every 400 ms, for as long as it lasted. So:
+            //  - the look-ahead may be at most burstDb over the allowed level: all of it after a quiet
+            //    stretch (a single shot keeps its punch), less as the window fills, none once it is full;
+            //  - and it never has to go more than paybackDb under the allowed level: a burst is paid back
+            //    gently, not by a deep dip (which is what echoed)
+            const double used = std::clamp (outSum / std::max (allowed, 1.0e-20), 0.0, 1.0);
+            const double burst = burstDb * std::clamp ((1.0 - used) / 0.7, 0.0, 1.0);
+            const double levelDb = (double) usualDb + (double) jumpDb + 0.691;
+            const double ahead = std::max (aheadPower, 1.0e-20);
+            const double atLevel = std::pow (10.0, (levelDb - paybackDb) / 10.0) * (double) lookahead / ahead;
+            const double cap = std::pow (10.0, (levelDb + burst) / 10.0) * (double) lookahead / ahead;
+            g2 = std::min (cap, std::max (g2, atLevel));
             const double floorGain = std::pow (10.0, -maxReductionDb / 20.0);
             targetGain = g2 >= 1.0 ? 1.0f : (float) std::max (floorGain, std::sqrt (std::max (g2, 0.0)));
         }
 
         static constexpr int decisionEvery = 16;
+        static constexpr double burstDb = 8.0;   // how far over the allowed level a short burst may go, after quiet
+        static constexpr double paybackDb = 1.0; // and how far under it the budget may push afterwards (more echoes)
         double sr = 48000.0;
         BiquadCoeffs pre, rlb;
         std::array<BiquadState, 2> preState {}, rlbState {};

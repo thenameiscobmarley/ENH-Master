@@ -92,6 +92,17 @@ namespace enh::dsp
         track.ratioFast += (ratio - track.ratioFast) * (1.0f - std::exp (-dt / 0.12f));
         track.ratioSlow += (ratio - track.ratioSlow) * (1.0f - std::exp (-dt / 1.5f));
 
+        // Which harmonic is missing: the 2nd's region (an octave up) and the 3rd's (1.58 octaves up), each
+        // against how far it naturally sits under its source (about 3 and 6 dB) - the exciter then adds
+        // mostly what is not already there, instead of piling more onto a harmonic that is strong
+        {
+            const float at2 = levelAt (level, activeCount, centre + bandsPerOctave);
+            const float at3 = levelAt (level, activeCount, centre + 1.585f * bandsPerOctave);
+            const float k = 1.0f - std::exp (-dt / 0.25f);
+            band.need2 += (saturate01 ((source - at2 - 3.0f) / 10.0f) - band.need2) * k;
+            band.need3 += (saturate01 ((source - at3 - 6.0f) / 10.0f) - band.need3) * k;
+        }
+
         const float rescue = saturate01 ((track.ratioFast - track.ratioSlow - 1.0f) / 4.0f);
         band.rescue = std::max (rescue, band.rescue * std::exp (-dt / 0.4f));
         band.amount = std::max (band.need, band.rescue);

@@ -1,4 +1,5 @@
 #include "StudioWall.h"
+#include "StudioRoom.h"
 #include "HardwareRenderer.h"
 #include "GeometryFactory.h"
 #include "Picking.h"
@@ -22,7 +23,7 @@ namespace pad
         constexpr Vec3 amber        { 1.00f, 0.55f, 0.15f };
         constexpr Vec3 knobBlack    { 0.030f, 0.030f, 0.033f };
         constexpr Vec3 buttonGrey   { 0.40f, 0.41f, 0.43f };
-        constexpr Vec3 seraphPurple { 0.21f, 0.13f, 0.30f };   // deep aubergine enamel
+        constexpr Vec3 seraphPurple { 0.16f, 0.30f, 0.40f };   // the classic program EQ's blue-grey hammertone (the name is historical)
         constexpr Vec3 chrome      { 0.92f, 0.90f, 0.93f };
     }
 
@@ -90,10 +91,15 @@ namespace pad
             gpu->ridges = part.ridges;
             gpu->ridgesBelowY = part.ridgesBelowY;
             gpu->polish = part.polish;
+            gpu->gloss = part.gloss;
             parts.push_back (std::move (gpu));
         }
         footprint = model.footprintRadius;
         shadowRadius = model.bodyShadowRadius();
+        height = 0.0f;
+        for (auto& part : model.parts)
+            for (auto& v : part.mesh.vertices)
+                height = std::max (height, v.py);
         beakLength = model.beakLength;
         beakHalfWidth = model.beakHalfWidth;
         pivotOffset = model.pivotOffset;
@@ -116,9 +122,25 @@ namespace pad
             switch (part->role)
             {
                 case Role::body:
-                    use (shaders::plastic).set ("uParams", part->ridges, part->ridgesBelowY, 0.0f, 0.0f);
+                {
+                    auto& plastic = use (shaders::plastic);
+                    plastic.set ("uParams", part->ridges, part->ridgesBelowY, 0.0f, 0.0f);
+                    // Matte bodies (soft-touch, bead-blasted) take less of the wet coat, and a blurrier one
+                    const bool matte = part->gloss < 0.999f;
+                    if (matte)
+                    {
+                        plastic.set ("uCoat", envOn ? shaders::coatFor (shaders::plastic).amount * coatScale * part->gloss : 0.0f);
+                        plastic.set ("uCoatLod", 0.15f + 2.2f * (1.0f - part->gloss));
+                    }
                     draw (part->mesh, m, part->colour, hoverLift);
+                    if (matte)
+                    {
+                        const auto coat = shaders::coatFor (shaders::plastic);
+                        plastic.set ("uCoat", envOn ? coat.amount * coatScale : 0.0f);
+                        plastic.set ("uCoatLod", coat.lod);
+                    }
                     break;
+                }
                 case Role::accent:
                     use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
                     draw (part->mesh, m, part->colour * accentGain, hoverLift * 0.6f);
@@ -188,11 +210,18 @@ namespace pad
             }
         }
 
-        meshes.table.upload (geo::caseFloor());
-        meshes.wall.upload (geo::backWall());
+        buildCase();
         {
-            const auto baked = studiowall::bake (arcCentreZ - arcRadius - 2.2f, geo::floorHeight(), wallRackCentreY());
-            wallTex.upload (baked.data(), studiowall::texW, studiowall::texH, 4, true, 4);
+            const auto room = studioroom::bake();
+            envTex.upload (room.data(), studioroom::texW, studioroom::texH, 4, true, 1);
+            // The same room as the light every surface gets from all around (at the exposure the old
+            // sky / floor gradient had, so the rack keeps its brightness and takes the room's direction)
+            roomSH = hwk::shaders::shIrradianceUniforms (room.data(), studioroom::texW, studioroom::texH, studioroom::range, 0.497f);
+            const auto smudge = studioroom::bakeSmudge();
+            smudgeTex.upload (smudge.data(), studioroom::smudgeSize, studioroom::smudgeSize, 4, true, 1);
+            envOn = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_ENV", "1") != "0";   // 0: the old studio (A/B)
+            const auto coatTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_COAT", {});   // 0: no clear coat (A/B)
+            coatScale = coatTest.isNotEmpty() ? coatTest.getFloatValue() : config.wetCoat;
         }
         meshes.quad.upload (geo::unitQuad());
         meshes.enhBody.upload (geo::unitBody (faceHalfH));
@@ -201,14 +230,6 @@ namespace pad
         meshes.tubeVentWalls.upload (geo::unitVentWalls (tubeHalfH));
         meshes.tubeVentFloors.upload (geo::unitVentFloors (tubeHalfH));
         meshes.bodyScrews.upload (geo::unitBodyScrews (tubeHalfH));
-        meshes.caseCheeks.upload (geo::caseCheeks());
-        meshes.caseRails.upload (geo::caseRails());
-        meshes.caseFrontRails.upload (geo::caseFrontRails());
-        meshes.caseRailHoles.upload (geo::caseRailHoles());
-        meshes.caseEdges.upload (geo::caseEdges());
-        meshes.caseBoards.upload (geo::caseBoards());
-        meshes.caseFeet.upload (geo::caseFeet());
-        meshes.caseBrass.upload (geo::caseBrass());
         meshes.faceEdges.upload (geo::faceplateEdges());
         meshes.faceTop.upload (geo::faceplateTop());
         meshes.displayWalls.upload (geo::displayWalls());
@@ -241,7 +262,7 @@ namespace pad
             o.earFloors.upload (geo::oneUEarFloors (unit));
             o.screws.upload (geo::oneUScrewHeads (unit));
             o.screwSlots.upload (geo::oneUScrewSlots (unit));
-            o.body.upload (geo::unitBody (unitHalfH (unit)));
+            o.body.upload (geo::unitBody (unitHalfH (unit), unit == lunchboxUnit ? lbHalfW - 0.03f : chassisHalfW));
         }
         meshes.monitorWalls.upload (geo::windowWalls (monitorDisplayRect));
         meshes.monitorGlass.upload (geo::windowGlass (monitorDisplayRect));
@@ -251,14 +272,28 @@ namespace pad
         meshes.balancerBezel.upload (geo::windowBezel (balancerDisplayRect));
         // VU movements, one model per size (the compressor's wide meter, the leveler's three narrow
         // ones, the limiter's two)
-        tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        deepVu.upload (hwk::models::vuMeter (deepVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        characterVu.upload (hwk::models::vuMeter (characterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        radarVu.upload (hwk::models::vuMeter (radarVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        levelVu.upload (hwk::models::vuMeter (levelVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
-        monitorVu.upload (hwk::models::vuMeter (monitorVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }));
+        tideVu.upload (hwk::models::vuMeter (tideVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        lumenVu.upload (hwk::models::vuMeter (lumenVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        limiterVu.upload (hwk::models::vuMeter (limiterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        deepVu.upload (hwk::models::vuMeter (deepVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        characterVu.upload (hwk::models::vuMeter (characterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        radarVu.upload (hwk::models::vuMeter (radarVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        lunchboxVu.upload (hwk::models::vuMeter (lbVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        for (int m = 0; m < 4; ++m)
+        {
+            meshes.lbPlates[(size_t) m].upload (geo::lunchboxModulePlate (m));
+            meshes.lbPlateEdges[(size_t) m].upload (geo::lunchboxModuleEdges (m));
+            meshes.lbScrews[(size_t) m].upload (geo::lunchboxModuleScrews (m));
+        }
+        meshes.lbSlotWell.upload (geo::lunchboxSlotWell());
+        meshes.lbSlotRails.upload (geo::lunchboxSlotRails());
+        meshes.lbConnector.upload (geo::lunchboxConnector());
+        meshes.lbPins.upload (geo::lunchboxConnectorPins());
+        meshes.lbHardware.upload (geo::lunchboxFrameHardware());
+        meshes.lbRailHoles.upload (geo::lunchboxRailHoles());
+
+        levelVu.upload (hwk::models::vuMeter (levelVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        monitorVu.upload (hwk::models::vuMeter (monitorVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
 
 
         // HardwareKit models, every distinct (style, radius, unit accent) at every level of detail
@@ -347,6 +382,13 @@ namespace pad
         upload (characterDecalTex, textureData.characterDecal);
         upload (radarDecalTex, textureData.radarDecal);
         upload (radarVuFaceTex, textureData.radarVuFace);
+        upload (powerDecalTex, textureData.powerDecal);
+        upload (lunchboxDecalTex, textureData.lunchboxDecal);
+        upload (lunchboxVuFaceTex, textureData.lunchboxVuFace);
+        {
+            const std::array<juce::uint8, 16> none {};
+            blankTex.upload (none.data(), 4, 4, 1, false, 1);
+        }
         upload (characterLabelTex, textureData.characterVuFace);
         upload (limiterLabelTex[0], textureData.limiterVuFace[0]);
         upload (limiterLabelTex[1], textureData.limiterVuFace[1]);
@@ -400,6 +442,7 @@ namespace pad
         deepVu.release();
         characterVu.release();
         radarVu.release();
+        lunchboxVu.release();
         levelVu.release();
         monitorVu.release();
         for (auto& o : outboard)
@@ -408,7 +451,8 @@ namespace pad
                            &monitorFaceTex[0], &monitorFaceTex[1],
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
                            &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex,
-                           &radarDecalTex, &radarVuFaceTex, &wallTex })
+                           &radarDecalTex, &radarVuFaceTex, &wallTex, &envTex, &occTex,
+                           &powerDecalTex, &lunchboxDecalTex, &lunchboxVuFaceTex, &blankTex, &smudgeTex })
             tex->release();
         loupeTarget.release();
         sceneTarget.release();
@@ -770,7 +814,7 @@ namespace pad
         }
 
         const float px = (float) vw / (float) juce::jmax (1, shared.viewWidth.load());
-        const float maxRadius = 77.5f * px;   // 1.25x the original 62 px lens
+        const float maxRadius = 77.5f * px;   // 1.25x the original 62 px lens (fixed: the target never reallocates)
         loupeRadius = maxRadius * (0.55f + 0.45f * loupeAlpha);   // grows out of the panel, shrinks back into it
         const float margin = loupeRadius + 6.0f * px;
         loupeCx = juce::jlimit (margin, std::max (margin, (float) vw - margin), (ax + 1.0f) * 0.5f * (float) vw);
@@ -789,7 +833,7 @@ namespace pad
         loupeTarget.bind();
         vignette = 0.0f;
         drawScene (zoomed, size, size);
-        vignette = 1.0f;
+        vignette = 1.0f - 0.35f * closeness;
         loupeTarget.resolve();
         gfx::RenderTarget::unbind();
         glViewport (0, 0, vw, vh);
@@ -846,7 +890,8 @@ namespace pad
         loupeTarget.bindColour (0);
         auto& lens = use (shaders::lens);
         lens.set ("uViewProj", Mat4::identity());
-        lens.set ("uParams", 0.38f, 0.012f, 0.94f, loupeAlpha);   // .z = glass opacity: just barely see-through
+        // Up close the glass bends less at its edge and fringes less: a reading glass, not a fisheye
+        lens.set ("uParams", 0.38f - 0.18f * closeness, 0.012f * (1.0f - 0.5f * closeness), 0.94f, loupeAlpha);   // .z = glass opacity
         lens.set ("uParams2", loupeCx, loupeCy, R, 0.0f);
         draw (meshes.quad, gfx::screenQuad (vw, vh, loupeCx, loupeCy, R, 0.0f, 0.0f, R), {});
 
@@ -996,7 +1041,7 @@ namespace pad
         if (panelShown < 0 || panelLine < 0.01f)
             return;
         float ax = 0.0f, ay = 0.0f;
-        const auto world = panelToWorld (panelShown).transformPoint ({ faceHalfW, 0.01f, 0.0f });
+        const auto world = panelToWorld (panelShown).transformPoint ({ unitHalfW (panelShown), 0.01f, 0.0f });
         if (! gfx::projectToNdc (camera.viewProj, world, ax, ay))
             return;
         const float lh = (float) juce::jmax (1, shared.viewHeight.load());
@@ -1119,7 +1164,7 @@ namespace pad
         auto frame = [&] (int unit, Vec3 colour, float opacity)
         {
             auto& f = use (shaders::outlineFrame);
-            const float hw = faceHalfW + 0.012f, hh = unitHalfH (unit) + 0.012f;
+            const float hw = unitHalfW (unit) + 0.012f, hh = unitHalfH (unit) + 0.012f;
             f.set ("uParams", hw, hh, 1.2f, opacity);
             draw (meshes.quad, panelToWorld (unit) * Mat4::translation ({ 0.0f, 0.006f, 0.0f }) * Mat4::scale (hw, 1.0f, hh), colour);
         };
@@ -1194,7 +1239,7 @@ namespace pad
         // A press only counts when our window is really the one under the pointer
         if (pressed && pointerInside && ! overPanel && pointer.isTopmostUnderPointer ((unsigned long) shared.nativeWindow.load()))
         {
-            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount });
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load() });
             const int hit = pickControl (cam, pointerNdcX, pointerNdcY);
 
             if (hit >= 0)
@@ -1248,7 +1293,7 @@ namespace pad
 
         if (dragParam < 0 && pointerInside && ! overPanel)
         {
-            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount });
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load() });
             const int control = pickControl (cam, pointerNdcX, pointerNdcY);
             shared.hoveredControl = control;
             shared.hoveredUnit = control >= 0 ? -1 : pickUnit (cam, pointerNdcX, pointerNdcY);
@@ -1354,7 +1399,7 @@ namespace pad
             // An auto mode turns the knob itself (not while you are holding it)
             const float shownValue = active == i ? value : autoTurnedValue (i, value);
             const float target = c.kind != ControlKind::selector ? knobAngleForValue (shownValue)
-                                : c.unit == characterUnit ? characterSelectorAngle (shownValue) : selectorAngleForValue (shownValue);
+                                : c.unit == characterUnit || c.unit == lunchboxUnit ? characterSelectorAngle (shownValue) : selectorAngleForValue (shownValue);
             const bool isHovered = (hovered == i || active == i);
             k.update (target, changed, (int) bridge.getLastSource (p), isHovered, dt);
             busy = busy || ! k.isIdle (target, isHovered);
@@ -1424,7 +1469,21 @@ namespace pad
             unitLamp[(size_t) limiterUnit] = anim::approach (unitLamp[(size_t) limiterUnit], limiterOn ? 1.0f : 0.15f, 4.0f, dt);
             unitLamp[(size_t) levelUnit] = anim::approach (unitLamp[(size_t) levelUnit], 1.0f, 4.0f, dt);     // meters: always lit
             unitLamp[(size_t) monitorUnit] = anim::approach (unitLamp[(size_t) monitorUnit], 1.0f, 4.0f, dt);
+            unitLamp[(size_t) lunchboxUnit] = anim::approach (unitLamp[(size_t) lunchboxUnit], 1.0f, 4.0f, dt);
+            unitLamp[(size_t) powerUnit] = 1.0f;
+
             unitLamp[(size_t) balancerUnit] = anim::approach (unitLamp[(size_t) balancerUnit], balancerOn ? 1.0f : 0.25f, 4.0f, dt);
+
+            // A unit that is OUT rests in shade, so what is working stands out
+            const std::pair<int, bool> ins[] { { radarUnit, radarOn }, { characterUnit, characterOn }, { deepUnit, deepOn }, { tideUnit, tideOn },
+                                               { lumenUnit, lumenOn }, { limiterUnit, limiterOn }, { balancerUnit, balancerOn } };
+            for (auto [u, in] : ins)
+            {
+                const float before = unitOut[(size_t) u];
+                unitOut[(size_t) u] = anim::approach (before, in ? 0.0f : 1.0f, 4.0f, dt);
+                busy = busy || std::abs (unitOut[(size_t) u] - before) > 1.0e-3f;
+            }
+            unitOut[(size_t) tubeUnit] = 1.0f - tubePower;
 
             // SPECTRAL LIMITER: the moving cuts as the audio thread published them (or the demo)
             std::array<enh::dsp::SpectralLimiter::Slot, enh::dsp::SpectralLimiter::numSlots> cuts {};
@@ -1473,9 +1532,12 @@ namespace pad
                 saturateUi ((demoMeters ? -14.0f + 6.0f * std::sin ((float) timeSeconds * 0.9f) : (deepOn ? meters.deepGeneratedDb.load() : -120.0f)) / 40.0f + 1.0f),
                 // CHARACTER: the harmonics its models add, against the signal, -60 .. 0 dB
                 saturateUi ((demoMeters ? -34.0f + 8.0f * std::sin ((float) timeSeconds * 0.7f) : (characterOn ? meters.charHarmonicsDb.load() : -120.0f)) / 60.0f + 1.0f),
-                // FOOTSTEP RADAR: the lift it is giving a step now, 0 .. 18 dB (the demo: a step every half second)
-                saturateUi ((demoMeters ? 9.0f * std::pow (std::max (0.0f, std::cos ((float) timeSeconds * 6.2832f)), 8.0f)
-                                        : 20.0f * std::log10 (1.0f + 1.5f * meters.radarActivity.load())) / 18.0f),
+                // FOOTSTEP RADAR: the lift it is giving a step now, 0 .. 36 dB (the demo: a step every half second)
+                saturateUi ((demoMeters ? 18.0f * std::pow (std::max (0.0f, std::cos ((float) timeSeconds * 6.2832f)), 8.0f)
+                                        : meters.radarLiftDb.load()) / 36.0f),
+                // LUNCHBOX OUTPUT: its peak level, -40 .. 0 dBFS
+                saturateUi ((demoMeters ? -14.0f + 5.0f * std::sin ((float) timeSeconds * 1.1f)
+                                        : 20.0f * std::log10 (meters.lunchboxPeak.load() + 1.0e-6f)) / 40.0f + 1.0f),
             };
 
             for (int i = 0; i < numNeedles; ++i)
@@ -1570,11 +1632,36 @@ namespace pad
             const float before = focusAmount;
             focusAmount = anim::approach (focusAmount, std::clamp (shared.focusTarget.load(), 0.0f, 1.0f), 6.0f, dt);
             shared.focusAmount.store (focusAmount);
+            // A change of unit glides the close framing there (a camera move, never a cut)
+            {
+                int u = std::clamp (shared.focusUnit.load(), 0, numUnits - 1);
+                if (! isShown (u))
+                    u = enhUnit;
+                const bool lb = u == lunchboxUnit;
+                const float wantY = unitOrigin (u).y, wantH = unitHalfH (u) + (lb ? 0.10f : 0.22f);   // the LUNCHBOX fills the view
+                const float wantS = lb ? 1.0f : 0.0f, wantW = unitHalfW (u) + (lb ? 0.10f : 0.06f);
+                float cy = shared.focusCentreY.load(), hv = shared.focusHalfV.load(), sd = shared.focusSide.load(), hw = shared.focusHalfW.load();
+                if (std::isnan (cy) || std::isnan (sd) || focusAmount < 1.0e-3f) { cy = wantY; hv = wantH; sd = wantS; hw = wantW; }   // from afar: straight there
+                const float beforeY = cy, beforeS = sd;
+                // Across to the LUNCHBOX (or back) a touch slower than along the rack: it is a longer walk
+                const float rate = std::abs (sd - wantS) > 1.0e-3f ? 3.5f : 5.0f;
+                cy = anim::approach (cy, wantY, rate, dt);
+                hv = anim::approach (hv, wantH, rate, dt);
+                sd = anim::approach (sd, wantS, 3.5f, dt);
+                hw = anim::approach (hw, wantW, rate, dt);
+                shared.focusCentreY.store (cy);
+                shared.focusHalfV.store (hv);
+                shared.focusSide.store (sd);
+                shared.focusHalfW.store (hw);
+                busy = busy || std::abs (cy - beforeY) > 1.0e-4f || std::abs (sd - beforeS) > 1.0e-4f;
+            }
             busy = busy || std::abs (focusAmount - before) > 1.0e-4f;
         }
 
-        settle (parallaxX, parallaxOn ? pointerNdcX * config.parallaxAmount : 0.0f, 12.0f);
-        settle (parallaxY, parallaxOn ? pointerNdcY * config.parallaxAmount : 0.0f, 12.0f);
+        // Up close the same pointer move swings the view much more: calm it, so the print holds still
+        const float calm = 1.0f - 0.6f * std::clamp (focusAmount, 0.0f, 1.0f);
+        settle (parallaxX, parallaxOn ? pointerNdcX * config.parallaxAmount * calm : 0.0f, 12.0f);
+        settle (parallaxY, parallaxOn ? pointerNdcY * config.parallaxAmount * calm : 0.0f, 12.0f);
 
         shared.parallaxX = parallaxX;
         shared.parallaxY = parallaxY;
@@ -1637,8 +1724,49 @@ namespace pad
         }
     }
 
+    /** The case, floor and wall: they follow how many units are in the case (SIMPLE / FULL view). */
+    void HardwareRenderer::buildCase()
+    {
+        builtHidden = hiddenUnits.load();
+        meshes.table.upload (geo::caseFloor());
+        meshes.wall.upload (geo::backWall());
+        {
+            const auto baked = studiowall::bake (arcCentreZ - arcRadius - 2.2f, geo::floorHeight(), wallRackCentreY());
+            wallTex.upload (baked.data(), studiowall::texW, studiowall::texH, 4, true, 4);
+        }
+        meshes.caseCheeks.upload (geo::caseCheeks());
+        meshes.caseRails.upload (geo::caseRails());
+        meshes.caseFrontRails.upload (geo::caseFrontRails());
+        meshes.caseRailHoles.upload (geo::caseRailHoles());
+        meshes.caseEdges.upload (geo::caseEdges());
+        meshes.caseBoards.upload (geo::caseBoards());
+        meshes.caseFeet.upload (geo::caseFeet());
+        meshes.caseBrass.upload (geo::caseBrass());
+        meshes.lbStand.upload (geo::lunchboxStand());
+
+        meshes.numAudioCables = std::min (geo::numAudioCables(), (int) meshes.audioCables.size());
+        for (int i = 0; i < (int) meshes.audioCables.size(); ++i)
+            meshes.audioCables[(size_t) i].upload (i < meshes.numAudioCables ? geo::audioCable (i) : hwk::gfx::MeshData {});
+        meshes.powerCables.upload (geo::powerCables());
+        meshes.wallOutlet.upload (geo::wallOutlet());
+        meshes.xlrBarrels.upload (geo::xlrConnectors());
+        meshes.xlrRings.upload (geo::xlrLatches());
+        meshes.stripFaces.upload (geo::stripReceptacles());
+        meshes.stripHoles.upload (geo::stripReceptacleHoles());
+        meshes.stripPlugs.upload (geo::stripPlugs());
+        meshes.loosePlug.upload (geo::loosePlug());
+        meshes.loosePins.upload (geo::loosePlugPins());
+        meshes.wallPlate.upload (geo::wallPlate());
+        meshes.wallFaces.upload (geo::wallReceptacles());
+        meshes.wallHoles.upload (geo::wallReceptacleHoles());
+        meshes.wallPlug.upload (geo::wallPlug());
+    }
+
     void HardwareRenderer::renderOpenGL()
     {
+        if (ready && hiddenUnits.load() != builtHidden)
+            buildCase();
+
         double now = juce::Time::getMillisecondCounterHiRes();
 
         if (ready)
@@ -1678,7 +1806,7 @@ namespace pad
         uploadDisplays (dt);
 
         const auto camera = CameraRig::build ((float) logicalW / (float) logicalH, parallaxX, parallaxY,
-                                             { shared.focusUnit.load(), focusAmount });
+                                             { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load() });
 
         // Loupe: fades and zooms in over hovered print, keeps its last anchor while fading out
         const bool loupeWanted = shared.calloutVisible.load();
@@ -1691,7 +1819,12 @@ namespace pad
         // Opening: zoom and fade together. Closing: the glass zooms back out first (fast), the
         // fade trails it (slow), so it reads as zooming out and then being gone.
         loupeAlpha = anim::approach (loupeAlpha, loupeWanted ? 1.0f : 0.0f, loupeWanted ? 17.0f : 6.5f, dt);
-        loupeZoom = anim::approach (loupeZoom, loupeWanted ? 1.8f : 1.0f, loupeWanted ? 10.0f : 15.0f, dt);   // gentler than 2.2x
+        // How close the camera is sets how much the glass has to do: from the whole rack (small print) it
+        // magnifies 2.4x, walked right up to a unit only 1.3x - the unit is already big
+        closeness = std::clamp (focusAmount, 0.0f, 1.0f);
+        closeness = closeness * closeness * (3.0f - 2.0f * closeness);
+        vignette = 1.0f - 0.35f * closeness;   // close up, the corners darken less: the unit you are at stays clear
+        loupeZoom = anim::approach (loupeZoom, loupeWanted ? 2.4f - 1.1f * closeness : 1.0f, loupeWanted ? 10.0f : 15.0f, dt);
         if (loupeAlpha > 0.01f)
             renderLoupeView (camera, w, h);
 
@@ -1748,18 +1881,144 @@ namespace pad
             program.set ("uViewport", (float) frameW, (float) frameH);
             program.set ("uVignette", vignette);
             program.set ("uTex", 0);
+            program.set ("uEnv", envUnit);
+            program.set ("uEnvMix", envOn ? 1.0f : 0.0f);
+            program.set ("uEnvRange", studioroom::range);
+            // One bounce off the walnut cheeks and the floor (see HardwareKit's prelude). Off with the room map (A/B)
+            program.set ("uBounceGeo", caseSideX, geo::floorHeight(), 0.35f, 1.4f);
+            program.set ("uBounceWood", envOn ? Vec3 { 0.26f, 0.13f, 0.06f } : Vec3 {});
+            program.set ("uBounceFloor", envOn ? Vec3 { 0.14f, 0.08f, 0.04f } : Vec3 {});
+            program.set ("uSmudge", smudgeUnit);
+            program.set ("uSmudgeOn", 1.0f);
+            program.setArray3 ("uSH", roomSH.data(), 9);
+            program.set ("uOccMap", occUnit);
+            program.set ("uShOn", envOn && traceOn ? 1.0f : 0.0f);
+            const auto coat = shaders::coatFor (material);
+            program.set ("uCoat", envOn ? coat.amount * coatScale : 0.0f);
+            program.set ("uCoatLod", coat.lod);
         }
 
         return program;
     }
 
+    /** Which unit a part belongs to, from where it sits: on the arc of faceplates, inside a unit's span.
+        The case, the wall and the floor are placed at the origin, well off the arc: -1. */
+    int HardwareRenderer::unitAtPoint (Vec3 p) const noexcept
+    {
+        if (std::abs (p.x) > faceHalfW + 0.05f)
+            return -1;
+        const float dy = p.y - arcCentreY, dz = arcCentreZ - p.z;
+        if (std::abs (std::hypot (dy, dz) - (arcRadius + unitRecess)) > 0.35f)
+            return -1;
+        const float s = std::atan2 (dy, dz) * arcRadius + 0.5f * frameArcLength;
+        for (int u = 0; u < numUnits; ++u)
+            if (isShown (u) && std::abs (s - frameArcPos[(size_t) u]) <= unitHalfH (u) + 0.5f * rackGap)
+                return u;
+        return -1;
+    }
+
     void HardwareRenderer::draw (const gfx::GpuMesh& mesh, const Mat4& model, Vec3 base, Vec3 emissive)
     {
         jassert (current != nullptr);
+        if (model.at (1, 3) < 0.5f * hiddenY)   // a unit out of the case (SIMPLE view)
+            return;
+        const int u = unitAtPoint ({ model.at (0, 3), model.at (1, 3), model.at (2, 3) });
+        // This unit's stand-ins for the traced occlusion, and the case's cheeks around it (not on the case,
+        // the room or the lunchbox: -1)
+        if (current >= programs.data() && current < programs.data() + programs.size())
+        {
+            const auto prog = (size_t) (current - programs.data());
+            if (programOccUnit[prog] != u || programOccFrame[prog] != frameIndex)
+            {
+                programOccUnit[prog] = u;
+                programOccFrame[prog] = frameIndex;
+                // Only the panels' faces and what is printed / sunk in them read the map: it is exact there, and the
+                // dense knob meshes would pay for it at every vertex for a little base shading their shadows give
+                const bool flatMaterial = prog == (size_t) shaders::faceplate || prog == (size_t) shaders::paint
+                                       || prog == (size_t) shaders::brushed || prog == (size_t) shaders::print
+                                       || prog == (size_t) shaders::recess;
+                const bool mapped = u >= 0 && envOn && traceOn && flatMaterial;
+                current->set ("uOccMapOn", mapped ? 1.0f : 0.0f);
+                if (mapped)
+                {
+                    current->set ("uOccToPanel", unitToPanel[(size_t) u]);
+                    current->set ("uOccRect", -unitHalfW (u), -unitHalfH (u), 0.5f / unitHalfW (u), 0.5f / unitHalfH (u));
+                    current->set ("uOccAtlas", (float) u / (float) numUnits, 1.0f / (float) numUnits);
+                }
+            }
+        }
+        if (u >= 0 && unitOut[(size_t) u] > 0.0f)
+        {
+            const float shade = 1.0f - outShade * unitOut[(size_t) u] * (1.0f - 0.7f * closeness);   // walked up to it: see it
+            base = base * shade;
+            emissive = emissive * shade;
+        }
         current->set ("uModel", model);
         current->set ("uBaseColor", base);
         current->set ("uEmissive", emissive);
         mesh.draw();
+    }
+
+    /** The light maps: each unit's panel traced once against spheres standing in for its controls (as
+        tall as each stands, half sunk in the panel when flat) - its ambient occlusion and the key light's
+        soft shadow, read back in one fetch per pixel. Again when the rack reflows (SIMPLE / FULL view). */
+    void HardwareRenderer::bakeOcclusion()
+    {
+        occBakedHidden = hiddenUnits.load();
+        std::vector<unsigned char> atlas ((size_t) (occW * occH * numUnits * 4), 255);
+        const auto keyWorld = gfx::normalise ({ -0.50f, 0.85f, 0.80f });   // CameraRig's key light, at rest
+        for (int u = 0; u < numUnits; ++u)
+        {
+            std::vector<hwk::shaders::OccluderSphere> spheres;
+            for (int i = 0; i < numControls; ++i)
+            {
+                const auto& c = controls[(size_t) i];
+                if (c.unit != u)
+                    continue;
+                float r = 0.0f, y = 0.0f;
+                if (c.kind == ControlKind::knob || c.kind == ControlKind::selector)
+                {
+                    const int mi = knobModelIndex[(size_t) i][1];
+                    if (mi < 0)
+                        continue;
+                    const auto& km = *knobModels[(size_t) mi];
+                    r = std::max (km.shadowRadius, 0.5f * km.height);
+                    y = km.height - r;   // its top at the knob's top
+                }
+                else if (c.kind == ControlKind::toggle)
+                    r = switchOutline (c.switchStyle).halfW + 0.01f;
+                else
+                {
+                    r = buttonHalfW + 0.01f;
+                    y = -0.25f * r;
+                }
+                spheres.push_back ({ c.x, y, c.z, r });
+            }
+            // The key light in this panel's space (the inverse turn)
+            const auto m = panelToWorld (u);
+            const float light[3] { m.at (0, 0) * keyWorld.x + m.at (1, 0) * keyWorld.y + m.at (2, 0) * keyWorld.z,
+                                   m.at (0, 1) * keyWorld.x + m.at (1, 1) * keyWorld.y + m.at (2, 1) * keyWorld.z,
+                                   m.at (0, 2) * keyWorld.x + m.at (1, 2) * keyWorld.y + m.at (2, 2) * keyWorld.z };
+            const float hw = unitHalfW (u), hh = unitHalfH (u);
+            auto map = hwk::shaders::bakePanelOcclusion (occW, occH, -hw, -hh, 2.0f * hw, 2.0f * hh,
+                                                         spheres.data(), (int) spheres.size(), light);
+            // The case's walnut cheeks, standing out in front of the faces: the view factor from a point to a
+            // wall that tall at that distance, 0.5 (1 - d / sqrt (d^2 + D^2))
+            if (u != lunchboxUnit)
+                for (int i = 0; i < occW; ++i)
+                {
+                    const float x = m.at (0, 3) - hw + 2.0f * hw * ((float) i + 0.5f) / (float) occW;
+                    const float d = std::max (caseSideX - std::abs (x), 0.0f);
+                    const float keep = 1.0f - 0.8f * std::min (0.85f, 0.5f * (1.0f - d / std::sqrt (d * d + caseFront * caseFront)));
+                    for (int j = 0; j < occH; ++j)
+                    {
+                        auto& r = map[((size_t) j * occW + (size_t) i) * 4];
+                        r = (unsigned char) std::lround ((float) r * keep);
+                    }
+                }
+            std::copy (map.begin(), map.end(), atlas.begin() + (std::ptrdiff_t) u * occW * occH * 4);
+        }
+        occTex.upload (atlas.data(), occW, occH * numUnits, 4, false, 1);
     }
 
     void HardwareRenderer::drawShadow (const Mat4& space, float cx, float y, float cz, float hw, float hd,
@@ -1792,7 +2051,7 @@ namespace pad
     /** One of the 1U units: brushed plate, engraved print, knobs in a bordered section, and
         moving-coil meters behind glass. All three are the same build, different print. */
     void HardwareRenderer::drawOneU (int unit, const Mat4& panel, Vec3 colour, const gfx::Texture2D& decal,
-                                     std::initializer_list<const gfx::Texture2D*> faces)
+                                     std::initializer_list<const gfx::Texture2D*> faces, Finish finish, Vec3 faceTint)
     {
         const float lamp = unitLamp[(size_t) unit];
         auto& model = vuModelFor (unit);
@@ -1836,7 +2095,10 @@ namespace pad
         if (faces.size() == 1)
         {
             (*faces.begin())->bind (0);
-            drawRole (Role::screen);
+            for (auto& part : model.parts)
+                if (part->role == Role::screen)
+                    for (int i = 0; i < numVus (unit); ++i)
+                        draw (part->mesh, matrixFor (i, part->rotates), Vec3 { part->colour.x * faceTint.x, part->colour.y * faceTint.y, part->colour.z * faceTint.z });
         }
         else
         {
@@ -1846,7 +2108,7 @@ namespace pad
                 face->bind (0);
                 for (auto& part : model.parts)
                     if (part->role == Role::screen && i < numVus (unit))
-                        draw (part->mesh, matrixFor (i, part->rotates), part->colour);
+                        draw (part->mesh, matrixFor (i, part->rotates), Vec3 { part->colour.x * faceTint.x, part->colour.y * faceTint.y, part->colour.z * faceTint.z });
                 ++i;
             }
         }
@@ -1871,19 +2133,103 @@ namespace pad
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (shell.screwSlots, panel, { 0.02f, 0.02f, 0.025f });
 
-        // Brushed faceplate with the print engraved into it
+        // The faceplate, in its reference hardware's finish, the print in or on it
         decal.bind (0);
-        auto& plate = use (shaders::brushed);
-        plate.set ("uParams", -faceHalfW, -halfH, 2.0f * faceHalfW, 2.0f * halfH);
-        plate.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) unit);      // .w seeds this unit's wear
+        const int material = finish == Finish::brushed ? shaders::brushed : finish == Finish::anodised ? shaders::faceplate : shaders::paint;
+        auto& plate = use (material);
+        plate.set ("uParams", -unitHalfW (unit), -halfH, 2.0f * unitHalfW (unit), 2.0f * halfH);
+        plate.set ("uParams2", finish == Finish::anodised ? 1.0f : 0.0f,                          // anodised: its own shade
+                               finish == Finish::paintLight ? 1.0f : 0.0f,                         // paint: dark ink
+                               finish == Finish::hammertone ? 1.0f : 0.0f, (float) unit);          // .w seeds this unit's wear
         plate.setArray ("uWear", hwk::shaders::wearUniforms ((float) unit + 7.0f).data(), 15);
         draw (shell.faceTop, panel, colour);
-        draw (shell.faceEdges, panel, colour * 0.82f);
+        if (finish != Finish::brushed)
+            use (shaders::chrome).set ("uParams", 0.30f, 1.0f, 0.0f, 0.0f);   // the plate's edge: machined, catches the light
+        draw (shell.faceEdges, panel, finish == Finish::brushed ? colour * 0.82f : Vec3 { 0.40f, 0.40f, 0.42f });
 
         use (shaders::chassis);
         draw (shell.body, panel, colours::chassisBlack);
         use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
         draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - halfH }), { 0.42f, 0.42f, 0.44f });
+    }
+
+    /** The POWER strip: a black 1U panel, its three status lamps, and a gooseneck lamp at each end
+        that lights the rack's front (LIGHTS). */
+    void HardwareRenderer::drawPowerStrip (const Mat4& panel)
+    {
+        if (! isShown (powerUnit))
+            return;
+        drawOneU (powerUnit, panel, Vec3 { 0.035f, 0.035f, 0.04f }, powerDecalTex, {}, Finish::anodised);   // black, like a rack power conditioner
+
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        drawLed (panel, stripLedX[0], stripLedZ, colours::ledGreen, 1.0f);
+        drawLed (panel, stripLedX[1], stripLedZ, colours::ledGreen, 1.0f);
+        drawLed (panel, stripLedX[2], stripLedZ, colours::ledYellow, 1.0f);
+
+        // Its eight outlets (black), the empty ones' slots and ground holes, and the plugs in the others
+        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.stripFaces, panel, { 0.028f, 0.028f, 0.030f });
+        draw (meshes.stripPlugs, panel, { 0.030f, 0.030f, 0.032f });
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.stripHoles, panel, { 0.003f, 0.003f, 0.003f });
+
+        // The mains switch: a lit red rocker, on (fixed hardware, not a control)
+        const auto style = (size_t) hwk::models::SwitchStyle::rockerRed;
+        const auto at = panel * Mat4::translation ({ stripSwitchX, 0.0f, stripSwitchZ });
+        drawModel (switchModels[style][1], at * Mat4::translation ({ 0.0f, switchPivotY[style], 0.0f }) * Mat4::rotationX (-hwk::models::rockerAngle),
+                   at, {}, { 0.93f, 0.93f, 0.95f });
+
+    }
+
+    /** The LUNCHBOX: its black frame (drawOneU: the meter, the frame with its holes, the body), the
+        modules' plates standing proud of it with their print, the empty slot's rails and connector. */
+    void HardwareRenderer::drawLunchbox (const Mat4& panel)
+    {
+        if (! isShown (lunchboxUnit))
+            return;
+        drawOneU (lunchboxUnit, panel, Vec3 { 0.045f, 0.045f, 0.05f }, blankTex, { &lunchboxVuFaceTex }, Finish::anodised);   // the frame: black
+
+        // The modules: charcoal anodised plates with light print, each a shade of its own so it reads as
+        // its own piece of hardware (the EQ a touch blue, the dynamics near black, the meter black)
+        static constexpr std::array<Vec3, 4> finish {{ { 0.21f, 0.30f, 0.43f }, { 0.07f, 0.072f, 0.078f }, { 0.10f, 0.105f, 0.115f }, { 0.07f, 0.24f, 0.52f } }};   // the EQ in the classic console channel's blue-grey; OUTPUT the frame maker's blue badge
+        lunchboxDecalTex.bind (0);
+        auto& plate = use (shaders::faceplate);
+        plate.set ("uParams", -lbHalfW, -lbHalfH, 2.0f * lbHalfW, 2.0f * lbHalfH);
+        for (int m = 0; m < 4; ++m)
+        {
+            plate.set ("uParams2", 1.0f, 0.0f, 0.0f, (float) (20 + m));
+            plate.setArray ("uWear", hwk::shaders::wearUniforms ((float) (27 + m)).data(), 15);
+            draw (meshes.lbPlates[(size_t) m], panel, finish[(size_t) m]);
+            use (shaders::chrome).set ("uParams", 0.35f, 1.0f, 0.0f, 0.0f);   // the machined edge catches the light
+            draw (meshes.lbPlateEdges[(size_t) m], panel, { 0.30f, 0.30f, 0.32f });
+            lunchboxDecalTex.bind (0);
+            use (shaders::faceplate);
+        }
+        use (shaders::chrome).set ("uParams", 0.5f, 0.0f, 0.0f, 0.0f);
+        for (auto& s : meshes.lbScrews)
+            draw (s, panel, { 0.70f, 0.70f, 0.73f });
+
+        // The frame's handle and feet (satin black), the threaded holes along its rails
+        use (shaders::chrome).set ("uParams", 0.30f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.lbHardware, panel, { 0.08f, 0.08f, 0.085f });
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.lbRailHoles, panel, { 0.004f, 0.004f, 0.005f });
+
+        // The empty slot: into the dark, the guides a module slides along, the connector at the back
+        auto& recessed = use (shaders::recess);
+        recessed.set ("uParams", 0.55f, 0.0f, 0.0f, 0.0f);
+        recessed.set ("uGlow", Vec3 {});
+        draw (meshes.lbSlotWell, panel, { 0.03f, 0.03f, 0.035f });
+        use (shaders::chassis);
+        draw (meshes.lbSlotRails, panel, { 0.10f, 0.10f, 0.11f });
+        use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.lbConnector, panel, { 0.03f, 0.03f, 0.03f });
+        use (shaders::chrome).set ("uParams", 0.7f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.lbPins, panel, { 0.95f, 0.72f, 0.30f });
+
+        // DE-HARSH's CUT lamp: lit by how much it is taking out
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        drawLed (panel, lbModuleX (1) + lbCutLedDx, lbCutLedZ, colours::ledYellow, std::clamp (meters.lunchboxHarshDb.load (std::memory_order_relaxed) / 6.0f, 0.0f, 1.0f));
     }
 
     /** The cover glass over a unit's meters, drawn with everything else transparent. */
@@ -1906,6 +2252,14 @@ namespace pad
     {
         ++frameIndex;
         frameCamera = cam;
+        if (occBakedHidden != hiddenUnits.load())
+            bakeOcclusion();
+        occTex.bind (occUnit);
+        envTex.bind (envUnit);   // the room every surface reflects (unit 7: nothing else uses it)
+        smudgeTex.bind (smudgeUnit);
+        frameArcLength = totalArcLength();
+        for (int u = 0; u < numUnits; ++u)
+            frameArcPos[(size_t) u] = unitArcPos (u);
         frameW = vw;
         frameH = vh;
         current = nullptr;
@@ -1924,15 +2278,31 @@ namespace pad
         const Mat4 levelPanel = panelToWorld (levelUnit);
         const Mat4 balancerPanel = panelToWorld (balancerUnit);
         const Mat4 monitorPanel = panelToWorld (monitorUnit);
+        const Mat4 powerPanel = panelToWorld (powerUnit);
+        const Mat4 lunchboxPanel = panelToWorld (lunchboxUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
                  : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == characterUnit ? characterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
-                 : unit == radarUnit ? radarPanel
+                 : unit == radarUnit ? radarPanel : unit == powerUnit ? powerPanel : unit == lunchboxUnit ? lunchboxPanel
                  : unit == monitorUnit ? monitorPanel : panel;
         };
 
         const Mat4 I = Mat4::identity();
+
+        // Each panel's inverse (the light maps are read in panel space); panels are a turn and a move only
+        for (int u = 0; u < numUnits; ++u)
+        {
+            const auto& m = panelFor (u);
+            Mat4 inv = Mat4::identity();
+            for (int r = 0; r < 3; ++r)
+            {
+                for (int c = 0; c < 3; ++c)
+                    inv.at (r, c) = m.at (c, r);
+                inv.at (r, 3) = -(m.at (0, r) * m.at (0, 3) + m.at (1, r) * m.at (1, 3) + m.at (2, r) * m.at (2, 3));
+            }
+            unitToPanel[(size_t) u] = inv;
+        }
 
 
         glClearColor (0.03f, 0.022f, 0.026f, 1.0f);
@@ -2055,18 +2425,21 @@ namespace pad
         }
 
         // --- the 1U units: compressor and leveler in natural aluminium, the limiter anodised steel-blue
-        drawOneU (tideUnit, tidePanel, Vec3 { 0.62f, 0.635f, 0.66f }, tideDecalTex, { &tideLabelTex });
-        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.60f, 0.605f, 0.62f }, lumenDecalTex, { &lumenLabelTex });
-        drawOneU (limiterUnit, limiterPanel, Vec3 { 0.46f, 0.52f, 0.60f }, limiterDecalTex,
-                  { &limiterLabelTex[0], &limiterLabelTex[1] });
-        drawOneU (deepUnit, deepPanel, Vec3 { 0.30f, 0.36f, 0.44f }, deepDecalTex, { &deepLabelTex });   // blued steel
-        drawOneU (characterUnit, characterPanel, Vec3 { 0.58f, 0.53f, 0.45f }, characterDecalTex, { &characterLabelTex });   // champagne anodised
-        drawOneU (radarUnit, radarPanel, Vec3 { 0.27f, 0.30f, 0.21f }, radarDecalTex, { &radarVuFaceTex });   // CHARACTER's sister in olive drab anodised
+        drawOneU (tideUnit, tidePanel, Vec3 { 0.035f, 0.035f, 0.04f }, tideDecalTex, { &tideLabelTex }, Finish::anodised);   // black face, like the classic FET limiter
+        drawOneU (lumenUnit, lumenPanel, Vec3 { 0.70f, 0.70f, 0.71f }, lumenDecalTex, { &lumenLabelTex }, Finish::brushed,
+                  Vec3 { 1.08f, 0.80f, 0.46f });   // its meters lit amber from behind   // natural brushed aluminium, like the classic optical leveler
+        drawOneU (limiterUnit, limiterPanel, Vec3 { 0.80f, 0.76f, 0.62f }, limiterDecalTex,
+                  { &limiterLabelTex[0], &limiterLabelTex[1] }, Finish::paintLight);   // cream paint, dark print
+        drawOneU (deepUnit, deepPanel, Vec3 { 0.030f, 0.030f, 0.034f }, deepDecalTex, { &deepLabelTex }, Finish::anodised);   // black 1U, like the classic sub synth
+        drawOneU (characterUnit, characterPanel, Vec3 { 0.90f, 0.90f, 0.88f }, characterDecalTex, { &characterLabelTex }, Finish::paintLight);   // off-white paint, like the modern tape-emulation module
+        drawOneU (radarUnit, radarPanel, Vec3 { 0.055f, 0.070f, 0.15f }, radarDecalTex, { &radarVuFaceTex }, Finish::paint);   // deep navy paint, like the classic transient designer
+        drawPowerStrip (powerPanel);
+        drawLunchbox (lunchboxPanel);
 
         // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
-        drawOneU (levelUnit, levelPanel, Vec3 { 0.64f, 0.645f, 0.66f }, levelDecalTex, { &levelFaceTex });
-        drawOneU (balancerUnit, balancerPanel, Vec3 { 0.25f, 0.26f, 0.285f }, balancerDecalTex, {});
-        drawOneU (monitorUnit, monitorPanel, Vec3 { 0.62f, 0.625f, 0.64f }, monitorDecalTex, { &monitorFaceTex[0], &monitorFaceTex[1] });
+        drawOneU (levelUnit, levelPanel, Vec3 { 0.045f, 0.045f, 0.05f }, levelDecalTex, { &levelFaceTex }, Finish::anodised);   // black, like a monitor controller
+        drawOneU (balancerUnit, balancerPanel, Vec3 { 0.13f, 0.15f, 0.27f }, balancerDecalTex, {}, Finish::paint);   // deep blue-violet paint, like the classic passive mastering EQ
+        drawOneU (monitorUnit, monitorPanel, Vec3 { 0.16f, 0.165f, 0.175f }, monitorDecalTex, { &monitorFaceTex[0], &monitorFaceTex[1] }, Finish::anodised);   // graphite, like a loudness meter
         drawWindows (monitorPanel, balancerPanel);
 
         // --- TONE & SPACE: display, lamp, screws, faceplate, chassis ----------------------------
@@ -2107,10 +2480,11 @@ namespace pad
             tubeDecalTex.bind (0);
             auto& paint = use (shaders::paint);
             paint.set ("uParams", -faceHalfW, -tubeHalfH, 2.0f * faceHalfW, 2.0f * tubeHalfH);
-            paint.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) tubeUnit);
+            paint.set ("uParams2", 0.0f, 0.0f, 0.30f, (float) tubeUnit);   // .z: hammertone (a fine, even texture: clean, not mottled)
             paint.setArray ("uWear", hwk::shaders::wearUniforms ((float) tubeUnit + 3.0f).data(), 15);
             draw (meshes.tubeFaceTop, tubePanel, colours::seraphPurple);
-            draw (meshes.tubeFaceEdges, tubePanel, colours::seraphPurple);
+            use (shaders::chrome).set ("uParams", 0.30f, 1.0f, 0.0f, 0.0f);
+            draw (meshes.tubeFaceEdges, tubePanel, { 0.36f, 0.40f, 0.43f });
 
             use (shaders::chassis);
             draw (meshes.tubeBody, tubePanel, colours::chassisBlack);
@@ -2182,7 +2556,7 @@ namespace pad
         // --- faceplate ------------------------------------------------------------------------
         decalTex.bind (0);
         auto& face = use (shaders::faceplate);
-        face.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) enhUnit);
+        face.set ("uParams2", 0.0f, 0.0f, 1.0f, (float) enhUnit);   // .z: its print carries the blue pinstripes
         face.setArray ("uWear", hwk::shaders::wearUniforms ((float) enhUnit).data(), 15);
         face.set ("uParams", -faceHalfW, -faceHalfH, 2.0f * faceHalfW, 2.0f * faceHalfH);
         draw (meshes.faceTop, panel, zero);
@@ -2204,6 +2578,7 @@ namespace pad
         draw (meshes.caseRails, I, walnutTone * 0.30f);
         wood.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
         draw (meshes.caseBoards, I, walnutTone * 0.92f);
+        draw (meshes.lbStand, I, walnutTone * 0.85f);
         use (shaders::chrome).set ("uParams", 0.12f, 1.0f, 0.0f, 0.0f);   // brass, brushed satin: it lights like metal, not a mirror of the dark room
         draw (meshes.caseBrass, I, { 1.00f, 0.76f, 0.38f });
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
@@ -2213,12 +2588,41 @@ namespace pad
         use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (meshes.caseRailHoles, I, { 0.010f, 0.010f, 0.012f });
 
+        // The cables: rubber, satin - a lot less of the wet coat than the glossy knobs
+        {
+            auto& rubber = use (shaders::plastic);
+            rubber.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            rubber.set ("uCoat", envOn ? 0.30f * coatScale : 0.0f);
+            rubber.set ("uCoatLod", 1.2f);
+            // The XLRs: all black, thick; the mains cords: black too, a touch lighter rubber
+            for (int i = 0; i < meshes.numAudioCables; ++i)
+                draw (meshes.audioCables[(size_t) i], I, { 0.020f, 0.020f, 0.022f });
+            draw (meshes.powerCables, I, { 0.030f, 0.030f, 0.032f });
+            draw (meshes.xlrBarrels, I, { 0.035f, 0.035f, 0.038f });
+            draw (meshes.loosePlug, I, { 0.030f, 0.030f, 0.032f });
+            draw (meshes.wallPlug, I, { 0.030f, 0.030f, 0.032f });
+            // wall plate and its receptacles: ivory, a soft gloss
+            draw (meshes.wallPlate, I, { 0.80f, 0.77f, 0.70f });
+            draw (meshes.wallFaces, I, { 0.82f, 0.79f, 0.72f });
+            const auto coat = shaders::coatFor (shaders::plastic);
+            rubber.set ("uCoat", envOn ? coat.amount * coatScale : 0.0f);
+            rubber.set ("uCoatLod", coat.lod);
+
+            use (shaders::chrome).set ("uParams", 0.7f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.xlrRings, I, { 0.62f, 0.62f, 0.64f });                 // nickel latch and ring
+            draw (meshes.loosePins, I, { 0.86f, 0.70f, 0.40f });                // brass blades and ground pin
+            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            draw (meshes.wallHoles, I, { 0.006f, 0.006f, 0.007f });
+        }
+
         use (shaders::table);
         draw (meshes.table, I, zero);
 
         // The wall behind, last of the opaque surfaces: only the pixels the rack and the floor leave are shaded
         wallTex.bind (0);
-        use (shaders::studioWall).set ("uParams", studiowall::x0, geo::floorHeight(), studiowall::width, studiowall::height);
+        auto& wall = use (shaders::studioWall);
+        wall.set ("uParams", studiowall::x0, geo::floorHeight(), studiowall::width, studiowall::height);
+        wall.set ("uParams2", 1.0f - 0.30f * closeness, 0.0f, 0.0f, 0.0f);
         draw (meshes.wall, I, zero);
 
         // =============================================================================
@@ -2271,12 +2675,15 @@ namespace pad
         // Where each faceplate's ears press on the rails: a contact shadow along both edges
         for (int u = 0; u < numUnits; ++u)
             for (float side : { -1.0f, 1.0f })
+                if (isShown (u) && u != lunchboxUnit)   // (the LUNCHBOX is not in the rack)
                 drawShadow (panelFor (u), side * (faceHalfW + 0.004f) - L.x * 0.02f, -railFront + 0.0012f, 0.0f,
                             0.012f, unitHalfH (u) - 0.01f, 0.01f, 0.03f, 0.55f);
 
         // Each unit lays a soft shadow on the panel of the one below it, inside the case
         for (int u = 0; u < numUnits; ++u)
         {
+            if (u == lunchboxUnit)
+                continue;
             const auto shadowSpace = panelFor (u);
             drawShadow (shadowSpace, -L.x * 0.06f, 0.0015f, -unitHalfH (u) - rackGap * 0.35f,
                         faceHalfW * 0.98f, rackGap * 0.55f, 0.05f, rackGap * 0.7f, 0.55f);

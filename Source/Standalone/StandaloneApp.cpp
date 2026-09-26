@@ -213,6 +213,29 @@ namespace juce
                 holder->reloadAudioDeviceState (true, {}, nullptr);
             }
 
+            // Nobody chose a rate yet: 48 kHz and a 256-sample buffer (the ALSA default device lists 8 kHz
+            // first and JUCE would open it there - poor sound and a long delay)
+            if (settings == nullptr || ! settings->containsKey ("audioSetup"))
+                if (auto* device = holder->deviceManager.getCurrentAudioDevice())
+                {
+                    auto setup = holder->deviceManager.getAudioDeviceSetup();
+                    const auto rates = device->getAvailableSampleRates();
+                    const auto sizes = device->getAvailableBufferSizes();
+                    bool change = false;
+                    if (setup.sampleRate < 44100.0 && (rates.contains (48000.0) || rates.contains (44100.0)))
+                    {
+                        setup.sampleRate = rates.contains (48000.0) ? 48000.0 : 44100.0;
+                        change = true;
+                    }
+                    if (setup.bufferSize > 256 && sizes.contains (256))
+                    {
+                        setup.bufferSize = 256;
+                        change = true;
+                    }
+                    if (change)
+                        holder->deviceManager.setAudioDeviceSetup (setup, true);
+                }
+
             // Nothing reaches the rack until the router has put it in a safe place.
             holder->muteInput = true;
             holder->getMuteInputValue() = true;

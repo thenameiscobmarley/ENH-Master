@@ -1,5 +1,8 @@
 #pragma once
 
+#include <limits>
+#include "Scene/CameraRig.h"
+
 #include <juce_core/juce_core.h>
 #include "Scene/PanelArtwork.h"
 
@@ -27,6 +30,11 @@ namespace pad
         std::atomic<int>   focusUnit { 0 };
         std::atomic<float> focusTarget { 0.0f };   // message thread asks
         std::atomic<float> focusAmount { 0.0f };   // render thread animates, both threads read
+        std::atomic<float> focusCentreY { std::numeric_limits<float>::quiet_NaN() };   // ... and glides these between units
+        std::atomic<float> focusHalfV { std::numeric_limits<float>::quiet_NaN() };
+        std::atomic<float> focusSide { std::numeric_limits<float>::quiet_NaN() }, focusHalfW { std::numeric_limits<float>::quiet_NaN() };
+
+        CameraFocus focus() const noexcept { return { focusUnit.load(), focusAmount.load(), focusCentreY.load(), focusHalfV.load(), focusSide.load(), focusHalfW.load() }; }
 
         // written by render thread
         std::atomic<float> parallaxX { 0.0f }, parallaxY { 0.0f };

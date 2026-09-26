@@ -43,8 +43,8 @@ namespace pad::artwork
         /** Maps panel-local (x, z) to decal pixels. */
         struct PanelMapper
         {
-            float sx, sz, halfH = faceHalfH;
-            float px (float x) const { return (x + faceHalfW) * sx; }
+            float sx, sz, halfH = faceHalfH, halfW = faceHalfW;
+            float px (float x) const { return (x + halfW) * sx; }
             float pz (float z) const { return (z + halfH) * sz; }
             float len (float w) const { return w * sx; }
 
@@ -112,6 +112,7 @@ namespace pad::artwork
         juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());    // white silkscreen
         juce::Image lines (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());  // grey section outlines
         juce::Image fills (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());  // slightly lighter section fields
+        juce::Image stripes (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType()); // blue pinstripes (the classic exciter's)
 
         const auto solid = juce::Colours::white;
         const auto centred = juce::Justification::horizontallyCentred;
@@ -208,12 +209,22 @@ namespace pad::artwork
                 g.fillRoundedRectangle (m.rect (sec.box.minX(), sec.box.minZ(), sec.box.maxX(), sec.box.maxZ()), m.len (0.018f));
         }
 
+        {
+            // Two thin blue pinstripes the width of the panel, just under the sections, the way the classic
+            // exciter's front is striped (between the rack ears, stopped short of the ear slots)
+            juce::Graphics g (stripes);
+            g.setColour (solid);
+            for (float z : { sectionBottom + 0.050f, sectionBottom + 0.078f })
+                g.fillRect (m.rect (-faceHalfW + 0.26f, z, faceHalfW - 0.26f, z + 0.009f));
+        }
+
         recorder = {};
         RawTexture tex { w, h, 4, {} };
         tex.pixels.assign ((size_t) (w * h * 4), 0);
         copyChannel (ink, tex, 0);
         copyChannel (lines, tex, 1);
         copyChannel (fills, tex, 2);
+        copyChannel (stripes, tex, 3);
         return tex;
     }
 
@@ -369,23 +380,26 @@ namespace pad::artwork
             {
                 text (g, m, s, oneUMakerX0, z, fitHeight (m, s, hgt, width, true, tracking), left, true, tracking, width);
             };
-            const juce::String name (info.name);
+            const juce::String name (unit == powerUnit ? "POWER CONDITIONER" : info.name);
             const float top = makerTopZ (unit);
             line (name.upToFirstOccurrenceOf (" ", false, false), top, 0.050f, 0.16f);
             line (name.fromFirstOccurrenceOf (" ", false, false), top + 0.072f, 0.050f, 0.16f);
-            line (juce::String ("MODEL EM-") + juce::String (info.chainPosition), top + 0.138f, 0.019f, 0.10f);
+            line (unit == powerUnit ? juce::String ("15 A  -  8 OUTLETS") : juce::String ("MODEL EM-") + juce::String (info.chainPosition),
+                  top + 0.138f, 0.019f, 0.10f);
         }
 
         // Bordered control section, as on a hardware compressor
         const auto box = oneUSectionBox (unit);
         {
-            g.drawRoundedRectangle (m.rect (box.minX(), box.minZ(), box.maxX(), box.maxZ()), m.len (0.022f), m.len (0.006f));
+            // (the FOOTSTEP RADAR's is a pill, fully rounded ends, like the classic transient designer's sections)
+            g.drawRoundedRectangle (m.rect (box.minX(), box.minZ(), box.maxX(), box.maxZ()), m.len (unit == radarUnit ? box.hd : 0.022f), m.len (0.006f));
 
             const auto title = unit == tideUnit ? juce::String ("COMPRESSOR") : unit == lumenUnit ? juce::String ("LEVELER")
                              : unit == levelUnit ? juce::String ("LEVEL") : unit == balancerUnit ? juce::String ("BALANCE")
                              : unit == monitorUnit ? juce::String ("MONITOR")
                              : unit == characterUnit ? juce::String ("CHARACTER")
                              : unit == radarUnit ? juce::String ("RADAR")
+                             : unit == powerUnit ? juce::String ("MAINS")
                                                                                                    : juce::String ("DYNAMIC EQ");
             const auto font = makeFont (m.len (0.024f), true, 0.30f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, title);
@@ -484,10 +498,132 @@ namespace pad::artwork
             text (g, m, label, vuX (unit, i), vuZ (unit, i) + vuHalfH + 0.056f, 0.021f, centred, true, 0.20f, 0.36f);
         }
 
+        // POWER: its three lamps, and the lamps' housings at each end
+        if (unit == powerUnit)
+        {
+            const char* lamps[3] { "PROT", "GND", "ON" };
+            for (int i = 0; i < 3; ++i)
+                text (g, m, lamps[i], stripLedX[(size_t) i], stripLedZ + 0.075f, 0.019f, centred, true, 0.20f, 0.20f);
+            text (g, m, "SWITCHED  -  SPIKE / SURGE / RF FILTERED  -  15 A  125 V~", 0.94f, -0.215f, 0.017f, centred, true, 0.22f, 2.4f);
+            for (int i = 0; i < stripOutlets; ++i)
+                text (g, m, juce::String (i + 1), stripOutletX (i), 0.215f, 0.018f, centred, true, 0.10f, 0.1f);
+            text (g, m, "POWER", stripSwitchX, stripSwitchZ + oneULabelDz, 0.026f, centred, true, 0.16f, 0.40f);
+        }
+
         // Under the display: what it shows
         if (unit == monitorUnit)
             text (g, m, "IN AGAINST OUT   -   WAVEFORM  AND  SPECTRUM", monitorDisplayRect.cx, monitorDisplayRect.maxZ() + 0.074f,
                   0.021f, centred, true, 0.20f, 1.2f);
+
+        recorder = {};
+        RawTexture tex { w, h, 1, {} };
+        tex.pixels.assign ((size_t) (w * h), 0);
+        copyChannel (ink, tex, 0);
+        return tex;
+    }
+
+    /** The LUNCHBOX's modules: each one's name at the top, its controls' labels and scales, the stepped
+        switches' positions round them, a maker line at the foot. One print for the whole frame; the
+        modules' plates carry it (the frame and the empty slot are left bare). */
+    RawTexture renderLunchboxDecal (int textureWidth, TextRegistry* registry)
+    {
+        const int unit = lunchboxUnit;
+        recorder = { registry, unit, -1, -1 };
+        const int w = textureWidth;
+        const int h = juce::roundToInt ((float) textureWidth * lbHalfH / lbHalfW);
+        const PanelMapper m { (float) w / (2.0f * lbHalfW), (float) h / (2.0f * lbHalfH), lbHalfH, lbHalfW };
+
+        juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
+        juce::Graphics g (ink);
+        g.setColour (juce::Colours::white);
+        const auto centred = juce::Justification::horizontallyCentred;
+
+        for (int mi = 0; mi < (int) lbModules.size(); ++mi)
+        {
+            const auto& mod = lbModules[(size_t) mi];
+            const float cx = lbModuleX (mi), hw = 0.5f * lbSlotW * (float) mod.width - 0.03f;
+            text (g, m, mod.name, cx, lbTitleZ, fitHeight (m, mod.name, 0.034f, 2.0f * hw - 0.02f, true, 0.18f), centred, true, 0.18f, 2.0f * hw);
+            g.fillRect (m.rect (cx - hw + 0.02f, lbTitleZ + 0.050f, cx + hw - 0.02f, lbTitleZ + 0.054f));
+        }
+
+        // The CROSSFEED module: two ears and the sound reaching both, engraved under its knob
+        {
+            const float cx = lbModuleX (2), cz = 0.42f;
+            for (float s : { -1.0f, 1.0f })
+                g.drawEllipse (m.rect (cx + s * 0.085f - 0.028f, cz - 0.028f, cx + s * 0.085f + 0.028f, cz + 0.028f), m.len (0.005f));
+            juce::Path p;
+            p.startNewSubPath (m.px (cx - 0.06f), m.pz (cz - 0.07f));
+            p.quadraticTo (m.px (cx), m.pz (cz - 0.13f), m.px (cx + 0.06f), m.pz (cz - 0.07f));
+            p.startNewSubPath (m.px (cx + 0.06f), m.pz (cz + 0.07f));
+            p.quadraticTo (m.px (cx), m.pz (cz + 0.13f), m.px (cx - 0.06f), m.pz (cz + 0.07f));
+            g.strokePath (p, juce::PathStrokeType (m.len (0.005f)));
+            text (g, m, "FOR HEADPHONES", cx, cz + 0.12f, 0.016f, centred, true, 0.20f, 0.36f);
+        }
+
+        // Under the OUTPUT meter: what the frame is
+        text (g, m, "LUNCHBOX", lbModuleX (3), 0.02f, 0.030f, centred, true, 0.20f, 0.38f);
+        text (g, m, "6-SLOT FRAME", lbModuleX (3), 0.08f, 0.017f, centred, true, 0.20f, 0.38f);
+        text (g, m, "CLASS A", lbModuleX (3), 0.40f, 0.022f, centred, true, 0.24f, 0.38f);
+        text (g, m, "DISCRETE", lbModuleX (3), 0.45f, 0.017f, centred, true, 0.24f, 0.38f);
+
+        // DE-HARSH's cut lamp
+        text (g, m, "CUT", lbModuleX (1) + lbCutLedDx, lbCutLedZ + 0.075f, 0.016f, centred, true, 0.20f, 0.2f);
+
+        for (auto& c : controls)
+        {
+            if (c.unit != unit)
+                continue;
+            recorder.control = (int) (&c - controls.data());
+            const bool isKnob = c.kind == ControlKind::knob || c.kind == ControlKind::selector;
+            // Everything is spaced from the part's real footprint (a marconi's skirt, a bat handle's reach)
+            const float fp = isKnob ? hwk::models::knob (c.style, knobBodyRadius (c), {}, 0).footprintRadius
+                                    : switchOutline (c.switchStyle).halfD;
+            const float labelDz = isKnob ? fp + 0.112f : fp + 0.050f;
+            text (g, m, c.label, c.x, c.z + labelDz, 0.022f, centred, true, 0.14f, 0.30f);
+            recorder.control = -1;
+
+            auto* spec = pad::params::findSpec (c.paramId);
+            if (spec == nullptr || ! isKnob)
+                continue;
+
+            if (c.kind == ControlKind::selector)
+            {
+                // The positions, as the switch's steps: a dot, and the value beyond it
+                const int n = spec->texts.size();
+                for (int k = 0; k < n; ++k)
+                {
+                    const float angle = characterSelectorAngle (n > 1 ? (float) k / (float) (n - 1) : 0.5f);
+                    const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                    const float rd = fp + 0.012f, rr = fp + 0.058f;
+                    g.fillEllipse (m.rect (c.x + dir.x * rd - 0.006f, c.z + dir.y * rd - 0.006f, c.x + dir.x * rd + 0.006f, c.z + dir.y * rd + 0.006f));
+                    auto label = spec->texts[k].upToFirstOccurrenceOf (" ", false, false);
+                    if (label.startsWith ("0."))
+                        label = label.substring (1);
+                    text (g, m, label.toUpperCase(), c.x + dir.x * rr, c.z + dir.y * rr - 0.008f, 0.0155f, centred, true, 0.02f, 0.12f);
+                }
+                continue;
+            }
+
+            // A knob: eleven ticks round it, and its ends and centre numbered
+            for (int i = 0; i <= 10; ++i)
+            {
+                const float angle = knobAngleForValue ((float) i / 10.0f);
+                const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                const float a0 = fp + 0.008f, a1 = fp + (i % 5 == 0 ? 0.032f : 0.022f);
+                g.drawLine (juce::Line<float> (m.px (c.x + dir.x * a0), m.pz (c.z + dir.y * a0), m.px (c.x + dir.x * a1), m.pz (c.z + dir.y * a1)),
+                            m.len (i % 5 == 0 ? 0.006f : 0.003f));
+            }
+            for (int i = 0; i <= 2; i += 2)   // its two ends (the centre is plain from the ticks)
+            {
+                const float t = 0.5f * (float) i;
+                const float v = spec->minValue + (spec->maxValue - spec->minValue) * t;
+                const float angle = knobAngleForValue (t);
+                const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                const float rr = fp + 0.070f;
+                const auto label = (v > 0.0f && spec->minValue < 0.0f ? "+" : "") + juce::String (juce::roundToInt (v));
+                text (g, m, label, c.x + dir.x * rr, c.z + dir.y * rr - 0.008f, 0.0165f, centred, true, 0.0f, 0.12f);
+            }
+        }
 
         recorder = {};
         RawTexture tex { w, h, 1, {} };
@@ -509,7 +645,8 @@ namespace pad::artwork
         // Full scale: the compressor's GR 0-12, the leveler's lift 0-18, the limiter's spectral cut 0-18
         // (RANGE + headroom protection) and its broadband protection 0-12
         const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1);
-        const bool lufs = unit == monitorUnit || unit == levelUnit || unit == deepUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT and DEEP SUB)
+        const bool thirtySix = unit == radarUnit;   // STEP LIFT: BOOST goes to 34 dB
+        const bool lufs = unit == monitorUnit || unit == levelUnit || unit == deepUnit || unit == lunchboxUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT and DEEP SUB)
         const bool sixty = unit == characterUnit;   // -60 .. 0: CHARACTER's harmonics against the signal (-20 = 10 %)
         const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
         const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
@@ -571,7 +708,7 @@ namespace pad::artwork
             if (lufs && (i % 2) != 0)
                 continue;   // -40, -20 and 0 only: the arc is too short for five numbers
             const float t = (float) i / (float) majors;
-            const auto label = juce::String (juce::roundToInt (sixty ? -60.0f + 60.0f * t : lufs ? -40.0f + 40.0f * t : t * (twelve ? 12.0f : 18.0f)));
+            const auto label = juce::String (juce::roundToInt (sixty ? -60.0f + 60.0f * t : lufs ? -40.0f + 40.0f * t : t * (twelve ? 12.0f : thirtySix ? 36.0f : 18.0f)));
             const auto at = pointAt (t, 0.845f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, label);
             g.drawText (label, juce::Rectangle<float> (at.x - 0.5f * tw - 2.0f, at.y - font.getHeight() * 0.5f,
@@ -586,6 +723,7 @@ namespace pad::artwork
                            : unit == deepUnit ? juce::String ("SUB   dBFS")
                            : unit == characterUnit ? juce::String ("HARMONICS   dB")
                            : unit == radarUnit ? juce::String ("STEP LIFT   dB")
+                           : unit == lunchboxUnit ? juce::String ("OUT  dB")
                                                  : juce::String ("LIFT   dB");
         const auto capFont = makeFont (vuHalfH * 0.24f * scale, true, 0.22f);
         g.setFont (capFont);

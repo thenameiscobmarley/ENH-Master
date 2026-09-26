@@ -189,6 +189,7 @@ namespace pad
 
         // LEVEL: the rack's LOUDNESS TARGET (OUTPUT MONITOR's panel), here too because it is what a
         // router wants most: every app and game at one loudness
+        rackProcessor = rack;
         if (rack != nullptr)
             for (auto* p : rack->getParameters())
             {
@@ -499,6 +500,25 @@ namespace pad
         setup.outputDeviceName = type->getDeviceNames (false)[juce::jmax (0, type->getDefaultDeviceIndex (false))];
        #endif
 
+        // A game-ready rate and buffer: the ALSA default device lists 8000 Hz first, and JUCE would open
+        // it there (bad sound, and 470 ms late). Kept as chosen if it is already sensible.
+        if (auto* t = devices.getCurrentDeviceTypeObject(); t != nullptr)
+        {
+            if (auto probe = std::unique_ptr<juce::AudioIODevice> (t->createDevice (setup.outputDeviceName, setup.inputDeviceName)))
+            {
+                const auto rates = probe->getAvailableSampleRates();
+                if (setup.sampleRate < 44100.0 || ! rates.contains (setup.sampleRate))
+                    setup.sampleRate = rates.contains (48000.0) ? 48000.0 : rates.contains (44100.0) ? 44100.0 : setup.sampleRate;
+                // The buffer: 256 (5 ms at 48 kHz) unless it was chosen in Audio settings (JUCE's own 512
+                // makes the sound ~30 ms later on ALSA, which counts three buffers each way)
+                const auto sizes = probe->getAvailableBufferSizes();
+                const bool chosen = props != nullptr && props->containsKey ("audioSetup");
+                if (setup.bufferSize <= 0 || setup.bufferSize > (chosen ? 2048 : 256))
+                    for (int want : { 256, 240, 288, 320, 384, 480, 512 })
+                        if (sizes.contains (want)) { setup.bufferSize = want; break; }
+            }
+        }
+
         setup.useDefaultInputChannels = false;
         setup.useDefaultOutputChannels = false;
         setup.inputChannels.clear();
@@ -720,6 +740,9 @@ namespace pad
             repaint (getLocalBounds().removeFromBottom (22));
         }
 
+        if (tick % 20 == 1)
+            updateLatency();
+
         // COMPARE is lit while the input is playing (it can be pressed on the rack too)
         if (compareParam != nullptr && tick % 5 == 0)
             compareButton.setToggleState (compareParam->getValue() > 0.5f, juce::dontSendNotification);
@@ -867,9 +890,17 @@ namespace pad
         meterRow.removeFromLeft (8);
         meter (meterRow, "OUT", outLevel);
 
+        // DELAY: how late you hear it (the rack plus the sound card). Under 30 ms nobody notices in a game
+        if (latencyMs > 0.0)
+        {
+            g.setFont (uiFont (9.5f, true));
+            g.setColour (latencyMs > 50.0 ? problem : latencyMs > 30.0 ? amber : faintInk);
+            g.drawText ("DELAY " + juce::String (juce::roundToInt (latencyMs)) + " ms", latencyArea(), juce::Justification::centredRight, false);
+        }
+
         g.setFont (uiFont (11.5f));
         g.setColour (statusIsProblem ? problem : faintInk);
-        g.drawText (status, 12, preferredHeight - 20, getWidth() - 24 - 212, 16, juce::Justification::centredLeft, true);
+        g.drawText (status, 12, preferredHeight - 20, getWidth() - 24 - 212 - latencyArea().getWidth(), 16, juce::Justification::centredLeft, true);
 
         // The getting-started strip: the four steps side by side, under the controls
         if (guideOpen)
@@ -892,7 +923,7 @@ namespace pad
                 { "1", "SOURCE", "Whole system: everything goes through the rack. Chosen apps: only the ones you tick." },
                 { "2", "RACK INPUT", cable },
                 { "3", "LISTEN ON", "Your headset or speakers: where you hear the result." },
-                { "4", "INSERT RACK", "Press it. Press again to take the rack out: everything goes back as it was. Start with your volume low." },
+                { "4", "INSERT RACK", "Press it; again to put everything back. Start with your volume low. Right-click the rack for all 11 units." },
             };
             const int w = content.getWidth() / 4;
             for (auto& st : steps)
@@ -906,6 +937,47 @@ namespace pad
                 t.draw (g, col.toFloat());
             }
         }
+    }
+
+    juce::Rectangle<int> RouterBar::latencyArea() const
+    {
+        return { getWidth() - 12 - 200 - 12 - 84, preferredHeight - 20, 84, 16 };
+    }
+
+    void RouterBar::updateLatency()
+    {
+        auto* device = devices.getCurrentAudioDevice();
+        const double rate = device != nullptr ? device->getCurrentSampleRate() : 0.0;
+        if (rate <= 0.0 || rackProcessor == nullptr || ! router.isInserted())   // out: nothing goes through the rack
+        {
+            if (latencyMs > 0.0) { latencyMs = 0.0; repaint (latencyArea()); }
+            return;
+        }
+        const int rack = rackProcessor->getLatencySamples();
+        const int block = device->getCurrentBufferSizeSamples();
+        int card = device->getInputLatencyInSamples() + device->getOutputLatencyInSamples();
+        if (card <= 0)
+            card = 2 * block;   // the driver does not say: one buffer in, one out
+        auto ms = [rate] (int samples) { return 1000.0 * samples / rate; };
+        const double total = ms (rack + card + block);
+        latencyDetail = "DELAY: how much later you hear the sound than without the rack (about " + juce::String (juce::roundToInt (total)) + " ms).\n"
+                        "  The rack: " + juce::String (ms (rack), 1) + " ms (look-ahead so steps and blasts are caught in time)\n"
+                        "  Sound card in + out: " + juce::String (ms (card), 1) + " ms\n"
+                        "  One buffer of processing: " + juce::String (ms (block), 1) + " ms (" + juce::String (block) + " samples; 128 in ... > Audio settings is faster, if your computer keeps up)\n"
+                       #if JUCE_WINDOWS
+                        "VB-Audio Cable adds a few ms of its own.\n"
+                       #endif
+                        "Under 30 ms nobody notices in a game; over 50 ms, lower the buffer size.";
+        if (std::abs (total - latencyMs) > 0.25)
+        {
+            latencyMs = total;
+            repaint (latencyArea());
+        }
+    }
+
+    juce::String RouterBar::getTooltip()
+    {
+        return latencyMs > 0.0 && latencyArea().contains (getMouseXYRelative()) ? latencyDetail : juce::String();
     }
 
     void RouterBar::resized()

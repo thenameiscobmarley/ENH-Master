@@ -113,6 +113,8 @@ namespace enh::dsp
         float onsetRate = 0.0f, lastFlux = 0.0f;
         float thresholdDb = -20.0f, ratio = 2.0f, kneeDb = 6.0f;
         float gainDb = 0.0f, makeupDb = 0.0f;
+        float cellHeat = 0.0f, cellHeatK = 0.0f;   // the gain cell: how hard it has been working lately (~1.5 s)
+        std::array<float, 2> cellLag {};           // its slight lag behind the control voltage
         float slowDb = 0.0f, fastDb = 0.0f;   // DRL: average + transient gain reduction
         float singleDb = 0.0f;                // SRL: one follower
         float rmsWindowEnergy = 0.0f, rmsWindowCoeff = 0.0f;   // RMS: its own 50 ms power window

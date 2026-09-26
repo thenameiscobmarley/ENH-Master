@@ -41,6 +41,11 @@ namespace enh::dsp
         // CHARACTER
         float charModelA = 3.0f, charModelB = 4.0f, charBlend = 0.0f, charDrive = 5.0f, charColour = 5.0f;
         bool charActive = false, charGrit = true;
+
+        // LUNCHBOX
+        bool lbEqIn = false, lbMidHiQ = false, lbIron = false, lbHarshIn = false, lbFeedIn = false;
+        float lbHpf = 0.0f, lbLowFreq = 1.0f, lbLowGain = 0.0f, lbMidFreq = 2.0f, lbMidGain = 0.0f, lbHighGain = 0.0f;
+        float lbHarshAmount = 5.0f, lbHarshFreq = 1.0f, lbHarshSpeed = 30.0f, lbFeedAmount = 5.0f;
         bool compare = false;   // COMPARE (OUTPUT MONITOR)
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
@@ -114,7 +119,7 @@ namespace enh::dsp
         p.footstep = k.footstep;
         p.radar.active = k.footstep;
         p.radar.sensitivity = std::clamp (k.radarSens, 0.0f, 10.0f);
-        p.radar.boostDb = std::clamp (k.radarBoost, 0.0f, 12.0f);
+        p.radar.boostDb = std::clamp (k.radarBoost, 0.0f, 34.0f);
         p.radar.space = std::clamp (k.radarSpace, 0.0f, 10.0f);
         p.radar.solo = k.radarListen;
         p.radar.detection = k.methods[(size_t) methods::radarDetection];
@@ -207,6 +212,24 @@ namespace enh::dsp
         p.character.components = mt[charComponents];
         p.character.grit       = k.charGrit;
         p.compare              = k.compare;
+        {
+            auto& lb = p.lunchbox;
+            lb.eqIn         = k.lbEqIn;
+            lb.hpf          = std::clamp ((int) std::lround (k.lbHpf), 0, 4);
+            lb.lowFreq      = std::clamp ((int) std::lround (k.lbLowFreq), 0, 3);
+            lb.lowGainDb    = std::clamp (k.lbLowGain, -16.0f, 16.0f);
+            lb.midFreq      = std::clamp ((int) std::lround (k.lbMidFreq), 0, 5);
+            lb.midGainDb    = std::clamp (k.lbMidGain, -18.0f, 18.0f);
+            lb.midHighQ     = k.lbMidHiQ;
+            lb.highGainDb   = std::clamp (k.lbHighGain, -16.0f, 16.0f);
+            lb.iron         = k.lbIron;
+            lb.harshIn      = k.lbHarshIn;
+            lb.harshAmount  = std::clamp (k.lbHarshAmount, 0.0f, 10.0f);
+            lb.harshFreq    = std::clamp ((int) std::lround (k.lbHarshFreq), 0, 2);
+            lb.harshSpeedMs = std::clamp (k.lbHarshSpeed, 10.0f, 200.0f);
+            lb.feedIn       = k.lbFeedIn;
+            lb.feedAmount   = std::clamp (k.lbFeedAmount, 0.0f, 10.0f);
+        }
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
         p.lumen.response = std::clamp (k.lumenResponse / 10.0f, 0.0f, 1.0f);

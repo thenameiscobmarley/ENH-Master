@@ -22,6 +22,11 @@ button shows the steps again.
 - **LEVEL** makes games, music and calls the same loudness (*-18 LUFS* is a good choice).
 - **A/B** lets you hear the sound without the rack, at the same loudness.
 - **IN / OUT** meters show sound arriving and leaving.
+- **DELAY** (while the rack is in) says how much later you hear everything: the rack's own 12 ms
+  (look-ahead, so steps and blasts are caught in time) plus the sound card's buffers. Hover it for
+  the parts. Under 30 ms nobody notices in a game; over 50 ms, lower the buffer size in
+  **… > Audio settings** (128 is fast, if your computer keeps up). The app opens at 48 kHz with a
+  256-sample buffer unless you chose otherwise.
 
 ## The … menu
 

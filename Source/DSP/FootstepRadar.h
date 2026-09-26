@@ -47,7 +47,7 @@ namespace enh::dsp
         {
             bool active = false;
             float sensitivity = 6.0f;   // SENSITIVITY 0 .. 10
-            float boostDb = 6.0f;       // BOOST 0 .. 12 dB, for a far, quiet step (near ones get less)
+            float boostDb = 6.0f;       // BOOST 0 .. 34 dB, for a far, quiet step (near ones get less)
             float space = 4.0f;         // SPACE 0 .. 10: how much room a far step is given
             bool solo = false;          // LISTEN: only what the radar adds (to hear what it finds)
             int detection = 0;          // DETECTION method: 0 standard, 1 sensitive, 2 strict
@@ -81,6 +81,10 @@ namespace enh::dsp
         };
 
         /** Every event and what was decided (tests; filled only when `log` is set). */
+        /** BOOST's top: a far, quiet step lifted this much is unmistakable. Near, loud steps get a fraction
+            of it, and EAR GUARD after the rack still holds any jump more than 12 dB over the usual level. */
+        static constexpr float maxBoostDb = 34.0f;
+
         struct Decision
         {
             double time;
@@ -103,6 +107,14 @@ namespace enh::dsp
 
         // --- readouts ------------------------------------------------------------------------------
         float getActivity() const noexcept                         { return activity; }     // 0 .. 1: a step is being lifted now
+        /** The lift being given right now, in its most-lifted band (dB): the STEP LIFT meter. */
+        float getLiftDb() const noexcept
+        {
+            float most = 0.0f;
+            for (float g : lift)
+                most = std::max (most, g);
+            return 20.0f * std::log10 (1.0f + most);
+        }
         int getAcceptedCount() const noexcept                      { return accepted; }
         int getEventCount() const noexcept                         { return events; }
         const std::array<Track, maxTracks>& getTracks() const noexcept { return tracks; }

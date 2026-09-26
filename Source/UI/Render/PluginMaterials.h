@@ -100,14 +100,20 @@ namespace pad::shaders
         float vz = plotT + (plotB - plotT) * eqMid;
         vec3 inkB = bdb < 0.0 ? red : vec3 (0.08, 0.34, 0.38);
         vec2 dpx = vec2 ((uv.x - uc) / max (pxu, 1.0e-6), (uv.y - vd) / max (px, 1.0e-6));
-        float r = length (dpx);
-        float mark = (1.0 - smoothstep (3.0, 4.2, r)) * 0.35 + (1.0 - smoothstep (0.8, 1.6, abs (r - 4.0))) * 0.9;
+        // The dot is printed on the card: its size is in the display's own units (display heights, x
+        // scaled to match so it stays round), so it shrinks with the display as the rack moves away
+        // instead of staying the same size on screen. Its line is never thinner than a pixel.
+        float rd = length (vec2 ((uv.x - uc) * px / max (pxu, 1.0e-6), uv.y - vd));
+        const float dotR = 0.021;
+        float lineW = max (0.0045, px);
+        float mark = (1.0 - smoothstep (dotR * 0.75 - px * 0.5, dotR * 0.75 + px * 0.5, rd)) * 0.35
+                   + (1.0 - smoothstep (lineW * 0.5, lineW * 0.5 + px, abs (rd - dotR))) * 0.9;
         float stem = (1.0 - smoothstep (0.4, 1.2, abs (dpx.x))) * step (min (vd, vz), uv.y) * step (uv.y, max (vd, vz))
                    * step (0.5, fract (uv.y / (px * 6.0))) * 0.55;
         float halfW = bw / log2 (1000.0) * (plotR - plotL) * 0.5;
         float bar = (1.0 - smoothstep (0.4, 1.3, abs ((uv.y - vh) / max (px, 1.0e-6)))) * step (uc - halfW, uv.x) * step (uv.x, uc + halfW) * 0.8;
         float ends = (1.0 - smoothstep (0.5, 1.3, min (abs (uv.x - (uc - halfW)), abs (uv.x - (uc + halfW))) / max (pxu, 1.0e-6)))
-                   * (1.0 - smoothstep (2.5, 3.5, abs ((uv.y - vh) / max (px, 1.0e-6)))) * 0.8;
+                   * (1.0 - smoothstep (0.016, 0.016 + px, abs (uv.y - vh))) * 0.8;   // tick height in display units too
         col = mix (col, inkB, clamp (mark + stem + bar + ends, 0.0, 1.0) * on);
     }
 
@@ -316,8 +322,11 @@ namespace pad::shaders
     for (int k = 0; k < 6; ++k)
     {
         float hy = zeroY - clamp (uBands[k] / 12.0, -1.0, 1.0) * 0.28;
-        float r = length (vec2 ((uv.x - uHandleU[k]) / pxu, (uv.y - hy) / px));
-        col = mix (col, ink, (1.0 - smoothstep (5.5, 7.0, r)) * smoothstep (3.5, 4.5, r) * power * uParams.y);   // an inked ring (fades in spectral mode)
+        // An inked ring (fades in spectral mode), in the display's own units like the enhancer's dots
+        float rd = length (vec2 ((uv.x - uHandleU[k]) * px / max (pxu, 1.0e-6), uv.y - hy));
+        const float ringR = 0.030;
+        float ringW = max (0.010, px);
+        col = mix (col, ink, (1.0 - smoothstep (ringW * 0.5, ringW * 0.5 + px, abs (rd - ringR))) * power * uParams.y);
     }
 
     // History: in (pencil), out (ink), cut hanging from the top (red)
@@ -433,8 +442,33 @@ namespace pad::shaders
         uParams = (left x, floor y, width, height) of the baked area, in world metres */
     inline const hwk::shaders::Material studioWallMaterial { "studioWall", R"GLSL(
     vec3 c = texture (uTex, vec2 ((vWorld.x - uParams.x) / uParams.z, (vWorld.y - uParams.y) / uParams.w)).rgb;
-    col = c * c * 0.6;
+    col = c * c * 0.6 * uParams2.x;   // uParams2.x: dimmer as you walk up to a unit (the room falls away)
 )GLSL" };
+
+    /** The clear coat each surface gets (HardwareKit's uCoat / uCoatLod): how wet it looks, and how sharp
+        the room is in it (the room map's mip level). Glass and glossy knobs mirror it crisply; brushed
+        metal only has a soft sheen of it; prints, shadows and glows get none. */
+    struct Coat { float amount, lod; };
+    inline Coat coatFor (int m)
+    {
+        switch (m)
+        {
+            case plastic:         return { 1.00f, 0.0f };    // the knobs: glossy (everything mirrors like still water)
+            case vuGlass:         return { 1.00f, 0.0f };   // cover glass
+            case paint:           return { 1.00f, 0.0f };    // lacquered panels
+            case faceplate:       return { 0.95f, 0.1f };    // anodised
+            case chassis:         return { 0.65f, 0.5f };    // powder coat: its grain softens it a little
+            case brushed:         return { 0.60f, 0.7f };    // brushed aluminium: its grain softens it a little
+            case wood:            return { 0.95f, 0.1f };    // oiled, waxed walnut
+            case table:           return { 0.80f, 0.2f };
+            case display:
+            case seraphDisplay:
+            case balancerDisplay:
+            case waveScreen:      return { 0.50f, 0.0f };   // behind a glass window
+            case recess:          return { 0.30f, 0.6f };
+            default:              return { 0.0f, 0.0f };
+        }
+    }
 
     inline const hwk::shaders::Material& materialFor (int m)
     {

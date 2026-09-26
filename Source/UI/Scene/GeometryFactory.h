@@ -2,6 +2,7 @@
 
 #include "../HardwareKit.h"
 #include "DeviceLayout.h"
+#include <vector>
 
 /*  Procedural low-poly geometry, built once at context creation.
     Front-panel parts are in panel-local space (see DeviceLayout.h).
@@ -13,7 +14,7 @@ namespace pad::geo
     using hwk::geo::unitQuad;
 
     // --- unit body (panel-local: the panel is at y = 0, the body runs back toward -y) ------
-    MeshData unitBody (float halfH);          // rounded box behind the faceplate
+    MeshData unitBody (float halfH, float halfW = layout::chassisHalfW);   // rounded box behind the faceplate
     MeshData unitVents (float halfH);         // slots in its top face
     MeshData unitVentWalls (float halfH);
     MeshData unitVentFloors (float halfH);
@@ -31,6 +32,46 @@ namespace pad::geo
     MeshData caseFloor();       // the surface the case is standing on
     MeshData backWall();        // the studio wall behind it (walnut slats, see studioWall)
     float floorHeight();        // where caseFloor lies
+
+    // --- the LUNCHBOX (panel-local to its frame), its stand, the POWER strip's lamps, the cables ------
+    MeshData lunchboxModulePlate (int module);   // a module's front plate (with its meter's hole)
+    MeshData lunchboxModuleEdges (int module);
+    MeshData lunchboxModuleScrews (int module);  // its two captive screws, top and bottom
+    MeshData lunchboxSlotWell();                 // the empty slot: its walls and back, in the dark
+    MeshData lunchboxSlotRails();                // the card guides a module slides along
+    MeshData lunchboxConnector();                // the card-edge connector at the back
+    MeshData lunchboxConnectorPins();            // its gold contacts
+    MeshData lunchboxStand();                    // world space: the walnut stand it sits on
+    MeshData lunchboxFrameHardware();            // panel-local: handle, feet
+    MeshData lunchboxRailHoles();                // the threaded holes the modules' screws go into
+    /** The cables (world space): an audio cable and a power cable out of the side of every unit, down
+        beside the case in a loom, across the floor; the LUNCHBOX's to its stand; the POWER strip's to
+        the wall. `colours` gets one entry per audio cable (its colour index), same order as the mesh. */
+    MeshData audioCables (std::vector<int>& colours);
+    MeshData audioCable (int index);             // one of them (drawn one by one, each in its colour)
+    int numAudioCables();
+    MeshData powerCables();
+    MeshData xlrConnectors();                    // the XLR barrels where the audio cables plug into the LUNCHBOX
+    MeshData xlrLatches();                       // their metal latches and rings
+    // US mains parts (NEMA 5-15). Receptacle: its face (y up out of the panel) and its dark slots and ground
+    // hole; plug: a moulded body with strain relief along +y, its blades and ground pin pointing -y
+    MeshData receptacleFace (float scale = 1.0f);
+    MeshData receptacleHoles (float scale = 1.0f);
+    MeshData plugBody (float scale = 1.0f);
+    MeshData plugPins();
+    MeshData stripReceptacles();                 // panel-local to the POWER strip: all eight faces
+    MeshData stripReceptacleHoles();             // the empty ones' slots (the plugged ones are hidden)
+    MeshData stripPlugs();                       // the plugs in it
+    MeshData stripPlugPins();                    // (not drawn: inside the outlets) - kept for the loose plug
+    MeshData loosePlug();                        // world: a spare plug on the floor, pins toward you
+    MeshData loosePlugPins();
+    MeshData wallPlate();                        // world: the wall socket's plate and its screws
+    MeshData wallReceptacles();
+    MeshData wallReceptacleHoles();
+    MeshData wallPlug();                         // the strip's own plug in the upper socket
+    MeshData wallOutlet();                       // where the POWER strip is plugged in
+    /** A tube of radius r along a smooth curve through the points (a cable), `sides` round. */
+    MeshData tubeAlong (const std::vector<hwk::gfx::Vec3>& points, float r, int sides = 8);
 
     // --- panel-local ---------------------------------------------------------------
     MeshData faceplateEdges();

@@ -23,6 +23,7 @@ namespace pad
         Nothing is rerouted unless the rack's audio came up first, so a failure never leaves you
         without sound. */
     class RouterBar final : public juce::Component,
+                            public juce::TooltipClient,
                             private juce::Timer
     {
     public:
@@ -34,7 +35,7 @@ namespace pad
         ~RouterBar() override;
 
         static constexpr int preferredHeight = 66;
-        static constexpr int guideHeight = 76;    // the getting-started strip under the controls, while it is open
+        static constexpr int guideHeight = 96;    // the getting-started strip under the controls, while it is open
 
         /** How tall the bar is now (taller while the getting-started strip is open). */
         int currentHeight() const noexcept { return preferredHeight + (guideOpen ? guideHeight : 0); }
@@ -55,6 +56,7 @@ namespace pad
         bool isInserted() const { return router.isInserted(); }
 
         void paint (juce::Graphics&) override;
+        juce::String getTooltip() override;   // the DELAY readout's breakdown
         void resized() override;
 
     private:
@@ -96,6 +98,11 @@ namespace pad
         juce::RangedAudioParameter* targetParam = nullptr;   // the rack's LOUDNESS TARGET
         juce::RangedAudioParameter* compareParam = nullptr;  // the rack's COMPARE (level-matched A/B)
         float inLevel = 0.0f, outLevel = 0.0f;
+        juce::AudioProcessor* rackProcessor = nullptr;
+        void updateLatency();                  // DELAY: the rack's delay plus the sound card's, once a second
+        juce::Rectangle<int> latencyArea() const;
+        double latencyMs = 0.0;
+        juce::String latencyDetail;
         juce::AudioDeviceManager::LevelMeter::Ptr inMeter, outMeter;   // held: the device only measures while someone holds them
         juce::TextButton insertButton, appsButton, moreButton, compareButton, helpButton;
         juce::TextButton gotItButton;

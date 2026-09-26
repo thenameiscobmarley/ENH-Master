@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 Copy-Item -Recurse $bundle $stage
 Copy-Item $standalone $stage
-foreach ($f in "README.md", "LICENSE", "NOTICE") {
+foreach ($f in "README.md", "LICENSE", "NOTICE", "scripts/HOW-TO-CHECK.txt") {
     $p = Join-Path $Source $f
     if (Test-Path $p) { Copy-Item $p $stage }
 }
@@ -74,8 +74,9 @@ EVERY DAY
   - LEVEL:      -18 LUFS makes the game, music and voice chat equally loud (optional).
   - Press INSERT RACK. Press it again (RACK IN - REMOVE) to put everything back as it was.
 
-  Switching your headset or speakers in Windows while the rack is in is fine: the rack follows you
-  there, and your audio keeps going through it.
+  To switch headset or speakers: REMOVE, pick another LISTEN ON, INSERT RACK again.
+  DELAY (bottom right, while the rack is in) says how much later you hear the sound; under 30 ms
+  nobody notices in a game. Lower the buffer size in ... > Audio settings if it is higher.
   Closing the window with the rack in keeps it running in the tray (click the icon to bring it back).
   The ... menu has "Start with the computer": it then starts in the tray with the rack in, every time.
 
@@ -93,7 +94,7 @@ if (Test-Path $gstage) { Remove-Item -Recurse -Force $gstage }
 New-Item -ItemType Directory -Force -Path $gstage | Out-Null
 Copy-Item $standalone $gstage
 $quick | Set-Content -Encoding UTF8 (Join-Path $gstage "QUICK-START-GAMERS.txt")
-foreach ($f in "LICENSE", "NOTICE") {
+foreach ($f in "LICENSE", "NOTICE", "scripts/HOW-TO-CHECK.txt") {
     $p = Join-Path $Source $f
     if (Test-Path $p) { Copy-Item $p $gstage }
 }

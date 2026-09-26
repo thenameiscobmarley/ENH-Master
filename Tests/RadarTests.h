@@ -496,6 +496,56 @@ namespace radartests
     inline void runRadarTests (double sr, bool table, bool compareOld)
     {
         std::printf ("\n== FOOTSTEP RADAR: every surface, near to very far, under game audio, against look-alikes ==\n");
+        // A real recording (the radar's SAVE THE LAST 30 SECONDS): RADAR_FILE=<wav>, optionally
+        // RADAR_STEPS="t1,t2,..." where you hear steps (s). Every event the radar weighed, and what it took.
+        if (const auto file = juce::SystemStats::getEnvironmentVariable ("RADAR_FILE", {}); file.isNotEmpty())
+        {
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::AudioFormatReader> reader (wav.createReaderFor (juce::File (file).createInputStream().release(), true));
+            if (reader == nullptr)
+            {
+                std::printf ("  can't read %s\n", file.toRawUTF8());
+                return;
+            }
+            Audio a;
+            a.sr = reader->sampleRate;
+            const int n = (int) reader->lengthInSamples;
+            juce::AudioBuffer<float> buf (2, n);
+            reader->read (&buf, 0, n, 0, true, true);
+            a.l.assign (buf.getReadPointer (0), buf.getReadPointer (0) + n);
+            a.r.assign (buf.getReadPointer (reader->numChannels > 1 ? 1 : 0), buf.getReadPointer (reader->numChannels > 1 ? 1 : 0) + n);
+            for (auto& t : juce::StringArray::fromTokens (juce::SystemStats::getEnvironmentVariable ("RADAR_STEPS", {}), ",", {}))
+                if (t.trim().isNotEmpty())
+                    a.steps.push_back (t.trim().getDoubleValue());
+            double peak = 0.0, sum = 0.0;
+            for (int i = 0; i < n; ++i) { peak = std::max (peak, (double) std::abs (a.l[(size_t) i])); sum += (double) a.l[(size_t) i] * a.l[(size_t) i]; }
+            std::printf ("  %s: %.1f s at %.0f Hz, peak %.1f dBFS, RMS %.1f dBFS\n", file.toRawUTF8(), n / a.sr, a.sr,
+                         20.0 * std::log10 (peak + 1e-12), 10.0 * std::log10 (sum / std::max (1, n) + 1e-20));
+            FootstepRadar::Settings s;
+            std::vector<FootstepRadar::Decision> log;
+            log.reserve (100000);
+            const auto found = runRadar (a, s, nullptr, &log, false);
+            std::printf ("  --- every event (time, ACCEPT, P, base, match, attack ms, decay dB, excess dB, tonal, level dBFS, spread, ...)\n");
+            for (auto& d : log)
+                std::printf ("  %7.3f %s P %.2f base %.2f m %.2f  att %5.1f  dec %5.1f  ex %5.1f  ton %.2f  lvl %6.1f  spr %.0f  dur %4.1f body %.2f rate %4.1f mus %.2f imp %.2f ring %.2f bang %.2f rap %.1f nar %.2f grid %.2f\n",
+                             d.time, d.accepted ? (d.withdrawn == 1 ? "SUSTND" : d.withdrawn == 2 ? "KICKED" : "ACCEPT") : "reject", d.probability, d.base, d.match, d.attackMs, d.decayDb, d.excessDb, d.tonal, d.levelDb, d.spread,
+                             d.durationMs, d.body, d.rate, d.music, d.impact, d.ring, d.bang, d.rapid, d.narrow, d.grid);
+            if (std::getenv ("RADAR_BANDS") != nullptr)
+                for (auto& d : log)
+                {
+                    std::printf ("  %7.3f bands p/att/dec:", d.time);
+                    for (int b = 0; b < 6; ++b)
+                        std::printf ("  %5.1f/%4.1f/%5.1f", d.bandP[(size_t) b], d.bandAtt[(size_t) b], d.bandDec[(size_t) b]);
+                    std::printf ("\n");
+                }
+            std::printf ("  %zu events weighed, %zu steps taken\n", log.size(), found.size());
+            if (! a.steps.empty())
+            {
+                const auto sc = score (a, found, 0.0);
+                std::printf ("  your %d marked steps: %d found, %d false lifts\n", sc.trueSteps, sc.hits, sc.falseAlarms);
+            }
+            return;
+        }
         if (juce::SystemStats::getEnvironmentVariable ("RADAR_METHODS", {}).isNotEmpty())
         {
             const auto a = methodScene();

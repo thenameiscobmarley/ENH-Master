@@ -190,7 +190,30 @@ namespace pad::audit
             {
                 const auto ears = outboardEarSlots (unit);
                 addScrews (obs, ears.data(), ears.size());
-                addBorder (obs, oneUSectionBox (unit), "control section");
+                if (unit == lunchboxUnit)
+                {
+                    // Each module's plate ends at its seam: print may not cross into the next module
+                    for (int m = 0; m < (int) lbModules.size(); ++m)
+                    {
+                        const float hw = 0.5f * lbSlotW * (float) lbModules[(size_t) m].width;
+                        for (float sx : { -1.0f, 1.0f })
+                            obs.push_back ({ Obstacle::rect, lbModuleX (m) + sx * hw, 0.0f, 0.012f, lbModuleHalfH, juce::String (lbModules[(size_t) m].name) + " seam" });
+                        for (float sz : { -1.0f, 1.0f })   // and its two screws
+                            obs.push_back ({ Obstacle::circle, lbModuleX (m), sz * (lbModuleHalfH - 0.055f), 0.028f, 0.0f, juce::String (lbModules[(size_t) m].name) + " screw" });
+                    }
+                    obs.push_back ({ Obstacle::circle, lbModuleX (1) + lbCutLedDx, lbCutLedZ, ledRadius * 1.1f, 0.0f, "CUT LED" });
+                }
+                else
+                    addBorder (obs, oneUSectionBox (unit), "control section");
+                if (unit == powerUnit)
+                {
+                    for (float x : stripLedX)
+                        obs.push_back ({ Obstacle::circle, x, stripLedZ, ledRadius * 1.1f, 0.0f, "strip LED" });
+                    const auto so = switchOutline (hwk::models::SwitchStyle::rockerRed);
+                    obs.push_back ({ Obstacle::rect, stripSwitchX, stripSwitchZ, so.halfW, so.halfD, "mains switch" });
+                    for (int k = 0; k < stripOutlets; ++k)   // each outlet's face (0.72 of a real one: 0.68 x 0.60 in)
+                        obs.push_back ({ Obstacle::rect, stripOutletX (k), stripOutletZ, 0.72f * 0.68f * 0.263f, 0.72f * 0.60f * 0.263f, "outlet" });
+                }
                 for (int i = 0; i < numVus (unit); ++i)
                     obs.push_back ({ Obstacle::hole, vuX (unit, i), vuZ (unit, i), vuHalfW (unit) + 0.03f, vuHalfH + 0.03f, "VU bezel" });
                 for (auto& w : outboardWindows (unit))
@@ -202,7 +225,7 @@ namespace pad::audit
 
             // The panel's own edge
             const float h = unitHalfH (unit);
-            obs.push_back ({ Obstacle::hole, 0.0f, 0.0f, faceHalfW - 0.02f, h - 0.02f, "panel edge" });
+            obs.push_back ({ Obstacle::hole, 0.0f, 0.0f, unitHalfW (unit) - 0.02f, h - 0.02f, "panel edge" });
             return obs;
         }
 
@@ -231,15 +254,18 @@ namespace pad::audit
         std::vector<Panel> panels { { enhUnit, &textures.faceplateDecal, "enh.png" }, { tubeUnit, &textures.tubeDecal, "tube.png" },
                                     { tideUnit, &textures.tideDecal, "tide.png" }, { lumenUnit, &textures.lumenDecal, "lumen.png" },
                                     { limiterUnit, &textures.limiterDecal, "limiter.png" }, { deepUnit, &textures.deepDecal, "deepsub.png" }, { characterUnit, &textures.characterDecal, "character.png" }, { levelUnit, &textures.levelDecal, "level.png" },
-                                    { balancerUnit, &textures.balancerDecal, "balancer.png" }, { monitorUnit, &textures.monitorDecal, "monitor.png" } };
+                                    { balancerUnit, &textures.balancerDecal, "balancer.png" }, { monitorUnit, &textures.monitorDecal, "monitor.png" },
+                                    { radarUnit, &textures.radarDecal, "radar.png" }, { powerUnit, &textures.powerDecal, "power.png" },
+                                    { lunchboxUnit, &textures.lunchboxDecal, "lunchbox.png" } };
 
         for (auto& panel : panels)
         {
             const int unit = panel.unit;
             const float halfH = unitHalfH (unit);
             auto img = toImage (*panel.tex);
-            const float sx = (float) img.getWidth() / (2.0f * faceHalfW), sz = (float) img.getHeight() / (2.0f * halfH);
-            auto px = [&] (float x) { return (x + faceHalfW) * sx; };
+            const float halfW = unitHalfW (unit);
+            const float sx = (float) img.getWidth() / (2.0f * halfW), sz = (float) img.getHeight() / (2.0f * halfH);
+            auto px = [&] (float x) { return (x + halfW) * sx; };
             auto pz = [&] (float z) { return (z + halfH) * sz; };
 
             juce::Graphics g (img);

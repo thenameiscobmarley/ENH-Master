@@ -73,6 +73,7 @@ namespace enh::dsp
         std::array<std::atomic<float>, 4> outputRegionCutDb {};
         std::atomic<float> outputLimitDb { 0.0f };
         std::atomic<float> targetGainDb { 0.0f };
+        std::atomic<float> lunchboxHarshDb { 0.0f }, lunchboxPeak { 0.0f };   // LUNCHBOX: DE-HARSH's cut, the output peak
         std::atomic<float> charHarmonicsDb { -120.0f };   // CHARACTER: what its models add, against the signal
         std::atomic<float> compareGainDb { 0.0f };         // COMPARE: what the input is brought up or down by
         std::atomic<bool>  comparing { false };
@@ -83,7 +84,7 @@ namespace enh::dsp
         // the threshold, the walkers it follows, and the last 32 steps it found (their fields written
         // first, then radarStepsTotal with release order: the display reads the total first)
         static constexpr int radarBands = 6, radarTracks = 4, radarRecent = 32;
-        std::atomic<float> radarActivity { 0.0f }, radarOnset { 0.0f }, radarThreshold { 1.0f }, radarMusicality { 0.0f };
+        std::atomic<float> radarLiftDb { 0.0f }, radarActivity { 0.0f }, radarOnset { 0.0f }, radarThreshold { 1.0f }, radarMusicality { 0.0f };
         std::array<std::atomic<float>, radarBands> radarExcessDb {};
         std::array<std::atomic<float>, radarTracks> radarTrackPan {}, radarTrackDistance {}, radarTrackConfidence {}, radarTrackPeriod {};
         std::array<std::atomic<int>, radarTracks> radarTrackId {};

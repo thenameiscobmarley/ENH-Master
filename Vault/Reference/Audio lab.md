@@ -14,7 +14,8 @@ scripts/selftest.sh --quick    # skip the slow steps
 
 `build/EnhDspTests_artefacts/Release/EnhDspTests` runs everything (about 10 minutes). One part at a
 time: `--character`, `--mastering`, `--presets`, `--limiter`, `--bass`, `--units`, `--methods`,
-`--zipper` (clicks), `--alias` (harshness), `--fuzz`, `--cpu`. See [Dev hooks](Dev%20hooks.md).
+`--zipper` (clicks), `--alias` (harshness), `--fuzz`, `--cpu`, `--latency` (the delay of each stage at
+44.1 / 48 / 96 kHz: under 15 ms in total, and exactly what the host is told, measured). See [Dev hooks](Dev%20hooks.md).
 
 ## EnhAudioLab — listen with your eyes
 

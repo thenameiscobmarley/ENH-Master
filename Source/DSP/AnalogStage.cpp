@@ -222,6 +222,10 @@ namespace enh::dsp
             auto& o = os[(size_t) c];
             float dMix = depthMix, cMix = clarityMix;
             float dW2 = weightsTo.depthW2, dW3 = weightsTo.depthW3, cW2 = weightsTo.clarityW2, cW3 = weightsTo.clarityW3;
+            // Spectrum-aware: tilt each exciter toward the harmonic that is missing (the method's balance is kept
+            // as the starting point: a harmonic already strong gets a third of its share, a missing one all of it)
+            const float d2 = 0.35f + 0.65f * s.depth.need2, d3 = 0.35f + 0.65f * s.depth.need3;
+            const float c2 = 0.35f + 0.65f * s.clarityBand.need2, c3 = 0.35f + 0.65f * s.clarityBand.need3;
 
             for (int i = 0; i < un; ++i)
             {
@@ -240,8 +244,12 @@ namespace enh::dsp
                         cW2 = weightsFrom.clarityW2 + (weightsTo.clarityW2 - weightsFrom.clarityW2) * t;
                         cW3 = weightsFrom.clarityW3 + (weightsTo.clarityW3 - weightsFrom.clarityW3) * t;
                     }
-                    y += dMix * excite (o.depth, depthCoeffs, in, envAttack, envRelease, envSettle, dW2, dW3)
-                       + cMix * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease, envSettle, cW2, cW3);
+                    // Level-dynamic: the exciter's share follows its band's level - barely there on quiet material,
+                    // fully there once the band is at a working level (about -30 dBFS and up)
+                    const float dLevel = 0.30f + 0.70f * o.depth.env / (o.depth.env + 0.02f);
+                    const float cLevel = 0.30f + 0.70f * o.clarity.env / (o.clarity.env + 0.02f);
+                    y += dMix * dLevel * excite (o.depth, depthCoeffs, in, envAttack, envRelease, envSettle, dW2 * d2, dW3 * d3)
+                       + cMix * cLevel * excite (o.clarity, clarityCoeffs, in, envAttack, envRelease, envSettle, cW2 * c2, cW3 * c3);
                 }
 
                 // Transformer / valve colour

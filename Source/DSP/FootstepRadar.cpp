@@ -842,7 +842,7 @@ namespace enh::dsp
                                                                        : ramp (-22.0f, -60.0f, *std::max_element (levelDb.begin(), levelDb.end()) + 6.0f);
         room.preSamples = std::clamp ((int) std::lround ((0.006 + 0.030 * guessDistance) * sr), 0, (int) room.pre.size() - 1);
         const float quiet = std::clamp ((-(*std::max_element (levelDb.begin(), levelDb.end())) - 4.0f) / 25.0f, 0.25f, 1.0f);
-        setLift (e, std::clamp (s.boostDb, 0.0f, 12.0f) * e.provisional * (0.35f + 0.65f * guessDistance) * quiet, 0.0f);
+        setLift (e, std::clamp (s.boostDb, 0.0f, maxBoostDb) * e.provisional * (0.35f + 0.65f * guessDistance) * quiet, 0.0f);
         e.holdS = 0.065f;   // until the decision
     }
 
@@ -858,7 +858,7 @@ namespace enh::dsp
             ex[(size_t) b] = std::max (0.0f, std::max (e.eventPeak[(size_t) b], levelDb[(size_t) b]) - e.eventBase[(size_t) b]);
             most = std::max (most, ex[(size_t) b]);
         }
-        const float total = std::clamp (boostDb, 0.0f, 15.0f);
+        const float total = std::clamp (boostDb, 0.0f, maxBoostDb);
         for (int b = 0; b < numBands; ++b)
         {
             float shape = most > 3.0f && ex[(size_t) b] > 3.0f ? std::pow (ex[(size_t) b] / most, 0.7f) : 0.0f;
@@ -1005,7 +1005,14 @@ namespace enh::dsp
         // --- the judgement, a factor per property ---------------------------------------------------------
         const float fDecay = ramp (0.5f, 5.0f, decay);
         const float fTonal = 1.0f - 0.85f * ramp (0.35f, 0.75f, tonal) * (1.0f - ramp (5.0f, 11.0f, decay));
-        const float fBang = 1.0f - 0.9f * ramp (-16.0f, -7.0f, e.eventInPeak) * ramp (3.5f, 5.5f, (float) spread);
+        // A bang: loud, in every band, and top-heavy - a gunshot's crack rises most in the scuff and air bands
+        // (in a real match: +10 to +15 dB more there than in the thump and body). A close footstep is just as
+        // loud and as broad, but it lands with weight: its rise is greatest low down (-3 to -9 dB the other
+        // way). Judged on level and breadth alone, every close step in a loud mix was taken for a shot.
+        // (Or it towers over everything: 22 - 30 dB above the scene in every band, whatever its tilt - a
+        // blast out of a quiet moment. A step in a busy match stands 13 - 19 dB above it.)
+        const float tilt = 0.5f * (print[4] + print[5]) - 0.5f * (print[0] + print[1]);
+        const float fBang = 1.0f - 0.9f * ramp (-16.0f, -7.0f, e.eventInPeak) * ramp (3.5f, 5.5f, (float) spread) * std::max (ramp (-3.0f, 4.0f, tilt), ramp (22.0f, 30.0f, most));
         // (a repeat of an impact: a rattle, a crate's clatter - not a syllable just before a step)
 
         const bool airOnly = carrying == 1 && print[5] >= most - 0.01f;
@@ -1042,7 +1049,12 @@ namespace enh::dsp
         const float grid = machineGrid (e, print);
         const float fGrid = 1.0f - 0.85f * grid;
         // (not when that impact was the drum machine's: then this is what came right after a beat)
-        const bool rapid = e.eventStart - lastEventTime < 0.18 && cosine (print, lastEventPrint) > 0.8f && ! elsewhere && lastEventGrid < 0.5f;
+        const bool onBeat = e.eventMatch >= 0.6f && e.eventBestTrack >= 0 && tracks[(size_t) e.eventBestTrack].steps >= 3
+                         && tracks[(size_t) e.eventBestTrack].confidence >= 0.5f && hasBody;
+        // (and not when it lands where a walker's next step is due: then what came just before was the stray
+        // one - in a busy match a step often follows some other impact by less than 0.18 s)
+        const bool rapid = e.eventStart - lastEventTime < 0.18 && cosine (print, lastEventPrint) > 0.8f && ! elsewhere && lastEventGrid < 0.5f
+                        && ! onBeat;
         const float fRapid = rapid ? 0.3f : 1.0f;
         const float fBody = hasBody ? 1.0f : ramp (5.0f, 10.0f, onsetRate()) * -0.35f + 0.70f;
         // A pure ring, however short: with no weight behind it, a click and a ring (a reload, a latch, a
@@ -1125,7 +1137,7 @@ namespace enh::dsp
         {
             e.phase = Phase::lifted;
             const float quiet = std::clamp ((-e.eventInPeak - 10.0f) / 25.0f, 0.25f, 1.0f);   // loud, near steps need little
-            const float boost = std::clamp (s.boostDb, 0.0f, 12.0f) * std::min (1.0f, 0.4f + 0.7f * probability)
+            const float boost = std::clamp (s.boostDb, 0.0f, maxBoostDb) * std::min (1.0f, 0.4f + 0.7f * probability)
                               * (0.35f + 0.65f * e.eventDistance) * quiet;
             const float sendAmount = std::clamp (s.space, 0.0f, 10.0f) / 10.0f * ramp (0.2f, 0.9f, e.eventDistance) * 0.9f;
             setLift (e, boost, sendAmount);
@@ -1224,7 +1236,10 @@ namespace enh::dsp
             if (ioi >= 0.18 && ioi <= 1.1)
                 tr.period = tr.period <= 0.0f ? (float) ioi : tr.period + 0.3f * ((float) ioi - tr.period);
             tr.confidence = std::min (1.0f, tr.confidence + 0.12f + 0.2f * std::max (e.eventBaseScore, e.eventMatch));
-            tr.last = e.eventStart;
+            // A second hit of the same step (a game's heel and toe, 40 - 80 ms apart) is part of that step:
+            // the walker's beat stays on the first, or its rhythm drifts off the real steps
+            if (e.eventStart - tr.last >= 0.15)
+                tr.last = e.eventStart;
             tr.loudestDb = std::max (tr.loudestDb - 1.0f, e.eventInPeak);
             ++tr.steps;
         }

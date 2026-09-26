@@ -10,7 +10,7 @@ footsteps (any surface, any game, near or far) and makes each one easier to hear
 
 - **SENSITIVITY** — how faint a step it goes after. 6 is the default; turn it up for very quiet games,
   down if it lifts things that aren't steps.
-- **BOOST** — how much a found step is lifted (0–12 dB). Far, quiet steps get the most; a loud step
+- **BOOST** — how much a found step is lifted (0–34 dB). Far, quiet steps get the most; a loud step
   right next to you gets little, since you can already hear it.
 - **SPACE** — how much room it adds to far steps, so you can tell *far* from *near*. The further the
   step, the more room it gets and the later that room arrives. Near steps get none, so they stay dry and close.
@@ -49,3 +49,11 @@ How it works inside: [Footstep detection](../DSP/Footstep%20detection.md).
 - Test it: `EnhDspTests --radar table` scores it on 70 scenes; see [Dev hooks](../Reference/Dev%20hooks.md).
 
 Code: `FootstepRadar.h/.cpp`.
+
+## Loud, close steps and gunshots
+
+In a loud mix a close footstep is as loud and as broad as a gunshot. What tells them apart is the shape:
+a shot is top-heavy (its rise is 10 - 15 dB greater in the scuff and air bands than in the thump and body),
+a footstep lands with weight (3 - 9 dB greater low down). The radar only treats a loud, broad hit as a
+bang when it is top-heavy, or when it towers 22 - 30 dB over everything around it. Tuned on a real match
+recording (3.7.13.13): 7 of 11 close running steps found (was 3), and none of the gunfire.

@@ -13,6 +13,9 @@ The print is small, like on real hardware. Hover anything and a **magnifying gla
 - While you drag a knob it stays on that knob, so you can read the value.
 - Knobs show their name and value under the glass, and their value arc lights up.
 - It zooms out as it goes, instead of blinking off.
+- It magnifies less the closer you are to the rack (2.4x from the whole rack, about 1.3x walked up to
+  a unit), and its fisheye, rim and the dark round the edges of the view ease off with it. Up close
+  the view also sways less with the mouse, and the room behind the rack dims a little.
 
 ## How it's made
 

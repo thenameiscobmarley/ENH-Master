@@ -8,8 +8,10 @@ Always on, whatever the knobs say. Everything leaving the rack goes through, in 
 2. **EAR GUARD** — the sound never suddenly gets more than **12 dB (about four times) louder** than it
    has been. It measures loudness the way LUFS meters do (over 400 ms) and compares it with how loud
    things have usually been over the last several seconds. A blast after a quiet stretch is held at
-   +12 dB. It looks 5 ms ahead, so it's already holding before you hear the blast. Short sounds (a single
-   shot) are barely touched, because they carry little energy; material that's loud all the time, and
+   +12 dB. It looks 5 ms ahead, so it's already holding before you hear the blast. Short sounds carry little
+   energy, so a single shot up to about 20 dB over the usual level passes untouched (a much louder one
+   is held down too). It spends its allowance evenly, so there is no spike as a blast starts (the loudest
+   10 ms stay under +20 dB) and a held blast stays level instead of stuttering; material that's loud all the time, and
    ordinary ups and downs, are never touched, so mastering isn't affected. It lets the new level in
    slowly (under 1 dB a second), so a long blast can't talk its way through. A pause in the music doesn't
    lower what it counts as usual, so the music coming back isn't held.

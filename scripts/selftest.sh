@@ -27,7 +27,7 @@ S="build/EnhMaster_artefacts/Release/Standalone/ENH Master"
 
 if [ $build = 1 ]; then
     echo "building ..."
-    cmake --build build -j2 > "$logs/build.log" 2>&1 || { echo "BUILD FAILED (see $logs/build.log)"; exit 1; }
+    cmake --build build -j"$(nproc)" > "$logs/build.log" 2>&1 || { echo "BUILD FAILED (see $logs/build.log)"; exit 1; }
 fi
 
 failed=0
@@ -75,8 +75,9 @@ if [ $ui = 1 ] && [ -x "$S" ]; then
         cramped=$(grep "cramped" "$c" | awk '{s+=$1} END{print s+0}')
         overlaps=$(grep -c "clearance -" "$c")
         echo "$cramped cramped print item(s), $overlaps overlapping"
-        # Nothing may overlap; the cramped count may not grow past what 3.6.6.1 left (38)
-        [ "$overlaps" = 0 ] && [ "$cramped" -le 38 ] && echo "ALL PASSED" || { echo "[FAIL] layout: $overlaps overlapping, $cramped cramped (max 38)"; grep "clearance -" "$c" | head; return 1; }
+        # Nothing may overlap; the cramped count may not grow past what 3.7.13.13 left (46: 38 on the ten
+        # panels 3.6.6.1 audited, 8 on the three it audits since - FOOTSTEP RADAR, POWER, LUNCHBOX)
+        [ "$overlaps" = 0 ] && [ "$cramped" -le 46 ] && echo "ALL PASSED" || { echo "[FAIL] layout: $overlaps overlapping, $cramped cramped (max 46)"; grep "clearance -" "$c" | head; return 1; }
     }
     step "UI layout audit" audit
 fi

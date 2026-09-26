@@ -8,6 +8,9 @@ Click a unit and a frosted glass panel opens on the right, joined to the unit by
 
 ## What's in it
 
+Under the unit's name: how many settings it has, and how much it **delays the sound** (look-ahead or
+oversampling; most units add none). The OUTPUT MONITOR shows the whole rack's delay.
+
 Settings listed one under another (scroll with the wheel), in folding groups:
 
 - **PROCESSING** — how the unit works. Each setting has two or three named choices.

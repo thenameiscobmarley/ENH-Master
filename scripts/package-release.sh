@@ -20,7 +20,7 @@ mkdir -p "$stage"
 cp -r "$bundle" "$stage/"
 # Ship a stripped binary: same plugin, a fraction of the download
 find "$stage" -name '*.so' -exec strip --strip-unneeded {} +
-cp "$src/README.md" "$src/LICENSE" "$src/NOTICE" "$src/PORTING-TO-WINDOWS.md" "$stage/"
+cp "$src/README.md" "$src/LICENSE" "$src/NOTICE" "$src/PORTING-TO-WINDOWS.md" "$src/scripts/HOW-TO-CHECK.txt" "$stage/"
 
 cat > "$stage/INSTALL.txt" <<'EOF'
 ENH Master - installation (Linux, VST3)

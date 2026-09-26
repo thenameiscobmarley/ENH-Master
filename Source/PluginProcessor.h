@@ -35,6 +35,20 @@ public:
     const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
 
+    /** How much a unit delays the sound (ms, at the current rate), and the whole rack's: shown in the
+        glass panels. Fixed after prepareToPlay (look-ahead and oversampling), so any thread may read it. */
+    double getStageLatencyMs (int stage) const noexcept
+    {
+        const auto parts = engine.getLatencyBreakdown();
+        const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+        return stage >= 0 && stage < (int) parts.size() ? 1000.0 * parts[(size_t) stage].samples / rate : 0.0;
+    }
+    double getRackLatencyMs() const noexcept
+    {
+        const double rate = getSampleRate() > 0.0 ? getSampleRate() : 48000.0;
+        return 1000.0 * engine.getLatencySamples() / rate;
+    }
+
     /** The loudness meter's RESET button (any thread). */
     void resetLoudness() noexcept { engine.resetLoudness(); }
 
@@ -78,6 +92,9 @@ private:
     std::atomic<float>* heavenHold = nullptr, *heavenLift = nullptr, *heavenMode = nullptr;
     std::atomic<float>* tideMix = nullptr, *tideResponse = nullptr, *tideActive = nullptr;
     std::atomic<float>* deepDepth = nullptr, *deepHull = nullptr, *deepSize = nullptr, *deepPressure = nullptr, *deepActive = nullptr;
+    std::atomic<float>* lbEqIn = nullptr, *lbHpf = nullptr, *lbLowFreq = nullptr, *lbLowGain = nullptr, *lbMidFreq = nullptr,
+                        *lbMidGain = nullptr, *lbMidHiQ = nullptr, *lbHighGain = nullptr, *lbIron = nullptr, *lbHarshIn = nullptr,
+                        *lbHarshAmount = nullptr, *lbHarshFreq = nullptr, *lbHarshSpeed = nullptr, *lbFeedIn = nullptr, *lbFeedAmount = nullptr;
     std::atomic<float>* charModelA = nullptr, *charModelB = nullptr, *charBlend = nullptr, *charDrive = nullptr, *charColour = nullptr, *charActive = nullptr;
     std::atomic<float>* abCompare = nullptr, *charGrit = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;

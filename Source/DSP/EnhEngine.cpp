@@ -27,6 +27,8 @@ namespace enh::dsp
         earGuard.prepare (sr);
         target.prepare (sr);
         character.prepare (sr, maxBlock, numChannels);
+        lunchbox.prepare (sr, maxBlock);
+        outputStage.prepare (sr);
         radar.prepare (sr, maxBlock);
 
         for (auto& v : msScratch)
@@ -72,6 +74,8 @@ namespace enh::dsp
         earGuard.reset();
         target.reset();
         character.reset();
+        lunchbox.reset();
+        outputStage.reset();
         radar.reset();
         for (auto& d : keepDelays) { std::fill (d.line.begin(), d.line.end(), 0.0f); d.pos = 0; }
         for (auto& v : compareLine) std::fill (v.begin(), v.end(), 0.0f);
@@ -400,6 +404,7 @@ namespace enh::dsp
     {
         constexpr auto relaxed = std::memory_order_relaxed;
         meters.radarActivity.store (radar.getActivity(), relaxed);
+        meters.radarLiftDb.store (radar.getLiftDb(), relaxed);
         meters.radarOnset.store (radar.getOnsetStrength(), relaxed);
         meters.radarThreshold.store (radar.getThreshold(), relaxed);
         meters.radarMusicality.store (radar.getMusicality(), relaxed);
@@ -521,6 +526,14 @@ namespace enh::dsp
         // CHARACTER: the hardware the rack is made of (out: a delay of the same length)
         inStereoMode (chunk, chans, n, p.methods[(size_t) methods::charStereo], character.getLatencySamples(), keepDelays[5],
                       [&] (float* const* c, int k) { character.process (c, k, n, p.character); });
+
+        // LUNCHBOX: the side rack's modules (each bit-for-bit out until switched in; no latency)
+        lunchbox.process (chunk, chans, n, p.lunchbox);
+        meters.lunchboxHarshDb.store (lunchbox.getHarshReductionDb(), std::memory_order_relaxed);
+        meters.lunchboxPeak.store (lunchbox.getOutputPeak(), std::memory_order_relaxed);
+
+        // The rack's output amplifier: every analog unit's colour leaves through one stage
+        outputStage.process (chunk, chans, n, strength > 0.001f || p.character.active || p.lunchbox.eqIn);
 
         // LOUDNESS TARGET, then the output limiter: full scale is looked after here, once, cleanly
         target.process (chunk, chans, n, p.methods[(size_t) methods::outputTarget]);

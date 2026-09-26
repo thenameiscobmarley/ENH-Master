@@ -22,6 +22,8 @@ namespace pad
         obj->setProperty ("renderScale", renderScale);
         obj->setProperty ("parallaxAmount", parallaxAmount);
         obj->setProperty ("reduceMotion", reduceMotion);
+        obj->setProperty ("simpleView", simpleView);
+        obj->setProperty ("wetCoat", wetCoat);
         return juce::var (obj);
     }
 
@@ -37,7 +39,7 @@ namespace pad
         }
 
         const auto known = juce::StringArray { "schemaVersion", "frameRate", "idleFrameRate", "msaaSamples",
-                                               "anisotropy", "maxDetail", "panelTextureWidth", "renderScale", "parallaxAmount", "reduceMotion" };
+                                               "anisotropy", "maxDetail", "panelTextureWidth", "renderScale", "parallaxAmount", "reduceMotion", "simpleView", "wetCoat" };
 
         for (auto& prop : obj->getProperties())
             if (! known.contains (prop.name.toString()))
@@ -109,7 +111,34 @@ namespace pad
                 c.warnings.add ("reduceMotion must be true/false");
         }
 
+        if (auto coat = obj->getProperty ("wetCoat"); ! coat.isVoid())
+        {
+            if (coat.isInt() || coat.isInt64() || coat.isDouble())
+                c.wetCoat = juce::jlimit (0.0f, 1.0f, (float) (double) coat);
+            else
+                c.warnings.add ("wetCoat must be a number from 0 to 1");
+        }
+
+        auto simple = obj->getProperty ("simpleView");
+        if (! simple.isVoid())
+        {
+            if (simple.isBool())
+                c.simpleView = (bool) simple;
+            else
+                c.warnings.add ("simpleView must be true/false");
+        }
+
         return c;
+    }
+
+    void UIConfig::saveSimpleView (bool simple, const juce::File& file)
+    {
+        juce::var parsed;
+        if (! file.existsAsFile() || juce::JSON::parse (file.loadFileAsString(), parsed).failed() || parsed.getDynamicObject() == nullptr)
+            parsed = UIConfig().toVar();
+        parsed.getDynamicObject()->setProperty ("simpleView", simple);
+        if (file.getParentDirectory().createDirectory().wasOk())
+            file.replaceWithText (juce::JSON::toString (parsed));
     }
 
     UIConfig UIConfig::loadOrCreate (const juce::File& file)
@@ -117,6 +146,7 @@ namespace pad
         if (! file.existsAsFile())
         {
             UIConfig defaults;
+            defaults.simpleView = true;   // someone new: the units they need first (right-click for the full rack)
             if (file.getParentDirectory().createDirectory().wasOk())
                 file.replaceWithText (juce::JSON::toString (defaults.toVar()));
             return defaults;

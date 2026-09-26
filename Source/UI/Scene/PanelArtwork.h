@@ -28,6 +28,8 @@ namespace pad::artwork
         RawTexture deepDecal, deepVuFace;                            // DEEP SUB
         RawTexture characterDecal, characterVuFace;                  // CHARACTER (2U)
         RawTexture radarDecal, radarVuFace;                          // FOOTSTEP RADAR (2U): its panel, its meter's dial
+        RawTexture powerDecal;                                       // POWER strip (1U)
+        RawTexture lunchboxDecal, lunchboxVuFace;                    // LUNCHBOX: its modules' print, its OUTPUT meter's dial
         RawTexture levelDecal, balancerDecal, monitorDecal;           // LEVEL (1U), MIX BALANCER (4U), MONITOR (3U)
         RawTexture levelVuFace, monitorVuFace[2];                     // INPUT; MOMENTARY and SHORT-TERM
         RawTexture monitorLabels, balancerLabels;                     // print inside their displays
@@ -54,6 +56,7 @@ namespace pad::artwork
 
     /** One of the 1U panels (compressor, leveler, spectral limiter): print, scales with numbers, and its place in the chain. */
     RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
+    RawTexture renderLunchboxDecal (int textureWidth, TextRegistry* registry = nullptr);
 
     /** Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window). */
     RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry = nullptr, const juce::String& readout = {},

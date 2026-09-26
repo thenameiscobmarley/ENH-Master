@@ -160,7 +160,9 @@ static void runMasteringTests (double sr)
         std::vector<float> l, r, outOff, outSide, dummy;
         noise (l, r, (int) (sr * 3.0), 0.7f, 13);
         midOnly (l, r);
-        runWith (l, r, only ([&] (auto& kv) { kv.charActive = false; }), outOff, dummy);
+        // (the reference goes through the rack's output amplifier too: the LUNCHBOX's EQ in, flat - exactly
+        // transparent - keeps it on as CHARACTER does)
+        runWith (l, r, only ([&] (auto& kv) { kv.charActive = false; kv.lbEqIn = true; }), outOff, dummy);
         runWith (l, r, only ([&] (auto& kv) { kv.charActive = true; kv.charDrive = 10.0f;
                                               kv.methods[(size_t) enh::dsp::methods::charStereo] = 2; }), outSide, dummy);
         double worst = 0;
@@ -221,6 +223,50 @@ static void runMasteringTests (double sr)
             ok = ok && e.getLatencySamples() == lat;
         }
         check (ok, "every STEREO setting on every unit at once, random block sizes, hot noise: finite, under full scale, same latency");
+    }
+}
+
+// Latency: gamers feel a late sound. The rack's delay, stage by stage, at 44.1 / 48 / 96 kHz: under the
+// budget, and exactly what it reports to the host (measured, not taken on trust).
+static void runLatencyTests (double)
+{
+    using namespace mastertest;
+    std::printf ("\n== LATENCY (what the rack adds; the sound card and VB-Cable add their own) ==\n");
+    constexpr double budgetMs = 15.0;
+    for (double rate : { 44100.0, 48000.0, 96000.0 })
+    {
+        EnhEngine e;
+        e.prepare (rate, 256, 2);
+        const int total = e.getLatencySamples();
+        const double totalMs = 1000.0 * total / rate;
+        std::printf ("  %.1f kHz: %d samples = %.2f ms\n", rate / 1000.0, total, totalMs);
+        int sum = 0;
+        for (auto& part : e.getLatencyBreakdown())
+        {
+            std::printf ("      %-42s %4d samples  %5.2f ms\n", part.stage, part.samples, 1000.0 * part.samples / rate);
+            sum += part.samples;
+        }
+        check (sum == total, juce::String (rate / 1000.0, 1) + " kHz: the stages add up to the reported latency");
+        check (totalMs <= budgetMs, juce::String (rate / 1000.0, 1) + " kHz: the rack adds " + juce::String (totalMs, 2)
+                                    + " ms, within the " + juce::String (budgetMs, 0) + " ms budget for gaming");
+
+        // Measured: noise through the rack at TRANSPARENT; where the output lines up with the input
+        auto p = presetParameters (presetNamed ("TRANSPARENT (ALL OUT)"));
+        std::vector<float> l, r, ol, orr;
+        noise (l, r, (int) (rate * 1.0), 0.1f, 5);
+        EnhEngine m; m.prepare (rate, 256, 2);
+        render (m, l, r, p, ol, orr);
+        int best = 0;
+        double bestC = -1.0;
+        for (int lag = 0; lag < (int) (0.03 * rate); ++lag)
+        {
+            double c = 0.0;
+            for (int i = (int) (0.5 * rate); i < (int) (0.9 * rate); ++i)
+                c += (double) l[(size_t) i] * ol[(size_t) (i + lag)];
+            if (c > bestC) { bestC = c; best = lag; }
+        }
+        check (std::abs (best - total) <= 1, juce::String (rate / 1000.0, 1) + " kHz: measured delay " + juce::String (best)
+                                              + " samples = reported " + juce::String (total) + " (the host lines everything up)");
     }
 }
 
@@ -367,6 +413,27 @@ static void runSafetyTests (double sr)
         std::printf ("  EAR GUARD: before the jump %.1f LUFS, loudest 400 ms after it %.1f LUFS (+%.1f), guard up to %.1f dB\n",
                      before, after, after - before, guardMost);
         check (after - before < 14.0, "a sudden +35 dB after a quiet stretch comes out at most ~12 dB louder (+" + juce::String (after - before, 1) + " dB, < 14)");
+
+        // Not just on average: no spike at the start (the budget used to let its whole allowance out in
+        // the first milliseconds: +27 dB for 10 ms), and a held blast stays level (it used to stutter
+        // between +6 and +20 dB every 400 ms, each burst leaving the window making room for the next)
+        {
+            double spike = -200.0, holdLo = 1.0e9, holdHi = -1.0e9;
+            const int w10 = (int) (0.010 * sr), w50 = (int) (0.050 * sr);
+            for (int at = (int) (sr * 8.0) - w10; at + w10 < (int) (sr * 10.0); at += w10 / 4)
+                spike = std::max (spike, windowDb (ol, orr, at, w10));
+            for (int at = (int) (sr * 8.5); at + w50 < (int) (sr * 11.9); at += w50 / 4)
+            {
+                const double v = windowDb (ol, orr, at, w50);
+                holdLo = std::min (holdLo, v);
+                holdHi = std::max (holdHi, v);
+            }
+            std::printf ("  EAR GUARD: loudest 10 ms +%.1f dB; held, 50 ms windows between +%.1f and +%.1f dB\n",
+                         spike - before, holdLo - before, holdHi - before);
+            check (spike - before < 21.0, "no spike as the blast starts: loudest 10 ms +" + juce::String (spike - before, 1) + " dB (< 21)");
+            check (holdHi - holdLo < 5.0, "a held blast stays level, no stutter: 50 ms windows within "
+                                          + juce::String (holdHi - holdLo, 1) + " dB (< 5)");
+        }
 
         std::vector<float> ll, rr, ol2, or2;
         noise (ll, rr, (int) (sr * 10.0), 0.3f, 71);                                  // loud, and it stays loud

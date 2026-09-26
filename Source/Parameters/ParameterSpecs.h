@@ -19,7 +19,7 @@ namespace pad::params
         inline constexpr const char* subBoost   = "subBoost";    // + BOOST
         inline constexpr const char* footstep   = "footstep";    // FOOTSTEP RADAR: IN (was the enhancer's footstep priority)
         inline constexpr const char* radarSens  = "radarSens";   // FOOTSTEP RADAR: SENSITIVITY (0-10)
-        inline constexpr const char* radarBoost = "radarBoost";  // FOOTSTEP RADAR: BOOST (0-12 dB, a far quiet step)
+        inline constexpr const char* radarBoost = "radarBoost";  // FOOTSTEP RADAR: BOOST (0-34 dB, a far quiet step)
         inline constexpr const char* radarSpace = "radarSpace";  // FOOTSTEP RADAR: SPACE (0-10, room for far steps)
         inline constexpr const char* radarListen = "radarListen"; // FOOTSTEP RADAR: LISTEN (hear only what it adds)
         inline constexpr const char* enhMultiply = "enhMultiply"; // multiplies every ENH Master knob (0-3x)
@@ -112,6 +112,23 @@ namespace pad::params
 
         // OUTPUT MONITOR: COMPARE - the input, at the output's loudness (a level-matched A/B)
         inline constexpr const char* abCompare = "abCompare";
+
+        // LUNCHBOX (the side rack of 500-series modules, after CHARACTER): CLASS-A EQ, DE-HARSH, CROSSFEED
+        inline constexpr const char* lbEqIn       = "lbEqIn";        // EQ: IN
+        inline constexpr const char* lbHpf        = "lbHpf";         // EQ: high-pass (off, 50, 80, 160, 300 Hz)
+        inline constexpr const char* lbLowFreq    = "lbLowFreq";     // EQ: low shelf frequency (35, 60, 110, 220 Hz)
+        inline constexpr const char* lbLowGain    = "lbLowGain";     // EQ: low shelf gain (-16 .. +16 dB)
+        inline constexpr const char* lbMidFreq    = "lbMidFreq";     // EQ: mid frequency (0.36 .. 7.2 kHz)
+        inline constexpr const char* lbMidGain    = "lbMidGain";     // EQ: mid gain (-18 .. +18 dB)
+        inline constexpr const char* lbMidHiQ     = "lbMidHiQ";      // EQ: HI Q
+        inline constexpr const char* lbHighGain   = "lbHighGain";    // EQ: 12 kHz shelf gain (-16 .. +16 dB)
+        inline constexpr const char* lbIron       = "lbIron";        // EQ: IRON (transformer warmth)
+        inline constexpr const char* lbHarshIn    = "lbHarshIn";     // DE-HARSH: IN
+        inline constexpr const char* lbHarshAmount = "lbHarshAmount"; // DE-HARSH: AMOUNT (0-10)
+        inline constexpr const char* lbHarshFreq  = "lbHarshFreq";   // DE-HARSH: FREQ (2.5, 4, 6.5 kHz)
+        inline constexpr const char* lbHarshSpeed = "lbHarshSpeed";  // DE-HARSH: SPEED (release, 10 - 200 ms)
+        inline constexpr const char* lbFeedIn     = "lbFeedIn";      // CROSSFEED: IN
+        inline constexpr const char* lbFeedAmount = "lbFeedAmount";  // CROSSFEED: AMOUNT (0-10)
 
         // MONITOR (top)
         inline constexpr const char* monitorSpeed = "monitorSpeed";   // SPEED: how fast the visualiser scrolls (display only)

@@ -217,7 +217,7 @@ async function rebuild () {
   for (const p of d.parts) {
     const r = Math.min (p.w, p.h) / 2; let o = null;
     switch (p.type) {
-      case "knob": o = knob (p.style, r, -135 + 2.7 * p.value, p.pointer); break;
+      case "knob": o = knob (p.style, r, D.knobAngle ? D.knobAngle (p) : -135 + 2.7 * p.value, p.pointer); break;
       case "toggle": o = new Group();
         if (p.style === "bat") { o.add (mesh (new CylinderGeometry (3.4, 3.4, 1.4, 6).rotateX (Math.PI / 2).translate (0, 0, 0.7), mats.chrome));
           const lever = mesh (turned ([[1.0, 0], [0.75, 7.5], [1.25, 8.2], [1.3, 8.8], [0, 9.3]], 20), mats.chrome); lever.rotation.x = (p.on ? -1 : 1) * 0.42; lever.position.z = 1.4; o.add (lever); }
@@ -252,7 +252,7 @@ async function rebuild () {
   // The selected part: a thin outline around it
   for (const id of D.selected()) {
     const p = d.parts.find ((q) => q.id === id); if (!p) continue;
-    const e = new LineSegments (new EdgesGeometry (new BoxGeometry (p.w + 3, p.h + 3, 0.5)), new LineBasicMaterial ({ color: 0x7fe3e0 }));
+    const e = new LineSegments (new EdgesGeometry (new BoxGeometry ((D.extent ? D.extent (p).w : p.w) + 3, (D.extent ? D.extent (p).h : p.h) + 3, 0.5)), new LineBasicMaterial ({ color: 0x7fe3e0 }));
     at (e, p.x, p.y, 0.3);
   }
   if (!camSet) frame (W, H);

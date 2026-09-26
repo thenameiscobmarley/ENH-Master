@@ -2,7 +2,13 @@
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-The rack has ten units in a walnut case. Sound goes in at the bottom and comes out at the top.
+The rack has eleven units in a walnut case, on a POWER strip. Sound goes in at the bottom and comes out at
+the top; on the way, after CHARACTER, it passes through the [LUNCHBOX](../Devices/LUNCHBOX.md) beside the rack.
+
+**Simple view or the full rack:** right-click the rack. *Simple view* shows only the five units you
+turn yourself (ADAPTIVE ENHANCER, FOOTSTEP RADAR, TONE & SPACE, CHARACTER, OUTPUT MONITOR), bigger.
+The six others work by themselves and keep working when put away, as the preset set them. New
+installs start in Simple view. A unit that is OUT is drawn in shade, so you see at once what is working.
 
 | | Unit | Job |
 |---|---|---|
@@ -13,9 +19,10 @@ The rack has ten units in a walnut case. Sound goes in at the bottom and comes o
 | 5 | [SPECTRAL LIMITER](../Devices/SPECTRAL%20LIMITER.md) | takes a loud bang down where it is |
 | 6 | [MIX BALANCER](../Devices/MIX%20BALANCER.md) | keeps the mix in balance |
 | 7 | [ADAPTIVE COMPRESSOR](../Devices/ADAPTIVE%20COMPRESSOR.md) | evens out the level |
-| 8 | [TONE and SPACE](../Devices/TONE%20and%20SPACE.md) (purple) | polish, air, width, room |
-| 9 | [CHARACTER](../Devices/CHARACTER.md) | consoles, tape and valves (off until you switch it IN) |
-| 10 | [OUTPUT MONITOR](../Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) | shows what the rack did |
+| 8 | [FOOTSTEP RADAR](../Devices/FOOTSTEP%20RADAR.md) (olive) | finds every footstep and lifts it |
+| 9 | [TONE and SPACE](../Devices/TONE%20and%20SPACE.md) (purple) | polish, air, width, room |
+| 10 | [CHARACTER](../Devices/CHARACTER.md) | consoles, tape and valves (off until you switch it IN) |
+| 11 | [OUTPUT MONITOR](../Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md) | shows what the rack did |
 
 ## Start with a preset
 

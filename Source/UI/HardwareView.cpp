@@ -25,6 +25,13 @@ namespace pad
     {
         setOpaque (true);
 
+        // SIMPLE or FULL (PAD_UI_TEST_VIEW=simple|full overrides it, for screenshots)
+        {
+            const auto viewTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_VIEW", {});
+            const bool simple = viewTest.isNotEmpty() ? viewTest == "simple" : config.simpleView;
+            hiddenUnits = simple ? simpleViewHidden : 0u;
+        }
+
         artwork::TextureSet textures;
         textures.faceplateDecal = artwork::renderFaceplateDecal (config.panelTextureWidth, &textItems);
         textures.scale10 = artwork::renderKnobScale (1024, 10);
@@ -46,6 +53,9 @@ namespace pad
         textures.characterVuFace = artwork::renderVuFace (characterUnit, 1024, &textItems);
         textures.radarDecal = artwork::renderOneUDecal (radarUnit, config.panelTextureWidth, &textItems);
         textures.radarVuFace = artwork::renderVuFace (radarUnit, 1024, &textItems);
+        textures.powerDecal = artwork::renderOneUDecal (powerUnit, config.panelTextureWidth, &textItems);
+        textures.lunchboxDecal = artwork::renderLunchboxDecal (config.panelTextureWidth / 2, &textItems);
+        textures.lunchboxVuFace = artwork::renderVuFace (lunchboxUnit, 512, &textItems);
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
         textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);
@@ -136,6 +146,34 @@ namespace pad
     }
 
     //==============================================================================
+    void HardwareView::showViewMenu()
+    {
+        const bool simple = hiddenUnits.load() != 0u;
+        juce::PopupMenu m;
+        m.addSectionHeader ("THE RACK");
+        m.addItem (1, "Simple view - the 5 units you use", true, simple);
+        m.addItem (2, "Full rack - all 11 units", true, ! simple);
+        m.addSeparator();
+        m.addItem (3, "Units put away keep working, as the preset set them", false, false);
+        m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(),
+                         [safe = juce::Component::SafePointer<HardwareView> (this)] (int chosen)
+                         {
+                             if (safe != nullptr && (chosen == 1 || chosen == 2))
+                                 safe->setSimpleView (chosen == 1);
+                         });
+    }
+
+    void HardwareView::setSimpleView (bool simple)
+    {
+        hiddenUnits = simple ? simpleViewHidden : 0u;
+        if (glassPanel->isOpen() && ! isShown (glassPanel->getUnit()))
+            openPanel (-1);
+        if (! isShown (shared.focusUnit.load()))
+            shared.focusUnit = enhUnit;   // it was walked up to a unit now put away: to the enhancer instead
+        config.simpleView = simple;
+        UIConfig::saveSimpleView (simple);
+    }
+
     void HardwareView::openPanel (int unit)
     {
         // Level with the unit on screen (its centre, projected), so the line from it runs short
@@ -144,7 +182,7 @@ namespace pad
         {
             const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
             const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
-                                               { shared.focusUnit.load(), shared.focusAmount.load() });
+                                               shared.focus());
             float ax = 0.0f, ay = 0.0f;
             if (gfx::projectToNdc (cam.viewProj, panelToWorld (unit).transformPoint ({ 0.0f, 0.0f, 0.0f }), ax, ay))
                 anchorY = (1.0f - ay) * 0.5f * h;
@@ -200,7 +238,7 @@ namespace pad
     {
         const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
         const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
-                                           { shared.focusUnit.load(), shared.focusAmount.load() });
+                                           shared.focus());
         return pad::pickControl (cam, 2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h);
     }
 
@@ -208,14 +246,14 @@ namespace pad
     {
         const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
         const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
-                                           { shared.focusUnit.load(), shared.focusAmount.load() });
+                                           shared.focus());
         const float ndcX = 2.0f * pos.x / w - 1.0f, ndcY = 1.0f - 2.0f * pos.y / h;
 
         for (int unit = 0; unit < numUnits; ++unit)
         {
             float lx = 0.0f, lz = 0.0f;
             if (cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz)
-                && std::abs (lx) <= faceHalfW && std::abs (lz) <= unitHalfH (unit))
+                && std::abs (lx) <= unitHalfW (unit) && std::abs (lz) <= unitHalfH (unit))
                 return unit;
         }
 
@@ -282,6 +320,12 @@ namespace pad
     {
         updateMouse (e.position);
 
+        if (e.mods.isPopupMenu())
+        {
+            showViewMenu();
+            return;
+        }
+
         // 1. The glass panel first: a click on it is its own, whatever is behind it
         if (glassPanel->hitTest (e.position).inside)
         {
@@ -299,6 +343,8 @@ namespace pad
             //    Clicking off the rack closes the panel; with none open it steps back as before.
             //    Walking up to a unit is the wheel's job now.
             const int unit = unitUnderPointer (e.position);
+            if (unit >= 0 && shared.focusTarget.load() >= 0.15f)
+                shared.focusUnit = unit;   // close up: the camera glides to the unit clicked
             if (unit >= 0)
                 openPanel (glassPanel->getUnit() == unit ? -1 : unit);
             else if (glassPanel->isOpen())
@@ -431,9 +477,12 @@ namespace pad
 
         if (hit < 0)
         {
-            // Not over a control: the wheel walks toward whichever unit is under the pointer
+            // Not over a control: the wheel walks toward the unit under the pointer - chosen as the walk
+            // starts, from the whole rack, and kept while you are close. (Picked again on every step, the
+            // rack sliding under a still pointer handed the walk to the unit above, and the one above that.)
+            // Click a unit to go to another one while close; or step back out first.
             const int unit = unitUnderPointer (e.position);
-            if (unit >= 0 && step > 0.0f)
+            if (unit >= 0 && step > 0.0f && shared.focusTarget.load() < 0.15f)
                 shared.focusUnit = unit;
             setFocus (-1, shared.focusTarget.load() + step * 0.45f);
             return;
@@ -876,7 +925,7 @@ namespace pad
             return hide();
 
         const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
-                                           { shared.focusUnit.load(), shared.focusAmount.load() });
+                                           shared.focus());
         const bool addMode = bridge.getNormalised (bridge.indexOf (pad::params::id::clarityMode)) > 0.5f;
 
         // While a control is being adjusted the loupe stays locked on it: moving the mouse to change
@@ -898,7 +947,7 @@ namespace pad
 
             float lx = 0.0f, lz = 0.0f;
             if (! cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz)
-                || std::abs (lx) > faceHalfW || std::abs (lz) > unitHalfH (unit))
+                || std::abs (lx) > unitHalfW (unit) || std::abs (lz) > unitHalfH (unit))
                 continue;
 
             for (auto& item : textItems)

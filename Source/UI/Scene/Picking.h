@@ -47,7 +47,7 @@ namespace pad
         for (int unit = 0; unit < numUnits; ++unit)
         {
             float lx = 0.0f, lz = 0.0f;
-            if (cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz) && std::abs (lx) <= faceHalfW && std::abs (lz) <= unitHalfH (unit))
+            if (cam.intersectUnit (unit, ndcX, ndcY, 0.0f, lx, lz) && std::abs (lx) <= unitHalfW (unit) && std::abs (lz) <= unitHalfH (unit))
                 return unit;
         }
         return -1;

@@ -159,6 +159,66 @@ namespace chartest
     }
 }
 
+
+namespace charactertest
+{
+    using enh::dsp::Character;
+    inline std::vector<float> tone (float hz, float levelDb, double seconds, double rate = 48000.0)
+    {
+        std::vector<float> v ((size_t) (seconds * rate));
+        const float a = std::pow (10.0f, levelDb / 20.0f);
+        for (size_t i = 0; i < v.size(); ++i)
+            v[i] = a * (float) std::sin (2.0 * juce::MathConstants<double>::pi * hz * (double) i / rate);
+        return v;
+    }
+    inline std::vector<float> run (int model, float drive, const std::vector<float>& in, double rate = 48000.0)
+    {
+        Character ch;
+        ch.prepare (rate, 256, 2);
+        Character::Settings s;
+        s.active = true; s.modelA = s.modelB = model; s.drive = drive;
+        std::vector<float> out (in.size());
+        juce::AudioBuffer<float> buf (2, 256);
+        for (size_t pos = 0; pos < in.size(); pos += 256)
+        {
+            const int n = (int) std::min<size_t> (256, in.size() - pos);
+            for (int i = 0; i < n; ++i) { buf.setSample (0, i, in[pos + (size_t) i]); buf.setSample (1, i, in[pos + (size_t) i]); }
+            ch.process (buf.getArrayOfWritePointers(), 2, n, s);
+            for (int i = 0; i < n; ++i) out[pos + (size_t) i] = buf.getSample (0, i);
+        }
+        return out;
+    }
+    inline double amplitudeAt (const std::vector<float>& x, double hz, double from, double to, double rate = 48000.0)
+    {
+        const size_t a = (size_t) (from * rate), b = std::min (x.size(), (size_t) (to * rate));
+        double sc = 0, cc = 0;
+        for (size_t i = a; i < b; ++i)
+        {
+            const double ph = 2.0 * juce::MathConstants<double>::pi * hz * (double) i / rate;
+            sc += x[i] * std::sin (ph);
+            cc += x[i] * std::cos (ph);
+        }
+        const double n = (double) (b - a);
+        return 2.0 * std::sqrt (sc * sc + cc * cc) / n;
+    }
+    /** 2nd .. 5th, in dB under the fundamental. */
+    inline std::array<float, 4> harmonicsOf (const std::vector<float>& x, float hz, double from, double to)
+    {
+        const double f = amplitudeAt (x, hz, from, to);
+        std::array<float, 4> h {};
+        for (int k = 2; k <= 5; ++k)
+            h[(size_t) (k - 2)] = (float) (20.0 * std::log10 (std::max (1e-9, amplitudeAt (x, k * hz, from, to)) / std::max (1e-9, f)));
+        return h;
+    }
+    inline float thdOf (const std::vector<float>& x, float hz, double from, double to)
+    {
+        const double f = amplitudeAt (x, hz, from, to);
+        double h = 0;
+        for (int k = 2; k <= 9; ++k) { const double a = amplitudeAt (x, k * hz, from, to); h += a * a; }
+        return (float) (100.0 * std::sqrt (h) / std::max (1e-12, f));
+    }
+}
+
 static void runCharacterTests (bool table)
 {
     using namespace chartest;
@@ -327,7 +387,8 @@ static void runCharacterTests (bool table)
             if (m != Character::clean)
                 check (q10 >= 0.25f && q10 > 4.0f * q0, juce::String (Character::names[(size_t) m])
                        + ": COLOUR gives it character at a quiet level (" + juce::String (q10, 2) + " % at -30 dBFS)");
-            check (loud <= 1.6f, juce::String (Character::names[(size_t) m]) + ": GRIT off stays clean at COLOUR 10 ("
+            // Full COLOUR is warm, plainly audible harmonics - a few percent - never DRIVE's grit (10 - 40 %)
+            check (loud <= 5.0f, juce::String (Character::names[(size_t) m]) + ": GRIT off at COLOUR 10 is warm colour, not grit (under 5 %: "
                    + juce::String (loud, 2) + " % at -6 dBFS)");
             float worst = 0.0f;
             for (float c : { 0.0f, 10.0f })
@@ -335,5 +396,55 @@ static void runCharacterTests (bool table)
             check (worst < 1.5f, juce::String (Character::names[(size_t) m]) + ": loudness kept at COLOUR 0 and 10 (" + juce::String (worst, 2) + " dB)");
         }
     }
+    }
+
+    // 6. Behaviour, not just a curve: each model has its own harmonic fingerprint; a loud passage leaves
+    //    the circuit different for a moment (heat, the coupling capacitor, the iron's memory) and it
+    //    recovers; quiet music stays clean
+    {
+        using namespace charactertest;
+        std::printf ("\n  harmonic fingerprints at 100 Hz, -6 dBFS, DRIVE 6 (2nd .. 5th, dB under the fundamental):\n");
+        std::array<std::array<float, 4>, Character::numModels> prints {};
+        for (int m = 0; m < Character::numModels; ++m)
+        {
+            prints[(size_t) m] = harmonicsOf (run (m, 6.0f, tone (100.0f, -6.0f, 4.0)), 100.0f, 3.0, 4.0);
+            std::printf ("    %-18s %6.1f %6.1f %6.1f %6.1f\n", Character::names[(size_t) m],
+                         prints[(size_t) m][0], prints[(size_t) m][1], prints[(size_t) m][2], prints[(size_t) m][3]);
+        }
+        int alike = 0;
+        for (int a = 0; a < Character::numModels; ++a)
+            for (int b = a + 1; b < Character::numModels; ++b)
+            {
+                float d = 0.0f;
+                for (int k = 0; k < 4; ++k)
+                    d = std::max (d, std::abs (prints[(size_t) a][(size_t) k] - prints[(size_t) b][(size_t) k]));
+                alike += d < 2.0f ? 1 : 0;
+            }
+        check (alike == 0, "every model has its own harmonic fingerprint (" + juce::String (alike) + " pairs within 2 dB on every harmonic)");
+
+        for (int m : { (int) Character::vintage, (int) Character::valve, (int) Character::cinema })
+        {
+            // A 100 Hz probe at -14 dBFS: straight after 3 s of a hot 0 dBFS passage, and 4 s later
+            auto sig = tone (100.0f, 0.0f, 3.0);
+            const auto probe = tone (100.0f, -14.0f, 5.0);
+            sig.insert (sig.end(), probe.begin(), probe.end());
+            const auto out = run (m, 6.0f, sig);
+            const float after = thdOf (out, 100.0f, 3.05, 3.45);
+            const float later = thdOf (out, 100.0f, 7.5, 7.9);
+            const float fresh = thdOf (run (m, 6.0f, probe), 100.0f, 4.5, 4.9);
+            std::printf ("  %-18s memory: THD after a hot passage %.3f %%, 4 s later %.3f %%, never pushed %.3f %%\n",
+                         Character::names[(size_t) m], after, later, fresh);
+            check (std::abs (after - fresh) > 0.08f * fresh, juce::String (Character::names[(size_t) m]) + ": remembers a hot passage (THD "
+                   + juce::String (after, 3) + " % against " + juce::String (fresh, 3) + " %)");
+            check (std::abs (later - fresh) < 0.25f * std::abs (after - fresh) + 0.01f, juce::String (Character::names[(size_t) m])
+                   + ": and recovers (" + juce::String (later, 3) + " % 4 s later)");
+        }
+
+        for (int m = 0; m < Character::numModels; ++m)
+        {
+            // (at COLOUR 0: COLOUR's job is to lift quiet music into each model's sweet spot on purpose)
+            const float q = sineWith (m, 5.0f, 1000.0f, -40.0f, true, 48000.0, 0, 0.0f).thd;
+            check (q < 0.25f, juce::String (Character::names[(size_t) m]) + ": nearly transparent when quiet, COLOUR 0 (THD " + juce::String (q, 3) + " % at -40 dBFS)");
+        }
     }
 }
