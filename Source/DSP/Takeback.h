@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <vector>
 #include "UnitKit.h"
 
 namespace enh::dsp
@@ -75,6 +77,9 @@ namespace enh::dsp
                     tapGain[(size_t) t] = g[(size_t) t] / std::sqrt (norm);
                 }
             fadeStep = (float) (1.0 / (0.030 * sr));
+            for (auto& r : ring)
+                r.assign ((size_t) ringSize, 0.0f);   // (here, not while playing; on the heap: the engine lives on
+                                                       // callers' stacks in the tests, and 64 KB more broke Windows' 1 MB)
             reset();
         }
 
@@ -170,10 +175,11 @@ namespace enh::dsp
                     const float air = shine * 6.0f * st.shineHp.process (shineHp, airIn);
 
                     // RAW: a short room bloom
-                    st.ring[(size_t) st.w] = st.bloomLp.process (bloomLp, st.bloomHp.process (bloomHp, shaped));
+                    auto& rb = ring[(size_t) c];
+                    rb[(size_t) st.w] = st.bloomLp.process (bloomLp, st.bloomHp.process (bloomHp, shaped));
                     float er = 0.0f;
                     for (int t = 0; t < numTaps; ++t)
-                        er += tapGain[(size_t) t] * st.ring[(size_t) ((st.w - taps[(size_t) c][(size_t) t]) & (ringSize - 1))];
+                        er += tapGain[(size_t) t] * rb[(size_t) ((st.w - taps[(size_t) c][(size_t) t]) & (ringSize - 1))];
                     st.w = (st.w + 1) & (ringSize - 1);
                     const float bloom = raw * 0.40f * er;
 
@@ -224,7 +230,6 @@ namespace enh::dsp
         {
             kit::SoftSat valve, shineSat;
             BiquadState band, shineHp, airHp, mid, bloomHp, bloomLp;
-            std::array<float, ringSize> ring {};
             int w = 0;
             float hiPow = 0.0f, midPow = 0.0f, bandEnv = 0.0f;
         };
@@ -234,6 +239,7 @@ namespace enh::dsp
         void resetDsp() noexcept
         {
             for (auto& c : chan) c = {};
+            for (auto& r : ring) std::fill (r.begin(), r.end(), 0.0f);
             envFast = envSlow = envBlur = gainDb = crestPeak = crestPow = 0.0f;
             inPow = outPow = 1.0e-9f;
             matchGain = 1.0f;
@@ -242,6 +248,7 @@ namespace enh::dsp
 
         double sr = 48000.0;
         std::array<Chan, 2> chan {};
+        std::array<std::vector<float>, 2> ring { std::vector<float> ((size_t) ringSize), std::vector<float> ((size_t) ringSize) };   // RAW's early reflections
         std::array<std::array<int, numTaps>, 2> taps {};
         std::array<float, numTaps> tapGain {};
         kit::Glide sharpG, blurG, colourG, rawG, shineG, mixG;
