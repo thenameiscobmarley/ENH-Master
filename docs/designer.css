@@ -146,3 +146,12 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
 .d-sub { margin: 0 0 8px; font-size: 1rem; }
 .d-stage.drop { outline: 2px dashed var(--teal); outline-offset: -6px; }
 dialog { max-height: 92vh; overflow: auto; }
+
+/* The knob maker */
+.d-ck-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.d-ck-list li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.d-ck-list li.on { border-color: var(--teal); }
+.d-ck-list li span { flex: 1; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.designer .d-ck-list button { padding: 3px 8px; font-size: .75rem; }
+.d-ck-edit { margin-top: 12px; }
+.d-ck-preview { display: grid; place-items: center; margin: 4px 0 12px; border-radius: 12px; background: radial-gradient(circle at 50% 35%, #2a2622, #0c0b0a); }

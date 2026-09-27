@@ -124,7 +124,49 @@ function line (group, r, h, colour, side) {   // the painted line: across the to
 }
 
 // The knob recipes (HardwareKit Hardware.cpp, "classic studio gear, matched to photographs")
+/** A knob of the owner's own (the Knobs tab): turned on the lathe from its checked choices and numbers. */
+function customKnob (ck, r, deg, pointer) {
+  const g = new Group(), seg = 64;
+  const matFor = (hex) => colourMat (hex, { gloss: { roughness: 0.2, clearcoat: 1, clearcoatRoughness: 0.08 }, satin: { roughness: 0.45, clearcoat: 0.3 },
+    matte: { roughness: 0.78, clearcoat: 0 }, metal: { metalness: 1, roughness: 0.3, clearcoat: 0 }, rubber: { roughness: 0.66, clearcoat: 0 } }[ck.mt] || {});
+  const body = matFor (ck.bc);
+  let b = 0;
+  if (ck.sk > 0) { const R = r * (1 + 0.45 * ck.sk); g.add (mesh (turned ([[0, 0], [R, 0], [R, 0.8], [R - 0.3, 1.2], [r * 1.02, 1.4]], seg), matFor (ck.sc))); b = 1.4; }
+  const h = ck.ht * r, top = r * (ck.sh === "cone" ? ck.tp * 0.55 : ck.tp);
+  const relief = ck.gr === "none" ? null : { count: ck.gr === "knurl" ? Math.max (ck.gc, 60) : ck.gc, depth: (ck.gr === "flutes" ? 0.09 : ck.gr === "knurl" ? 0.02 : 0.04) * ck.gd,
+                                            y0: b + 0.1 * h, y1: b + h - 0.5, sharp: ck.gr === "flutes" ? 0.15 : ck.gr === "knurl" ? 1 : 0.55 };
+  const profiles = {
+    cyl: [[0, b], [r, b], [r, b + h - 0.6], [r - 0.6, b + h], [0, b + h]],
+    taper: [[0, b], [r, b], [top, b + h - 0.5], [Math.max (0.1, top - 0.5), b + h], [0, b + h]],
+    dome: [[0, b], [r, b], [r, b + h * 0.5], [r * 0.85, b + h * 0.8], [r * 0.5, b + h * 0.97], [0, b + h]],
+    tophat: [[0, b], [r * 1.25, b], [r * 1.25, b + h * 0.18], [top, b + h * 0.22], [top, b + h - 0.5], [Math.max (0.1, top - 0.5), b + h], [0, b + h]],
+    cone: [[0, b], [r, b], [top, b + h], [0, b + h]],
+  };
+  if (ck.sh === "pointer") {
+    g.add (mesh (turned ([[0, b], [0.7 * r, b], [0.7 * r, b + h], [0, b + h]], seg), body));
+    const bar = mesh (new BoxGeometry (0.4 * r, 1.9 * r, h * 0.85), body); bar.position.set (0, 0.25 * r, b + h * 0.42); g.add (bar);
+  } else g.add (mesh (turned (profiles[ck.sh] || profiles.cyl, relief ? seg * 2 : seg, relief || undefined), body));
+  let capTop = b + h;
+  if (ck.cap !== "none" && ck.sh !== "pointer") {
+    const cr = top * ck.cs, dome = ck.cap === "dome";
+    g.add (mesh (turned (dome ? [[0, b + h - 0.2], [cr, b + h - 0.2], [cr, b + h + 0.2], [cr * 0.7, b + h + 0.7], [cr * 0.3, b + h + 0.95], [0, b + h + 1.0]]
+                              : [[0, b + h - 0.2], [cr, b + h - 0.2], [cr, b + h + 0.3], [0, b + h + 0.35]], seg), matFor (ck.kc)));
+    capTop = b + h + (dome ? 1.0 : 0.35);
+  }
+  const pc = new Color ({ white: "#f2f2f2", cream: "#e9dfc6", black: "#111111", red: "#d8322b" }[pointer] || ck.pc).getHex();
+  const tipR = ck.sh === "pointer" ? r * 1.12 : top;
+  if (ck.pt === "line") line (g, tipR, capTop, pc, 0);
+  else if (ck.pt === "dot") { const d = mesh (new SphereGeometry (Math.max (0.3, r * 0.1), 12, 8), new MeshStandardMaterial ({ color: pc })); d.position.set (0, tipR * 0.7, capTop + 0.1); g.add (d); }
+  else if (ck.pt === "notch") { const n = mesh (new BoxGeometry (r * 0.12, r * 0.32, 0.3), mats.dark); n.position.set (0, tipR - r * 0.16, capTop); g.add (n); }
+  g.rotation.z = -deg * Math.PI / 180;
+  return g;
+}
+
 function knob (style, r, deg, pointer) {
+  if (typeof style === "string" && /^c[0-7]$/.test (style)) {
+    const ck = (D.get().knobs || [])[Number (style.slice (1))];
+    if (ck) return customKnob (ck, r, deg, pointer);
+  }
   const g = new Group(), seg = 64, ptr = { white: 0xf2f2f2, cream: 0xe9dfc6, black: 0x111111, red: 0xd8322b }[pointer];
   const skirt = (R, mat, h0 = 0) => { g.add (mesh (turned ([[0, h0], [R, h0], [R, h0 + 0.8], [R - 0.3, h0 + 1.2], [R * 0.72, h0 + 1.5 + 0.10 * r], [r * 1.02, h0 + 1.6 + 0.24 * r]], seg), mat)); };
   const collar = (cr, ch) => g.add (mesh (turned ([[0, 0], [cr, 0], [cr, ch - 0.2], [cr - 0.2, ch], [0, ch]], seg), mats.aluSatin));
@@ -163,6 +205,79 @@ function knob (style, r, deg, pointer) {
       const t = mesh (new BoxGeometry (0.7, r * 1.4, 0.12), new MeshStandardMaterial ({ color: ptr || 0xf2f2f2 }), false); t.position.set (0, 0.4 * r, h * 0.85 + 0.07); g.add (t); break; }
   }
   g.rotation.z = -deg * Math.PI / 180;
+  return g;
+}
+
+// ----------------------------------------------------------------------------------------------------
+// Sockets (every type the designer has), and a plugged cable
+const colourMat = (hex, o = {}) => new MeshPhysicalMaterial (Object.assign ({ color: new Color (/^#[0-9a-f]{6}$/i.test (hex) ? hex : "#1a1a1c"), roughness: 0.4, clearcoat: 0.4 }, o));
+
+/** A cable: short cylinders along a smooth path (x, y, z points), all black rubber. */
+function cable (pts, radius) {
+  const g = new Group(), cyl = new CylinderGeometry (radius, radius, 1, 12).rotateX (Math.PI / 2);
+  for (let i = 0; i + 1 < pts.length; ++i) {
+    const a = new Vector3 (...pts[i]), b = new Vector3 (...pts[i + 1]), len = a.distanceTo (b);
+    const m = mesh (cyl, mats.rubber); m.scale.set (1, 1, len + radius * 0.5);
+    m.position.copy (a).lerp (b, 0.5); m.lookAt (b); g.add (m);
+  }
+  return g;
+}
+/** Points along a cubic curve (for a cable's hang). */
+function curve (p0, p1, p2, p3, n = 16) {
+  const out = [];
+  for (let i = 0; i <= n; ++i) { const t = i / n, u = 1 - t;
+    out.push ([0, 1, 2].map ((k) => u * u * u * p0[k] + 3 * u * u * t * p1[k] + 3 * u * t * t * p2[k] + t * t * t * p3[k])); }
+  return out;
+}
+
+function jack3d (p, r) {
+  const types = D.JACK_TYPES || {}, [, shape, accent = "#1a1a1c"] = types[p.style] || ["", "round"];
+  const g = new Group();
+  const disc = (rr, z, mat) => { const d = mesh (new CircleGeometry (rr, 32).translate (0, 0, z), mat, false); g.add (d); return d; };
+  const ringT = (r0, r1, h, mat) => g.add (mesh (turned ([[r0, 0], [r1, 0], [r1, h * 0.7], [r1 - 0.2, h], [r0, h]], 40), mat));
+  const box = (w, h, d, mat, x = 0, y = 0, z = 0) => { const b = mesh (new BoxGeometry (w, h, d), mat); b.position.set (x, y, z); g.add (b); return b; };
+  const pins = (list, rr, mat = mats.brass, z = 0.35) => { for (const [x, y] of list) { const pn = mesh (new CircleGeometry (rr, 12), mat, false); pn.position.set (x, y, z); g.add (pn); } };
+  switch (shape) {
+    case "round": case "mini": case "tt": { const k = shape === "mini" ? 0.6 : shape === "tt" ? 0.5 : 1; ringT (r * k * 0.78, r * k + 0.6, 1.8, mats.chrome); disc (r * k * 0.78, 0.3, mats.dark); disc (r * k * 0.3, 0.32, mats.brass); break; }
+    case "xlrf": case "combo": ringT (r * 0.78, r + 0.6, 1.8, mats.chrome); disc (r * 0.78, 0.3, mats.dark);
+      pins ([[-r * 0.3, r * 0.15], [r * 0.3, r * 0.15], [0, -r * 0.3]], r * 0.1); if (shape === "combo") disc (r * 0.24, 0.34, mats.grey); break;
+    case "xlrm": ringT (r * 0.8, r + 0.6, 1.8, mats.chrome); disc (r * 0.8, 0.3, mats.blackMatte);
+      for (const [x, y] of [[-r * 0.3, r * 0.15], [r * 0.3, r * 0.15], [0, -r * 0.3]]) { const pn = mesh (new CylinderGeometry (r * 0.1, r * 0.1, 1.4, 12).rotateX (Math.PI / 2), mats.brass); pn.position.set (x, y, 1.0); g.add (pn); } break;
+    case "rca": ringT (r * 0.62, r * 0.9, 1.4, colourMat (accent)); g.add (mesh (new CylinderGeometry (r * 0.55, r * 0.6, 3.2, 24).rotateX (Math.PI / 2).translate (0, 0, 1.6), mats.alu)); disc (r * 0.36, 3.22, mats.dark); break;
+    case "bnc": g.add (mesh (new CylinderGeometry (r * 0.75, r * 0.78, 3.0, 24).rotateX (Math.PI / 2).translate (0, 0, 1.5), mats.chrome));
+      for (const x of [-r * 0.8, r * 0.8]) { const n = mesh (new SphereGeometry (r * 0.12, 10, 8), mats.chrome); n.position.set (x, 0, 2.2); g.add (n); }
+      disc (r * 0.55, 3.02, colourMat ("#e8e2d0")); disc (r * 0.12, 3.04, mats.brass); break;
+    case "toslink": box (r * 1.6, r * 1.6, 1.4, mats.blackMatte, 0, 0, 0.7); box (r * 1.0, r * 1.0, 0.2, mats.grey, 0, 0, 1.45); break;
+    case "din": ringT (r * 0.8, r + 0.6, 1.8, mats.chrome); disc (r * 0.8, 0.3, mats.dark);
+      pins (Array.from ({ length: 5 }, (_, i) => { const a = Math.PI + i * Math.PI / 4; return [Math.cos (a) * r * 0.5, -Math.sin (a) * r * 0.5]; }), r * 0.09); break;
+    case "banana": g.add (mesh (new CylinderGeometry (r * 0.85, r * 0.85, 2.6, 6).rotateX (Math.PI / 2).translate (0, 0, 1.3), colourMat (accent)));
+      g.add (mesh (new CylinderGeometry (r * 0.45, r * 0.45, 3.4, 20).rotateX (Math.PI / 2).translate (0, 0, 1.7), mats.alu)); disc (r * 0.2, 3.42, mats.dark); break;
+    case "speakon": ringT (r * 0.82, r + 0.6, 2.2, colourMat (accent)); disc (r * 0.82, 0.3, mats.dark); disc (r * 0.42, 0.34, mats.grey); break;
+    case "iec": box (r * 2, r * 1.5, 1.6, mats.blackMatte, 0, 0, 0.8); for (const [x, y] of [[-r * 0.45, r * 0.1], [r * 0.45, r * 0.1], [0, -r * 0.35]]) box (r * 0.14, r * 0.36, 1.0, mats.alu, x, y, 1.2); break;
+    case "dc": ringT (r * 0.4, r * 0.7, 1.4, mats.chrome); disc (r * 0.4, 0.3, mats.dark); disc (r * 0.1, 0.32, mats.alu); break;
+    case "usba": box (r * 1.8, r * 0.7, 0.8, mats.alu, 0, 0, 0.4); box (r * 1.6, r * 0.54, 0.1, mats.dark, 0, 0, 0.82); box (r * 1.4, r * 0.22, 0.12, mats.capWhite, 0, r * 0.12, 0.86); break;
+    case "usbb": box (r * 1.2, r * 1.2, 0.8, mats.alu, 0, 0, 0.4); box (r * 0.9, r * 0.9, 0.1, mats.dark, 0, 0, 0.82); box (r * 0.5, r * 0.5, 0.12, mats.capWhite, 0, 0, 0.86); break;
+    case "usbc": box (r * 1.6, r * 0.6, 0.8, mats.alu, 0, 0, 0.4); box (r * 1.36, r * 0.4, 0.1, mats.dark, 0, 0, 0.82); break;
+    case "rj45": box (r * 1.6, r * 1.3, 1.0, mats.alu, 0, 0, 0.5); box (r * 1.3, r * 1.0, 0.1, mats.dark, 0, 0, 1.02); break;
+    case "dsub": box (r * 3.2, r * 1.0, 1.0, mats.alu, 0, 0, 0.5); box (r * 2.8, r * 0.76, 0.1, mats.blackMatte, 0, 0, 1.02);
+      for (const x of [-r * 1.95, r * 1.95]) g.add (mesh (new CylinderGeometry (r * 0.22, r * 0.22, 1.2, 6).rotateX (Math.PI / 2).translate (x, 0, 0.6), mats.chrome)); break;
+    default: ringT (r * 0.78, r + 0.6, 1.8, mats.chrome); disc (r * 0.78, 0.3, mats.dark);
+  }
+  if (p.plugged) {
+    // Its plug, then the cable out of its back, hanging down off the front of the panel
+    const round = ["round", "mini", "tt", "xlrf", "xlrm", "combo", "rca", "bnc", "din", "banana", "speakon", "dc"].includes (shape);
+    const pr = r * (shape === "mini" || shape === "dc" ? 0.6 : shape === "tt" ? 0.5 : 0.95), len = pr * 2.4 + 4;
+    if (round) {
+      g.add (mesh (turned ([[0, 1.5], [pr, 1.5], [pr, 1.5 + len * 0.55], [pr * 0.8, 1.5 + len * 0.75], [pr * 0.45, 1.5 + len], [0, 1.5 + len]], 32,
+                           { count: 18, depth: 0.05, y0: 1.8, y1: 1.5 + len * 0.5, sharp: 0.6 }),
+                    shape === "xlrf" || shape === "combo" || shape === "speakon" ? mats.alu : mats.blackGloss));
+    } else {
+      const w = shape === "dsub" ? r * 3.4 : r * 1.8, h = shape === "dsub" ? r * 1.2 : r * 1.4;
+      box (w, h, len * 0.7, mats.blackGloss, 0, 0, 1.2 + len * 0.35);
+    }
+    const cr = Math.max (0.8, pr * 0.28), z0 = 1.5 + len;
+    g.add (cable (curve ([0, 0, z0], [0, 0, z0 + r * 1.5], [r * 0.5, -r * 3, z0 + r * 2.5], [r * 1.5, -r * 9, z0 + r * 2]), cr));
+  }
   return g;
 }
 
@@ -235,10 +350,7 @@ async function rebuild () {
         o.add (mesh (new SphereGeometry (r, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX (Math.PI / 2).translate (0, 0, 0.8),
           new MeshPhysicalMaterial ({ color: p.colour, roughness: 0.15, transmission: 0, clearcoat: 1, emissive: p.on ? new Color (p.colour).multiplyScalar (1.4) : new Color (p.colour).multiplyScalar (0.05) }), false));
         break;
-      case "jack": o = new Group(); o.add (mesh (turned ([[r * 0.78, 0], [r + 0.6, 0], [r + 0.6, 1.2], [r + 0.2, 1.8], [r * 0.78, 1.8]], 40), mats.chrome));
-        o.add (mesh (new CircleGeometry (r * 0.78, 32).translate (0, 0, 0.3), mats.dark, false));
-        if (p.style === "xlr") for (const [x, y] of [[-r * 0.3, r * 0.15], [r * 0.3, r * 0.15], [0, -r * 0.3]]) { const pin = mesh (new CircleGeometry (r * 0.1, 12), mats.brass, false); pin.position.set (x, y, 0.35); o.add (pin); }
-        break;
+      case "jack": o = jack3d (p, r); break;
       case "screw": o = screw (u.screws, r); break;
       case "vu": case "display": { o = new Group(); const gl = mesh (new PlaneGeometry (p.w, p.h), mats.glass, false); gl.position.z = 0.25; o.add (gl); break; }
       case "ladder": { o = new Group(); const n = p.segments, sh = p.h / n, lit = Math.round (n * p.value / 100);

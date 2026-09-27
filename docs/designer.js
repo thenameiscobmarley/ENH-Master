@@ -27,7 +27,7 @@
     label:   { label: "Text", w: 40, h: 8, defaults: { text: "LABEL", size: 5, bold: true, align: "center", bend: "none", curve: 40, radius: 20, start: 0, flip: false } },
     box:     { label: "Section box", w: 90, h: 34, defaults: { text: "SECTION", round: 3, fill: false } },
     line:    { label: "Line", w: 60, h: 1, defaults: {} },
-    jack:    { label: "Jack", w: 14, h: 14, defaults: { style: "trs", text: "INPUT" } },
+    jack:    { label: "Jack", w: 14, h: 14, defaults: { style: "trs", text: "INPUT", plugged: false } },
     screw:   { label: "Screw", w: 5, h: 5, defaults: {} },
     vent:    { label: "Vent slots", w: 40, h: 16, defaults: { count: 6 } },
   };
@@ -66,7 +66,21 @@
   const FINISHES = Object.keys (FINISH), FINISH_NAMES = Object.fromEntries (FINISHES.map ((k) => [k, FINISH[k][0]]));
   const EARS = ["slots", "holes", "none"];
   const HANDLES = ["none", "bar", "loop"], SCREWS = ["phillips", "hex", "thumb"];
-  const TOGGLES = ["bat", "rocker", "rockerred"], BUTTONS = ["square", "round"], VUS = ["cream", "amber", "black"], JACKS = ["trs", "xlr"];
+  const TOGGLES = ["bat", "rocker", "rockerred"], BUTTONS = ["square", "round"], VUS = ["cream", "amber", "black"];
+  /* Sockets: name, how it is drawn, its accent colour (insulator, nut, ring) */
+  const JACK_TYPES = {
+    trs: ["1/4\" jack (TRS)", "round"], ts: ["1/4\" jack (TS)", "round"], headphone: ["Headphones (1/4\")", "round"],
+    xlr: ["XLR (female)", "xlrf"], xlrm: ["XLR (male)", "xlrm"], combo: ["XLR / 1/4\" combo", "combo"],
+    mini: ["3.5 mm mini jack", "mini"], tt: ["Bantam (TT) patch", "tt"],
+    rcared: ["RCA, red", "rca", "#c8302a"], rcawhite: ["RCA, white", "rca", "#e8e6e0"], rcablack: ["RCA, black", "rca", "#1a1a1c"],
+    rcayellow: ["RCA, yellow (video)", "rca", "#e0c030"], spdif: ["S/PDIF coax (orange)", "rca", "#e07a20"],
+    bnc: ["BNC (word clock)", "bnc"], toslink: ["Optical (TOSLINK / ADAT)", "toslink"], midi: ["MIDI (5-pin DIN)", "din"],
+    bananared: ["Banana post, red", "banana", "#c8302a"], bananablack: ["Banana post, black", "banana", "#1a1a1c"],
+    speakon: ["speakON", "speakon", "#1a1a1c"], powercon: ["powerCON", "speakon", "#2f6fd0"], iec: ["IEC mains inlet", "iec"],
+    dcbarrel: ["DC barrel", "dc"], usba: ["USB-A", "usba"], usbb: ["USB-B", "usbb"], usbc: ["USB-C", "usbc"],
+    rj45: ["Ethernet (RJ45)", "rj45"], db25: ["D-sub 25 (DB25)", "dsub"],
+  };
+  const JACKS = Object.keys (JACK_TYPES), JACK_NAMES = Object.fromEntries (JACKS.map ((k) => [k, JACK_TYPES[k][0]]));
   const EDGES = ["square", "rounded", "bevel"], FONTS = ["sans", "serif", "mono", "condensed"], EARCOLS = ["match", "black", "silver"];
   const ALIGNS = ["left", "center", "right"], POINTERS = ["auto", "white", "cream", "black", "red"];
   const NUMS = ["ends", "all", "none"], BENDS = ["none", "curve", "circle"];
@@ -76,7 +90,22 @@
 
   const blank = () => ({ v: 1, unit: { name: "MY UNIT", model: "EM-X", height: 1, finish: "anodised", colour: "#16171a",
     ink: "#e8e8ea", ears: "slots", handles: "none", screws: "phillips", wear: 15, edge: "rounded", font: "sans", badge: "",
-    earColour: "match", sub: "", shine: 50, desc: "" }, parts: [] });
+    earColour: "match", sub: "", shine: 50, desc: "" }, knobs: [], parts: [] });
+
+  /* Custom knobs (the Knobs tab): up to MAX_KNOBS per design, each a small set of checked choices and
+     clamped numbers - never markup, never a free-form shape. Parts use them as style "c0" .. "c7". */
+  const MAX_KNOBS = 8;
+  const CK_SHAPES = ["cyl", "taper", "dome", "tophat", "cone", "pointer"], CK_GRIPS = ["none", "ribs", "knurl", "flutes"];
+  const CK_CAPS = ["none", "flat", "dome"], CK_POINTERS = ["line", "dot", "notch", "none"], CK_MATS = ["gloss", "satin", "matte", "metal", "rubber"];
+  const CK_NAMES = {
+    sh: { cyl: "Cylinder", taper: "Tapered", dome: "Domed", tophat: "Top hat", cone: "Cone", pointer: "Pointer bar" },
+    gr: { none: "Smooth", ribs: "Ribbed", knurl: "Knurled", flutes: "Fluted" },
+    cap: { none: "No cap", flat: "Flat cap", dome: "Domed cap" },
+    pt: { line: "Painted line", dot: "Dot", notch: "Notch", none: "No pointer" },
+    mt: { gloss: "Gloss plastic", satin: "Satin plastic", matte: "Matte", metal: "Metal", rubber: "Rubber" },
+  };
+  const blankKnob = () => ({ n: "MY KNOB", sh: "cyl", ht: 0.8, tp: 0.92, sk: 0, gr: "ribs", gc: 24, gd: 0.5, cap: "none", cs: 0.7,
+                             pt: "line", bc: "#141416", kc: "#c9cacf", sc: "#141416", pc: "#f2f2f2", mt: "satin" });
 
   let design = blank(), selected = [], history = [], future = [], play = false, zoom = 1, snap = true, nextId = 1;
 
@@ -107,6 +136,14 @@
       earColour: pick (u.earColour, EARCOLS, "match"), sub: text (u.sub, 40, ""),
       shine: Math.round (clamp (u.shine, 0, 100, 50)), desc: textBlock (u.desc, 600),
     };
+    // Custom knobs first (the parts may use them), each rebuilt from checked choices and clamped numbers
+    const sk = (k) => { const b = blankKnob(); if (!k || typeof k !== "object") return b;
+      return { n: text (k.n, 20, b.n) || b.n, sh: pick (k.sh, CK_SHAPES, b.sh), ht: clamp (k.ht, 0.3, 2.0, b.ht), tp: clamp (k.tp, 0.4, 1.1, b.tp),
+               sk: clamp (k.sk, 0, 1.6, b.sk), gr: pick (k.gr, CK_GRIPS, b.gr), gc: Math.round (clamp (k.gc, 6, 120, b.gc)), gd: clamp (k.gd, 0, 1, b.gd),
+               cap: pick (k.cap, CK_CAPS, b.cap), cs: clamp (k.cs, 0.3, 1, b.cs), pt: pick (k.pt, CK_POINTERS, b.pt),
+               bc: colour (k.bc, b.bc), kc: colour (k.kc, b.kc), sc: colour (k.sc, b.sc), pc: colour (k.pc, b.pc), mt: pick (k.mt, CK_MATS, b.mt) }; };
+    d.knobs = Array.isArray (raw.knobs) ? raw.knobs.slice (0, MAX_KNOBS).map (sk) : [];
+    const knobStyles = KNOBS.concat (d.knobs.map ((_, i) => "c" + i));
     const H = d.unit.height * U;
     const parts = Array.isArray (raw.parts) ? raw.parts.slice (0, MAX_PARTS * 4) : [];   // (read a bounded amount)
     for (const p of parts) {
@@ -116,7 +153,7 @@
       const q = { id: nextId++, type: p.type,
         x: clamp (p.x, 0, W, W / 2), y: clamp (p.y, 0, H, H / 2),
         w: clamp (p.w, 1, W, t.w), h: clamp (p.h, 0.5, 4 * U, t.h), rot: clamp (p.rot, -180, 180, 0) };
-      if ("style" in def) q.style = pick (p.style, p.type === "knob" ? KNOBS : p.type === "toggle" ? TOGGLES : p.type === "button" ? BUTTONS
+      if ("style" in def) q.style = pick (p.style, p.type === "knob" ? knobStyles : p.type === "toggle" ? TOGGLES : p.type === "button" ? BUTTONS
                                                   : p.type === "vu" ? VUS : JACKS, def.style);
       if ("value" in def) q.value = clamp (p.value, 0, 100, def.value);
       if ("text" in def) q.text = text (p.text, 40, def.text);
@@ -143,6 +180,7 @@
       if ("radius" in def) q.radius = clamp (p.radius, 2, 240, def.radius);
       if ("start" in def) q.start = clamp (p.start, -180, 180, def.start);
       if ("flip" in def) q.flip = bool (p.flip, def.flip);
+      if ("plugged" in def) q.plugged = bool (p.plugged, def.plugged);
       q.lock = bool (p.lock, false);
       const grp = Math.round (clamp (p.grp, 0, 9999, 0)); if (grp > 0) q.grp = grp;
       d.parts.push (q);
@@ -156,14 +194,14 @@
      (Older "ENH1." / "ENH0." codes still open.) */
   const SHORT = { type: "t", x: "x", y: "y", w: "w", h: "h", rot: "r", style: "s", value: "v", text: "l", scale: "c", min: "a", max: "b",
     on: "o", colour: "k", segments: "g", size: "z", bold: "d", round: "n", count: "u", align: "e", pointer: "i", fill: "f", lock: "q",
-    steps: "st", nums: "nu", lean: "le", sweep: "sw", arcText: "at", bend: "be", curve: "cu", radius: "ra", start: "sa", flip: "fl", grp: "gp" };
+    steps: "st", nums: "nu", lean: "le", sweep: "sw", arcText: "at", bend: "be", curve: "cu", radius: "ra", start: "sa", flip: "fl", grp: "gp", plugged: "pl" };
   const LONG = Object.fromEntries (Object.entries (SHORT).map (([a, b]) => [b, a]));
   const round1 = (n) => Math.round (n * 10) / 10;
 
   function pack (d) {
     const bu = blank().unit, u = {};
     for (const k in d.unit) if (d.unit[k] !== bu[k]) u[k] = d.unit[k];
-    return { v: 2, u, p: d.parts.map ((p) => {
+    return { v: 2, u, k: d.knobs && d.knobs.length ? d.knobs : undefined, p: d.parts.map ((p) => {
       const t = TYPES[p.type], def = t.defaults, o = {};
       for (const k in SHORT) {
         if (!(k in p) || k === "id") continue;
@@ -176,7 +214,7 @@
   }
   function unpack (o) {
     if (!o || typeof o !== "object") return null;
-    return { unit: o.u, parts: Array.isArray (o.p) ? o.p.map ((p) => { const q = {}; if (p && typeof p === "object") for (const k in p) if (LONG[k]) q[LONG[k]] = p[k]; return q; }) : [] };
+    return { unit: o.u, knobs: Array.isArray (o.k) ? o.k : [], parts: Array.isArray (o.p) ? o.p.map ((p) => { const q = {}; if (p && typeof p === "object") for (const k in p) if (LONG[k]) q[LONG[k]] = p[k]; return q; }) : [] };
   }
   const b64u = (bytes) => { let s = ""; for (const b of bytes) s += String.fromCharCode (b); return btoa (s).replace (/\+/g, "-").replace (/\//g, "_").replace (/=+$/, ""); };
   const unb64u = (s) => { const b = atob (s.replace (/-/g, "+").replace (/_/g, "/")); return Uint8Array.from (b, (c) => c.charCodeAt (0)); };
@@ -537,10 +575,7 @@
       case "line": el ("rect", { x: -p.w / 2, y: -Math.max (0.3, p.h) / 2, width: p.w, height: Math.max (0.3, p.h), fill: ink, opacity: 0.85 }, g); break;
       case "jack": {
         if (mode === "print") { if (p.text) txt (g, 0, r + 4, p.text, 2.4, ink, { spacing: 0.4 }); break; }
-        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
-        el ("circle", { r: r * 0.78, fill: "#0b0b0d" }, g);
-        if (p.style === "xlr") { for (const [x, y] of [[-r * 0.3, -r * 0.15], [r * 0.3, -r * 0.15], [0, r * 0.3]]) el ("circle", { cx: x, cy: y, r: r * 0.1, fill: "#c9a64a" }, g); el ("rect", { x: -r * 0.12, y: -r * 0.85, width: r * 0.24, height: r * 0.3, fill: "#c9cacf" }, g); }
-        else el ("circle", { r: r * 0.3, fill: "#2a2a2c", stroke: "#c9a64a", "stroke-width": 0.4 }, g);
+        drawJack (g, p.style, r, p.plugged);
         if (p.text) txt (g, 0, r + 4, p.text, 2.4, ink, { spacing: 0.4 });
         break;
       }
@@ -556,8 +591,125 @@
     el ("rect", { x: -e.w / 2 - 2, y: -e.h / 2 - 2, width: e.w + 4, height: e.h + 4, fill: "#000", opacity: 0 }, g);
   }
 
+  /** A socket, drawn as its type looks from the front; plugged: its plug in it and the cable hanging out. */
+  function drawJack (g, style, r, plugged) {
+    const [, shape, accent = "#1a1a1c"] = JACK_TYPES[style] || JACK_TYPES.trs;
+    const ring = (rr, fill) => el ("circle", { r: rr, fill }, g);
+    const hole = (rr) => el ("circle", { r: rr, fill: "#0b0b0d" }, g);
+    const pin = (x, y, rr, fill = "#c9a64a") => el ("circle", { cx: x, cy: y, r: rr, fill }, g);
+    const rect = (x, y, w, h, fill, rx = 0.3) => el ("rect", { x, y, width: w, height: h, rx, fill }, g);
+    switch (shape) {
+      case "round": case "mini": case "tt": {
+        const k = shape === "mini" ? 0.6 : shape === "tt" ? 0.5 : 1;
+        el ("circle", { r: r * k + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
+        hole (r * k * 0.78);
+        el ("circle", { r: r * k * 0.3, fill: "#2a2a2c", stroke: "#c9a64a", "stroke-width": 0.4 }, g);
+        if (style === "headphone") el ("path", { d: `M ${-r * 0.45} ${r * 0.1} A ${r * 0.45} ${r * 0.45} 0 0 1 ${r * 0.45} ${r * 0.1}`, fill: "none", stroke: "#c9cacf", "stroke-width": 0.5 }, g);
+        break;
+      }
+      case "xlrf": case "combo":
+        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); hole (r * 0.78);
+        for (const [x, y] of [[-r * 0.3, -r * 0.15], [r * 0.3, -r * 0.15], [0, r * 0.3]]) pin (x, y, r * 0.1);
+        rect (-r * 0.12, -r * 0.85, r * 0.24, r * 0.3, "#c9cacf");
+        if (shape === "combo") el ("circle", { r: r * 0.24, fill: "#1c1c1e", stroke: "#8f9095", "stroke-width": 0.35 }, g);
+        break;
+      case "xlrm":
+        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); ring (r * 0.8, "#1c1c1e");
+        for (const [x, y] of [[-r * 0.3, -r * 0.15], [r * 0.3, -r * 0.15], [0, r * 0.3]]) pin (x, y, r * 0.14, "#d8b860");
+        break;
+      case "rca":
+        ring (r * 0.9, accent); ring (r * 0.62, "url(#knobAlu)"); hole (r * 0.36); pin (0, 0, r * 0.1, "#d8b860");
+        break;
+      case "bnc":
+        el ("circle", { r: r * 0.8, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
+        pin (-r * 0.82, 0, r * 0.12, "#c9cacf"); pin (r * 0.82, 0, r * 0.12, "#c9cacf");
+        ring (r * 0.55, "#e8e2d0"); pin (0, 0, r * 0.12, "#d8b860");
+        break;
+      case "toslink":
+        rect (-r * 0.8, -r * 0.8, r * 1.6, r * 1.6, "#1a1a1c", r * 0.2); rect (-r * 0.5, -r * 0.5, r * 1.0, r * 1.0, "#4a4a4e", r * 0.15);
+        break;
+      case "din":
+        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); hole (r * 0.8);
+        for (let i = 0; i < 5; ++i) { const a = Math.PI + i * Math.PI / 4; pin (Math.cos (a) * r * 0.5, Math.sin (a) * r * 0.5, r * 0.09); }   // five pins round the top half
+        rect (-r * 0.1, r * 0.55, r * 0.2, r * 0.25, "#c9cacf");
+        break;
+      case "banana": {
+        const pts = []; for (let i = 0; i < 6; ++i) { const a = Math.PI / 3 * i; pts.push ((Math.cos (a) * r * 0.85).toFixed (2) + "," + (Math.sin (a) * r * 0.85).toFixed (2)); }
+        el ("polygon", { points: pts.join (" "), fill: accent, filter: "url(#drop)" }, g); ring (r * 0.45, "url(#knobAlu)"); hole (r * 0.2);
+        break;
+      }
+      case "speakon":
+        ring (r + 0.6, accent); ring (r * 0.82, "#0b0b0d"); ring (r * 0.42, "#26262a");
+        rect (-r * 0.9, -r * 0.12, r * 0.25, r * 0.24, "#0b0b0d", 0.1); rect (r * 0.65, -r * 0.12, r * 0.25, r * 0.24, "#0b0b0d", 0.1);
+        break;
+      case "iec":
+        el ("path", { d: `M ${-r} ${-r * 0.7} L ${r} ${-r * 0.7} L ${r} ${r * 0.3} L ${r * 0.55} ${r * 0.75} L ${-r * 0.55} ${r * 0.75} L ${-r} ${r * 0.3} Z`, fill: "#161618", filter: "url(#drop)" }, g);
+        for (const [x, y] of [[-r * 0.45, -r * 0.1], [r * 0.45, -r * 0.1], [0, r * 0.35]]) rect (x - r * 0.07, y - r * 0.18, r * 0.14, r * 0.36, "#c9cacf", 0.05);
+        break;
+      case "dc": ring (r * 0.7, "url(#knobAlu)"); hole (r * 0.4); pin (0, 0, r * 0.1, "#c9cacf"); break;
+      case "usba": rect (-r * 0.9, -r * 0.35, r * 1.8, r * 0.7, "#c9cacf", 0.2); rect (-r * 0.8, -r * 0.27, r * 1.6, r * 0.54, "#0b0b0d", 0.1); rect (-r * 0.7, -r * 0.27, r * 1.4, r * 0.22, "#f0f0f0", 0.05); break;
+      case "usbb": el ("path", { d: `M ${-r * 0.6} ${r * 0.6} L ${-r * 0.6} ${-r * 0.3} L ${-r * 0.35} ${-r * 0.6} L ${r * 0.35} ${-r * 0.6} L ${r * 0.6} ${-r * 0.3} L ${r * 0.6} ${r * 0.6} Z`, fill: "#c9cacf" }, g);
+        rect (-r * 0.45, -r * 0.4, r * 0.9, r * 0.9, "#0b0b0d", 0.1); rect (-r * 0.25, -r * 0.2, r * 0.5, r * 0.5, "#f0f0f0", 0.05); break;
+      case "usbc": rect (-r * 0.8, -r * 0.3, r * 1.6, r * 0.6, "#c9cacf", r * 0.3); rect (-r * 0.68, -r * 0.2, r * 1.36, r * 0.4, "#0b0b0d", r * 0.2); rect (-r * 0.45, -r * 0.05, r * 0.9, r * 0.1, "#3a3a3e", 0.05); break;
+      case "rj45": rect (-r * 0.8, -r * 0.7, r * 1.6, r * 1.3, "#c9cacf", 0.2); rect (-r * 0.65, -r * 0.55, r * 1.3, r * 1.0, "#0b0b0d", 0.1); rect (-r * 0.25, r * 0.45, r * 0.5, r * 0.2, "#0b0b0d", 0.05);
+        for (let i = 0; i < 8; ++i) rect (-r * 0.5 + i * r * 0.13, -r * 0.5, r * 0.06, r * 0.25, "#d8b860", 0.02); break;
+      case "dsub": el ("path", { d: `M ${-r * 1.6} ${-r * 0.5} L ${r * 1.6} ${-r * 0.5} L ${r * 1.4} ${r * 0.5} L ${-r * 1.4} ${r * 0.5} Z`, fill: "#c9cacf", filter: "url(#drop)" }, g);
+        el ("path", { d: `M ${-r * 1.45} ${-r * 0.38} L ${r * 1.45} ${-r * 0.38} L ${r * 1.28} ${r * 0.38} L ${-r * 1.28} ${r * 0.38} Z`, fill: "#161618" }, g);
+        for (let i = 0; i < 13; ++i) pin (-r * 1.2 + i * r * 0.2, -r * 0.14, r * 0.05);
+        for (let i = 0; i < 12; ++i) pin (-r * 1.1 + i * r * 0.2, r * 0.16, r * 0.05);
+        for (const x of [-r * 1.95, r * 1.95]) screw (g, x, 0, "hex", r * 0.22); break;
+    }
+    if (plugged) {
+      // Its plug, and the cable out of the back of it, hanging down and away
+      const round = ["round", "mini", "tt", "xlrf", "xlrm", "combo", "rca", "bnc", "din", "banana", "speakon", "dc"].includes (shape);
+      const pr = r * (shape === "mini" || shape === "dc" ? 0.6 : shape === "tt" ? 0.5 : 0.95);
+      const cw = Math.max (0.8, pr * 0.55);
+      el ("path", { d: `M 0 0 C 0 ${r * 3} ${r * 1.2} ${r * 4} ${r * 2.2} ${r * 7}`, fill: "none", stroke: "#0d0d0f", "stroke-width": cw, "stroke-linecap": "round", filter: "url(#drop)" }, g);
+      if (round) {
+        el ("circle", { r: pr, fill: shape === "xlrf" || shape === "combo" || shape === "speakon" ? "url(#knobAlu)" : "#1b1b1e", filter: "url(#drop)" }, g);
+        el ("circle", { r: pr * 0.72, fill: "#111113" }, g);
+        for (let i = 0; i < 16; ++i) { const a = i / 16 * Math.PI * 2; el ("line", { x1: Math.cos (a) * pr * 0.74, y1: Math.sin (a) * pr * 0.74, x2: Math.cos (a) * pr * 0.95, y2: Math.sin (a) * pr * 0.95, stroke: "#000", "stroke-width": pr * 0.06, opacity: 0.6 }, g); }
+      } else {
+        const w = shape === "dsub" ? r * 3.4 : r * 1.8, h = shape === "dsub" ? r * 1.2 : r * 1.4;
+        el ("rect", { x: -w / 2, y: -h / 2, width: w, height: h, rx: r * 0.2, fill: "#1b1b1e", filter: "url(#drop)" }, g);
+      }
+      el ("circle", { r: pr * 0.25, fill: "url(#sheen)", opacity: 0.6 }, g);
+    }
+  }
+
+  /** A custom knob, seen from the front: skirt, body, grip, cap, pointer, in its colours and material. */
+  function drawCustomKnob (k, ck, r, pointer) {
+    const shine = { gloss: 0.6, satin: 0.4, matte: 0.12, metal: 0.75, rubber: 0.08 }[ck.mt] ?? 0.4;
+    const top = r * (ck.sh === "cone" ? ck.tp * 0.55 : ck.tp);
+    if (ck.sk > 0) { el ("circle", { r: r * (1 + 0.45 * ck.sk), fill: ck.sc }, k); el ("circle", { r: r * (1 + 0.45 * ck.sk), fill: "url(#sheen)", opacity: shine * 0.6 }, k); }
+    if (ck.sh === "pointer") {
+      el ("circle", { r: r * 0.7, fill: ck.bc }, k);
+      el ("rect", { x: -r * 0.2, y: -r * 1.2, width: r * 0.4, height: r * 1.9, rx: r * 0.2, fill: shade (ck.bc, 0.08) }, k);
+    } else {
+      el ("circle", { r, fill: ck.bc }, k);
+      if (Math.abs (top - r) > 0.05) el ("circle", { r: top, fill: shade (ck.bc, ck.mt === "metal" ? 0.18 : 0.06), stroke: shade (ck.bc, -0.4), "stroke-width": 0.25 }, k);
+      if (ck.sh === "tophat") el ("circle", { r: r * 1.25, fill: "none", stroke: shade (ck.bc, 0.1), "stroke-width": 0.5 }, k);
+    }
+    if (ck.gr !== "none" && ck.sh !== "pointer") {
+      const n = Math.min (ck.gc, ck.gr === "knurl" ? 120 : 60), from = ck.gr === "flutes" ? top * 0.75 : r * (1 - 0.14 - 0.1 * ck.gd);
+      for (let i = 0; i < n; ++i) { const a = i / n * Math.PI * 2;
+        el ("line", { x1: Math.cos (a) * from, y1: Math.sin (a) * from, x2: Math.cos (a) * r, y2: Math.sin (a) * r,
+                      stroke: shade (ck.bc, -0.6), "stroke-width": r * (ck.gr === "flutes" ? 0.12 : ck.gr === "knurl" ? 0.03 : 0.07) * (0.5 + ck.gd), opacity: 0.8 }, k); }
+    }
+    if (ck.cap !== "none") { const cr = top * ck.cs; el ("circle", { r: cr, fill: ck.kc }, k); el ("circle", { r: cr, fill: "url(#sheen)", opacity: ck.cap === "dome" ? 0.8 : 0.4 }, k); }
+    const pc = POINTER_COLOUR[pointer] || ck.pc, tipR = ck.sh === "pointer" ? r * 1.12 : top * 0.96;
+    if (ck.pt === "line") el ("line", { x1: 0, y1: -r * 0.2, x2: 0, y2: -tipR, stroke: pc, "stroke-width": Math.max (0.5, r * 0.08), "stroke-linecap": "round" }, k);
+    else if (ck.pt === "dot") el ("circle", { cx: 0, cy: -tipR * 0.72, r: Math.max (0.4, r * 0.1), fill: pc }, k);
+    else if (ck.pt === "notch") el ("rect", { x: -r * 0.06, y: -tipR, width: r * 0.12, height: r * 0.32, fill: "#050506" }, k);
+    el ("circle", { r: r * 0.95, fill: "url(#sheen)", opacity: shine }, k);
+  }
+
   function knob (g, style, r, deg, pointer = "auto") {
     const k = el ("g", { transform: `rotate(${deg})` }, el ("g", { filter: "url(#drop)" }, g));
+    if (typeof style === "string" && /^c[0-7]$/.test (style)) {
+      const ck = (design.knobs || [])[Number (style.slice (1))];
+      if (ck) { drawCustomKnob (k, ck, r, pointer); return; }
+    }
     const line = (colour, from, to, w = 0.9) => lineRaw (POINTER_COLOUR[pointer] || colour, from, to, w);
     const lineRaw = (colour, from, to, w = 0.9) => el ("line", { x1: 0, y1: -r * from, x2: 0, y2: -r * to, stroke: colour, "stroke-width": w, "stroke-linecap": "round" }, k);
     const ribs = (n, rr, colour, op) => { for (let i = 0; i < n; ++i) { const a = i / n * Math.PI * 2; el ("line", { x1: Math.cos (a) * rr * 0.86, y1: Math.sin (a) * rr * 0.86, x2: Math.cos (a) * rr, y2: Math.sin (a) * rr, stroke: colour, "stroke-width": rr * 0.07, opacity: op }, k); } };
@@ -601,7 +753,7 @@
     });
   }
   window.ENHDesigner = Object.freeze ({
-    W, U, KNOBS, knobAngle, extent, finishPbr: (k, shine = 50) => { const f = FINISH[k] || FINISH.anodised, t = shine / 100;
+    W, U, KNOBS, JACK_TYPES, knobAngle, extent, finishPbr: (k, shine = 50) => { const f = FINISH[k] || FINISH.anodised, t = shine / 100;
       return { roughness: Math.min (1, Math.max (0.02, f[2] * (1.6 - 1.2 * t))), metalness: f[3], clearcoat: Math.min (1, f[4] * 2 * t + Math.max (0, t - 0.6)) }; }, get: () => design, selected: () => selected.slice(),
     subscribe: (f) => { listeners.push (f); f (design, selected); },
     select: (id) => { if (byId (id)) { selected = withGroups ([id]); render(); props(); } },
@@ -615,11 +767,16 @@
     t.setAttribute ("aria-hidden", "true");   // (drawn with the stage's gradients: see render)
     const g = el ("g", {}, t), was = design;
     if (kind === "knob") knob (g, value, 9, 30);
+    else if (kind.startsWith ("ck:")) {   // the knob maker's choices: the knob being edited, with this one choice
+      const base = (design.knobs || [])[ckEditing] || blankKnob(), field = kind.slice (3);
+      const kk = el ("g", { transform: "rotate(30)" }, g);
+      drawCustomKnob (kk, Object.assign ({}, base, { [field]: value }), 9, "auto");
+    }
     else if (kind === "pointer") { knob (g, "matte", 9, 30, value === "auto" ? "white" : value); }
     else if (kind === "toggle") drawPart (g, sanitize ({ parts: [{ type: "toggle", x: 0, y: 0, style: value, on: true, text: "" }] }).parts[0]);
     else if (kind === "button") drawPart (g, sanitize ({ parts: [{ type: "button", x: 0, y: 0, style: value, on: true, text: "", w: 12, h: 9, colour: "#e0a84a" }] }).parts[0]);
     else if (kind === "vu") { const q = sanitize ({ parts: [{ type: "vu", x: 0, y: 0, w: 26, h: 16, style: value, value: 55, text: "" }] }).parts[0]; drawPart (g, q); }
-    else if (kind === "jack") drawPart (g, sanitize ({ parts: [{ type: "jack", x: 0, y: 0, w: 16, h: 16, style: value, text: "" }] }).parts[0]);
+    else if (kind === "jack") drawJack (g, value, 7, false);
     else if (kind === "screws") screw (g, 0, 0, value, 8);
     else if (kind === "nums") drawPart (g, sanitize ({ parts: [{ type: "knob", x: 0, y: 0, w: 10, h: 10, style: "ribbed", value: 50, text: "", scale: true, nums: value, steps: 10, min: 0, max: 10 }] }).parts[0]);
     else if (kind === "bend") drawPart (g, sanitize ({ parts: [{ type: "label", x: 0, y: value === "circle" ? 0 : 3, w: 24, text: value === "circle" ? "ROUND AND ROUND ·" : "TEXT",
@@ -766,7 +923,7 @@
     let arr; try { arr = JSON.parse (s.slice (CLIP.length)); } catch (_) { return false; }
     if (!Array.isArray (arr)) return false;
     const room = MAX_PARTS - design.parts.length; if (room <= 0) return true;
-    const ps = sanitize (unpack ({ u: design.unit, p: arr.slice (0, room) })).parts, H = design.unit.height * U, off = 6 * pasteN++;
+    const ps = sanitize (Object.assign (unpack ({ u: design.unit, p: arr.slice (0, room) }), { knobs: design.knobs })).parts, H = design.unit.height * U, off = 6 * pasteN++;
     const regroup = groupMap();
     for (const p of ps) { p.x = clamp (p.x + off, 0, W, p.x); p.y = clamp (p.y + off, 0, H, p.y); if (p.grp) p.grp = regroup (p.grp); }
     design.parts.push (...ps); selected = ps.map ((p) => p.id); commit();
@@ -859,6 +1016,7 @@
     $("u-colour").value = u.colour; $("u-ink").value = u.ink; $("u-wear").value = String (u.wear); $("u-grid").checked = snap;
     $("u-sub").value = u.sub; $("u-badge").value = u.badge; $("u-shine").value = String (u.shine); $("u-desc").value = u.desc;
     showAbout();
+    showKnobMaker();
     for (const k in unitPickers) unitPickers[k].setValue (u[k]);
     rebuildUnitPickers();   // (their pictures show this panel's colour)
   }
@@ -963,7 +1121,8 @@
     }
     if (ps.every ((q) => ["label", "box", "line", "display", "vent", "jack"].includes (q.type))) num ("rot", "Rotation (°)", -180, 180, 1);
     if (sameType && p.type === "knob") {
-      pick2 ("style", "Knob", "knob", KNOBS, KNOB_NAMES); pick2 ("pointer", "Pointer", "pointer", POINTERS, { auto: "As the knob comes" });
+      const customIds = (design.knobs || []).map ((_, i) => "c" + i);
+      pick2 ("style", "Knob", "knob", KNOBS.concat (customIds), Object.assign ({}, KNOB_NAMES, Object.fromEntries (customIds.map ((c, i) => [c, "Yours: " + design.knobs[i].n])))); pick2 ("pointer", "Pointer", "pointer", POINTERS, { auto: "As the knob comes" });
       num ("sweep", "Turns through (°)", 180, 330, 5);
       chk ("scale", "Printed scale");
       if (ps.some ((q) => q.scale)) {
@@ -976,7 +1135,7 @@
     if (sameType && p.type === "toggle") pick2 ("style", "Switch", "toggle", TOGGLES, { bat: "Bat handle", rocker: "Rocker", rockerred: "Red rocker" });
     if (sameType && p.type === "button") pick2 ("style", "Button", "button", BUTTONS);
     if (sameType && p.type === "vu") pick2 ("style", "Dial", "vu", VUS);
-    if (sameType && p.type === "jack") pick2 ("style", "Socket", "jack", JACKS, { trs: "Jack (TRS)", xlr: "XLR" });
+    if (sameType && p.type === "jack") { pick2 ("style", "Socket", "jack", JACKS, JACK_NAMES); chk ("plugged", "Plugged in (a cable in it)"); }
     if (has ("bend")) {
       pick2 ("bend", "Text shape", "bend", BENDS, { none: "Straight", curve: "Curved", circle: "Round a circle" });
       if (ps.some ((q) => q.bend === "curve")) num ("curve", "Curve (− dips, + arches)", -100, 100, 1);
@@ -1226,6 +1385,73 @@
   $("zoom-in").addEventListener ("click", () => setZoom (zoom * 1.2)); $("zoom-out").addEventListener ("click", () => setZoom (zoom / 1.2));
   $("zoom-fit").addEventListener ("click", () => { const w = $("stage").clientWidth - 24; setZoom (w / ((W + 12) * 2)); });
 
+  // The knob maker: the design's own knobs, each made of checked choices and clamped numbers
+  let ckEditing = 0;
+  function knobPreview (ck, size = 110) {
+    const t = document.createElementNS (NS, "svg"); t.setAttribute ("viewBox", "-22 -22 44 44"); t.setAttribute ("width", size); t.setAttribute ("height", size);
+    t.setAttribute ("aria-hidden", "true");
+    drawCustomKnob (el ("g", { transform: "rotate(30)" }, t), ck, 13, "auto");
+    return t;
+  }
+  function showKnobMaker () {
+    const list = $("ck-list"); list.replaceChildren();
+    const ks = design.knobs || [];
+    ckEditing = Math.min (ckEditing, Math.max (0, ks.length - 1));
+    if (!ks.length) { const li = document.createElement ("li"); li.className = "muted small"; li.textContent = "No knobs of your own yet: make one."; list.appendChild (li); }
+    ks.forEach ((ck, i) => {
+      const li = document.createElement ("li"); if (i === ckEditing) li.className = "on";
+      li.appendChild (knobPreview (ck, 40));
+      const n = document.createElement ("span"); n.textContent = ck.n; li.appendChild (n);
+      const del = document.createElement ("button"); del.type = "button"; del.textContent = "Delete"; del.className = "danger";
+      del.addEventListener ("click", (e) => { e.stopPropagation(); deleteKnob (i); });
+      li.appendChild (del);
+      li.addEventListener ("click", () => { ckEditing = i; showKnobMaker(); });
+      list.appendChild (li);
+    });
+    $("ck-new").disabled = ks.length >= MAX_KNOBS;
+    const ed = $("ck-edit"); ed.replaceChildren();
+    const ck = ks[ckEditing]; if (!ck) return;
+    const prev = document.createElement ("div"); prev.className = "d-ck-preview"; prev.appendChild (knobPreview (ck)); ed.appendChild (prev);
+    const setK = (key, v) => { design.knobs[ckEditing] = sanitize ({ knobs: [Object.assign ({}, ck, { [key]: v })] }).knobs[0]; render(); save(); showKnobMaker(); };
+    const lab = (label, input) => { const l = document.createElement ("label"); l.textContent = label + " "; l.appendChild (input); ed.appendChild (l); return input; };
+    const nameIn = document.createElement ("input"); nameIn.maxLength = 20; nameIn.value = ck.n; nameIn.autocomplete = "off";
+    nameIn.addEventListener ("change", () => { setK ("n", nameIn.value); commit(); }); lab ("Name", nameIn);
+    const pickK = (key, label, list) => { const f = document.createElement ("div"); f.className = "d-field"; const t = document.createElement ("span"); t.textContent = label; f.appendChild (t);
+      f.appendChild (picker ("ck:" + key, list, CK_NAMES[key], ck[key], (v) => { setK (key, v); commit(); }, label)); ed.appendChild (f); };
+    const slide = (key, label, lo, hi, step) => { const i = document.createElement ("input"); i.type = "range"; i.min = lo; i.max = hi; i.step = step; i.value = ck[key];
+      i.addEventListener ("input", () => { design.knobs[ckEditing] = sanitize ({ knobs: [Object.assign ({}, design.knobs[ckEditing], { [key]: Number (i.value) })] }).knobs[0]; render(); save();
+        prev.replaceChildren (knobPreview (design.knobs[ckEditing])); });
+      i.addEventListener ("change", () => { commit(); showKnobMaker(); }); lab (label, i); };
+    const col = (key, label) => { const i = document.createElement ("input"); i.type = "color"; i.value = ck[key];
+      i.addEventListener ("input", () => { design.knobs[ckEditing] = sanitize ({ knobs: [Object.assign ({}, design.knobs[ckEditing], { [key]: i.value })] }).knobs[0]; render(); save();
+        prev.replaceChildren (knobPreview (design.knobs[ckEditing])); });
+      i.addEventListener ("change", () => { commit(); showKnobMaker(); });
+      const l = lab (label, i); l.parentElement.classList.add ("row"); };
+    pickK ("sh", "Shape", CK_SHAPES); slide ("ht", "Height", 0.3, 2, 0.05); slide ("tp", "Top width", 0.4, 1.1, 0.02); slide ("sk", "Skirt", 0, 1.6, 0.05);
+    pickK ("gr", "Grip", CK_GRIPS); slide ("gc", "Grip count", 6, 120, 1); slide ("gd", "Grip depth", 0, 1, 0.05);
+    pickK ("cap", "Cap", CK_CAPS); slide ("cs", "Cap size", 0.3, 1, 0.02); pickK ("pt", "Pointer", CK_POINTERS); pickK ("mt", "Material", CK_MATS);
+    col ("bc", "Body"); col ("kc", "Cap"); col ("sc", "Skirt"); col ("pc", "Pointer");
+  }
+  function deleteKnob (i) {
+    // parts using it go back to a standard knob; parts using a later one follow it down the list
+    for (const p of design.parts) if (p.type === "knob" && /^c[0-7]$/.test (p.style)) {
+      const k = Number (p.style.slice (1));
+      if (k === i) p.style = "ribbed"; else if (k > i) p.style = "c" + (k - 1);
+    }
+    design.knobs.splice (i, 1); commit(); showKnobMaker();
+  }
+  $("ck-new").addEventListener ("click", () => {
+    design.knobs = design.knobs || [];
+    if (design.knobs.length >= MAX_KNOBS) return;
+    const k = blankKnob(); k.n = "MY KNOB " + (design.knobs.length + 1);
+    design.knobs.push (k); ckEditing = design.knobs.length - 1; commit(); showKnobMaker();
+  });
+  $("ck-use").addEventListener ("click", () => {
+    if (!design.knobs || !design.knobs[ckEditing]) return;
+    for (const p of selected.map (byId)) if (p && p.type === "knob") p.style = "c" + ckEditing;
+    commit();
+  });
+
   // Tool tabs (the rail on the left): one panel at a time, arrow keys between them, the last one used remembered
   const tabs = [...document.querySelectorAll ('.d-rail [role="tab"]')];
   function showTab (t, focus) {
@@ -1265,6 +1491,17 @@
     ok (!({}).polluted, "no prototype pollution");
     const sd = sanitize ({ unit: { desc: "Line one\n<script>x</script>\n" + "z".repeat (900), shine: 900 } });
     ok (!/[<>]/.test (sd.unit.desc) && sd.unit.desc.length <= 600 && sd.unit.desc.includes ("\n") && sd.unit.shine === 100, "descriptions keep lines, lose markup, and are limited");
+    // Custom knobs and sockets: every field checked, at most MAX_KNOBS, unknown references dropped
+    const ek = await decode (await mk ({ v: 2, u: {}, k: Array.from ({ length: 20 }, () => ({ n: "<svg onload=x>", sh: "evil", ht: 1e9, gc: -5, bc: "url(#x)", mt: "lava", extra: 1 })),
+      p: [{ t: "knob", s: "c9" }, { t: "knob", s: "c1" }, { t: "jack", s: "usbc", pl: true }, { t: "jack", s: "<b>" }] }));
+    const k0 = ek.knobs[0];
+    ok (ek.knobs.length === MAX_KNOBS && !/[<>]/.test (k0.n) && k0.sh === "cyl" && k0.ht === 2 && k0.gc === 6 && k0.bc === "#141416" && k0.mt === "satin" && !("extra" in k0),
+        "custom knobs: at most " + MAX_KNOBS + ", every field checked or clamped");
+    ok (ek.parts[0].style === "ribbed" && ek.parts[1].style === "c1", "a knob refers only to a custom knob that exists");
+    ok (ek.parts[2].style === "usbc" && ek.parts[2].plugged === true && ek.parts[3].style === "trs", "sockets: known types only; plugged kept");
+    const withKnob = sanitize ({ knobs: [{ n: "MINE", sh: "tophat", gr: "flutes", bc: "#aa2233" }], parts: [{ type: "knob", style: "c0" }, { type: "jack", style: "xlrm", plugged: true }] });
+    const backK = await decode (await encode (withKnob));
+    ok (JSON.stringify (backK.knobs) === JSON.stringify (withKnob.knobs) && backK.parts[0].style === "c0" && backK.parts[1].plugged === true, "custom knobs and plugged sockets survive the round trip");
     const c2 = await encode (sanitize (templates["Console channel"]()));
     ok (/^ENH2(-[0-9A-Za-z]{1,4})+$/.test (c2), "codes come in dashed groups of four (" + c2.split ("-").length + " groups)");
     let bad = false; try { await decode (c2.slice (0, -3) + "!!!"); } catch (_) { bad = true; } ok (bad, "a damaged code is refused");

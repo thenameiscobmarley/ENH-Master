@@ -12,9 +12,9 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#050608">
 <link rel="stylesheet" href="site.css?v=ff697ec39b">
-<link rel="stylesheet" href="designer.css?v=f626e18aee">
-<script src="designer.js?v=8430a4b0d5" defer></script>
-<script type="module" src="designer3d.js?v=8703a4202f"></script>
+<link rel="stylesheet" href="designer.css?v=bf0e5592e0">
+<script src="designer.js?v=ad989a1cf7" defer></script>
+<script type="module" src="designer3d.js?v=5f002e12ab"></script>
 </head>
 <body class="designer">
 <svg id="d-defs" class="d-defs" aria-hidden="true" focusable="false"></svg>
@@ -45,6 +45,8 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h14M5 16h9"/></svg><span>Details</span></button>
     <button type="button" role="tab" id="t-parts" aria-controls="p-parts" aria-selected="false" tabindex="-1">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M16 6v12M13 9h6"/></svg><span>Parts</span></button>
+    <button type="button" role="tab" id="t-knobs" aria-controls="p-knobs" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 5v5"/><circle cx="12" cy="12" r="10" stroke-dasharray="1.5 2.5"/></svg><span>Knobs</span></button>
     <button type="button" role="tab" id="t-presets" aria-controls="p-presets" aria-selected="false" tabindex="-1">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="5" rx="1"/><rect x="4" y="14" width="16" height="5" rx="1"/></svg><span>Presets</span></button>
     <button type="button" role="tab" id="t-library" aria-controls="p-library" aria-selected="false" tabindex="-1">
@@ -84,6 +86,13 @@
       <h2>Add a part</h2>
       <div class="d-palette" id="palette" role="group" aria-label="Parts to add"></div>
       <p class="muted small">It lands in the middle of the panel; drag it where you want it.</p>
+    </section>
+    <section role="tabpanel" id="p-knobs" aria-labelledby="t-knobs" hidden>
+      <h2>Knob maker</h2>
+      <p class="muted small">Make up to 8 knobs of your own. They travel with the design and its share code.</p>
+      <ul class="d-ck-list" id="ck-list"></ul>
+      <div class="d-btns"><button type="button" id="ck-new">New knob</button><button type="button" id="ck-use" class="primary">Use on selected knobs</button></div>
+      <div id="ck-edit" class="d-ck-edit"></div>
     </section>
     <section role="tabpanel" id="p-presets" aria-labelledby="t-presets" hidden>
       <h2>Start from a preset</h2>
