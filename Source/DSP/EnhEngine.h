@@ -24,6 +24,9 @@
 #include "OutputStage.h"
 #include "HeadphoneEQ.h"
 #include "HeadphoneCare.h"
+#include "ProX4.h"
+#include "Velvetizer.h"
+#include "Takeback.h"
 #include "LoudnessMeter.h"
 #include "MixBalancer.h"
 #include "EngineMeters.h"
@@ -69,6 +72,9 @@ namespace enh::dsp
             std::array<int, methods::numMethodIds> methods {};   // every processing method (MethodRegistry.h), 0 = default
             DeepSub::Settings deep {};                          // DEEP SUB: sub-harmonic synth and resonant hull
             Character::Settings character {};                   // CHARACTER: consoles, tape, valves (out by default)
+            ProX4::Settings x4 {};                              // LATINSPHIEL PRO X4 (designed unit; PWR off by default)
+            Velvetizer::Settings velvet {};                     // VELVETIZER (designed unit; POWER off by default)
+            Takeback::Settings takeback {};                     // TAKEBACK (designed unit; POWER off by default)
             Lunchbox::Settings lunchbox {};                     // LUNCHBOX: CLASS-A EQ, DE-HARSH, CROSSFEED (all out by default)
             bool compare = false;                               // COMPARE: hear the input instead, at the output's loudness
         };
@@ -174,6 +180,9 @@ namespace enh::dsp
         SvfCoeffs protectHp {};
         std::array<SvfState, 2> protectState {};
         float startGain = 0.0f, startStep = 1.0f;
+        ProX4 x4;                // LATINSPHIEL PRO X4 (after CHARACTER)
+        Velvetizer velvet;       // VELVETIZER (after the PRO X4)
+        Takeback takeback;       // TAKEBACK (after the VELVETIZER)
         SessionCare sessionCare; // LONG SESSIONS: a forward balance eased over tens of seconds
         HeadphoneRoom room;      // HEADPHONE ROOM: early reflections, out of the head
         HeadphoneEQ headphones;  // HEADPHONES: the listener's headphones corrected (after COMPARE: A and B alike)

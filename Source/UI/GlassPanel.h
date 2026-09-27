@@ -38,13 +38,16 @@ namespace pad
         inline constexpr float width = 244.0f;          // a column, not a sheet
         inline constexpr float maxHeight = 500.0f;
         inline constexpr float gutter = 16.0f;          // from the window's edge
+        /** The panel's page that is not a unit's: THE GEAR LOCKER (units in and out of the rack). */
+        inline constexpr int lockerPage = 1000;
         inline constexpr float headerH = 62.0f, categoryH = 30.0f, knobH = 40.0f, rowH = 42.0f, optionH = 25.0f,
                                resetH = 44.0f, detailsH = 128.0f, bodyH = 90.0f;
 
         /** One line of the list. */
         struct Entry
         {
-            enum Kind { category, knobHeader, stage, modifier, reset } kind = stage;
+            enum Kind { category, knobHeader, stage, modifier, reset, lockerUnit } kind = stage;
+            int rackUnit = -1;                                    // lockerUnit: which unit
             juce::String title;                                   // category / knob name
             int categoryIndex = 0;                                // the category it belongs to
             int knobGroup = -1;                                   // a knob's setting: its knob header's entry index
@@ -99,6 +102,9 @@ namespace pad
         int currentChoice (const glass::Entry&) const;
         void choose (const glass::Entry&, int choice);
         void resetUnit();
+        void buildLocker();                       // THE GEAR LOCKER's list: the rack, then the locker
+        void toggleStored (int rackUnit);
+        juce::String lockerNote;                  // why a unit could not go in, while it stands
         void layoutEntries();
         float contentHeight() const noexcept;
         juce::Rectangle<float> listArea() const noexcept;

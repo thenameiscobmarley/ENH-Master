@@ -65,7 +65,10 @@ namespace pad
             scrollY = scrollTarget = 0.0f;
             entries.clear();
             categories.clear();
-            if (unit >= 0)
+            lockerNote = {};
+            if (unit == lockerPage)
+                buildLocker();
+            else if (unit >= 0)
             {
                 const auto list = m::stagesForUnit (unit);
                 auto categoryOf = [this] (const juce::String& name)
@@ -174,7 +177,7 @@ namespace pad
         float y = 0.0f;
         for (auto& e : entries)
         {
-            float fold = e.kind == Entry::category || e.kind == Entry::reset ? 1.0f : categoryOpen (e.categoryIndex);
+            float fold = e.kind == Entry::category || e.kind == Entry::reset || e.kind == Entry::lockerUnit ? 1.0f : categoryOpen (e.categoryIndex);
             if (e.knobGroup >= 0)
                 fold *= entries[(size_t) e.knobGroup].open;   // inside a knob's own dropdown
             switch (e.kind)
@@ -182,6 +185,7 @@ namespace pad
                 case Entry::category:   e.h = categoryH; break;
                 case Entry::knobHeader: e.h = knobH * fold; break;
                 case Entry::reset:      e.h = resetH; break;
+                case Entry::lockerUnit: e.h = rowH; break;
                 default:                e.h = (rowH + (optionH * (float) e.numChoices() + 6.0f) * e.open) * fold; break;
             }
             e.y = y;
@@ -273,6 +277,9 @@ namespace pad
                 break;
             case Entry::reset:
                 resetUnit();
+                break;
+            case Entry::lockerUnit:
+                toggleStored (e.rackUnit);
                 break;
             case Entry::knobHeader:
                 e.openTarget = e.openTarget > 0.5f ? 0.0f : 1.0f;
@@ -421,6 +428,59 @@ namespace pad
     }
 
     //==============================================================================
+    /** THE GEAR LOCKER: what is in the rack (bottom to top, the order the sound runs), then what is stored. */
+    void GlassPanel::buildLocker()
+    {
+        entries.clear();
+        categories.clear();
+        const unsigned stored = processor.getStoredUnits();
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            Entry c;
+            c.kind = Entry::category;
+            c.title = pass == 0 ? "IN THE RACK" : "IN THE LOCKER";
+            c.categoryIndex = pass;
+            c.open = c.openTarget = 1.0f;
+            categories.add (c.title);
+            entries.push_back (c);
+            for (int u : layout::rackOrder)
+            {
+                if (! layout::isStorable (u) || (((stored >> u) & 1u) != 0u) != (pass == 1))
+                    continue;
+                Entry e;
+                e.kind = Entry::lockerUnit;
+                e.rackUnit = u;
+                e.categoryIndex = pass;
+                entries.push_back (e);
+            }
+        }
+    }
+
+    void GlassPanel::toggleStored (int u)
+    {
+        unsigned mask = processor.getStoredUnits();
+        if (((mask >> u) & 1u) != 0u)
+        {
+            const int need = layout::usedU (mask & ~(1u << u)) - layout::rackCapacityU;
+            if (need > 0)
+            {
+                lockerNote = juce::String (layout::unitInfo[(size_t) u].name) + " needs " + juce::String (need)
+                           + "U more room: put a unit away first.";
+                dirty = true;
+                return;
+            }
+            mask &= ~(1u << u);
+        }
+        else
+            mask |= 1u << u;
+        processor.setStoredUnits (mask);
+        layout::storedUnits = mask;
+        lockerNote = {};
+        buildLocker();
+        layoutEntries();
+    }
+
+    //==============================================================================
     artwork::RawTexture GlassPanel::render (float pixelScale)
     {
         dirty = false;
@@ -457,7 +517,20 @@ namespace pad
                     ++settings;
                     changed += currentChoice (e) != 0 ? 1 : 0;
                 }
-            const auto& info = layout::unitInfo[(size_t) unit];
+            const bool locker = unit == lockerPage;
+            if (locker)
+            {
+                const unsigned stored = processor.getStoredUnits();
+                int inLocker = 0;
+                for (int u : layout::rackOrder)
+                    inLocker += layout::isStorable (u) && ((stored >> u) & 1u) != 0u ? 1 : 0;
+                text ("GEAR LOCKER", { x0 + 14.0f, y0 + 13.0f, pw - 28.0f, 20.0f }, font (15.5f, true, 0.02f), white);
+                text ("RACK " + juce::String (layout::usedU (stored)) + " OF " + juce::String (layout::rackCapacityU) + " U   /   "
+                          + juce::String (inLocker) + " STORED",
+                      { x0 + 14.0f, y0 + 35.0f, pw - 28.0f, 13.0f }, font (9.0f, true, 0.16f), soft);
+            }
+            const auto& info = layout::unitInfo[(size_t) (locker ? 0 : unit)];
+            if (! locker)
             text (juce::String (info.name), { x0 + 14.0f, y0 + 13.0f, pw - 28.0f, 20.0f }, font (15.5f, true, 0.02f), white);
             // What this unit delays the sound by (look-ahead, oversampling): gamers want to know
             juce::String delay;
@@ -472,6 +545,7 @@ namespace pad
                 else
                     delay = "NO DELAY";
             }
+            if (! locker)
             text (juce::String (settings) + " SETTINGS   /   " + delay + (changed > 0 ? "   /   " + juce::String (changed) + " CHANGED" : juce::String()),
                   { x0 + 14.0f, y0 + 35.0f, pw - 28.0f, 13.0f }, font (9.0f, true, 0.16f), soft);
             g.setColour (faint);
@@ -542,6 +616,32 @@ namespace pad
                               set.isEmpty() ? soft.withMultipliedAlpha (0.8f) : white.withAlpha (0.9f));
                         g.setColour (faint);
                         g.fillRect (box.getX(), box.getY() + knobH - 1.0f, box.getWidth(), 1.0f);
+                    }
+                    else if (e.kind == Entry::lockerUnit)
+                    {
+                        const unsigned stored = processor.getStoredUnits();
+                        const bool isStored = ((stored >> e.rackUnit) & 1u) != 0u;
+                        const int need = isStored ? layout::usedU (stored & ~(1u << e.rackUnit)) - layout::rackCapacityU : 0;
+                        if (e.hover > 0.01f)
+                        {
+                            g.setColour (white.withAlpha (0.07f * e.hover));
+                            g.fillRect (box.expanded (8.0f, 0.0f));
+                        }
+                        text (layout::unitInfo[(size_t) e.rackUnit].name, { box.getX(), box.getY() + 7.0f, box.getWidth() - 64.0f, 14.0f },
+                              font (11.5f, true, 0.04f), white);
+                        text (juce::String (layout::unitU (e.rackUnit)) + "U   /   "
+                                  + (isStored ? (need > 0 ? "NEEDS " + juce::String (need) + "U MORE ROOM" : juce::String ("FITS")) : juce::String ("IN THE RACK")),
+                              { box.getX(), box.getY() + 23.0f, box.getWidth() - 64.0f, 12.0f }, font (9.0f, true, 0.12f), soft);
+                        // The action, on a hard-edged button at the right
+                        const juce::Rectangle<float> b (box.getRight() - 58.0f, box.getY() + 9.0f, 58.0f, 22.0f);
+                        const bool can = ! isStored || need <= 0;
+                        g.setColour (white.withAlpha ((0.06f + 0.10f * e.hover) * (can ? 1.0f : 0.4f)));
+                        g.fillRect (b);
+                        g.setColour (white.withAlpha (can ? 0.7f : 0.25f));
+                        g.drawRect (b, 1.0f);
+                        text (isStored ? "INSTALL" : "STORE", b, font (9.0f, true, 0.14f), white.withAlpha (can ? 1.0f : 0.4f), juce::Justification::centred);
+                        g.setColour (faint);
+                        g.fillRect (box.getX(), box.getBottom() - 1.0f, box.getWidth(), 1.0f);
                     }
                     else if (e.kind == Entry::reset)
                     {
@@ -652,6 +752,21 @@ namespace pad
                 para (str (mo.does), 4, white.withAlpha (0.9f));
                 para (str (mo.cost), 2, soft);
             }
+            else if (lockerNote.isNotEmpty())
+                para (lockerNote, 6, white.withAlpha (0.9f));
+            else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::lockerUnit)
+            {
+                const int u = hoveredEntry->rackUnit;
+                const bool isStored = ((processor.getStoredUnits() >> u) & 1u) != 0u;
+                heading (layout::unitInfo[(size_t) u].name);
+                para (juce::String (layout::unitInfo[(size_t) u].role), 2, white.withAlpha (0.9f));
+                para (isStored ? "Install it: it goes into the rack at its place in the signal chain, as you left it."
+                               : "Put it away: it leaves the rack and stops processing (no CPU). Its settings are kept for when it comes back.",
+                      4, soft);
+            }
+            else if (unit == lockerPage)
+                para ("The rack holds " + juce::String (layout::rackCapacityU) + "U. Swap units in and out: what is in the locker takes no room "
+                      "and no CPU. Saved with the session.", 6, soft);
             else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::reset)
                 para ("Puts every setting of this unit back to its default: exactly how it sounded before these settings "
                       "existed. Knobs keep their positions.", 6, soft);

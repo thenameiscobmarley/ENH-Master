@@ -1,5 +1,6 @@
 #include "ParameterSpecs.h"
 #include "../DSP/MethodRegistry.h"
+#include "../DSP/DesignedUnits.h"
 
 namespace pad::params
 {
@@ -126,6 +127,15 @@ namespace pad::params
                                    unitName.substring (0, 1) + unitName.substring (1).toLowerCase() + " " + stageName.toLowerCase(),
                                    stageName, "", Kind::choice, 0.0f, (float) (st.numMethods - 1), 0.0f, 0, 0.0f, texts, false });
             }
+        }
+
+        // The designed units (PRO X4, VELVETIZER): their own table, DesignedUnits.h
+        for (auto& d : enh::dsp::designed::params)
+        {
+            auto str = [] (std::string_view v) { return juce::String (v.data(), v.size()); };
+            const auto kind = d.kind == 1 ? Kind::toggle : d.kind == 2 ? Kind::choice : Kind::continuous;
+            specs.push_back ({ str (d.id), str (d.name), str (d.label), str (d.unit), kind, d.minValue, d.maxValue, d.defaultValue,
+                               d.decimals, 0.0f, juce::StringArray::fromTokens (str (d.texts), "|", "") });
         }
 
         return specs;

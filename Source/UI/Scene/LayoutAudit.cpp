@@ -215,7 +215,7 @@ namespace pad::audit
                         obs.push_back ({ Obstacle::rect, stripOutletX (k), stripOutletZ, 0.72f * 0.68f * 0.263f, 0.72f * 0.60f * 0.263f, "outlet" });
                 }
                 for (int i = 0; i < numVus (unit); ++i)
-                    obs.push_back ({ Obstacle::hole, vuX (unit, i), vuZ (unit, i), vuHalfW (unit) + 0.03f, vuHalfH + 0.03f, "VU bezel" });
+                    obs.push_back ({ Obstacle::hole, vuX (unit, i), vuZ (unit, i), vuHalfW (unit) + 0.03f, vuHalfHFor (unit) + 0.03f, "VU bezel" });
                 for (auto& w : outboardWindows (unit))
                 {
                     obs.push_back ({ Obstacle::hole, w.cx, w.cz, w.hw + 0.034f, w.hd + 0.034f, "display bezel" });

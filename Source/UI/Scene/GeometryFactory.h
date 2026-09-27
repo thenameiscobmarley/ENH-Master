@@ -51,6 +51,12 @@ namespace pad::geo
     MeshData audioCable (int index);             // one of them (drawn one by one, each in its colour)
     int numAudioCables();
     MeshData powerCables();
+    MeshData cableChannelSlots();                // cable management: the slot down each cheek's front
+    MeshData cableChannelLips();                 // its rubber lips
+    MeshData cheekGrommet();                     // where the LUNCHBOX's cables leave the right cheek
+    MeshData cheekGrommetHole();
+    MeshData designedJackPlugs (int unit);       // a designed unit's jacks' plugs (panel-local)
+    MeshData designedJackCables();               // and their cables, into the channels (world)
     MeshData xlrConnectors();                    // the XLR barrels where the audio cables plug into the LUNCHBOX
     MeshData xlrLatches();                       // their metal latches and rings
     // US mains parts (NEMA 5-15). Receptacle: its face (y up out of the panel) and its dark slots and ground

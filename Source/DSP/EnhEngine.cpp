@@ -30,6 +30,9 @@ namespace enh::dsp
         lunchbox.prepare (sr, maxBlock);
         outputStage.prepare (sr);
         headphones.prepare (sr, numChannels);
+        x4.prepare (sr);
+        velvet.prepare (sr);
+        takeback.prepare (sr);
         sessionCare.prepare (sr);
         room.prepare (sr);
         radar.prepare (sr, maxBlock);
@@ -80,6 +83,9 @@ namespace enh::dsp
         lunchbox.reset();
         outputStage.reset();
         headphones.reset();
+        x4.reset();
+        velvet.reset();
+        takeback.reset();
         sessionCare.reset();
         room.reset();
         radar.reset();
@@ -533,13 +539,28 @@ namespace enh::dsp
         inStereoMode (chunk, chans, n, p.methods[(size_t) methods::charStereo], character.getLatencySamples(), keepDelays[5],
                       [&] (float* const* c, int k) { character.process (c, k, n, p.character); });
 
+        // The designed units: LATINSPHIEL PRO X4, VELVETIZER, then TAKEBACK (each bit-for-bit out until powered)
+        x4.process (chunk, chans, n, p.x4);
+        velvet.process (chunk, chans, n, p.velvet);
+        takeback.process (chunk, chans, n, p.takeback);
+        meters.x4DensityDb.store (x4.getReadout().densityDb, std::memory_order_relaxed);
+        meters.velvetDb.store (velvet.getVelvetDb(), std::memory_order_relaxed);
+        {
+            const auto& tr = takeback.getReadout();
+            const float dbs[4] { tr.inPlusDb, tr.inMinusDb, tr.outPlusDb, tr.outMinusDb };
+            for (size_t m = 0; m < 4; ++m)
+                meters.takebackDb[m].store (dbs[m], std::memory_order_relaxed);
+            for (size_t m = 0; m < 6; ++m)
+                meters.takebackLeds[m].store (tr.ladder[m], std::memory_order_relaxed);
+        }
+
         // LUNCHBOX: the side rack's modules (each bit-for-bit out until switched in; no latency)
         lunchbox.process (chunk, chans, n, p.lunchbox);
         meters.lunchboxHarshDb.store (lunchbox.getHarshReductionDb(), std::memory_order_relaxed);
         meters.lunchboxPeak.store (lunchbox.getOutputPeak(), std::memory_order_relaxed);
 
         // The rack's output amplifier: every analog unit's colour leaves through one stage
-        outputStage.process (chunk, chans, n, strength > 0.001f || p.character.active || p.lunchbox.eqIn);
+        outputStage.process (chunk, chans, n, strength > 0.001f || p.character.active || p.lunchbox.eqIn || p.x4.power || p.velvet.power || p.takeback.power);
 
         // LOUDNESS TARGET, then the output limiter: full scale is looked after here, once, cleanly
         target.process (chunk, chans, n, p.methods[(size_t) methods::outputTarget]);

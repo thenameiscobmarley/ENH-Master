@@ -74,6 +74,9 @@ namespace enh::dsp
         std::atomic<float> outputLimitDb { 0.0f };
         std::atomic<float> targetGainDb { 0.0f };
         std::atomic<float> lunchboxHarshDb { 0.0f }, lunchboxPeak { 0.0f };   // LUNCHBOX: DE-HARSH's cut, the output peak
+        std::atomic<float> x4DensityDb { -120.0f }, velvetDb { 0.0f };         // PRO X4: harmonic density; VELVETIZER: smoothing (dB)
+        std::array<std::atomic<float>, 4> takebackDb {};    // TAKEBACK's meters: IN dB+, IN dB-, OUT dB+, OUT dB-
+        std::array<std::atomic<float>, 6> takebackLeds {};  // TAKEBACK's LED ladders (0 .. 1): BLUR SHARPEN COLOR RAW SHINE MIX
         std::atomic<float> charHarmonicsDb { -120.0f };   // CHARACTER: what its models add, against the signal
         std::atomic<float> compareGainDb { 0.0f };         // COMPARE: what the input is brought up or down by
         std::atomic<bool>  comparing { false };

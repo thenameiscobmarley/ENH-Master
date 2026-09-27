@@ -622,6 +622,9 @@ static void runZipperTests (double sr)
                 pad::presets::Preset p = preset;
                 p.values.push_back ({ spec.id, v });
                 if (spec.id.startsWith ("char")) p.values.push_back ({ pad::params::id::charActive, 1.0f });
+                if (spec.id.startsWith ("x4")) p.values.push_back ({ "x4Pwr", 1.0f });      // (the designed units: powered,
+                if (spec.id.startsWith ("vel")) p.values.push_back ({ "velPower", 1.0f });  // or their knobs move nothing)
+                if (spec.id.startsWith ("tb")) p.values.push_back ({ "tbPower", 1.0f });
                 return presetParameters (p);
             };
             const auto before = withValue (from), after = withValue (to);

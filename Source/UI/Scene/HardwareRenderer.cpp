@@ -4,6 +4,7 @@
 #include "GeometryFactory.h"
 #include "Picking.h"
 #include "LimiterDemo.h"
+#include "DesignedLayout.h"
 #include "../GlassPanel.h"
 
 using namespace juce::gl;
@@ -30,6 +31,50 @@ namespace pad
     static Vec3 mixVec (Vec3 a, Vec3 b, float t) noexcept { return a + (b - a) * t; }
     static float saturateUi (float x) noexcept { return std::clamp (x, 0.0f, 1.0f); }
 
+    /** A designed unit's print (DesignedLayout.h). */
+    static std::vector<designed::Print> designedPrintOf (int unit)
+    {
+        if (unit == x4Unit) return { designed::x4Print.begin(), designed::x4Print.end() };
+        if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
+        if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
+        return {};
+    }
+
+    /** An LED's colour as designed ("#rrggbb"), in linear light, brightened to a lit LED's. */
+    static Vec3 ledColour (const char* hex)
+    {
+        const auto c = juce::Colour::fromString (juce::String ("ff") + juce::String (hex).trimCharactersAtStart ("#"));
+        auto lin = [] (juce::uint8 v) { return std::pow ((float) v / 255.0f, 2.2f); };
+        Vec3 v { lin (c.getRed()), lin (c.getGreen()), lin (c.getBlue()) };
+        const float peak = std::max ({ v.x, v.y, v.z, 1.0e-3f });
+        return v * (1.0f / peak);
+    }
+
+    /** TAKEBACK's LEDs, in print order: which ladder (0 BLUR .. 5 MIX, left to right) and which step (0 at
+        the bottom), from where the design put them. */
+    static const std::array<std::pair<int, int>, 36>& takebackLedPlaces()
+    {
+        static const auto places = []
+        {
+            std::vector<float> xs, zs;
+            for (const auto& p : designed::tbPrint)
+                if (p.kind == 'E') { xs.push_back (p.x); zs.push_back (p.z); }
+            auto rank = [] (std::vector<float> all, float v, bool descending)
+            {
+                std::sort (all.begin(), all.end());
+                all.erase (std::unique (all.begin(), all.end(), [] (float a, float b) { return std::abs (a - b) < 0.02f; }), all.end());
+                int r = 0;
+                for (float a : all) if (a < v - 0.02f) ++r;
+                return descending ? (int) all.size() - 1 - r : r;
+            };
+            std::array<std::pair<int, int>, 36> out {};
+            for (size_t i = 0; i < std::min (out.size(), xs.size()); ++i)
+                out[i] = { rank (xs, xs[i], false), rank (zs, zs[i], true) };
+            return out;
+        }();
+        return places;
+    }
+
     //==============================================================================
     HardwareRenderer::HardwareRenderer (ParameterBridge& b, SharedUIState& s, const enh::dsp::EngineMeters& m,
                                         const UIConfig& c, artwork::TextureSet textures, const enh::dsp::ScopeCurve& sc,
@@ -37,6 +82,7 @@ namespace pad
         : bridge (b), shared (s), meters (m), scope (sc), balancerScope (bsc), history (dh), config (c), textureData (std::move (textures))
     {
         seraphModeParam = bridge.indexOf (params::id::seraphMode);
+        designedPowerParam = { bridge.indexOf ("x4Pwr"), bridge.indexOf ("velPower"), bridge.indexOf ("tbPower") };
 
         // Which knobs an auto mode turns (AUTO heaven: REVERB .. SUB; MATCH: OUTPUT), resolved once
         {
@@ -240,6 +286,7 @@ namespace pad
         meshes.screws.upload (geo::screwHeads());
         meshes.screwSlots.upload (geo::screwSlots());
         meshes.scaleRing.upload (geo::knobScaleRing());
+        buildDesignedMeshes();
         meshes.arcRing.upload (hwk::geo::flatAnnulus (1.0f, 1.16f, 96));
         meshes.tubeFaceTop.upload (geo::tubeFaceTop());
         meshes.tubeFaceEdges.upload (geo::tubeFaceEdges());
@@ -279,6 +326,9 @@ namespace pad
         characterVu.upload (hwk::models::vuMeter (characterVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
         radarVu.upload (hwk::models::vuMeter (radarVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
         lunchboxVu.upload (hwk::models::vuMeter (lbVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        x4Vu.upload (hwk::models::vuMeter (x4VuHalfW, x4VuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        velvetVu.upload (hwk::models::vuMeter (velvetVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
+        takebackVu.upload (hwk::models::vuMeter (tbVuHalfW, tbVuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
         for (int m = 0; m < 4; ++m)
         {
             meshes.lbPlates[(size_t) m].upload (geo::lunchboxModulePlate (m));
@@ -382,6 +432,16 @@ namespace pad
         upload (characterDecalTex, textureData.characterDecal);
         upload (radarDecalTex, textureData.radarDecal);
         upload (radarVuFaceTex, textureData.radarVuFace);
+        upload (x4DecalTex, textureData.x4Decal);
+        upload (x4VuFaceTex, textureData.x4VuFace);
+        upload (x4ScreenTex, textureData.x4Screens);
+        upload (velvetDecalTex, textureData.velvetDecal);
+        upload (velvetVuFaceTex, textureData.velvetVuFace);
+        upload (velvetScreenTex, textureData.velvetScreens);
+        upload (takebackDecalTex, textureData.takebackDecal);
+        upload (takebackScreenTex, textureData.takebackScreens);
+        for (size_t m = 0; m < takebackVuFaceTex.size(); ++m)
+            upload (takebackVuFaceTex[m], textureData.takebackVuFace[m]);
         upload (powerDecalTex, textureData.powerDecal);
         upload (lunchboxDecalTex, textureData.lunchboxDecal);
         upload (lunchboxVuFaceTex, textureData.lunchboxVuFace);
@@ -443,6 +503,16 @@ namespace pad
         characterVu.release();
         radarVu.release();
         lunchboxVu.release();
+        x4Vu.release();
+        velvetVu.release();
+        takebackVu.release();
+        for (auto& t : takebackVuFaceTex)
+            t.release();
+        for (auto* list : { &designedScrews, &designedJackRings, &designedJackHoles, &designedScreens, &designedJackPlugs })
+            for (auto& m : *list)
+                m.release();
+        for (auto* m : { &cableSlots, &cableLips, &grommet, &grommetHole, &designedJackCables })
+            m->release();
         levelVu.release();
         monitorVu.release();
         for (auto& o : outboard)
@@ -452,6 +522,7 @@ namespace pad
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
                            &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex,
                            &radarDecalTex, &radarVuFaceTex, &wallTex, &envTex, &occTex,
+                           &x4DecalTex, &x4VuFaceTex, &x4ScreenTex, &velvetDecalTex, &velvetVuFaceTex, &velvetScreenTex, &takebackDecalTex, &takebackScreenTex,
                            &powerDecalTex, &lunchboxDecalTex, &lunchboxVuFaceTex, &blankTex, &smudgeTex })
             tex->release();
         loupeTarget.release();
@@ -932,7 +1003,7 @@ namespace pad
             if (want != panelShown)
             {
                 panelShown = want;
-                panelLine = 0.0f;
+                panelLine = want >= numUnits ? 1.0f : 0.0f;   // a page that is not a unit's (THE GEAR LOCKER): no line to draw out
             }
             panelLine = anim::approach (panelLine, 1.0f, 16.0f, dt);
             if (panelLine > 0.55f)
@@ -1038,7 +1109,7 @@ namespace pad
         elbow up or down to the panel's header. Drawn out along its length as it opens. */
     void HardwareRenderer::drawPanelConnector (const CameraRig& camera, int w, int h)
     {
-        if (panelShown < 0 || panelLine < 0.01f)
+        if (panelShown < 0 || panelShown >= numUnits || panelLine < 0.01f)
             return;
         float ax = 0.0f, ay = 0.0f;
         const auto world = panelToWorld (panelShown).transformPoint ({ unitHalfW (panelShown), 0.01f, 0.0f });
@@ -1169,7 +1240,7 @@ namespace pad
             draw (meshes.quad, panelToWorld (unit) * Mat4::translation ({ 0.0f, 0.006f, 0.0f }) * Mat4::scale (hw, 1.0f, hh), colour);
         };
         const int open = shared.panelUnit.load();
-        if (open >= 0)
+        if (open >= 0 && open < numUnits)
             frame (open, { 1.0f, 1.0f, 1.0f }, 0.55f);
         const int hovered = shared.hoveredUnit.load();
         if (hovered >= 0 && hovered != open && hullModel == nullptr)
@@ -1249,7 +1320,7 @@ namespace pad
 
                 if (controls[(size_t) hit].kind == ControlKind::button || controls[(size_t) hit].kind == ControlKind::toggle)
                 {
-                    bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
+                    bridge.setValueWithSource (p, switchTarget (controls[(size_t) hit], bridge.getNormalised (p)), ControlSource::user);
                     heldButton = hit;
                 }
                 else
@@ -1366,7 +1437,7 @@ namespace pad
             if (c.kind == ControlKind::button)
             {
                 auto& bt = buttons[(size_t) i];
-                bt.update (value > 0.5f, heldButton == i && leftDown, dt);
+                bt.update (switchLit (c, value), heldButton == i && leftDown, dt);
                 busy = busy || ! bt.isIdle();
                 continue;
             }
@@ -1399,7 +1470,7 @@ namespace pad
             // An auto mode turns the knob itself (not while you are holding it)
             const float shownValue = active == i ? value : autoTurnedValue (i, value);
             const float target = c.kind != ControlKind::selector ? knobAngleForValue (shownValue)
-                                : c.unit == characterUnit || c.unit == lunchboxUnit ? characterSelectorAngle (shownValue) : selectorAngleForValue (shownValue);
+                                : c.unit == characterUnit || c.unit == lunchboxUnit || c.unit == velvetUnit ? characterSelectorAngle (shownValue) : selectorAngleForValue (shownValue);
             const bool isHovered = (hovered == i || active == i);
             k.update (target, changed, (int) bridge.getLastSource (p), isHovered, dt);
             busy = busy || ! k.isIdle (target, isHovered);
@@ -1538,6 +1609,15 @@ namespace pad
                 // LUNCHBOX OUTPUT: its peak level, -40 .. 0 dBFS
                 saturateUi ((demoMeters ? -14.0f + 5.0f * std::sin ((float) timeSeconds * 1.1f)
                                         : 20.0f * std::log10 (meters.lunchboxPeak.load() + 1.0e-6f)) / 40.0f + 1.0f),
+                // PRO X4: its harmonic density, -60 .. 0 dB (as CHARACTER's)
+                saturateUi ((demoMeters ? -36.0f + 6.0f * std::sin ((float) timeSeconds * 0.8f) : meters.x4DensityDb.load()) / 60.0f + 1.0f),
+                // VELVETIZER: how far it is smoothing the transients, 0 .. 18 dB
+                saturateUi ((demoMeters ? 4.0f + 3.0f * std::sin ((float) timeSeconds * 1.3f) : meters.velvetDb.load()) / 18.0f),
+                // TAKEBACK: IN dB+ / dB- (the attacks lifted / rounded off), OUT dB+ / dB- (the loudness match), 0 .. 12 dB
+                saturateUi ((demoMeters ? 3.0f + 2.5f * std::sin ((float) timeSeconds * 2.1f) : meters.takebackDb[0].load()) / 12.0f),
+                saturateUi ((demoMeters ? 1.0f + 1.0f * std::sin ((float) timeSeconds * 1.7f) : meters.takebackDb[1].load()) / 12.0f),
+                saturateUi ((demoMeters ? 1.5f + 1.0f * std::sin ((float) timeSeconds * 0.5f) : meters.takebackDb[2].load()) / 12.0f),
+                saturateUi ((demoMeters ? 0.5f + 0.5f * std::sin ((float) timeSeconds * 0.6f) : meters.takebackDb[3].load()) / 12.0f),
             };
 
             for (int i = 0; i < numNeedles; ++i)
@@ -1615,6 +1695,21 @@ namespace pad
         ladder (outLeds, outLadder.segments, [outDb] (int k) { return outDb >= (float) outLadderDb[(size_t) k]; });
         ladder (enhLeds, enhLadder.segments, [this] (int k) { return activityGlow * (float) enhLadder.segments > (float) k + 0.5f; });
         ladder (detectLeds, detectLadder.segments, [this] (int k) { return stepFlash * (float) detectLadder.segments > (float) k + 0.3f; });
+        if (isShown (takebackUnit))
+        {
+            const auto& places = takebackLedPlaces();
+            for (size_t i = 0; i < takebackLeds.size(); ++i)
+            {
+                const auto [col, row] = places[i];
+                const float level = demoMeters ? 0.5f + 0.4f * std::sin ((float) timeSeconds * (0.7f + 0.3f * (float) col) + (float) col)
+                                               : meters.takebackLeds[(size_t) std::clamp (col, 0, 5)].load (std::memory_order_relaxed);
+                const float target = level * 6.0f > (float) row + 0.5f ? 1.0f : 0.0f;
+                auto& v = takebackLeds[i];
+                const float before = v;
+                v = anim::approach (v, target, target > v ? 65.0f : 14.0f, dt);
+                busy = busy || std::abs (v - before) > 1.0e-3f;
+            }
+        }
 
         // Parallax: subtle, and fast enough that it never feels like it is chasing the pointer
         const bool parallaxOn = ! config.reduceMotion && pointerInside;
@@ -1727,7 +1822,7 @@ namespace pad
     /** The case, floor and wall: they follow how many units are in the case (SIMPLE / FULL view). */
     void HardwareRenderer::buildCase()
     {
-        builtHidden = hiddenUnits.load();
+        builtHidden = hiddenUnits.load() | storedUnits.load();   // (SIMPLE view and THE GEAR LOCKER both take units out)
         meshes.table.upload (geo::caseFloor());
         meshes.wall.upload (geo::backWall());
         {
@@ -1748,6 +1843,11 @@ namespace pad
         for (int i = 0; i < (int) meshes.audioCables.size(); ++i)
             meshes.audioCables[(size_t) i].upload (i < meshes.numAudioCables ? geo::audioCable (i) : hwk::gfx::MeshData {});
         meshes.powerCables.upload (geo::powerCables());
+        cableSlots.upload (geo::cableChannelSlots());
+        cableLips.upload (geo::cableChannelLips());
+        grommet.upload (geo::cheekGrommet());
+        grommetHole.upload (geo::cheekGrommetHole());
+        designedJackCables.upload (geo::designedJackCables());
         meshes.wallOutlet.upload (geo::wallOutlet());
         meshes.xlrBarrels.upload (geo::xlrConnectors());
         meshes.xlrRings.upload (geo::xlrLatches());
@@ -1764,7 +1864,7 @@ namespace pad
 
     void HardwareRenderer::renderOpenGL()
     {
-        if (ready && hiddenUnits.load() != builtHidden)
+        if (ready && (hiddenUnits.load() | storedUnits.load()) != builtHidden)
             buildCase();
 
         double now = juce::Time::getMillisecondCounterHiRes();
@@ -1964,7 +2064,7 @@ namespace pad
         soft shadow, read back in one fetch per pixel. Again when the rack reflows (SIMPLE / FULL view). */
     void HardwareRenderer::bakeOcclusion()
     {
-        occBakedHidden = hiddenUnits.load();
+        occBakedHidden = hiddenUnits.load() | storedUnits.load();
         std::vector<unsigned char> atlas ((size_t) (occW * occH * numUnits * 4), 255);
         const auto keyWorld = gfx::normalise ({ -0.50f, 0.85f, 0.80f });   // CameraRig's key light, at rest
         for (int u = 0; u < numUnits; ++u)
@@ -2153,6 +2253,89 @@ namespace pad
         draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - halfH }), { 0.42f, 0.42f, 0.44f });
     }
 
+    /** The designed units' flat-mounted parts, from their designs (DesignedLayout.h): each screw a domed head,
+        each jack a machined ring round a dark socket (an XLR's three pins in it), each display a flat screen. */
+    void HardwareRenderer::buildDesignedMeshes()
+    {
+        auto append = [] (gfx::MeshData& dst, const gfx::MeshData& src, float x, float y, float z)
+        {
+            const auto base = (juce::uint32) dst.vertices.size();
+            for (auto v : src.vertices) { v.px += x; v.py += y; v.pz += z; dst.vertices.push_back (v); }
+            for (auto i : src.indices) dst.indices.push_back (base + i);
+        };
+        for (int k = 0; k < numDesigned; ++k)
+        {
+            const int unit = designedUnits[(size_t) k];
+            gfx::MeshData screws, rings, holes, screens;
+            const auto print = designedPrintOf (unit);
+            for (const auto& p : print)
+            {
+                if (p.kind == 'S')
+                    append (screws, hwk::geo::dome (p.w, 0.010f, 18, 4), p.x, 0.001f, p.z);
+                else if (p.kind == 'J')
+                {
+                    append (rings, hwk::geo::flatAnnulus (p.w * 0.74f, p.w * 1.05f, 32), p.x, 0.004f, p.z);
+                    append (holes, hwk::geo::flatAnnulus (0.0f, p.w * 0.74f, 32), p.x, 0.002f, p.z);
+                    if (p.align == 1)   // XLR: three pins
+                        for (auto [dx, dz] : { std::pair { -0.30f, -0.15f }, std::pair { 0.30f, -0.15f }, std::pair { 0.0f, 0.30f } })
+                            append (rings, hwk::geo::dome (p.w * 0.10f, 0.004f, 10, 2), p.x + dx * p.w, 0.002f, p.z + dz * p.w);
+                }
+                else if (p.kind == 'D')
+                    append (screens, hwk::geo::horizontalQuad ({ p.x, p.z, 0.5f * p.w, 0.5f * p.h }, 0.002f), 0.0f, 0.0f, 0.0f);
+            }
+            designedScrews[(size_t) k].upload (screws);
+            designedJackRings[(size_t) k].upload (rings);
+            designedJackHoles[(size_t) k].upload (holes);
+            designedScreens[(size_t) k].upload (screens);
+            designedJackPlugs[(size_t) k].upload (geo::designedJackPlugs (unit));
+            juce::ignoreUnused (unit);
+        }
+    }
+
+    /** A designed unit: its plate in gloss paint (as designed), print, meter, and the parts modelled from the
+        design. Its knobs, switches and buttons are the rack's own models, drawn with every other control. */
+    void HardwareRenderer::drawDesigned (int unit, const Mat4& panel)
+    {
+        if (! isShown (unit))
+            return;
+        const int k = designedIndex (unit);
+        // The designs' colours (#464749 dark grey, #04581d green, #264787 blue), in linear light
+        static constexpr std::array<Vec3, numDesigned> plate { Vec3 { 0.061f, 0.064f, 0.068f }, Vec3 { 0.0012f, 0.098f, 0.012f }, Vec3 { 0.0194f, 0.063f, 0.242f } };
+        const gfx::Texture2D& decal = k == 0 ? x4DecalTex : k == 1 ? velvetDecalTex : takebackDecalTex;
+        if (k == 2)
+            drawOneU (unit, panel, plate[2], decal, { &takebackVuFaceTex[0], &takebackVuFaceTex[1], &takebackVuFaceTex[2], &takebackVuFaceTex[3] }, Finish::paint);
+        else
+            drawOneU (unit, panel, plate[(size_t) k], decal, { k == 0 ? &x4VuFaceTex : &velvetVuFaceTex }, Finish::paint);
+
+        use (shaders::chrome).set ("uParams", 0.55f, 1.0f, 0.0f, 0.0f);
+        draw (designedScrews[(size_t) k], panel, { 0.72f, 0.72f, 0.75f });
+        draw (designedJackRings[(size_t) k], panel, { 0.70f, 0.70f, 0.73f });
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (designedJackHoles[(size_t) k], panel, { 0.010f, 0.010f, 0.012f });
+        // Every jack has its cable plugged in: a satin-chrome XLR barrel on each
+        use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
+        draw (designedJackPlugs[(size_t) k], panel, { 0.62f, 0.62f, 0.65f });
+
+        // Displays: dark glass, glowing in the design's colour where it has something to show
+        (k == 0 ? x4ScreenTex : k == 1 ? velvetScreenTex : takebackScreenTex).bind (0);
+        auto& screen = use (shaders::designedScreen);
+        screen.set ("uParams", -unitHalfW (unit), -unitHalfH (unit), 2.0f * unitHalfW (unit), 2.0f * unitHalfH (unit));
+        const bool on = bridge.getNormalised (designedPowerParam[(size_t) k]) > 0.5f;
+        static constexpr std::array<Vec3, numDesigned> glow { Vec3 { 0.40f, 0.80f, 1.0f }, Vec3 { 0.97f, 1.0f, 0.70f }, Vec3 { 0.64f, 0.90f, 1.0f } };
+        const Vec3 glowColour = glow[(size_t) k];
+        current->set ("uEmissive", glowColour * (on ? 0.55f : 0.04f));
+        draw (designedScreens[(size_t) k], panel, { 0.006f, 0.007f, 0.009f }, glowColour * (on ? 0.55f : 0.04f));
+
+        // TAKEBACK's LED ladders: under each knob, lit from the bottom by how hard its section works
+        if (k == 2)
+        {
+            int i = 0;
+            for (const auto& p : designed::tbPrint)
+                if (p.kind == 'E' && i < (int) takebackLeds.size())
+                    drawLed (panel, p.x, p.z, ledColour (p.param), takebackLeds[(size_t) i++]);
+        }
+    }
+
     /** The POWER strip: a black 1U panel, its three status lamps, and a gooseneck lamp at each end
         that lights the rack's front (LIGHTS). */
     void HardwareRenderer::drawPowerStrip (const Mat4& panel)
@@ -2252,7 +2435,7 @@ namespace pad
     {
         ++frameIndex;
         frameCamera = cam;
-        if (occBakedHidden != hiddenUnits.load())
+        if (occBakedHidden != (hiddenUnits.load() | storedUnits.load()))
             bakeOcclusion();
         occTex.bind (occUnit);
         envTex.bind (envUnit);   // the room every surface reflects (unit 7: nothing else uses it)
@@ -2280,11 +2463,15 @@ namespace pad
         const Mat4 monitorPanel = panelToWorld (monitorUnit);
         const Mat4 powerPanel = panelToWorld (powerUnit);
         const Mat4 lunchboxPanel = panelToWorld (lunchboxUnit);
+        const Mat4 x4Panel = panelToWorld (x4Unit);
+        const Mat4 velvetPanel = panelToWorld (velvetUnit);
+        const Mat4 takebackPanel = panelToWorld (takebackUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
                  : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == characterUnit ? characterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
                  : unit == radarUnit ? radarPanel : unit == powerUnit ? powerPanel : unit == lunchboxUnit ? lunchboxPanel
+                 : unit == x4Unit ? x4Panel : unit == velvetUnit ? velvetPanel : unit == takebackUnit ? takebackPanel
                  : unit == monitorUnit ? monitorPanel : panel;
         };
 
@@ -2435,6 +2622,9 @@ namespace pad
         drawOneU (radarUnit, radarPanel, Vec3 { 0.055f, 0.070f, 0.15f }, radarDecalTex, { &radarVuFaceTex }, Finish::paint);   // deep navy paint, like the classic transient designer
         drawPowerStrip (powerPanel);
         drawLunchbox (lunchboxPanel);
+        drawDesigned (x4Unit, x4Panel);
+        drawDesigned (velvetUnit, velvetPanel);
+        drawDesigned (takebackUnit, takebackPanel);
 
         // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
         drawOneU (levelUnit, levelPanel, Vec3 { 0.045f, 0.045f, 0.05f }, levelDecalTex, { &levelFaceTex }, Finish::anodised);   // black, like a monitor controller
@@ -2587,6 +2777,8 @@ namespace pad
         draw (meshes.caseFrontRails, I, { 0.52f, 0.53f, 0.55f });
         use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (meshes.caseRailHoles, I, { 0.010f, 0.010f, 0.012f });
+        draw (cableSlots, I, { 0.006f, 0.006f, 0.007f });    // the channels' dark slots
+        draw (grommetHole, I, { 0.006f, 0.006f, 0.007f });
 
         // The cables: rubber, satin - a lot less of the wet coat than the glossy knobs
         {
@@ -2598,6 +2790,9 @@ namespace pad
             for (int i = 0; i < meshes.numAudioCables; ++i)
                 draw (meshes.audioCables[(size_t) i], I, { 0.020f, 0.020f, 0.022f });
             draw (meshes.powerCables, I, { 0.030f, 0.030f, 0.032f });
+            draw (designedJackCables, I, { 0.022f, 0.022f, 0.024f });
+            draw (cableLips, I, { 0.018f, 0.018f, 0.020f });   // rubber brush lips down each cheek
+            draw (grommet, I, { 0.020f, 0.020f, 0.022f });
             draw (meshes.xlrBarrels, I, { 0.035f, 0.035f, 0.038f });
             draw (meshes.loosePlug, I, { 0.030f, 0.030f, 0.032f });
             draw (meshes.wallPlug, I, { 0.030f, 0.030f, 0.032f });

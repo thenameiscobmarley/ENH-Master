@@ -1,4 +1,5 @@
 #include "PanelArtwork.h"
+#include "DesignedLayout.h"
 #include "DeviceLayout.h"
 #include <string_view>
 
@@ -638,16 +639,17 @@ namespace pad::artwork
     RawTexture renderVuFace (int unit, int width, TextRegistry* registry, int meter)
     {
         const float halfW = vuHalfW (unit);
+        const float vuHalfH = vuHalfHFor (unit);   // (this unit's card)
         const int w = width, h = juce::jmax (8, juce::roundToInt ((float) width * vuHalfH / halfW));
         juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Image red (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
 
         // Full scale: the compressor's GR 0-12, the leveler's lift 0-18, the limiter's spectral cut 0-18
         // (RANGE + headroom protection) and its broadband protection 0-12
-        const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1);
+        const bool twelve = unit == tideUnit || (unit == limiterUnit && meter == 1) || unit == takebackUnit;   // (TAKEBACK: its lift / cut and its match)
         const bool thirtySix = unit == radarUnit;   // STEP LIFT: BOOST goes to 34 dB
         const bool lufs = unit == monitorUnit || unit == levelUnit || unit == deepUnit || unit == lunchboxUnit;   // -40 .. 0 (LUFS on MONITOR, dBFS RMS on LEVEL's INPUT and DEEP SUB)
-        const bool sixty = unit == characterUnit;   // -60 .. 0: CHARACTER's harmonics against the signal (-20 = 10 %)
+        const bool sixty = unit == characterUnit || unit == x4Unit;   // (PRO X4: its harmonic density, the same scale)   // -60 .. 0: CHARACTER's harmonics against the signal (-20 = 10 %)
         const float scale = (float) w / (2.0f * halfW);           // pixels per panel unit
         const juce::Point<float> pivot (0.5f * (float) w, (vuHalfH + vuHalfH * hwk::models::vuPivotDrop) * scale);
         const float arcR = vuHalfH * hwk::models::vuArcRadius * scale;
@@ -717,7 +719,10 @@ namespace pad::artwork
         }
 
         // Caption low on the card, where the needle never covers it
-        const auto caption = unit == tideUnit ? juce::String ("GAIN REDUCTION   dB")
+        static const char* const tbCaptions[4] { "IN   dB+", "IN   dB-", "OUT   dB+", "OUT   dB-" };
+        const auto caption = unit == x4Unit ? juce::String ("DENSITY   dB+") : unit == velvetUnit ? juce::String ("VELVET   dB+")
+                           : unit == takebackUnit ? juce::String (tbCaptions[std::clamp (meter, 0, 3)])
+                           : unit == tideUnit ? juce::String ("GAIN REDUCTION   dB")
                            : unit == limiterUnit ? juce::String (meter == 0 ? "CUT   dB" : "BROADBAND   dB")
                            : unit == monitorUnit ? juce::String ("LUFS") : unit == levelUnit ? juce::String ("INPUT   dBFS")
                            : unit == deepUnit ? juce::String ("SUB   dBFS")
@@ -732,7 +737,7 @@ namespace pad::artwork
 
         if (registry != nullptr)
             for (int i = 0; i < numVus (unit); ++i)
-                if ((unit != limiterUnit && unit != monitorUnit) || i == meter)   // meters with faces of their own
+                if ((unit != limiterUnit && unit != monitorUnit && unit != takebackUnit) || i == meter)   // meters with faces of their own
                     registry->push_back ({ unit, vuX (unit, i), vuZ (unit, i) + vuHalfH * 0.52f,
                                            vuHalfW (unit) * 0.6f, vuHalfH * 0.14f, caption, -1, -1 });
 
@@ -1093,6 +1098,194 @@ namespace pad::artwork
         RawTexture tex { w, h, 1, {} };
         tex.pixels.assign ((size_t) (w * h), 0);
         copyChannel (img, tex, 0);
+        return tex;
+    }
+
+    //==============================================================================
+    namespace
+    {
+        const auto& designedPrint (int unit)
+        {
+            static const std::vector<designed::Print> none;
+            static const std::vector<designed::Print> x4 (designed::x4Print.begin(), designed::x4Print.end());
+            static const std::vector<designed::Print> vel (designed::velPrint.begin(), designed::velPrint.end());
+            static const std::vector<designed::Print> tb (designed::tbPrint.begin(), designed::tbPrint.end());
+            return unit == x4Unit ? x4 : unit == velvetUnit ? vel : unit == takebackUnit ? tb : none;
+        }
+
+        struct DesignedLook { const char* name; const char* model; const char* sub; };
+        DesignedLook designedLook (int unit)
+        {
+            return unit == x4Unit ? DesignedLook { "LATINSPHIEL PRO X4", "PRO X4", "BY LATINSPHIEL AUDIO" }
+                 : unit == takebackUnit ? DesignedLook { "TAKEBACK", "BLONDEX", "BY TEXAS STUDIOS" }
+                                        : DesignedLook { "VELVETIZER", "BSK-14D1", "BY KHRIS'S AUDIO" };
+        }
+
+        juce::String scaleNumber (float v)
+        {
+            const float a = std::abs (v);
+            if (a >= 10.0f || std::abs (v - std::round (v)) < 1.0e-3f)
+                return juce::String (juce::roundToInt (v));
+            return juce::String (v, 1);
+        }
+    }
+
+    RawTexture renderDesignedDecal (int unit, int textureWidth, TextRegistry* registry)
+    {
+        recorder = { registry, unit, -1, -1 };
+        const int w = textureWidth;
+        const float halfH = unitHalfH (unit);
+        const int h = juce::roundToInt ((float) textureWidth * halfH / faceHalfW);
+        const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * halfH), halfH };
+        const float mmX = 2.0f * faceHalfW / 482.6f, mmZ = 2.0f * halfH / (44.45f * (float) unitU (unit));   // one millimetre
+        juce::Image ink (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
+        juce::Graphics g (ink);
+        g.setColour (juce::Colours::white);
+        const auto centred = juce::Justification::horizontallyCentred;
+        const auto left = juce::Justification::left;
+
+        // The maker's block, top left inside the ears (where the designer puts it)
+        {
+            const auto look = designedLook (unit);
+            const float x0 = -faceHalfW + 23.0f * mmX;
+            text (g, m, look.name, x0, -halfH + 9.0f * mmZ, 4.4f * mmX, left, true, 0.20f, 1.4f);
+            text (g, m, juce::String ("MODEL ") + look.model, x0, -halfH + 14.5f * mmZ, 2.3f * mmX, left, false, 0.15f, 1.0f);
+            text (g, m, look.sub, x0, -halfH + 19.0f * mmZ, 2.1f * mmX, left, false, 0.15f, 1.2f);
+        }
+
+        for (const auto& p : designedPrint (unit))
+        {
+            switch (p.kind)
+            {
+                case 'K':
+                {
+                    const float r = p.w;   // the knob's radius on the panel
+                    const auto* spec = pad::params::findSpec (p.param);
+                    const bool selector = spec != nullptr && spec->kind == pad::params::Kind::choice;
+                    float labelR = r * 1.2f;
+                    if (selector)
+                    {
+                        // Six colours round three quarters of a turn (as CHARACTER's models): a dot, the name
+                        const int n = spec->texts.size();
+                        for (int k = 0; k < n; ++k)
+                        {
+                            const float angle = characterSelectorAngle ((float) k / (float) std::max (1, n - 1));
+                            const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                            const float rd = r * 1.25f, rr = r * 1.25f + 0.07f;
+                            g.fillEllipse (m.rect (p.x + dir.x * rd - 0.008f, p.z + dir.y * rd - 0.008f, p.x + dir.x * rd + 0.008f, p.z + dir.y * rd + 0.008f));
+                            text (g, m, spec->texts[k].toUpperCase(), p.x + dir.x * rr, p.z + dir.y * rr, 0.016f, centred, true, 0.04f, 0.15f);
+                        }
+                        labelR = r * 1.25f + 0.12f;
+                    }
+                    else if (p.nums != 3 && spec != nullptr)
+                    {
+                        // Ticks round the knob, numbered as the design has them (every step, the ends, or none)
+                        const int steps = std::max (2, p.steps);
+                        const int half = steps % 2 == 0 ? steps / 2 : -1;
+                        for (int i = 0; i <= steps; ++i)
+                        {
+                            const float t = (float) i / (float) steps;
+                            const float angle = knobAngleForValue (t);
+                            const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
+                            const bool major = i == 0 || i == steps || i == half;
+                            const float r0 = r * 1.18f, r1 = r * (major || p.nums == 1 ? 1.38f : 1.30f);
+                            g.drawLine (juce::Line<float> (m.px (p.x + dir.x * r0), m.pz (p.z + dir.y * r0), m.px (p.x + dir.x * r1), m.pz (p.z + dir.y * r1)),
+                                        m.len (major ? 0.0055f : 0.0035f));
+                            if (p.nums == 2 || (p.nums == 0 && ! major))
+                                continue;
+                            const float v = spec->minValue + (spec->maxValue - spec->minValue) * t;
+                            const float size = r * (p.nums == 1 ? std::max (0.15f, std::min (0.24f, 2.4f / (float) steps)) : 0.24f);
+                            text (g, m, scaleNumber (v), p.x + dir.x * r * 1.62f, p.z + dir.y * r * 1.62f, size, centred, false, 0.0f, 0.1f);
+                        }
+                        labelR = r * 1.62f;
+                    }
+                    // Its name under it; a band's DRIVE also carries the band over it
+                    text (g, m, p.text, p.x, p.z + labelR + 3.0f * mmZ, 2.6f * mmX, centred, true, 0.12f, 0.3f);
+                    if (juce::String (p.param).endsWith ("Drive"))
+                    {
+                        const int band = juce::String (p.param).substring (3, 4).getIntValue();
+                        static const char* names[] { "LOW", "LO MID", "HI MID", "HIGH" };
+                        text (g, m, names[juce::jlimit (1, 4, band) - 1], p.x, p.z - r * 1.62f - 3.2f * mmZ, 2.8f * mmX, centred, true, 0.16f, 0.3f);
+                    }
+                    break;
+                }
+                case 'T': text (g, m, p.text, p.x, p.z + 12.0f * mmZ, 2.5f * mmX, centred, true, 0.10f, 0.2f); break;
+                case 'U': text (g, m, p.text, p.x, p.z + p.h + 4.0f * mmZ, 2.5f * mmX, centred, true, 0.10f, 0.2f); break;
+                case 'E': if (juce::String (p.text).isNotEmpty()) text (g, m, p.text, p.x, p.z + p.w + 4.0f * mmZ, 2.2f * mmX, centred, true, 0.08f, 0.2f); break;
+                case 'J': text (g, m, p.text, p.x, p.z + p.w + 3.5f * mmZ, 2.2f * mmX, centred, true, 0.08f, 0.25f); break;
+                case 'L':
+                    text (g, m, p.text, p.align < 0 ? p.x - 0.5f * p.w : p.align > 0 ? p.x + 0.5f * p.w : p.x, p.z, p.size,
+                          p.align < 0 ? left : p.align > 0 ? juce::Justification::right : centred, p.flag != 0, 0.14f, p.w);
+                    break;
+                case 'B':
+                {
+                    const auto box = m.rect (p.x - 0.5f * p.w, p.z - 0.5f * p.h, p.x + 0.5f * p.w, p.z + 0.5f * p.h);
+                    g.drawRoundedRectangle (box, m.len (p.size), m.len (0.005f));
+                    if (juce::String (p.text).isNotEmpty())
+                    {
+                        const auto font = makeFont (m.len (2.5f * mmX), true, 0.30f);
+                        const float tw = juce::GlyphArrangement::getStringWidth (font, p.text);
+                        g.setColour (juce::Colours::black);   // the border breaks where the title sits
+                        g.fillRect (juce::Rectangle<float> (box.getCentreX() - 0.5f * tw - m.len (0.02f), box.getY() - m.len (0.012f), tw + m.len (0.04f), m.len (0.024f)));
+                        g.setColour (juce::Colours::white);
+                        text (g, m, p.text, p.x, p.z - 0.5f * p.h, 2.5f * mmX, centred, true, 0.30f, 0.0f);
+                    }
+                    break;
+                }
+                case 'N': g.fillRect (m.rect (p.x - 0.5f * p.w, p.z - 0.5f * p.h, p.x + 0.5f * p.w, p.z + 0.5f * p.h)); break;
+                case 'V':
+                {
+                    const int n = std::max (2, p.steps);
+                    const float sw = p.w / (float) n;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float x0 = p.x - 0.5f * p.w + (float) i * sw + 0.25f * sw;
+                        g.drawRoundedRectangle (m.rect (x0, p.z - 0.5f * p.h, x0 + 0.5f * sw, p.z + 0.5f * p.h), m.len (0.25f * sw), m.len (0.004f));
+                    }
+                    break;
+                }
+                case 'D':
+                    g.drawRoundedRectangle (m.rect (p.x - 0.5f * p.w - 0.012f, p.z - 0.5f * p.h - 0.012f, p.x + 0.5f * p.w + 0.012f, p.z + 0.5f * p.h + 0.012f),
+                                            m.len (0.02f), m.len (0.005f));
+                    break;
+                default: break;   // screws, meters: modelled
+            }
+        }
+        RawTexture tex { w, h, 1, {} };
+        tex.pixels.assign ((size_t) (w * h), 0);
+        copyChannel (ink, tex, 0);
+        return tex;
+    }
+
+    RawTexture renderDesignedScreens (int unit, int textureWidth)
+    {
+        const int w = textureWidth;
+        const float halfH = unitHalfH (unit);
+        const int h = juce::roundToInt ((float) textureWidth * halfH / faceHalfW);
+        const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * halfH), halfH };
+        const float mmX = 2.0f * faceHalfW / 482.6f, mmZ = 2.0f * halfH / (44.45f * (float) unitU (unit));
+        juce::Image glow (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
+        juce::Graphics g (glow);
+        g.setColour (juce::Colours::white);
+        for (const auto& p : designedPrint (unit))
+        {
+            if (p.kind != 'D')
+                continue;
+            // What the design shows in it: its title, and a trace across it
+            const juce::String title = unit == x4Unit ? juce::String ("PID   PV / SP") : juce::String (p.text);
+            text (g, m, title, p.x - 0.5f * p.w + 3.0f * mmX, p.z - 0.5f * p.h + 3.5f * mmZ, 2.4f * mmX, juce::Justification::left, true, 0.10f, p.w);
+            juce::Path trace;
+            for (int i = 0; i <= 60; ++i)
+            {
+                const float x = p.x - 0.5f * p.w + 3.0f * mmX + (p.w - 6.0f * mmX) * (float) i / 60.0f;
+                const float z = p.z + std::sin ((float) i * 0.45f) * std::cos ((float) i * 0.11f) * p.h * 0.22f;
+                if (i == 0) trace.startNewSubPath (m.px (x), m.pz (z)); else trace.lineTo (m.px (x), m.pz (z));
+            }
+            g.strokePath (trace, juce::PathStrokeType (m.len (0.006f)));
+        }
+        RawTexture tex { w, h, 1, {} };
+        tex.pixels.assign ((size_t) (w * h), 0);
+        copyChannel (glow, tex, 0);
         return tex;
     }
 }

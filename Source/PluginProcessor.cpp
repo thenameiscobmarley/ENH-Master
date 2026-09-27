@@ -62,6 +62,11 @@ PluginProcessor::PluginProcessor()
     lbHarshSpeed  = state.getRawParameterValue (id::lbHarshSpeed);
     lbFeedIn      = state.getRawParameterValue (id::lbFeedIn);
     lbFeedAmount  = state.getRawParameterValue (id::lbFeedAmount);
+    for (int i = 0; i < enh::dsp::designed::numParams; ++i)
+    {
+        const auto& d = enh::dsp::designed::params[(size_t) i];
+        designedParams[(size_t) i] = state.getRawParameterValue (juce::String (d.id.data(), d.id.size()));
+    }
     charActive    = state.getRawParameterValue (id::charActive);
     abCompare     = state.getRawParameterValue (id::abCompare);
     charGrit      = state.getRawParameterValue (id::charGrit);
@@ -196,8 +201,12 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.lbHarshSpeed   = lbHarshSpeed->load();
     k.lbFeedIn       = lbFeedIn->load() > 0.5f;
     k.lbFeedAmount   = lbFeedAmount->load();
+    for (int i = 0; i < enh::dsp::designed::numParams; ++i)
+        if (designedParams[(size_t) i] != nullptr)
+            k.designed[(size_t) i] = designedParams[(size_t) i]->load();
     k.charActive     = charActive->load() > 0.5f;
     k.compare        = abCompare->load() > 0.5f;
+    k.stored         = storedUnits.load (std::memory_order_relaxed);
     k.charGrit       = charGrit->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
@@ -333,6 +342,13 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
             }
             knobModifiers.loadFrom (state.state);
             currentPreset = juce::jlimit (0, getNumPrograms() - 1, (int) state.state.getProperty ("preset", 0));
+            // THE GEAR LOCKER (a session saved before it existed: the rack as it was, the designed units stored)
+            // A unit added to the plugin after the session was saved starts in the locker, like a new one
+            unsigned stored = (unsigned) (int) state.state.getProperty ("lockerStored", (int) enh::dsp::rack::defaultStored);
+            const int knewUnits = (int) state.state.getProperty ("lockerUnits", enh::dsp::rack::takeback);   // (TAKEBACK came after the first locker)
+            for (int u = std::max (0, knewUnits); u < enh::dsp::rack::numUnits; ++u)
+                stored |= enh::dsp::rack::defaultStored & (1u << u);
+            storedUnits.store (stored, std::memory_order_relaxed);
         }
 }
 

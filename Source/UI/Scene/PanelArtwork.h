@@ -33,6 +33,10 @@ namespace pad::artwork
         RawTexture levelDecal, balancerDecal, monitorDecal;           // LEVEL (1U), MIX BALANCER (4U), MONITOR (3U)
         RawTexture levelVuFace, monitorVuFace[2];                     // INPUT; MOMENTARY and SHORT-TERM
         RawTexture monitorLabels, balancerLabels;                     // print inside their displays
+        RawTexture x4Decal, x4VuFace, x4Screens;                      // LATINSPHIEL PRO X4 (designed): print, dB+ meter, display
+        RawTexture velvetDecal, velvetVuFace, velvetScreens;          // VELVETIZER (designed)
+        RawTexture takebackDecal, takebackScreens;                    // TAKEBACK (designed): print, display
+        std::array<RawTexture, 4> takebackVuFace;                     //   and its four meters' dials
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */
@@ -57,6 +61,10 @@ namespace pad::artwork
     /** One of the 1U panels (compressor, leveler, spectral limiter): print, scales with numbers, and its place in the chain. */
     RawTexture renderOneUDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
     RawTexture renderLunchboxDecal (int textureWidth, TextRegistry* registry = nullptr);
+    /** A designed unit's panel print (DesignedLayout.h), and what glows in its displays (one channel, the
+        whole panel's area: the renderer's screens read their part of it). */
+    RawTexture renderDesignedDecal (int unit, int textureWidth, TextRegistry* registry = nullptr);
+    RawTexture renderDesignedScreens (int unit, int textureWidth);
 
     /** Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window). */
     RawTexture renderWindowLabels (int unit, int width, TextRegistry* registry = nullptr, const juce::String& readout = {},

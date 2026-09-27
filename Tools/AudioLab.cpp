@@ -446,6 +446,7 @@ namespace lab
             for (auto& s : setup.sets)
                 if (s.first == spec.id) v = s.second;
             const bool on = v > 0.5f;
+            if (const int d = enh::dsp::designed::indexOf (spec.id.toStdString()); d >= 0) { k.designed[(size_t) d] = v; continue; }
             // Continuous knobs
             bool done = false;
             for (auto& f : enh::dsp::knobFields)

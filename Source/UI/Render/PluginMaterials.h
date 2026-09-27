@@ -11,7 +11,7 @@ namespace pad::shaders
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
         paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
         waveScreen, balancerDisplay, present, wood,
-        glassPanel, blurPass, outlineFrame, outlineHull, studioWall,
+        glassPanel, blurPass, outlineFrame, outlineHull, studioWall, designedScreen,
         numMaterials
     };
 
@@ -445,6 +445,17 @@ namespace pad::shaders
     col = c * c * 0.6 * uParams2.x;   // uParams2.x: dimmer as you walk up to a unit (the room falls away)
 )GLSL" };
 
+    /*  A designed unit's display (the PRO X4's, the VELVETIZER's): its screen glowing in its own colour, what
+        it shows read from the unit's screen mask (the whole panel's area: uParams = its rect, as the print's).
+        uBaseColor = the dark glass, uEmissive = the display's colour. */
+    inline const hwk::shaders::Material designedScreenMaterial { "designedScreen", R"GLSL(
+    vec2 uv = (vLocal.xz - uParams.xy) / uParams.zw;
+    float lit = texture (uTex, uv).r;
+    float scan = 0.94 + 0.06 * sin (gl_FragCoord.y * 3.14159);
+    col = uBaseColor + uEmissive * (0.10 + 1.40 * lit) * scan;
+    col += envColor (R) * (0.03 + 0.20 * pow (facing, 4.0));
+)GLSL" };
+
     /** The clear coat each surface gets (HardwareKit's uCoat / uCoatLod): how wet it looks, and how sharp
         the room is in it (the room map's mip level). Glass and glossy knobs mirror it crisply; brushed
         metal only has a soft sheen of it; prints, shadows and glows get none. */
@@ -464,7 +475,8 @@ namespace pad::shaders
             case display:
             case seraphDisplay:
             case balancerDisplay:
-            case waveScreen:      return { 0.50f, 0.0f };   // behind a glass window
+            case waveScreen:
+            case designedScreen:  return { 0.50f, 0.0f };   // behind a glass window
             case recess:          return { 0.30f, 0.6f };
             default:              return { 0.0f, 0.0f };
         }
@@ -504,6 +516,7 @@ namespace pad::shaders
             case lens:          return lib::magnifierLens;
             case sunlight:      return lib::windowLight;
             case studioWall:    return studioWallMaterial;
+            case designedScreen: return designedScreenMaterial;
             default:            return lib::plastic;
         }
     }

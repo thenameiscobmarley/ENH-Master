@@ -1,4 +1,5 @@
 #include "GeometryFactory.h"
+#include "DesignedLayout.h"
 #include <algorithm>
 
 namespace pad::geo
@@ -592,7 +593,7 @@ namespace pad::geo
     {
         std::vector<Rect> holes;
         for (int i = 0; i < numVus (unit); ++i)
-            holes.push_back ({ vuX (unit, i), vuZ (unit, i), vuHalfW (unit), vuHalfH });
+            holes.push_back ({ vuX (unit, i), vuZ (unit, i), vuHalfW (unit), vuHalfHFor (unit) });
         for (auto& w : outboardWindows (unit))
             holes.push_back (w);
         for (auto& slot : outboardEarSlots (unit))
@@ -878,6 +879,37 @@ namespace pad::geo
         }
         float wander (int i, float t) { return 0.035f * std::sin (2.3f * (float) i + 7.0f * t) + 0.02f * std::sin (1.1f * (float) i + 13.0f * t); }
 
+        // --- Cable management: channels down the front of both cheeks, a grommet in the right cheek's side ---
+        constexpr float channelDx = 0.14f, channelHalfW = 0.05f;   // across the cheek's front face, from its inner edge
+
+        /** Where a unit's panel point (x across, y out, z down) is on the case's arc: (s along it, out). */
+        std::pair<float, float> arcOfPanel (int unit, float y, float z) { return { unitArcPos (unit) - z, y - unitRecess }; }
+
+        /** A cable from `from` (world), at arc height s, sideways into the channel on `side` (+1 right, -1 left):
+            straight out of what it plugs into, across just in front of the panels (a little sag), then back
+            into the channel's rubber lips. `lane` spreads parallel cables so they lie side by side. */
+        std::vector<Vec3> intoChannel (Vec3 from, Vec3 outward, float s, float side, float lane, float minOut = 0.0f)
+        {
+            const float xc = side * (caseSideX + channelDx);
+            // (always in front of whatever it plugs into - a plug stands out further than the cheeks do)
+            const auto front = arcPoint (s, std::max (caseFront + 0.07f, minOut) + lane);
+            const auto lip = arcPoint (s, caseFront + 0.004f), inside = arcPoint (s, caseFront - 0.05f);
+            const Vec3 a = from, b = from + outward * (0.05f + lane);
+            const float midX = 0.5f * (b.x + xc);
+            return { a, b,
+                     { midX, 0.5f * (b.y + front.y) - 0.02f - 0.4f * lane, 0.5f * (b.z + front.z) },
+                     { xc - side * 0.07f, front.y, front.z },
+                     { xc, lip.y, lip.z },
+                     { xc, inside.y, inside.z } };
+        }
+
+        /** The grommet in the right cheek's outer face, where the LUNCHBOX's cables leave the case. */
+        Vec3 grommetAt()
+        {
+            const auto p = arcPoint (0.30f * totalArcLength(), -0.30f);
+            return { caseSideX + caseCheekW, p.y, p.z };
+        }
+
         /** Cable i: from behind the case, out past its right cheek, across the floor to the LUNCHBOX's stand and
             up its back, where an XLR plugs it in. */
         std::vector<Vec3> floorRun (int i, int n, float floorY)
@@ -887,22 +919,26 @@ namespace pad::geo
             const auto [dz, dy] = bundleSlot (i);
             const float y = floorY + cableR + dy;
             const float zBack = bottom.z - 0.70f + dz;
-            const float xOut = caseSideX + caseCheekW;
-            std::vector<Vec3> pts { { caseSideX - 0.60f, y, zBack }, { xOut + 0.10f, y, zBack + wander (i, 0.1f) } };
+            juce::ignoreUnused (y, zBack);
+            // Out of the grommet in the right cheek's side and across to the LUNCHBOX's back in one loose span:
+            // no trailing across the floor (the grommet keeps them off it)
+            const auto g = grommetAt();
+            const Vec3 g0 { g.x - 0.10f, g.y + 0.6f * dy, g.z + 0.6f * dz }, g1 { g.x + 0.08f, g.y + 0.6f * dy, g.z + 0.6f * dz };
+            std::vector<Vec3> pts { g0, g1 };
             if (isShown (lunchboxUnit))
             {
                 const auto lb = unitOrigin (lunchboxUnit);
                 const float xl = lb.x - lbHalfW + 0.30f + 0.11f * (float) i;   // each to its own input, left to right
-                const float zStand = lb.z - 1.02f;
-                pts.push_back ({ xOut + 0.60f, y, zBack + 0.10f + wander (i, 0.4f) });
-                pts.push_back ({ 0.5f * (xOut + xl), y, 0.5f * (zBack + zStand) + wander (i, 0.7f) });
-                pts.push_back ({ xl, floorY + cableR, zStand - 0.10f });
-                pts.push_back ({ xl, floorY + 0.30f, zStand + 0.02f });
-                pts.push_back ({ xl, lb.y - lbHalfH - 0.10f, lb.z - 0.86f });
-                pts.push_back ({ xl, lb.y - lbHalfH + 0.12f, lb.z - 0.80f });   // up to the XLR on the frame's back
+                const Vec3 end { xl, lb.y - lbHalfH + 0.12f, lb.z - 0.80f };
+                const Vec3 below { xl, lb.y - lbHalfH - 0.14f, lb.z - 0.86f };
+                pts.push_back ({ g1.x + 0.25f, g1.y - 0.10f + wander (i, 0.3f), g1.z + dz });
+                pts.push_back ({ 0.5f * (g1.x + xl), std::min (g1.y, below.y) - 0.22f + wander (i, 0.6f), 0.5f * (g1.z + below.z) + wander (i, 0.8f) });
+                pts.push_back (below);
+                pts.push_back (end);   // up to the XLR on the frame's back
             }
             else
-                pts.push_back ({ xOut + 2.5f, y, zBack - 0.4f });
+                pts.push_back ({ g1.x + 0.6f, g1.y - 0.15f, g1.z });
+            juce::ignoreUnused (floorY);
             return pts;
         }
     }
@@ -973,46 +1009,46 @@ namespace pad::geo
         constexpr float r = 0.030f;
         // Out of each plug on the strip's front, drooping to the floor in front of the plinth, along it to the
         // right and round the cheek to the back (the rack's units are fed from behind)
+        // Out of each plug, a short turn down and across in front of the plugs (a loom, side by side) into the
+        // cable channel down the right cheek: nothing drooping to the floor
         int k = 0;
+        const auto [sStrip, outStrip] = arcOfPanel (powerUnit, plugTip, stripOutletZ);
+        juce::ignoreUnused (outStrip, strip, xOut);
         for (int i = 0; i < stripOutlets; ++i)
         {
             if (! stripPlugged[(size_t) i])
                 continue;
             const float x = stripOutletX (i);
-            // straight out of the plug toward the room, then a soft droop down in front of the plinth
             const Vec3 a = stripPanel.transformPoint ({ x, plugTip, stripOutletZ });
-            Vec3 out = stripPanel.transformPoint ({ x, plugTip + 1.0f, stripOutletZ }) - a;
-            out.y = 0.0f;   // the strip's face tilts up on the arc: the cord leaves level, then droops
-            out = normalise (out);
-            const Vec3 b = a + out * 0.08f + Vec3 { 0.0f, -0.02f, 0.0f };
-            // (clear of the plinth: out past its front board before dropping)
-            const Vec3 c = a + out * 0.26f + Vec3 { 0.0f, -0.14f, 0.0f };
-            const Vec3 d = a + out * 0.42f + Vec3 { 0.0f, -0.55f * (a.y - floorY), 0.0f };
-            const float zf = a.z + 0.62f + 0.06f * (float) k;
-            const bool toLunchbox = i == 6 && isShown (lunchboxUnit);
-            std::vector<Vec3> pts { a, b, c, d, { x + 0.03f, floorY + r, zf - 0.04f }, { x + 0.28f, floorY + r, zf } };
-            if (toLunchbox)
-            {
-                const auto lb = unitOrigin (lunchboxUnit);
-                pts.push_back ({ xOut + 0.30f, floorY + r, zf + 0.05f });
-                pts.push_back ({ lb.x + lbHalfW - 0.10f, floorY + r, lb.z - 0.30f });
-                pts.push_back ({ lb.x + lbHalfW - 0.30f, floorY + r, lb.z - 1.00f });
-                pts.push_back ({ lb.x + lbHalfW - 0.30f, lb.y - lbHalfH - 0.25f, lb.z - 1.00f });
-                pts.push_back ({ lb.x + lbHalfW - 0.30f, lb.y - 0.20f, lb.z - 0.82f });
-            }
-            else
-            {
-                pts.push_back ({ xOut + 0.12f + 0.06f * (float) k, floorY + r, zf - 0.08f });
-                pts.push_back ({ xOut + 0.14f + 0.06f * (float) k, floorY + r, strip.z - 0.40f });
-                pts.push_back ({ caseSideX - 0.40f, floorY + r + 0.03f * (float) k, strip.z - 0.80f });
-            }
-            mesh.append (tubeAlong (pts, r, 10));
+            const Vec3 outward = normalise (stripPanel.transformPoint ({ x, plugTip + 1.0f, stripOutletZ }) - a);
+            // (the strip's face tilts up at the bottom of the arc: each cord leaves its plug, falls below the plugs,
+            // then runs across as a loom, side by side, into the channel)
+            const Vec3 b = a + outward * 0.07f;
+            const Vec3 c { b.x + 0.01f, b.y - 0.27f - 0.028f * (float) k, b.z + 0.05f + 0.02f * (float) k };   // under the strip's edge
+            const Vec3 bc { 0.5f * (b.x + c.x), b.y - 0.10f, b.z + 0.05f };                                  // (a rounded bend)
+            const float sCh = sStrip - 0.45f - 0.035f * (float) k;
+            const float xc = caseSideX + channelDx;
+            const auto lip = arcPoint (sCh, caseFront + 0.004f), inside = arcPoint (sCh, caseFront - 0.05f);
+            mesh.append (tubeAlong ({ a, b, bc, c, { 0.5f * (c.x + xc), c.y - 0.03f, c.z },
+                                      { xc - 0.08f, 0.5f * (c.y + lip.y), std::max (c.z, lip.z + 0.06f) },
+                                      { xc, lip.y, lip.z }, { xc, inside.y, inside.z } }, r, 10));
             ++k;
+        }
+        // The LUNCHBOX's mains: out of the grommet and across to its frame, beside the audio cables
+        if (isShown (lunchboxUnit))
+        {
+            const auto g = grommetAt();
+            const auto lb = unitOrigin (lunchboxUnit);
+            const Vec3 end { lb.x + lbHalfW - 0.30f, lb.y - 0.20f, lb.z - 0.82f };
+            mesh.append (tubeAlong ({ { g.x - 0.10f, g.y - 0.10f, g.z - 0.10f }, { g.x + 0.08f, g.y - 0.10f, g.z - 0.10f },
+                                      { 0.5f * (g.x + end.x), std::min (g.y, end.y) - 0.30f, 0.5f * (g.z + end.z) - 0.1f },
+                                      { end.x, end.y - 0.25f, end.z - 0.05f }, end }, r, 10));
         }
         // The strip's own cord: from its plug in the wall socket, down the wall, across the floor behind the case
         {
             const float wallZ = arcCentreZ - arcRadius - 2.2f;
-            const float wx = -caseSideX - 1.10f, wy = floorY + 0.62f - 1.5f * inch;
+            // (out of the plug in the UPPER receptacle - wallPlug(): the plate's frame turns its -z up the wall)
+            const float wx = -caseSideX - 1.10f, wy = floorY + 0.62f + 1.5f * inch;
             mesh.append (tubeAlong ({ { wx, wy, wallZ + 0.036f + plugTip },
                                       { wx, wy - 0.06f, wallZ + plugTip + 0.10f },
                                       { wx + 0.04f, floorY + 0.034f, wallZ + 0.45f },
@@ -1184,4 +1220,107 @@ namespace pad::geo
     }
 
     MeshData wallOutlet() { return {}; }
+
+    //==============================================================================
+    // Cable management: a channel down the front of each cheek (rubber lips over a dark slot), and a grommet in
+    // the right cheek's side where the LUNCHBOX's cables leave the case
+    MeshData cableChannelSlots()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang + 0.10f, s1 = totalArcLength() + caseOverhang - 0.10f;
+        for (float side : { -1.0f, 1.0f })
+            for (int i = 0; i < caseArcSteps; ++i)
+            {
+                const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps, sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
+                const auto a = arcPoint (sA, caseFront + 0.0015f), b = arcPoint (sB, caseFront + 0.0015f);
+                const float x0 = side * (caseSideX + channelDx - channelHalfW), x1 = side * (caseSideX + channelDx + channelHalfW);
+                mesh.append (quad ({ x0, a.y, a.z }, { x1, a.y, a.z }, { x1, b.y, b.z }, { x0, b.y, b.z }));
+            }
+        return mesh;
+    }
+
+    MeshData cableChannelLips()
+    {
+        MeshData mesh;
+        const float s0 = -caseOverhang + 0.10f, s1 = totalArcLength() + caseOverhang - 0.10f;
+        constexpr float lipW = 0.036f, gap = 0.014f;
+        for (float side : { -1.0f, 1.0f })
+            for (float lip : { -1.0f, 1.0f })
+            {
+                const float xa = side * (caseSideX + channelDx + lip * gap), xb = side * (caseSideX + channelDx + lip * (gap + lipW));
+                for (int i = 0; i < caseArcSteps; ++i)
+                {
+                    const float sA = s0 + (s1 - s0) * (float) i / (float) caseArcSteps, sB = s0 + (s1 - s0) * (float) (i + 1) / (float) caseArcSteps;
+                    // each lip rounds up from the slot's edge to its lip: a soft rubber brush seal
+                    const auto aIn = arcPoint (sA, caseFront + 0.006f), bIn = arcPoint (sB, caseFront + 0.006f);
+                    const auto aOut = arcPoint (sA, caseFront + 0.003f), bOut = arcPoint (sB, caseFront + 0.003f);
+                    mesh.append (quad ({ xa, aIn.y, aIn.z }, { xb, aOut.y, aOut.z }, { xb, bOut.y, bOut.z }, { xa, bIn.y, bIn.z }));
+                }
+            }
+        return mesh;
+    }
+
+    MeshData cheekGrommet()
+    {
+        const auto g = grommetAt();
+        MeshData mesh;
+        mesh.append (lathe (0.13f, { { 0.0f, 0.0f }, { 0.0f, 0.010f }, { -0.025f, 0.016f }, { -0.045f, 0.012f }, { -0.05f, 0.0f } }, 32, false),
+                     Mat4::translation ({ g.x, g.y, g.z }) * Mat4::rotationZ (-0.5f * pi));
+        return mesh;
+    }
+
+    MeshData cheekGrommetHole()
+    {
+        const auto g = grommetAt();
+        MeshData mesh;
+        mesh.append (flatAnnulus (0.0f, 0.085f, 32), Mat4::translation ({ g.x + 0.002f, g.y, g.z }) * Mat4::rotationZ (-0.5f * pi));
+        return mesh;
+    }
+
+    namespace
+    {
+        std::vector<designed::Print> designedPrint (int unit)
+        {
+            if (unit == x4Unit) return { designed::x4Print.begin(), designed::x4Print.end() };
+            if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
+            if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
+            return {};
+        }
+    }
+
+    /** The designed units' jacks with a cable plugged in (all of them, as their designer asked): an XLR's
+        barrel on each (panel-local), and its cable across into the nearer cheek's channel (world). */
+    MeshData designedJackPlugs (int unit)
+    {
+        MeshData mesh;
+        const auto barrel = lathe (1.0f, { { -0.08f, 0.0f }, { -0.02f, 0.02f }, { 0.0f, 0.05f }, { 0.0f, 0.85f }, { -0.06f, 0.95f }, { -0.45f, 1.0f } }, 20, true);
+        for (const auto& p : designedPrint (unit))
+            if (p.kind == 'J')
+                mesh.append (barrel, Mat4::translation ({ p.x, 0.0f, p.z }) * Mat4::scale (p.w * 0.95f, 0.11f, p.w * 0.95f));
+        return mesh;
+    }
+
+    MeshData designedJackCables()
+    {
+        MeshData mesh;
+        for (int unit : designedUnits)
+        {
+            if (! isShown (unit))
+                continue;
+            const auto panel = panelToWorld (unit);
+            int k = 0;
+            for (const auto& p : designedPrint (unit))
+            {
+                if (p.kind != 'J')
+                    continue;
+                const auto [s, out] = arcOfPanel (unit, 0.11f, p.z);
+                juce::ignoreUnused (out);
+                const Vec3 a = panel.transformPoint ({ p.x, 0.10f, p.z });
+                const Vec3 outward = normalise (panel.transformPoint ({ p.x, 1.10f, p.z }) - a);
+                mesh.append (tubeAlong (intoChannel (a, outward, s, p.x < 0.0f ? -1.0f : 1.0f, 0.012f * (float) (k % 3)), 0.022f, 10));
+                ++k;
+            }
+        }
+        return mesh;
+    }
 }

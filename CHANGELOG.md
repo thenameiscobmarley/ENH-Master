@@ -5,6 +5,28 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.13.15 — your units in the rack, and a gear locker
+
+- **Three units designed in the Rack Unit Designer, now real units in the rack** (sound and 3D, built to
+  their panels):
+  - **LATINSPHIEL PRO X4** — a four-band valve enhancer per side (DRIVE, TONE, MIX per band), POPULATE,
+    SATURATE, WIDEN, CRISP, MONO and X2, and a **PID** that holds the harmonic density at the DRIVE
+    knobs' targets, so quiet passages are as rich as loud ones. See [PRO X4](Vault/Devices/LATINSPHIEL%20PRO%20X4.md).
+  - **VELVETIZER** — three bands of smoothing, GRAIN, CRISP, two colour models blended (tube, tape,
+    transformer, console, transistor, crystal), ADD or BALANCE. See [VELVETIZER](Vault/Devices/VELVETIZER.md).
+  - **TAKEBACK** — gives back what processing took: SHARPEN (attacks), BLUR, COLOR, RAW (a short room
+    bloom), SHINE (air rebuilt above 9 kHz), MIX, and AUTO, which measures how squashed and dull the sound
+    is and gives back that much. Four meters and six live LED ladders. See [TAKEBACK](Vault/Devices/TAKEBACK.md).
+  All three are level-matched, click-free and add no latency. A session saved before a unit existed opens
+  with that unit in the locker.
+- **Cable management:** channels down the front of both walnut cheeks, with rubber lips. The power cords
+  leave their plugs, drop under the strip and run as a loom into the channel (nothing droops to the floor);
+  every jack on the new units has its cable plugged in, running into the channel; the LUNCHBOX's cables
+  leave through a grommet in the right cheek and span across to it. The strip's own cord now comes out
+  of the plug in the upper wall socket (it came out of the empty lower one).
+- **Gear locker:** the rack holds 22U; store units you don't use (they stop processing) and install
+  others. Right-click the rack. Saved with the session. See [Gear locker](Vault/UI/Gear%20locker.md).
+
 ## 3.7.13.14 — easier on the ears, made for headphones
 
 - **Less fatiguing by default.** The UPWARD LEVELER lifted a mix's whole top end by itself - on music its

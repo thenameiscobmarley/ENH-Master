@@ -1,9 +1,19 @@
 #pragma once
 
 #include "EnhEngine.h"
+#include "DesignedUnits.h"
 
 namespace enh::dsp
 {
+    /** The rack's units by number (the UI's layout::Unit uses the same), for THE GEAR LOCKER. */
+    namespace rack
+    {
+        enum : int { enhancer = 0, toneSpace = 1, compressor = 2, leveler = 3, limiter = 4, level = 5, balancer = 6, monitor = 7,
+                     deepSub = 8, character = 9, radar = 10, power = 11, lunchbox = 12, x4 = 13, velvet = 14, takeback = 15, numUnits = 16 };
+        /** What the plugin starts with in the locker: the designed units (installed from the GEAR LOCKER). */
+        inline constexpr unsigned defaultStored = (1u << x4) | (1u << velvet) | (1u << takeback);
+    }
+
     /** Raw knob values exactly as the host / panel holds them (their own units), plus each device's
         MULTIPLY and STRENGTH. Kept free of JUCE parameters so the tests can exercise the mapping. */
     struct KnobValues
@@ -47,6 +57,13 @@ namespace enh::dsp
         float lbHpf = 0.0f, lbLowFreq = 1.0f, lbLowGain = 0.0f, lbMidFreq = 2.0f, lbMidGain = 0.0f, lbHighGain = 0.0f;
         float lbHarshAmount = 5.0f, lbHarshFreq = 1.0f, lbHarshSpeed = 30.0f, lbFeedAmount = 5.0f;
         bool compare = false;   // COMPARE (OUTPUT MONITOR)
+
+        // The designed units (PRO X4, VELVETIZER): their values in DesignedUnits.h's order
+        std::array<float, designed::numParams> designed = designed::defaults();
+
+        // THE GEAR LOCKER: a bit per unit in the locker (rack::): out of the rack, so out of the sound. (0 here:
+        // everything installed - the tests and EnhAudioLab run every unit; the plugin passes its own.)
+        unsigned stored = 0u;
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
 
@@ -98,8 +115,29 @@ namespace enh::dsp
         engine sees it, so 1.5x makes CLARITY 20 behave as 30. Values may go past a knob's printed end;
         each is clamped to what the processing can safely take. STRENGTH is passed through: it scales
         how hard the processing hits, inside the engine. */
-    inline EnhEngine::Parameters mapKnobs (const KnobValues& k) noexcept
+    /** A unit in the locker is out of the rack: switched out, whatever its knobs say (its settings are kept). */
+    inline KnobValues withLocker (KnobValues k) noexcept
     {
+        auto out = [&] (int u) { return ((k.stored >> u) & 1u) != 0u; };
+        if (out (rack::enhancer))   { k.enhStrength = 0.0f; k.subPercent = 0.0f; }
+        if (out (rack::toneSpace))  k.seraphMode = 0;
+        if (out (rack::compressor)) k.tideActive = false;
+        if (out (rack::leveler))    k.lumenActive = false;
+        if (out (rack::limiter))    k.spectralActive = false;
+        if (out (rack::level))      k.levelDb = 0.0f;
+        if (out (rack::balancer))   k.balActive = false;
+        if (out (rack::deepSub))    k.deepActive = false;
+        if (out (rack::character))  k.charActive = false;
+        if (out (rack::radar))      k.footstep = false;
+        if (out (rack::x4))         k.designed[(size_t) designed::x4Pwr] = 0.0f;
+        if (out (rack::velvet))     k.designed[(size_t) designed::velPower] = 0.0f;
+        if (out (rack::takeback))   k.designed[(size_t) designed::tbPower] = 0.0f;
+        return k;
+    }
+
+    inline EnhEngine::Parameters mapKnobs (const KnobValues& raw) noexcept
+    {
+        const KnobValues k = raw.stored != 0u ? withLocker (raw) : raw;
         EnhEngine::Parameters p;
 
         const float m = std::clamp (k.enhMultiply, 0.0f, maxMultiply);
@@ -229,6 +267,34 @@ namespace enh::dsp
             lb.harshSpeedMs = std::clamp (k.lbHarshSpeed, 10.0f, 200.0f);
             lb.feedIn       = k.lbFeedIn;
             lb.feedAmount   = std::clamp (k.lbFeedAmount, 0.0f, 10.0f);
+        }
+        {
+            // The designed units: each value clamped to its own range (DesignedUnits.h)
+            namespace du = designed;
+            auto v = [&] (int i) { const auto& d = du::params[(size_t) i]; return std::clamp (k.designed[(size_t) i], d.minValue, d.maxValue); };
+            auto on = [&] (int i) { return k.designed[(size_t) i] > 0.5f; };
+            auto& x = p.x4;
+            x.power = on (du::x4Pwr); x.mono = on (du::x4Mono); x.x2 = on (du::x4X2); x.pid = on (du::x4Pid);
+            x.p = v (du::x4P); x.i = v (du::x4I); x.d = v (du::x4D);
+            x.populate = v (du::x4Populate); x.saturate = v (du::x4Saturate); x.widen = v (du::x4Widen); x.crisp = v (du::x4Crisp);
+            for (int side = 0; side < 2; ++side)
+                for (int band = 0; band < ProX4::numBands; ++band)
+                {
+                    const int at = du::x4Bands + side * 12 + band * 3;
+                    x.side[(size_t) side].drive[(size_t) band]  = v (at);
+                    x.side[(size_t) side].toneDb[(size_t) band] = v (at + 1);
+                    x.side[(size_t) side].mix[(size_t) band]    = v (at + 2);
+                }
+            auto& vz = p.velvet;
+            vz.power = on (du::velPower); vz.bypass = on (du::velBypass); vz.balanceMode = on (du::velMode);
+            vz.velvet = { v (du::velLow), v (du::velMid), v (du::velHigh) };
+            vz.grain = v (du::velGrain); vz.crisp = v (du::velCrisp);
+            vz.colourA = (int) std::lround (v (du::velColorA)); vz.colourB = (int) std::lround (v (du::velColorB));
+            vz.balance = v (du::velBalance);
+            auto& tb = p.takeback;
+            tb.power = on (du::tbPower); tb.autoOn = on (du::tbAuto);
+            tb.blur = v (du::tbBlur); tb.sharpen = v (du::tbSharpen); tb.colour = v (du::tbColor);
+            tb.raw = v (du::tbRaw); tb.shine = v (du::tbShine); tb.mix = v (du::tbMix);
         }
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);

@@ -201,6 +201,16 @@ namespace pad
         gfx::Texture2D tideDecalTex, lumenDecalTex, limiterDecalTex, tideLabelTex, lumenLabelTex, deepDecalTex, deepLabelTex;
         gfx::Texture2D characterDecalTex, characterLabelTex;
         gfx::Texture2D radarDecalTex, radarVuFaceTex;   // FOOTSTEP RADAR: panel print, its meter's dial
+        // The designed units (PRO X4, VELVETIZER): print, meter dial, what glows in the displays; and what is
+        // modelled flat on the panel from the design - its screws, jack sockets and display screens
+        gfx::Texture2D x4DecalTex, x4VuFaceTex, x4ScreenTex, velvetDecalTex, velvetVuFaceTex, velvetScreenTex, takebackDecalTex, takebackScreenTex;
+        std::array<gfx::Texture2D, 4> takebackVuFaceTex;
+        std::array<gfx::GpuMesh, layout::numDesigned> designedScrews, designedJackRings, designedJackHoles, designedScreens, designedJackPlugs;
+        // Cable management (with the case: it follows the rack's size): the channels down the cheeks, the
+        // grommet, and the designed units' jack cables running into the channels
+        gfx::GpuMesh cableSlots, cableLips, grommet, grommetHole, designedJackCables;
+        void buildDesignedMeshes();
+        void drawDesigned (int unit, const gfx::Mat4& panel);
         gfx::Texture2D powerDecalTex, lunchboxDecalTex, lunchboxVuFaceTex, blankTex;   // POWER, LUNCHBOX; blankTex: no print
         void drawLunchbox (const gfx::Mat4& panel);
         void drawPowerStrip (const gfx::Mat4& panel);
@@ -239,13 +249,13 @@ namespace pad
         int unitAtPoint (gfx::Vec3) const noexcept;
         std::array<float, layout::numUnits> unitLamp {};   // backlight per outboard unit, on with IN (or always)
 
-        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu, characterVu, radarVu, lunchboxVu;   // HardwareKit VU models, one per size
+        GpuModel tideVu, lumenVu, limiterVu, levelVu, monitorVu, deepVu, characterVu, radarVu, lunchboxVu, x4Vu, velvetVu, takebackVu;   // HardwareKit VU models, one per size
         GpuModel& vuModelFor (int unit) noexcept
         {
             return unit == layout::tideUnit ? tideVu : unit == layout::lumenUnit ? lumenVu : unit == layout::levelUnit ? levelVu
                  : unit == layout::monitorUnit ? monitorVu : unit == layout::deepUnit ? deepVu
                  : unit == layout::characterUnit ? characterVu : unit == layout::radarUnit ? radarVu
-                 : unit == layout::lunchboxUnit ? lunchboxVu : limiterVu;
+                 : unit == layout::lunchboxUnit ? lunchboxVu : unit == layout::x4Unit ? x4Vu : unit == layout::velvetUnit ? velvetVu : unit == layout::takebackUnit ? takebackVu : limiterVu;
         }
 
         /** An outboard unit. faces: the dial print per meter (one texture shared by all of a unit's meters, or one each). */
@@ -339,6 +349,8 @@ namespace pad
         std::array<float, 18> seraphColumns {};    // per column x channel, 0..1 (LEVEL: -1..1)
         float tubePower = 0.0f, tubeWarmth = 0.0f;
         int seraphModeParam = -1;
+        std::array<int, layout::numDesigned> designedPowerParam { -1, -1, -1 };   // the designed units' power (their screens light with it)
+        std::array<float, 36> takebackLeds {};   // TAKEBACK's LED ladders as lit now (they ease like real LEDs)
         int footstepControl = -1, modeControl = -1, heldButton = -1;
         float modeBlend = -1.0f, swapPulse = 0.0f;   // 0 = NORM scale, 1 = ADD scale
         bool lastAddMode = false;

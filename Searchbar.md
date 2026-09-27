@@ -11,7 +11,7 @@ Jump to: [GitHub pages](#github-pages) · [Units](#units) · [Presets](#presets)
 
 ## GitHub pages
 
-Releases, downloads, issues, builds, HardwareKit, and every version. (68)
+Releases, downloads, issues, builds, HardwareKit, and every version. (70)
 
 - **ENH Master on GitHub** · GitHub: the repository home page · [github.com/thenameiscobmarley/ENH-Master](https://github.com/thenameiscobmarley/ENH-Master)
 - **Latest release / download** · GitHub: releases (Windows zip for gamers, Linux zip, VST3) · [releases/latest](https://github.com/thenameiscobmarley/ENH-Master/releases/latest)
@@ -47,6 +47,8 @@ Releases, downloads, issues, builds, HardwareKit, and every version. (68)
 - **workflow release.yml** · its source · [.github/workflows/release.yml](.github/workflows/release.yml)
 - **workflow windows-converter.yml** · GitHub Actions: its runs · [actions/workflows/windows-converter.yml](https://github.com/thenameiscobmarley/ENH-Master/actions/workflows/windows-converter.yml)
 - **workflow windows-converter.yml** · its source · [.github/workflows/windows-converter.yml](.github/workflows/windows-converter.yml)
+- **release v3.7.13.14** · GitHub: that version's page and downloads · [releases/tag/v3.7.13.14](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.13.14)
+- **source at v3.7.13.14** · GitHub: the code as it was in that version · [tree/v3.7.13.14](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.13.14)
 - **release v3.7.13.13** · GitHub: that version's page and downloads · [releases/tag/v3.7.13.13](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.13.13)
 - **source at v3.7.13.13** · GitHub: the code as it was in that version · [tree/v3.7.13.13](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.13.13)
 - **release v3.7.12.12** · GitHub: that version's page and downloads · [releases/tag/v3.7.12.12](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.12.12)
@@ -129,9 +131,10 @@ Every factory preset, with its description. (13)
 
 ## Docs
 
-Every doc and every section in it. (227)
+Every doc and every section in it. (235)
 
 - **What changed** · doc · [CHANGELOG.md](CHANGELOG.md)
+- **3.7.13.15 — your units in the rack, and a gear locker** · doc section · [CHANGELOG.md › 3.7.13.15 — your units in the rack, and a gear locker](CHANGELOG.md#371315--your-units-in-the-rack-and-a-gear-locker) — in What changed
 - **3.7.13.14 — easier on the ears, made for headphones** · doc section · [CHANGELOG.md › 3.7.13.14 — easier on the ears, made for headphones](CHANGELOG.md#371314--easier-on-the-ears-made-for-headphones) — in What changed
 - **3.7.13.13 — a calmer rack, and a clearer delay** · doc section · [CHANGELOG.md › 3.7.13.13 — a calmer rack, and a clearer delay](CHANGELOG.md#371313--a-calmer-rack-and-a-clearer-delay) — in What changed
 - **3.7.12.12 — smarter radar, friendlier app** · doc section · [CHANGELOG.md › 3.7.12.12 — smarter radar, friendlier app](CHANGELOG.md#371212--smarter-radar-friendlier-app) — in What changed
@@ -215,6 +218,10 @@ Every doc and every section in it. (227)
 - **Glass panel** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Glass panel](Vault/Devices/FOOTSTEP%20RADAR.md#glass-panel) — in FOOTSTEP RADAR
 - **Good to know** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Good to know](Vault/Devices/FOOTSTEP%20RADAR.md#good-to-know) — in FOOTSTEP RADAR
 - **Loud, close steps and gunshots** · doc section · [Vault/Devices/FOOTSTEP RADAR.md › Loud, close steps and gunshots](Vault/Devices/FOOTSTEP%20RADAR.md#loud-close-steps-and-gunshots) — in FOOTSTEP RADAR
+- **LATINSPHIEL PRO X4** · doc · [Vault/Devices/LATINSPHIEL PRO X4.md](Vault/Devices/LATINSPHIEL%20PRO%20X4.md)
+- **The two halves** · doc section · [Vault/Devices/LATINSPHIEL PRO X4.md › The two halves](Vault/Devices/LATINSPHIEL%20PRO%20X4.md#the-two-halves) — in LATINSPHIEL PRO X4
+- **MAIN** · doc section · [Vault/Devices/LATINSPHIEL PRO X4.md › MAIN](Vault/Devices/LATINSPHIEL%20PRO%20X4.md#main) — in LATINSPHIEL PRO X4
+- **Switches** · doc section · [Vault/Devices/LATINSPHIEL PRO X4.md › Switches](Vault/Devices/LATINSPHIEL%20PRO%20X4.md#switches) — in LATINSPHIEL PRO X4
 - **LEVEL CONTROL and OUTPUT MONITOR** · doc · [Vault/Devices/LEVEL CONTROL and OUTPUT MONITOR.md](Vault/Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md)
 - **LEVEL CONTROL (bottom, first)** · doc section · [Vault/Devices/LEVEL CONTROL and OUTPUT MONITOR.md › LEVEL CONTROL (bottom, first)](Vault/Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md#level-control-bottom-first) — in LEVEL CONTROL and OUTPUT MONITOR
 - **OUTPUT MONITOR (top, last)** · doc section · [Vault/Devices/LEVEL CONTROL and OUTPUT MONITOR.md › OUTPUT MONITOR (top, last)](Vault/Devices/LEVEL%20CONTROL%20and%20OUTPUT%20MONITOR.md#output-monitor-top-last) — in LEVEL CONTROL and OUTPUT MONITOR
@@ -230,6 +237,7 @@ Every doc and every section in it. (227)
 - **The problem it solves** · doc section · [Vault/Devices/SPECTRAL LIMITER.md › The problem it solves](Vault/Devices/SPECTRAL%20LIMITER.md#the-problem-it-solves) — in SPECTRAL LIMITER
 - **How it decides** · doc section · [Vault/Devices/SPECTRAL LIMITER.md › How it decides](Vault/Devices/SPECTRAL%20LIMITER.md#how-it-decides) — in SPECTRAL LIMITER
 - **Knobs** · doc section · [Vault/Devices/SPECTRAL LIMITER.md › Knobs](Vault/Devices/SPECTRAL%20LIMITER.md#knobs) — in SPECTRAL LIMITER
+- **TAKEBACK** · doc · [Vault/Devices/TAKEBACK.md](Vault/Devices/TAKEBACK.md)
 - **TONE and SPACE** · doc · [Vault/Devices/TONE and SPACE.md](Vault/Devices/TONE%20and%20SPACE.md)
 - **The front** · doc section · [Vault/Devices/TONE and SPACE.md › The front](Vault/Devices/TONE%20and%20SPACE.md#the-front) — in TONE and SPACE
 - **Its screen** · doc section · [Vault/Devices/TONE and SPACE.md › Its screen](Vault/Devices/TONE%20and%20SPACE.md#its-screen) — in TONE and SPACE
@@ -239,6 +247,7 @@ Every doc and every section in it. (227)
 - **What keeps it from pumping** · doc section · [Vault/Devices/UPWARD LEVELER.md › What keeps it from pumping](Vault/Devices/UPWARD%20LEVELER.md#what-keeps-it-from-pumping) — in UPWARD LEVELER
 - **What keeps it from brightening** · doc section · [Vault/Devices/UPWARD LEVELER.md › What keeps it from brightening](Vault/Devices/UPWARD%20LEVELER.md#what-keeps-it-from-brightening) — in UPWARD LEVELER
 - **In its glass panel** · doc section · [Vault/Devices/UPWARD LEVELER.md › In its glass panel](Vault/Devices/UPWARD%20LEVELER.md#in-its-glass-panel) — in UPWARD LEVELER
+- **VELVETIZER** · doc · [Vault/Devices/VELVETIZER.md](Vault/Devices/VELVETIZER.md)
 - **Testing and tools** · doc · [Vault/Reference/Audio lab.md](Vault/Reference/Audio%20lab.md)
 - **Test everything at once** · doc section · [Vault/Reference/Audio lab.md › Test everything at once](Vault/Reference/Audio%20lab.md#test-everything-at-once) — in Testing and tools
 - **EnhDspTests — the DSP tests** · doc section · [Vault/Reference/Audio lab.md › EnhDspTests — the DSP tests](Vault/Reference/Audio%20lab.md#enhdsptests--the-dsp-tests) — in Testing and tools
@@ -345,6 +354,7 @@ Every doc and every section in it. (227)
 - **Windows: one thing to set up** · doc section · [Vault/Tutorial/07 The router app.md › Windows: one thing to set up](Vault/Tutorial/07%20The%20router%20app.md#windows-one-thing-to-set-up) — in 07 The router app (for gamers)
 - **Linux** · doc section · [Vault/Tutorial/07 The router app.md › Linux](Vault/Tutorial/07%20The%20router%20app.md#linux) — in 07 The router app (for gamers)
 - **If something goes wrong** · doc section · [Vault/Tutorial/07 The router app.md › If something goes wrong](Vault/Tutorial/07%20The%20router%20app.md#if-something-goes-wrong) — in 07 The router app (for gamers)
+- **Gear locker** · doc · [Vault/UI/Gear locker.md](Vault/UI/Gear%20locker.md)
 - **Glass panel** · doc · [Vault/UI/Glass panel.md](Vault/UI/Glass%20panel.md)
 - **What's in it** · doc section · [Vault/UI/Glass panel.md › What's in it](Vault/UI/Glass%20panel.md#whats-in-it) — in Glass panel
 - **Good to know** · doc section · [Vault/UI/Glass panel.md › Good to know](Vault/UI/Glass%20panel.md#good-to-know) — in Glass panel
@@ -363,93 +373,93 @@ Every doc and every section in it. (227)
 
 Every automatable knob and switch: its id, panel name and range. Table: [Parameters](Vault/Reference/Parameters.md). (87)
 
-- **`clarityNorm`** · parameter (CLARITY, "Clarity (Norm)") · [ParameterSpecs.cpp:9](Source/Parameters/ParameterSpecs.cpp#L9) — 0 – 30
-- **`clarityAdd`** · parameter (CLARITY, "Clarity (Add)") · [ParameterSpecs.cpp:10](Source/Parameters/ParameterSpecs.cpp#L10) — 0 – 10
-- **`clarityMode`** · parameter (MODE, "Clarity Mode") · [ParameterSpecs.cpp:11](Source/Parameters/ParameterSpecs.cpp#L11) — Norm / Add + Norm
-- **`adaptSpeed`** · parameter (ADAPT, "Adapt Speed") · [ParameterSpecs.cpp:12](Source/Parameters/ParameterSpecs.cpp#L12) — 0 – 100 %
-- **`sub`** · parameter (SUB, "Sub Enhance") · [ParameterSpecs.cpp:13](Source/Parameters/ParameterSpecs.cpp#L13) — 0 – 100 %
-- **`subBoost`** · parameter (+BOOST, "Sub Boost") · [ParameterSpecs.cpp:14](Source/Parameters/ParameterSpecs.cpp#L14) — 0 – 1
-- **`footstep`** · parameter (IN, "Footstep Radar In") · [ParameterSpecs.cpp:15](Source/Parameters/ParameterSpecs.cpp#L15) — Out / In
-- **`radarSens`** · parameter (SENSITIVITY, "Footstep Sensitivity") · [ParameterSpecs.cpp:16](Source/Parameters/ParameterSpecs.cpp#L16) — 0 – 10
-- **`radarBoost`** · parameter (BOOST, "Footstep Boost") · [ParameterSpecs.cpp:17](Source/Parameters/ParameterSpecs.cpp#L17) — 0 – 34 dB
-- **`radarSpace`** · parameter (SPACE, "Footstep Space") · [ParameterSpecs.cpp:18](Source/Parameters/ParameterSpecs.cpp#L18) — 0 – 10
-- **`radarListen`** · parameter (LISTEN, "Footstep Listen") · [ParameterSpecs.cpp:19](Source/Parameters/ParameterSpecs.cpp#L19) — 0 – 1
-- **`enhMultiply`** · parameter (MULTIPLY, "Enhancer Multiply") · [ParameterSpecs.cpp:20](Source/Parameters/ParameterSpecs.cpp#L20) — 0 – 3 x
-- **`enhStrength`** · parameter (STRENGTH, "Enhancer Strength") · [ParameterSpecs.cpp:21](Source/Parameters/ParameterSpecs.cpp#L21) — 0 – 5
-- **`tideMix`** · parameter (MIX, "Compressor Mix") · [ParameterSpecs.cpp:23](Source/Parameters/ParameterSpecs.cpp#L23) — 0 – 100 %
-- **`tideResponse`** · parameter (RESPONSE, "Compressor Response") · [ParameterSpecs.cpp:24](Source/Parameters/ParameterSpecs.cpp#L24) — 0 – 10
-- **`tideActive`** · parameter (IN, "Compressor In") · [ParameterSpecs.cpp:25](Source/Parameters/ParameterSpecs.cpp#L25) — Out / In
-- **`lumenTarget`** · parameter (TARGET, "Leveler Target") · [ParameterSpecs.cpp:27](Source/Parameters/ParameterSpecs.cpp#L27) — -36 – -6 dB
-- **`lumenResponse`** · parameter (RESPONSE, "Leveler Response") · [ParameterSpecs.cpp:28](Source/Parameters/ParameterSpecs.cpp#L28) — 0 – 10
-- **`spectralRange`** · parameter (RANGE, "Spectral Limiter Range") · [ParameterSpecs.cpp:29](Source/Parameters/ParameterSpecs.cpp#L29) — 0 – 18 dB
-- **`spectralRelease`** · parameter (RELEASE, "Spectral Limiter Release") · [ParameterSpecs.cpp:30](Source/Parameters/ParameterSpecs.cpp#L30) — 30 – 600 ms
-- **`spectralCeiling`** · parameter (CEILING, "Spectral Limiter Ceiling") · [ParameterSpecs.cpp:31](Source/Parameters/ParameterSpecs.cpp#L31) — -12 – 0 dB
-- **`spectralActive`** · parameter (IN, "Spectral Limiter In") · [ParameterSpecs.cpp:32](Source/Parameters/ParameterSpecs.cpp#L32) — Out / In
-- **`lumenActive`** · parameter (IN, "Leveler In") · [ParameterSpecs.cpp:34](Source/Parameters/ParameterSpecs.cpp#L34) — Out / In
-- **`seraphMode`** · parameter (POWER, "Tone & Space Mode") · [ParameterSpecs.cpp:36](Source/Parameters/ParameterSpecs.cpp#L36) — Off / Tone / Tone + Space
-- **`seraphMultiply`** · parameter (MULTIPLY, "Tone & Space Multiply") · [ParameterSpecs.cpp:37](Source/Parameters/ParameterSpecs.cpp#L37) — 0 – 3 x
-- **`seraphStrength`** · parameter (STRENGTH, "Tone & Space Strength") · [ParameterSpecs.cpp:38](Source/Parameters/ParameterSpecs.cpp#L38) — 0 – 5
-- **`silkSmooth`** · parameter (SMOOTH, "Tone Smooth") · [ParameterSpecs.cpp:40](Source/Parameters/ParameterSpecs.cpp#L40) — 0 – 10
-- **`silkAir`** · parameter (AIR, "Tone Air") · [ParameterSpecs.cpp:41](Source/Parameters/ParameterSpecs.cpp#L41) — 0 – 10
-- **`silkWarmth`** · parameter (WARMTH, "Tone Warmth") · [ParameterSpecs.cpp:42](Source/Parameters/ParameterSpecs.cpp#L42) — 0 – 10
-- **`silkBody`** · parameter (BODY, "Tone Body") · [ParameterSpecs.cpp:43](Source/Parameters/ParameterSpecs.cpp#L43) — 0 – 10
-- **`silkOutput`** · parameter (OUTPUT, "Tone Output") · [ParameterSpecs.cpp:44](Source/Parameters/ParameterSpecs.cpp#L44) — -12 – 12 dB
-- **`silkProtect`** · parameter (PROTECT, "Tone Protect") · [ParameterSpecs.cpp:45](Source/Parameters/ParameterSpecs.cpp#L45) — 0 – 1
-- **`silkTape`** · parameter (TAPE, "Tone Tape") · [ParameterSpecs.cpp:46](Source/Parameters/ParameterSpecs.cpp#L46) — 0 – 1
-- **`silkAuto`** · parameter (MATCH, "Tone Level Match") · [ParameterSpecs.cpp:47](Source/Parameters/ParameterSpecs.cpp#L47) — 0 – 1
-- **`silkSub`** · parameter (SUB, "Tone Sub") · [ParameterSpecs.cpp:48](Source/Parameters/ParameterSpecs.cpp#L48) — 0 – 10
-- **`heavenHold`** · parameter (LOUDNESS, "Loudness Hold") · [ParameterSpecs.cpp:50](Source/Parameters/ParameterSpecs.cpp#L50) — 0 – 30
-- **`heavenLift`** · parameter (LOUDNESS, "Loudness Lift") · [ParameterSpecs.cpp:51](Source/Parameters/ParameterSpecs.cpp#L51) — 0 – 10
-- **`heavenMode`** · parameter (LIFT, "Loudness Mode") · [ParameterSpecs.cpp:52](Source/Parameters/ParameterSpecs.cpp#L52) — Hold / Lift + Hold
-- **`heavenAuto`** · parameter (AUTO, "Auto Heaven") · [ParameterSpecs.cpp:53](Source/Parameters/ParameterSpecs.cpp#L53) — 0 – 1
-- **`heavenAutoAmount`** · parameter (HEAVEN, "Auto Heaven Amount") · [ParameterSpecs.cpp:54](Source/Parameters/ParameterSpecs.cpp#L54) — 0 – 10
-- **`haloWidth`** · parameter (WIDTH, "Space Width") · [ParameterSpecs.cpp:56](Source/Parameters/ParameterSpecs.cpp#L56) — 0 – 200 %
-- **`haloSpace`** · parameter (REVERB, "Space Reverb") · [ParameterSpecs.cpp:57](Source/Parameters/ParameterSpecs.cpp#L57) — 0 – 10
-- **`haloDecay`** · parameter (DECAY, "Space Decay") · [ParameterSpecs.cpp:58](Source/Parameters/ParameterSpecs.cpp#L58) — 0.3 – 8 s
-- **`haloShimmer`** · parameter (SHIMMER, "Space Shimmer") · [ParameterSpecs.cpp:59](Source/Parameters/ParameterSpecs.cpp#L59) — 0 – 10
-- **`haloTone`** · parameter (TONE, "Space Tone") · [ParameterSpecs.cpp:60](Source/Parameters/ParameterSpecs.cpp#L60) — 0 – 10
-- **`haloDuck`** · parameter (DUCK, "Space Duck") · [ParameterSpecs.cpp:61](Source/Parameters/ParameterSpecs.cpp#L61) — 0 – 1
-- **`haloBassMono`** · parameter (BASS MONO, "Space Bass Mono") · [ParameterSpecs.cpp:62](Source/Parameters/ParameterSpecs.cpp#L62) — 0 – 1
-- **`haloMod`** · parameter (MOD, "Space Mod") · [ParameterSpecs.cpp:63](Source/Parameters/ParameterSpecs.cpp#L63) — 0 – 1
-- **`levelGain`** · parameter (LEVEL, "Level") · [ParameterSpecs.cpp:65](Source/Parameters/ParameterSpecs.cpp#L65) — -24 – 12 dB
-- **`loudnessReset`** · parameter (RESET, "Loudness Reset") · [ParameterSpecs.cpp:66](Source/Parameters/ParameterSpecs.cpp#L66) — 0 – 1
-- **`balAmount`** · parameter (BALANCE, "Balancer Balance") · [ParameterSpecs.cpp:68](Source/Parameters/ParameterSpecs.cpp#L68) — 0 – 10
-- **`balSpeed`** · parameter (SPEED, "Balancer Speed") · [ParameterSpecs.cpp:69](Source/Parameters/ParameterSpecs.cpp#L69) — 0 – 10
-- **`balTilt`** · parameter (TILT, "Balancer Tilt") · [ParameterSpecs.cpp:70](Source/Parameters/ParameterSpecs.cpp#L70) — -5 – 5
-- **`balRange`** · parameter (RANGE, "Balancer Range") · [ParameterSpecs.cpp:71](Source/Parameters/ParameterSpecs.cpp#L71) — 0 – 12 dB
-- **`balActive`** · parameter (IN, "Balancer In") · [ParameterSpecs.cpp:72](Source/Parameters/ParameterSpecs.cpp#L72) — Out / In
-- **`balResolution`** · parameter (RESOLUTION, "Balancer Resolution") · [ParameterSpecs.cpp:73](Source/Parameters/ParameterSpecs.cpp#L73) — 0 – 10
-- **`deepDepth`** · parameter (DEPTH, "Deep Sub Depth") · [ParameterSpecs.cpp:74](Source/Parameters/ParameterSpecs.cpp#L74) — 0 – 10
-- **`deepHull`** · parameter (HULL, "Deep Sub Hull") · [ParameterSpecs.cpp:75](Source/Parameters/ParameterSpecs.cpp#L75) — 0 – 10
-- **`deepSize`** · parameter (SIZE, "Deep Sub Size") · [ParameterSpecs.cpp:76](Source/Parameters/ParameterSpecs.cpp#L76) — 0 – 10
-- **`deepPressure`** · parameter (PRESSURE, "Deep Sub Pressure") · [ParameterSpecs.cpp:77](Source/Parameters/ParameterSpecs.cpp#L77) — 0 – 10
-- **`deepActive`** · parameter (IN, "Deep Sub In") · [ParameterSpecs.cpp:78](Source/Parameters/ParameterSpecs.cpp#L78) — Out / In
-- **`charModelA`** · parameter (A, "Character A") · [ParameterSpecs.cpp:79](Source/Parameters/ParameterSpecs.cpp#L79) — 0 – 8
-- **`charModelB`** · parameter (B, "Character B") · [ParameterSpecs.cpp:81](Source/Parameters/ParameterSpecs.cpp#L81) — 0 – 8
-- **`charBlend`** · parameter (BLEND, "Character Blend") · [ParameterSpecs.cpp:83](Source/Parameters/ParameterSpecs.cpp#L83) — 0 – 100 %
-- **`charDrive`** · parameter (DRIVE, "Character Drive") · [ParameterSpecs.cpp:84](Source/Parameters/ParameterSpecs.cpp#L84) — 0 – 10
-- **`charColour`** · parameter (COLOUR, "Character Colour") · [ParameterSpecs.cpp:85](Source/Parameters/ParameterSpecs.cpp#L85) — 0 – 10
-- **`charActive`** · parameter (IN, "Character In") · [ParameterSpecs.cpp:86](Source/Parameters/ParameterSpecs.cpp#L86) — Out / In
-- **`charGrit`** · parameter (GRIT, "Character Grit") · [ParameterSpecs.cpp:87](Source/Parameters/ParameterSpecs.cpp#L87) — Clean drive / Drive + distortion
-- **`abCompare`** · parameter (COMPARE, "Compare") · [ParameterSpecs.cpp:88](Source/Parameters/ParameterSpecs.cpp#L88) — Rack / Input (level-matched)
-- **`monitorSpeed`** · parameter (SPEED, "Monitor Speed") · [ParameterSpecs.cpp:89](Source/Parameters/ParameterSpecs.cpp#L89) — 1 – 10
-- **`lbEqIn`** · parameter (IN, "EQ In") · [ParameterSpecs.cpp:90](Source/Parameters/ParameterSpecs.cpp#L90) — Out / In
-- **`lbHpf`** · parameter (HPF, "EQ High-Pass") · [ParameterSpecs.cpp:91](Source/Parameters/ParameterSpecs.cpp#L91) — Off / 50 Hz / 80 Hz / 160 Hz / 300 Hz
-- **`lbLowFreq`** · parameter (LOW, "EQ Low Freq") · [ParameterSpecs.cpp:92](Source/Parameters/ParameterSpecs.cpp#L92) — 35 Hz / 60 Hz / 110 Hz / 220 Hz
-- **`lbLowGain`** · parameter (LOW, "EQ Low Gain") · [ParameterSpecs.cpp:93](Source/Parameters/ParameterSpecs.cpp#L93) — -16 – 16 dB
-- **`lbMidFreq`** · parameter (MID, "EQ Mid Freq") · [ParameterSpecs.cpp:94](Source/Parameters/ParameterSpecs.cpp#L94) — 360 Hz / 700 Hz / 1.6 kHz / 3.2 kHz / 4.8 kHz / 7.2 kHz
-- **`lbMidGain`** · parameter (MID, "EQ Mid Gain") · [ParameterSpecs.cpp:95](Source/Parameters/ParameterSpecs.cpp#L95) — -18 – 18 dB
-- **`lbMidHiQ`** · parameter (HI Q, "EQ Mid Hi Q") · [ParameterSpecs.cpp:96](Source/Parameters/ParameterSpecs.cpp#L96) — 0 – 1
-- **`lbHighGain`** · parameter (HIGH, "EQ High Gain") · [ParameterSpecs.cpp:97](Source/Parameters/ParameterSpecs.cpp#L97) — -16 – 16 dB
-- **`lbIron`** · parameter (IRON, "EQ Iron") · [ParameterSpecs.cpp:98](Source/Parameters/ParameterSpecs.cpp#L98) — 0 – 1
-- **`lbHarshIn`** · parameter (IN, "De-Harsh In") · [ParameterSpecs.cpp:99](Source/Parameters/ParameterSpecs.cpp#L99) — Out / In
-- **`lbHarshAmount`** · parameter (AMOUNT, "De-Harsh Amount") · [ParameterSpecs.cpp:100](Source/Parameters/ParameterSpecs.cpp#L100) — 0 – 10
-- **`lbHarshFreq`** · parameter (FREQ, "De-Harsh Freq") · [ParameterSpecs.cpp:101](Source/Parameters/ParameterSpecs.cpp#L101) — 2.5 kHz / 4 kHz / 6.5 kHz
-- **`lbHarshSpeed`** · parameter (SPEED, "De-Harsh Speed") · [ParameterSpecs.cpp:102](Source/Parameters/ParameterSpecs.cpp#L102) — 10 – 200 ms
-- **`lbFeedIn`** · parameter (IN, "Crossfeed In") · [ParameterSpecs.cpp:103](Source/Parameters/ParameterSpecs.cpp#L103) — Out / In
-- **`lbFeedAmount`** · parameter (AMOUNT, "Crossfeed Amount") · [ParameterSpecs.cpp:104](Source/Parameters/ParameterSpecs.cpp#L104) — 0 – 10
-- **`presetPrev`** · parameter (PREV, "Preset Previous") · [ParameterSpecs.cpp:106](Source/Parameters/ParameterSpecs.cpp#L106) — 0 – 1
-- **`presetNext`** · parameter (NEXT, "Preset Next") · [ParameterSpecs.cpp:107](Source/Parameters/ParameterSpecs.cpp#L107) — 0 – 1
+- **`clarityNorm`** · parameter (CLARITY, "Clarity (Norm)") · [ParameterSpecs.cpp:10](Source/Parameters/ParameterSpecs.cpp#L10) — 0 – 30
+- **`clarityAdd`** · parameter (CLARITY, "Clarity (Add)") · [ParameterSpecs.cpp:11](Source/Parameters/ParameterSpecs.cpp#L11) — 0 – 10
+- **`clarityMode`** · parameter (MODE, "Clarity Mode") · [ParameterSpecs.cpp:12](Source/Parameters/ParameterSpecs.cpp#L12) — Norm / Add + Norm
+- **`adaptSpeed`** · parameter (ADAPT, "Adapt Speed") · [ParameterSpecs.cpp:13](Source/Parameters/ParameterSpecs.cpp#L13) — 0 – 100 %
+- **`sub`** · parameter (SUB, "Sub Enhance") · [ParameterSpecs.cpp:14](Source/Parameters/ParameterSpecs.cpp#L14) — 0 – 100 %
+- **`subBoost`** · parameter (+BOOST, "Sub Boost") · [ParameterSpecs.cpp:15](Source/Parameters/ParameterSpecs.cpp#L15) — 0 – 1
+- **`footstep`** · parameter (IN, "Footstep Radar In") · [ParameterSpecs.cpp:16](Source/Parameters/ParameterSpecs.cpp#L16) — Out / In
+- **`radarSens`** · parameter (SENSITIVITY, "Footstep Sensitivity") · [ParameterSpecs.cpp:17](Source/Parameters/ParameterSpecs.cpp#L17) — 0 – 10
+- **`radarBoost`** · parameter (BOOST, "Footstep Boost") · [ParameterSpecs.cpp:18](Source/Parameters/ParameterSpecs.cpp#L18) — 0 – 34 dB
+- **`radarSpace`** · parameter (SPACE, "Footstep Space") · [ParameterSpecs.cpp:19](Source/Parameters/ParameterSpecs.cpp#L19) — 0 – 10
+- **`radarListen`** · parameter (LISTEN, "Footstep Listen") · [ParameterSpecs.cpp:20](Source/Parameters/ParameterSpecs.cpp#L20) — 0 – 1
+- **`enhMultiply`** · parameter (MULTIPLY, "Enhancer Multiply") · [ParameterSpecs.cpp:21](Source/Parameters/ParameterSpecs.cpp#L21) — 0 – 3 x
+- **`enhStrength`** · parameter (STRENGTH, "Enhancer Strength") · [ParameterSpecs.cpp:22](Source/Parameters/ParameterSpecs.cpp#L22) — 0 – 5
+- **`tideMix`** · parameter (MIX, "Compressor Mix") · [ParameterSpecs.cpp:24](Source/Parameters/ParameterSpecs.cpp#L24) — 0 – 100 %
+- **`tideResponse`** · parameter (RESPONSE, "Compressor Response") · [ParameterSpecs.cpp:25](Source/Parameters/ParameterSpecs.cpp#L25) — 0 – 10
+- **`tideActive`** · parameter (IN, "Compressor In") · [ParameterSpecs.cpp:26](Source/Parameters/ParameterSpecs.cpp#L26) — Out / In
+- **`lumenTarget`** · parameter (TARGET, "Leveler Target") · [ParameterSpecs.cpp:28](Source/Parameters/ParameterSpecs.cpp#L28) — -36 – -6 dB
+- **`lumenResponse`** · parameter (RESPONSE, "Leveler Response") · [ParameterSpecs.cpp:29](Source/Parameters/ParameterSpecs.cpp#L29) — 0 – 10
+- **`spectralRange`** · parameter (RANGE, "Spectral Limiter Range") · [ParameterSpecs.cpp:30](Source/Parameters/ParameterSpecs.cpp#L30) — 0 – 18 dB
+- **`spectralRelease`** · parameter (RELEASE, "Spectral Limiter Release") · [ParameterSpecs.cpp:31](Source/Parameters/ParameterSpecs.cpp#L31) — 30 – 600 ms
+- **`spectralCeiling`** · parameter (CEILING, "Spectral Limiter Ceiling") · [ParameterSpecs.cpp:32](Source/Parameters/ParameterSpecs.cpp#L32) — -12 – 0 dB
+- **`spectralActive`** · parameter (IN, "Spectral Limiter In") · [ParameterSpecs.cpp:33](Source/Parameters/ParameterSpecs.cpp#L33) — Out / In
+- **`lumenActive`** · parameter (IN, "Leveler In") · [ParameterSpecs.cpp:35](Source/Parameters/ParameterSpecs.cpp#L35) — Out / In
+- **`seraphMode`** · parameter (POWER, "Tone & Space Mode") · [ParameterSpecs.cpp:37](Source/Parameters/ParameterSpecs.cpp#L37) — Off / Tone / Tone + Space
+- **`seraphMultiply`** · parameter (MULTIPLY, "Tone & Space Multiply") · [ParameterSpecs.cpp:38](Source/Parameters/ParameterSpecs.cpp#L38) — 0 – 3 x
+- **`seraphStrength`** · parameter (STRENGTH, "Tone & Space Strength") · [ParameterSpecs.cpp:39](Source/Parameters/ParameterSpecs.cpp#L39) — 0 – 5
+- **`silkSmooth`** · parameter (SMOOTH, "Tone Smooth") · [ParameterSpecs.cpp:41](Source/Parameters/ParameterSpecs.cpp#L41) — 0 – 10
+- **`silkAir`** · parameter (AIR, "Tone Air") · [ParameterSpecs.cpp:42](Source/Parameters/ParameterSpecs.cpp#L42) — 0 – 10
+- **`silkWarmth`** · parameter (WARMTH, "Tone Warmth") · [ParameterSpecs.cpp:43](Source/Parameters/ParameterSpecs.cpp#L43) — 0 – 10
+- **`silkBody`** · parameter (BODY, "Tone Body") · [ParameterSpecs.cpp:44](Source/Parameters/ParameterSpecs.cpp#L44) — 0 – 10
+- **`silkOutput`** · parameter (OUTPUT, "Tone Output") · [ParameterSpecs.cpp:45](Source/Parameters/ParameterSpecs.cpp#L45) — -12 – 12 dB
+- **`silkProtect`** · parameter (PROTECT, "Tone Protect") · [ParameterSpecs.cpp:46](Source/Parameters/ParameterSpecs.cpp#L46) — 0 – 1
+- **`silkTape`** · parameter (TAPE, "Tone Tape") · [ParameterSpecs.cpp:47](Source/Parameters/ParameterSpecs.cpp#L47) — 0 – 1
+- **`silkAuto`** · parameter (MATCH, "Tone Level Match") · [ParameterSpecs.cpp:48](Source/Parameters/ParameterSpecs.cpp#L48) — 0 – 1
+- **`silkSub`** · parameter (SUB, "Tone Sub") · [ParameterSpecs.cpp:49](Source/Parameters/ParameterSpecs.cpp#L49) — 0 – 10
+- **`heavenHold`** · parameter (LOUDNESS, "Loudness Hold") · [ParameterSpecs.cpp:51](Source/Parameters/ParameterSpecs.cpp#L51) — 0 – 30
+- **`heavenLift`** · parameter (LOUDNESS, "Loudness Lift") · [ParameterSpecs.cpp:52](Source/Parameters/ParameterSpecs.cpp#L52) — 0 – 10
+- **`heavenMode`** · parameter (LIFT, "Loudness Mode") · [ParameterSpecs.cpp:53](Source/Parameters/ParameterSpecs.cpp#L53) — Hold / Lift + Hold
+- **`heavenAuto`** · parameter (AUTO, "Auto Heaven") · [ParameterSpecs.cpp:54](Source/Parameters/ParameterSpecs.cpp#L54) — 0 – 1
+- **`heavenAutoAmount`** · parameter (HEAVEN, "Auto Heaven Amount") · [ParameterSpecs.cpp:55](Source/Parameters/ParameterSpecs.cpp#L55) — 0 – 10
+- **`haloWidth`** · parameter (WIDTH, "Space Width") · [ParameterSpecs.cpp:57](Source/Parameters/ParameterSpecs.cpp#L57) — 0 – 200 %
+- **`haloSpace`** · parameter (REVERB, "Space Reverb") · [ParameterSpecs.cpp:58](Source/Parameters/ParameterSpecs.cpp#L58) — 0 – 10
+- **`haloDecay`** · parameter (DECAY, "Space Decay") · [ParameterSpecs.cpp:59](Source/Parameters/ParameterSpecs.cpp#L59) — 0.3 – 8 s
+- **`haloShimmer`** · parameter (SHIMMER, "Space Shimmer") · [ParameterSpecs.cpp:60](Source/Parameters/ParameterSpecs.cpp#L60) — 0 – 10
+- **`haloTone`** · parameter (TONE, "Space Tone") · [ParameterSpecs.cpp:61](Source/Parameters/ParameterSpecs.cpp#L61) — 0 – 10
+- **`haloDuck`** · parameter (DUCK, "Space Duck") · [ParameterSpecs.cpp:62](Source/Parameters/ParameterSpecs.cpp#L62) — 0 – 1
+- **`haloBassMono`** · parameter (BASS MONO, "Space Bass Mono") · [ParameterSpecs.cpp:63](Source/Parameters/ParameterSpecs.cpp#L63) — 0 – 1
+- **`haloMod`** · parameter (MOD, "Space Mod") · [ParameterSpecs.cpp:64](Source/Parameters/ParameterSpecs.cpp#L64) — 0 – 1
+- **`levelGain`** · parameter (LEVEL, "Level") · [ParameterSpecs.cpp:66](Source/Parameters/ParameterSpecs.cpp#L66) — -24 – 12 dB
+- **`loudnessReset`** · parameter (RESET, "Loudness Reset") · [ParameterSpecs.cpp:67](Source/Parameters/ParameterSpecs.cpp#L67) — 0 – 1
+- **`balAmount`** · parameter (BALANCE, "Balancer Balance") · [ParameterSpecs.cpp:69](Source/Parameters/ParameterSpecs.cpp#L69) — 0 – 10
+- **`balSpeed`** · parameter (SPEED, "Balancer Speed") · [ParameterSpecs.cpp:70](Source/Parameters/ParameterSpecs.cpp#L70) — 0 – 10
+- **`balTilt`** · parameter (TILT, "Balancer Tilt") · [ParameterSpecs.cpp:71](Source/Parameters/ParameterSpecs.cpp#L71) — -5 – 5
+- **`balRange`** · parameter (RANGE, "Balancer Range") · [ParameterSpecs.cpp:72](Source/Parameters/ParameterSpecs.cpp#L72) — 0 – 12 dB
+- **`balActive`** · parameter (IN, "Balancer In") · [ParameterSpecs.cpp:73](Source/Parameters/ParameterSpecs.cpp#L73) — Out / In
+- **`balResolution`** · parameter (RESOLUTION, "Balancer Resolution") · [ParameterSpecs.cpp:74](Source/Parameters/ParameterSpecs.cpp#L74) — 0 – 10
+- **`deepDepth`** · parameter (DEPTH, "Deep Sub Depth") · [ParameterSpecs.cpp:75](Source/Parameters/ParameterSpecs.cpp#L75) — 0 – 10
+- **`deepHull`** · parameter (HULL, "Deep Sub Hull") · [ParameterSpecs.cpp:76](Source/Parameters/ParameterSpecs.cpp#L76) — 0 – 10
+- **`deepSize`** · parameter (SIZE, "Deep Sub Size") · [ParameterSpecs.cpp:77](Source/Parameters/ParameterSpecs.cpp#L77) — 0 – 10
+- **`deepPressure`** · parameter (PRESSURE, "Deep Sub Pressure") · [ParameterSpecs.cpp:78](Source/Parameters/ParameterSpecs.cpp#L78) — 0 – 10
+- **`deepActive`** · parameter (IN, "Deep Sub In") · [ParameterSpecs.cpp:79](Source/Parameters/ParameterSpecs.cpp#L79) — Out / In
+- **`charModelA`** · parameter (A, "Character A") · [ParameterSpecs.cpp:80](Source/Parameters/ParameterSpecs.cpp#L80) — 0 – 8
+- **`charModelB`** · parameter (B, "Character B") · [ParameterSpecs.cpp:82](Source/Parameters/ParameterSpecs.cpp#L82) — 0 – 8
+- **`charBlend`** · parameter (BLEND, "Character Blend") · [ParameterSpecs.cpp:84](Source/Parameters/ParameterSpecs.cpp#L84) — 0 – 100 %
+- **`charDrive`** · parameter (DRIVE, "Character Drive") · [ParameterSpecs.cpp:85](Source/Parameters/ParameterSpecs.cpp#L85) — 0 – 10
+- **`charColour`** · parameter (COLOUR, "Character Colour") · [ParameterSpecs.cpp:86](Source/Parameters/ParameterSpecs.cpp#L86) — 0 – 10
+- **`charActive`** · parameter (IN, "Character In") · [ParameterSpecs.cpp:87](Source/Parameters/ParameterSpecs.cpp#L87) — Out / In
+- **`charGrit`** · parameter (GRIT, "Character Grit") · [ParameterSpecs.cpp:88](Source/Parameters/ParameterSpecs.cpp#L88) — Clean drive / Drive + distortion
+- **`abCompare`** · parameter (COMPARE, "Compare") · [ParameterSpecs.cpp:89](Source/Parameters/ParameterSpecs.cpp#L89) — Rack / Input (level-matched)
+- **`monitorSpeed`** · parameter (SPEED, "Monitor Speed") · [ParameterSpecs.cpp:90](Source/Parameters/ParameterSpecs.cpp#L90) — 1 – 10
+- **`lbEqIn`** · parameter (IN, "EQ In") · [ParameterSpecs.cpp:91](Source/Parameters/ParameterSpecs.cpp#L91) — Out / In
+- **`lbHpf`** · parameter (HPF, "EQ High-Pass") · [ParameterSpecs.cpp:92](Source/Parameters/ParameterSpecs.cpp#L92) — Off / 50 Hz / 80 Hz / 160 Hz / 300 Hz
+- **`lbLowFreq`** · parameter (LOW, "EQ Low Freq") · [ParameterSpecs.cpp:93](Source/Parameters/ParameterSpecs.cpp#L93) — 35 Hz / 60 Hz / 110 Hz / 220 Hz
+- **`lbLowGain`** · parameter (LOW, "EQ Low Gain") · [ParameterSpecs.cpp:94](Source/Parameters/ParameterSpecs.cpp#L94) — -16 – 16 dB
+- **`lbMidFreq`** · parameter (MID, "EQ Mid Freq") · [ParameterSpecs.cpp:95](Source/Parameters/ParameterSpecs.cpp#L95) — 360 Hz / 700 Hz / 1.6 kHz / 3.2 kHz / 4.8 kHz / 7.2 kHz
+- **`lbMidGain`** · parameter (MID, "EQ Mid Gain") · [ParameterSpecs.cpp:96](Source/Parameters/ParameterSpecs.cpp#L96) — -18 – 18 dB
+- **`lbMidHiQ`** · parameter (HI Q, "EQ Mid Hi Q") · [ParameterSpecs.cpp:97](Source/Parameters/ParameterSpecs.cpp#L97) — 0 – 1
+- **`lbHighGain`** · parameter (HIGH, "EQ High Gain") · [ParameterSpecs.cpp:98](Source/Parameters/ParameterSpecs.cpp#L98) — -16 – 16 dB
+- **`lbIron`** · parameter (IRON, "EQ Iron") · [ParameterSpecs.cpp:99](Source/Parameters/ParameterSpecs.cpp#L99) — 0 – 1
+- **`lbHarshIn`** · parameter (IN, "De-Harsh In") · [ParameterSpecs.cpp:100](Source/Parameters/ParameterSpecs.cpp#L100) — Out / In
+- **`lbHarshAmount`** · parameter (AMOUNT, "De-Harsh Amount") · [ParameterSpecs.cpp:101](Source/Parameters/ParameterSpecs.cpp#L101) — 0 – 10
+- **`lbHarshFreq`** · parameter (FREQ, "De-Harsh Freq") · [ParameterSpecs.cpp:102](Source/Parameters/ParameterSpecs.cpp#L102) — 2.5 kHz / 4 kHz / 6.5 kHz
+- **`lbHarshSpeed`** · parameter (SPEED, "De-Harsh Speed") · [ParameterSpecs.cpp:103](Source/Parameters/ParameterSpecs.cpp#L103) — 10 – 200 ms
+- **`lbFeedIn`** · parameter (IN, "Crossfeed In") · [ParameterSpecs.cpp:104](Source/Parameters/ParameterSpecs.cpp#L104) — Out / In
+- **`lbFeedAmount`** · parameter (AMOUNT, "Crossfeed Amount") · [ParameterSpecs.cpp:105](Source/Parameters/ParameterSpecs.cpp#L105) — 0 – 10
+- **`presetPrev`** · parameter (PREV, "Preset Previous") · [ParameterSpecs.cpp:107](Source/Parameters/ParameterSpecs.cpp#L107) — 0 – 1
+- **`presetNext`** · parameter (NEXT, "Preset Next") · [ParameterSpecs.cpp:108](Source/Parameters/ParameterSpecs.cpp#L108) — 0 – 1
 
 ## Glass-panel settings
 
@@ -618,30 +628,31 @@ Every setting in the units' glass panels, and every choice. (160)
 
 ## Tests and tools
 
-Test modes, tool commands, scenes, scripts. (61)
+Test modes, tool commands, scenes, scripts. (62)
 
 - **scripts/selftest.sh** · the whole self-test in one command · [scripts/selftest.sh](scripts/selftest.sh) — every test, PASS / FAIL per step
-- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2155](Tests/EnhDspTests.cpp#L2155)
-- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2162](Tests/EnhDspTests.cpp#L2162)
-- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2165](Tests/EnhDspTests.cpp#L2165)
-- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2178](Tests/EnhDspTests.cpp#L2178)
-- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2181](Tests/EnhDspTests.cpp#L2181)
-- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2188](Tests/EnhDspTests.cpp#L2188)
-- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2197](Tests/EnhDspTests.cpp#L2197)
-- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2203](Tests/EnhDspTests.cpp#L2203)
-- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2210](Tests/EnhDspTests.cpp#L2210)
-- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2217](Tests/EnhDspTests.cpp#L2217)
-- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2224](Tests/EnhDspTests.cpp#L2224)
-- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2234](Tests/EnhDspTests.cpp#L2234)
-- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2241](Tests/EnhDspTests.cpp#L2241)
-- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2247](Tests/EnhDspTests.cpp#L2247)
-- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2254](Tests/EnhDspTests.cpp#L2254)
-- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2263](Tests/EnhDspTests.cpp#L2263)
-- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2324](Tests/EnhDspTests.cpp#L2324)
-- **EnhDspTests --lunchbox** · test mode · [EnhDspTests.cpp:2350](Tests/EnhDspTests.cpp#L2350)
-- **EnhDspTests --latency** · test mode · [EnhDspTests.cpp:2357](Tests/EnhDspTests.cpp#L2357)
-- **EnhDspTests --precision** · test mode · [EnhDspTests.cpp:2364](Tests/EnhDspTests.cpp#L2364)
-- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2371](Tests/EnhDspTests.cpp#L2371)
+- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2157](Tests/EnhDspTests.cpp#L2157)
+- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2164](Tests/EnhDspTests.cpp#L2164)
+- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2167](Tests/EnhDspTests.cpp#L2167)
+- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2180](Tests/EnhDspTests.cpp#L2180)
+- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2183](Tests/EnhDspTests.cpp#L2183)
+- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2190](Tests/EnhDspTests.cpp#L2190)
+- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2199](Tests/EnhDspTests.cpp#L2199)
+- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2205](Tests/EnhDspTests.cpp#L2205)
+- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2212](Tests/EnhDspTests.cpp#L2212)
+- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2219](Tests/EnhDspTests.cpp#L2219)
+- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2226](Tests/EnhDspTests.cpp#L2226)
+- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2237](Tests/EnhDspTests.cpp#L2237)
+- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2244](Tests/EnhDspTests.cpp#L2244)
+- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2250](Tests/EnhDspTests.cpp#L2250)
+- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2257](Tests/EnhDspTests.cpp#L2257)
+- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2266](Tests/EnhDspTests.cpp#L2266)
+- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2327](Tests/EnhDspTests.cpp#L2327)
+- **EnhDspTests --designed** · test mode · [EnhDspTests.cpp:2353](Tests/EnhDspTests.cpp#L2353)
+- **EnhDspTests --lunchbox** · test mode · [EnhDspTests.cpp:2361](Tests/EnhDspTests.cpp#L2361)
+- **EnhDspTests --latency** · test mode · [EnhDspTests.cpp:2368](Tests/EnhDspTests.cpp#L2368)
+- **EnhDspTests --precision** · test mode · [EnhDspTests.cpp:2375](Tests/EnhDspTests.cpp#L2375)
+- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2382](Tests/EnhDspTests.cpp#L2382)
 - **scene gaps** · AudioLab test scene · [AudioLab.cpp:213](Tools/AudioLab.cpp#L213) — music for 3 s, near silence for 3 s, music again: what the auto gains do in the gaps
 - **scene bassduck** · AudioLab test scene · [AudioLab.cpp:214](Tools/AudioLab.cpp#L214) — unchanging quiet detail and footsteps throughout, loud bass only from 3 - 5 s: what the bass does to the rest
 - **scene steps** · AudioLab test scene · [AudioLab.cpp:215](Tools/AudioLab.cpp#L215) — ambience and footsteps only, left/right, every 0.45 s: what the rack does to footsteps over time
@@ -660,15 +671,15 @@ Test modes, tool commands, scenes, scripts. (61)
 - **scene wide** · AudioLab test scene · [AudioLab.cpp:228](Tools/AudioLab.cpp#L228) — a wide ambience (unrelated left and right) with quiet footsteps: is wide material treated as mono would be
 - **scene antiphase** · AudioLab test scene · [AudioLab.cpp:229](Tools/AudioLab.cpp#L229) — footsteps and ambience with the right channel upside down: out-of-phase material
 - **scene silence** · AudioLab test scene · [AudioLab.cpp:230](Tools/AudioLab.cpp#L230) — music for 2 s, then digital silence: does the output fall silent (no hiss, no endless tails, no drift)
-- **EnhAudioLab scenes** · tool command · [AudioLab.cpp:2040](Tools/AudioLab.cpp#L2040)
-- **EnhAudioLab render** · tool command · [AudioLab.cpp:2045](Tools/AudioLab.cpp#L2045)
-- **EnhAudioLab contrib** · tool command · [AudioLab.cpp:2052](Tools/AudioLab.cpp#L2052)
-- **EnhAudioLab ducks** · tool command · [AudioLab.cpp:2053](Tools/AudioLab.cpp#L2053)
-- **EnhAudioLab trace** · tool command · [AudioLab.cpp:2054](Tools/AudioLab.cpp#L2054)
-- **EnhAudioLab compare** · tool command · [AudioLab.cpp:2055](Tools/AudioLab.cpp#L2055)
-- **EnhAudioLab suite** · tool command · [AudioLab.cpp:2074](Tools/AudioLab.cpp#L2074)
-- **EnhAudioLab listen** · tool command · [AudioLab.cpp:2075](Tools/AudioLab.cpp#L2075)
-- **EnhAudioLab check** · tool command · [AudioLab.cpp:2076](Tools/AudioLab.cpp#L2076)
+- **EnhAudioLab scenes** · tool command · [AudioLab.cpp:2041](Tools/AudioLab.cpp#L2041)
+- **EnhAudioLab render** · tool command · [AudioLab.cpp:2046](Tools/AudioLab.cpp#L2046)
+- **EnhAudioLab contrib** · tool command · [AudioLab.cpp:2053](Tools/AudioLab.cpp#L2053)
+- **EnhAudioLab ducks** · tool command · [AudioLab.cpp:2054](Tools/AudioLab.cpp#L2054)
+- **EnhAudioLab trace** · tool command · [AudioLab.cpp:2055](Tools/AudioLab.cpp#L2055)
+- **EnhAudioLab compare** · tool command · [AudioLab.cpp:2056](Tools/AudioLab.cpp#L2056)
+- **EnhAudioLab suite** · tool command · [AudioLab.cpp:2075](Tools/AudioLab.cpp#L2075)
+- **EnhAudioLab listen** · tool command · [AudioLab.cpp:2076](Tools/AudioLab.cpp#L2076)
+- **EnhAudioLab check** · tool command · [AudioLab.cpp:2077](Tools/AudioLab.cpp#L2077)
 - **selftest.sh --build** · self-test option · [selftest.sh:7](scripts/selftest.sh#L7) — build everything first (2 jobs: the laptop runs out of memory with more)
 - **selftest.sh --quick** · self-test option · [selftest.sh:8](scripts/selftest.sh#L8) — skip the slow steps (full suite, methods, fuzz, AudioLab check)
 - **selftest.sh --no-router** · self-test option · [selftest.sh:9](scripts/selftest.sh#L9) — skip EnhRouterTests (it moves real audio streams; needs PipeWire / PulseAudio)
@@ -684,22 +695,22 @@ Test modes, tool commands, scenes, scripts. (61)
 
 ## Dev settings
 
-Every environment variable the code reads, and where. (84)
+Every environment variable the code reads, and where. (86)
 
-- **ALIAS_PRESETS** · dev setting (environment variable) · [Tests/MasteringTests.h:711](Tests/MasteringTests.h#L711)
-- **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1311](Tests/EnhDspTests.cpp#L1311)
-- **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1304](Tests/EnhDspTests.cpp#L1304)
+- **ALIAS_PRESETS** · dev setting (environment variable) · [Tests/MasteringTests.h:714](Tests/MasteringTests.h#L714)
+- **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1312](Tests/EnhDspTests.cpp#L1312)
+- **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1305](Tests/EnhDspTests.cpp#L1305)
 - **CHAR_STEPS** · dev setting (environment variable) · [Tests/CharacterTests.h:329](Tests/CharacterTests.h#L329)
-- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2101](Tests/EnhDspTests.cpp#L2101)
-- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:905](Tests/EnhDspTests.cpp#L905)
-- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:905](Tests/EnhDspTests.cpp#L905)
+- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2102](Tests/EnhDspTests.cpp#L2102)
+- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:906](Tests/EnhDspTests.cpp#L906)
+- **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:906](Tests/EnhDspTests.cpp#L906)
 - **EAR_TRACE** · dev setting (environment variable) · [Tests/MasteringTests.h:403](Tests/MasteringTests.h#L403)
 - **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Source/Parameters/PresetLibrary.cpp:42](Source/Parameters/PresetLibrary.cpp#L42)
-- **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:828](Tests/EnhDspTests.cpp#L828)
+- **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:829](Tests/EnhDspTests.cpp#L829)
 - **FOCUS** · dev setting (environment variable) · [Tools/LayoutViz.cpp:115](Tools/LayoutViz.cpp#L115)
-- **KEEP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1362](Tests/EnhDspTests.cpp#L1362)
-- **LAB_FOOTSTEP_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:505](Tools/AudioLab.cpp#L505)
-- **LAB_GUARD_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:503](Tools/AudioLab.cpp#L503)
+- **KEEP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1363](Tests/EnhDspTests.cpp#L1363)
+- **LAB_FOOTSTEP_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:506](Tools/AudioLab.cpp#L506)
+- **LAB_GUARD_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:504](Tools/AudioLab.cpp#L504)
 - **LIMITER_FINE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
 - **LIMITER_FROM** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
 - **LIMITER_FROM** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
@@ -712,49 +723,51 @@ Every environment variable the code reads, and where. (84)
 - **PAD_ROUTER_TEST_INSERT** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:287](Source/Standalone/RouterBar.cpp#L287)
 - **PAD_ROUTER_TEST_LISTEN** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:269](Source/Standalone/RouterBar.cpp#L269)
 - **PAD_ROUTER_TEST_SOURCE** · dev setting (environment variable) · [Source/Standalone/RouterBar.cpp:264](Source/Standalone/RouterBar.cpp#L264)
-- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:72](Source/UI/HardwareView.cpp#L72)
-- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:73](Source/UI/HardwareView.cpp#L73)
+- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:93](Source/UI/HardwareView.cpp#L93)
+- **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:94](Source/UI/HardwareView.cpp#L94)
 - **PAD_UI_DUMP_ARTWORK** · dev setting (environment variable) · [Source/UI/Scene/LayoutAudit.h:8](Source/UI/Scene/LayoutAudit.h#L8)
-- **PAD_UI_TEST_BACKGROUND** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:664](Source/UI/HardwareView.cpp#L664)
+- **PAD_UI_TEST_BACKGROUND** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:689](Source/UI/HardwareView.cpp#L689)
 - **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:257](Source/Standalone/StandaloneApp.cpp#L257)
 - **PAD_UI_TEST_CLOSE** · dev setting (environment variable) · [Source/Standalone/StandaloneApp.cpp:258](Source/Standalone/StandaloneApp.cpp#L258)
-- **PAD_UI_TEST_COAT** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:223](Source/UI/Scene/HardwareRenderer.cpp#L223)
+- **PAD_UI_TEST_COAT** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:269](Source/UI/Scene/HardwareRenderer.cpp#L269)
 - **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/HardwareView.h:67](Source/UI/HardwareView.h#L67)
-- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1436](Source/UI/Scene/HardwareRenderer.cpp#L1436)
-- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1589](Source/UI/Scene/HardwareRenderer.cpp#L1589)
-- **PAD_UI_TEST_ENV** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:222](Source/UI/Scene/HardwareRenderer.cpp#L222)
-- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:91](Source/UI/HardwareView.cpp#L91)
-- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:92](Source/UI/HardwareView.cpp#L92)
-- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:274](Source/UI/Scene/HardwareRenderer.h#L274)
-- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:275](Source/UI/Scene/HardwareRenderer.h#L275)
-- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:898](Source/UI/HardwareView.cpp#L898)
-- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:906](Source/UI/HardwareView.cpp#L906)
-- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:309](Source/UI/Scene/HardwareRenderer.h#L309)
-- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:310](Source/UI/Scene/HardwareRenderer.h#L310)
-- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:366](Source/UI/Scene/HardwareRenderer.h#L366)
-- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:367](Source/UI/Scene/HardwareRenderer.h#L367)
-- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:850](Source/UI/HardwareView.cpp#L850)
-- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:851](Source/UI/HardwareView.cpp#L851)
-- **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:98](Source/UI/HardwareView.cpp#L98)
-- **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:100](Source/UI/HardwareView.cpp#L100)
-- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:114](Source/UI/HardwareView.cpp#L114)
-- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:115](Source/UI/HardwareView.cpp#L115)
-- **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:636](Source/UI/HardwareView.cpp#L636)
-- **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:638](Source/UI/HardwareView.cpp#L638)
+- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1507](Source/UI/Scene/HardwareRenderer.cpp#L1507)
+- **PAD_UI_TEST_DEMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:1669](Source/UI/Scene/HardwareRenderer.cpp#L1669)
+- **PAD_UI_TEST_ENV** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:268](Source/UI/Scene/HardwareRenderer.cpp#L268)
+- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:112](Source/UI/HardwareView.cpp#L112)
+- **PAD_UI_TEST_FOCUS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:113](Source/UI/HardwareView.cpp#L113)
+- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:284](Source/UI/Scene/HardwareRenderer.h#L284)
+- **PAD_UI_TEST_GALLERY** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:285](Source/UI/Scene/HardwareRenderer.h#L285)
+- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:930](Source/UI/HardwareView.cpp#L930)
+- **PAD_UI_TEST_HOVER** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:938](Source/UI/HardwareView.cpp#L938)
+- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:319](Source/UI/Scene/HardwareRenderer.h#L319)
+- **PAD_UI_TEST_HOVER_CONTROL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:320](Source/UI/Scene/HardwareRenderer.h#L320)
+- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:378](Source/UI/Scene/HardwareRenderer.h#L378)
+- **PAD_UI_TEST_MAX_DETAIL** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:379](Source/UI/Scene/HardwareRenderer.h#L379)
+- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:882](Source/UI/HardwareView.cpp#L882)
+- **PAD_UI_TEST_MINIMISE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:883](Source/UI/HardwareView.cpp#L883)
+- **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:119](Source/UI/HardwareView.cpp#L119)
+- **PAD_UI_TEST_PANEL** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:121](Source/UI/HardwareView.cpp#L121)
+- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:135](Source/UI/HardwareView.cpp#L135)
+- **PAD_UI_TEST_PANEL_CLOSE** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:136](Source/UI/HardwareView.cpp#L136)
+- **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:661](Source/UI/HardwareView.cpp#L661)
+- **PAD_UI_TEST_PARAMS** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:663](Source/UI/HardwareView.cpp#L663)
 - **PAD_UI_TEST_SIZE** · dev setting (environment variable) · [Source/PluginEditor.cpp:13](Source/PluginEditor.cpp#L13)
 - **PAD_UI_TEST_SIZE** · dev setting (environment variable) · [Source/PluginEditor.cpp:14](Source/PluginEditor.cpp#L14)
-- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:924](Source/UI/Scene/HardwareRenderer.cpp#L924)
-- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:925](Source/UI/Scene/HardwareRenderer.cpp#L925)
+- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:995](Source/UI/Scene/HardwareRenderer.cpp#L995)
+- **PAD_UI_TEST_SLOWMO** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.cpp:996](Source/UI/Scene/HardwareRenderer.cpp#L996)
 - **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/HardwareView.h:116](Source/UI/HardwareView.h#L116)
-- **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:369](Source/UI/Scene/HardwareRenderer.h#L369)
+- **PAD_UI_TEST_STATS** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:381](Source/UI/Scene/HardwareRenderer.h#L381)
+- **PAD_UI_TEST_STORED** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:41](Source/UI/HardwareView.cpp#L41)
+- **PAD_UI_TEST_STORED** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:42](Source/UI/HardwareView.cpp#L42)
 - **PAD_UI_TEST_TRACE** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:192](Source/UI/Scene/HardwareRenderer.h#L192)
 - **PAD_UI_TEST_TRACE** · dev setting (environment variable) · [Source/UI/Scene/HardwareRenderer.h:193](Source/UI/Scene/HardwareRenderer.h#L193)
-- **PAD_UI_TEST_VIEW** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:28](Source/UI/HardwareView.cpp#L28)
-- **PAD_UI_TEST_VIEW** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:30](Source/UI/HardwareView.cpp#L30)
+- **PAD_UI_TEST_VIEW** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:35](Source/UI/HardwareView.cpp#L35)
+- **PAD_UI_TEST_VIEW** · dev setting (environment variable) · [Source/UI/HardwareView.cpp:37](Source/UI/HardwareView.cpp#L37)
 - **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
-- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:897](Tests/EnhDspTests.cpp#L897)
-- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:900](Tests/EnhDspTests.cpp#L900)
-- **PUMP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1042](Tests/EnhDspTests.cpp#L1042)
+- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:898](Tests/EnhDspTests.cpp#L898)
+- **PRESET_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:901](Tests/EnhDspTests.cpp#L901)
+- **PUMP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1043](Tests/EnhDspTests.cpp#L1043)
 - **RADAR_BANDS** · dev setting (environment variable) · [Tests/RadarTests.h:533](Tests/RadarTests.h#L533)
 - **RADAR_BANDS** · dev setting (environment variable) · [Tests/RadarTests.h:585](Tests/RadarTests.h#L585)
 - **RADAR_DUMP** · dev setting (environment variable) · [Tests/RadarTests.h:567](Tests/RadarTests.h#L567)
@@ -763,17 +776,17 @@ Every environment variable the code reads, and where. (84)
 - **RADAR_STATS** · dev setting (environment variable) · [Tests/RadarTests.h:560](Tests/RadarTests.h#L560)
 - **RADAR_STEPS** · dev setting (environment variable) · [Tests/RadarTests.h:517](Tests/RadarTests.h#L517)
 - **RADAR_TRACE** · dev setting (environment variable) · [Tests/RadarTests.h:573](Tests/RadarTests.h#L573)
-- **SMOOTH_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:988](Tests/EnhDspTests.cpp#L988)
-- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1080](Tests/EnhDspTests.cpp#L1080)
-- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1082](Tests/EnhDspTests.cpp#L1082)
-- **ZIP_DUMP** · dev setting (environment variable) · [Tests/MasteringTests.h:637](Tests/MasteringTests.h#L637)
+- **SMOOTH_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:989](Tests/EnhDspTests.cpp#L989)
+- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1081](Tests/EnhDspTests.cpp#L1081)
+- **THD_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1083](Tests/EnhDspTests.cpp#L1083)
+- **ZIP_DUMP** · dev setting (environment variable) · [Tests/MasteringTests.h:640](Tests/MasteringTests.h#L640)
 - **ZIP_PARAM** · dev setting (environment variable) · [Tests/MasteringTests.h:610](Tests/MasteringTests.h#L610)
 - **ZIP_PRESET** · dev setting (environment variable) · [Tests/MasteringTests.h:616](Tests/MasteringTests.h#L616)
 - **ZIP_SET** · dev setting (environment variable) · [Tests/MasteringTests.h:617](Tests/MasteringTests.h#L617)
 
 ## Code
 
-Every class, struct, enum and function, by file, with the first line of its comment. (1467)
+Every class, struct, enum and function, by file, with the first line of its comment. (1570)
 
 
 **[Source/PluginEditor.cpp](Source/PluginEditor.cpp)**
@@ -787,18 +800,18 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 **[Source/PluginProcessor.cpp](Source/PluginProcessor.cpp)**
 
-- **PluginProcessor::prepareToPlay** · function · [PluginProcessor.cpp:125](Source/PluginProcessor.cpp#L125)
-- **PluginProcessor::isBusesLayoutSupported** · function · [PluginProcessor.cpp:133](Source/PluginProcessor.cpp#L133)
-- **PluginProcessor::processBlock** · function · [PluginProcessor.cpp:143](Source/PluginProcessor.cpp#L143)
-- **PluginProcessor::applyKnobModifiers** · function · [PluginProcessor.cpp:247](Source/PluginProcessor.cpp#L247)
-- **PluginProcessor::getNumPrograms** · function · [PluginProcessor.cpp:259](Source/PluginProcessor.cpp#L259)
-- **PluginProcessor::getProgramName** · function · [PluginProcessor.cpp:264](Source/PluginProcessor.cpp#L264)
-- **PluginProcessor::setCurrentProgram** · function · [PluginProcessor.cpp:270](Source/PluginProcessor.cpp#L270)
-- **PluginProcessor::stepPreset** · function · [PluginProcessor.cpp:296](Source/PluginProcessor.cpp#L296)
-- **PluginProcessor::createEditor** · function · [PluginProcessor.cpp:302](Source/PluginProcessor.cpp#L302)
-- **PluginProcessor::getStateInformation** · function · [PluginProcessor.cpp:307](Source/PluginProcessor.cpp#L307)
-- **PluginProcessor::setStateInformation** · function · [PluginProcessor.cpp:313](Source/PluginProcessor.cpp#L313)
-- **createPluginFilter** · function · [PluginProcessor.cpp:339](Source/PluginProcessor.cpp#L339)
+- **PluginProcessor::prepareToPlay** · function · [PluginProcessor.cpp:130](Source/PluginProcessor.cpp#L130)
+- **PluginProcessor::isBusesLayoutSupported** · function · [PluginProcessor.cpp:138](Source/PluginProcessor.cpp#L138)
+- **PluginProcessor::processBlock** · function · [PluginProcessor.cpp:148](Source/PluginProcessor.cpp#L148)
+- **PluginProcessor::applyKnobModifiers** · function · [PluginProcessor.cpp:256](Source/PluginProcessor.cpp#L256)
+- **PluginProcessor::getNumPrograms** · function · [PluginProcessor.cpp:268](Source/PluginProcessor.cpp#L268)
+- **PluginProcessor::getProgramName** · function · [PluginProcessor.cpp:273](Source/PluginProcessor.cpp#L273)
+- **PluginProcessor::setCurrentProgram** · function · [PluginProcessor.cpp:279](Source/PluginProcessor.cpp#L279)
+- **PluginProcessor::stepPreset** · function · [PluginProcessor.cpp:305](Source/PluginProcessor.cpp#L305)
+- **PluginProcessor::createEditor** · function · [PluginProcessor.cpp:311](Source/PluginProcessor.cpp#L311)
+- **PluginProcessor::getStateInformation** · function · [PluginProcessor.cpp:316](Source/PluginProcessor.cpp#L316)
+- **PluginProcessor::setStateInformation** · function · [PluginProcessor.cpp:322](Source/PluginProcessor.cpp#L322)
+- **createPluginFilter** · function · [PluginProcessor.cpp:355](Source/PluginProcessor.cpp#L355)
 
 **[Source/PluginProcessor.h](Source/PluginProcessor.h)**
 
@@ -814,17 +827,19 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **PluginProcessor::changeProgramName** · function · [PluginProcessor.h:36](Source/PluginProcessor.h#L36)
 - **PluginProcessor::getStageLatencyMs** · function · [PluginProcessor.h:40](Source/PluginProcessor.h#L40)
 - **PluginProcessor::getRackLatencyMs** · function · [PluginProcessor.h:46](Source/PluginProcessor.h#L46)
-- **PluginProcessor::resetLoudness** · function · [PluginProcessor.h:53](Source/PluginProcessor.h#L53) — The loudness meter's RESET button (any thread).
-- **PluginProcessor::getPresetLoadCount** · function · [PluginProcessor.h:58](Source/PluginProcessor.h#L58) — Bumped on every preset load, so the editor can show the name.
-- **PluginProcessor::getState** · function · [PluginProcessor.h:63](Source/PluginProcessor.h#L63)
-- **PluginProcessor::getBridge** · function · [PluginProcessor.h:64](Source/PluginProcessor.h#L64)
-- **PluginProcessor::setKnobModifier** · function · [PluginProcessor.h:68](Source/PluginProcessor.h#L68)
-- **PluginProcessor::getKnobModifier** · function · [PluginProcessor.h:69](Source/PluginProcessor.h#L69)
-- **PluginProcessor::getMeters** · function · [PluginProcessor.h:70](Source/PluginProcessor.h#L70)
-- **PluginProcessor::getInputScope** · function · [PluginProcessor.h:73](Source/PluginProcessor.h#L73) — Analyser taps.
-- **PluginProcessor::getOutputScope** · function · [PluginProcessor.h:74](Source/PluginProcessor.h#L74)
-- **PluginProcessor::getBalancerInputScope** · function · [PluginProcessor.h:75](Source/PluginProcessor.h#L75)
-- **PluginProcessor::getBalancerOutputScope** · function · [PluginProcessor.h:76](Source/PluginProcessor.h#L76)
+- **PluginProcessor::getStoredUnits** · function · [PluginProcessor.h:54](Source/PluginProcessor.h#L54)
+- **PluginProcessor::setStoredUnits** · function · [PluginProcessor.h:55](Source/PluginProcessor.h#L55)
+- **PluginProcessor::resetLoudness** · function · [PluginProcessor.h:63](Source/PluginProcessor.h#L63) — The loudness meter's RESET button (any thread).
+- **PluginProcessor::getPresetLoadCount** · function · [PluginProcessor.h:68](Source/PluginProcessor.h#L68) — Bumped on every preset load, so the editor can show the name.
+- **PluginProcessor::getState** · function · [PluginProcessor.h:73](Source/PluginProcessor.h#L73)
+- **PluginProcessor::getBridge** · function · [PluginProcessor.h:74](Source/PluginProcessor.h#L74)
+- **PluginProcessor::setKnobModifier** · function · [PluginProcessor.h:78](Source/PluginProcessor.h#L78)
+- **PluginProcessor::getKnobModifier** · function · [PluginProcessor.h:79](Source/PluginProcessor.h#L79)
+- **PluginProcessor::getMeters** · function · [PluginProcessor.h:80](Source/PluginProcessor.h#L80)
+- **PluginProcessor::getInputScope** · function · [PluginProcessor.h:83](Source/PluginProcessor.h#L83) — Analyser taps.
+- **PluginProcessor::getOutputScope** · function · [PluginProcessor.h:84](Source/PluginProcessor.h#L84)
+- **PluginProcessor::getBalancerInputScope** · function · [PluginProcessor.h:85](Source/PluginProcessor.h#L85)
+- **PluginProcessor::getBalancerOutputScope** · function · [PluginProcessor.h:86](Source/PluginProcessor.h#L86)
 
 **[Source/Apo/ApoCore.cpp](Source/Apo/ApoCore.cpp)**
 
@@ -993,6 +1008,12 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **DeepSub::smoothstep** · function · [DeepSub.h:250](Source/DSP/DeepSub.h#L250)
 - **DeepSub::shapeOf** · function · [DeepSub.h:256](Source/DSP/DeepSub.h#L256) — SUB SHAPE: sine;
 
+**[Source/DSP/DesignedUnits.h](Source/DSP/DesignedUnits.h)**
+
+- **Param** · struct · [DesignedUnits.h:12](Source/DSP/DesignedUnits.h#L12)
+- **indexOf** · function · [DesignedUnits.h:83](Source/DSP/DesignedUnits.h#L83) — Where an ID sits in the table (-1: not one of these).
+- **defaults** · function · [DesignedUnits.h:91](Source/DSP/DesignedUnits.h#L91)
+
 **[Source/DSP/DspMath.h](Source/DSP/DspMath.h)**
 
 - **dbToGain** · function · [DspMath.h:12](Source/DSP/DspMath.h#L12)
@@ -1087,39 +1108,39 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/DSP/EnhEngine.cpp](Source/DSP/EnhEngine.cpp)**
 
 - **EnhEngine::prepare** · function · [EnhEngine.cpp:6](Source/DSP/EnhEngine.cpp#L6)
-- **EnhEngine::reset** · function · [EnhEngine.cpp:57](Source/DSP/EnhEngine.cpp#L57)
-- **EnhEngine::controlTick** · function · [EnhEngine.cpp:100](Source/DSP/EnhEngine.cpp#L100)
-- **EnhEngine::process** · function · [EnhEngine.cpp:146](Source/DSP/EnhEngine.cpp#L146)
-- **EnhEngine::inStereoMode** · function · [EnhEngine.cpp:298](Source/DSP/EnhEngine.cpp#L298)
-- **EnhEngine::compareStage** · function · [EnhEngine.cpp:355](Source/DSP/EnhEngine.cpp#L355)
-- **EnhEngine::publishRadar** · function · [EnhEngine.cpp:409](Source/DSP/EnhEngine.cpp#L409)
-- **EnhEngine::processChunk** · function · [EnhEngine.cpp:449](Source/DSP/EnhEngine.cpp#L449)
+- **EnhEngine::reset** · function · [EnhEngine.cpp:60](Source/DSP/EnhEngine.cpp#L60)
+- **EnhEngine::controlTick** · function · [EnhEngine.cpp:106](Source/DSP/EnhEngine.cpp#L106)
+- **EnhEngine::process** · function · [EnhEngine.cpp:152](Source/DSP/EnhEngine.cpp#L152)
+- **EnhEngine::inStereoMode** · function · [EnhEngine.cpp:304](Source/DSP/EnhEngine.cpp#L304)
+- **EnhEngine::compareStage** · function · [EnhEngine.cpp:361](Source/DSP/EnhEngine.cpp#L361)
+- **EnhEngine::publishRadar** · function · [EnhEngine.cpp:415](Source/DSP/EnhEngine.cpp#L415)
+- **EnhEngine::processChunk** · function · [EnhEngine.cpp:455](Source/DSP/EnhEngine.cpp#L455)
 
 **[Source/DSP/EnhEngine.h](Source/DSP/EnhEngine.h)**
 
-- **EnhEngine** · class · [EnhEngine.h:50](Source/DSP/EnhEngine.h#L50)
-- **EnhEngine::Parameters** · struct · [EnhEngine.h:53](Source/DSP/EnhEngine.h#L53)
-- **EnhEngine::getLatencySamples** · function · [EnhEngine.h:80](Source/DSP/EnhEngine.h#L80)
-- **EnhEngine::getLatencyBreakdown** · function · [EnhEngine.h:85](Source/DSP/EnhEngine.h#L85)
-- **EnhEngine::resetLoudness** · function · [EnhEngine.h:96](Source/DSP/EnhEngine.h#L96) — The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again.
-- **EnhEngine::getBalancer** · function · [EnhEngine.h:97](Source/DSP/EnhEngine.h#L97)
-- **EnhEngine::getLoudness** · function · [EnhEngine.h:98](Source/DSP/EnhEngine.h#L98)
-- **EnhEngine::getBalancerInputScope** · function · [EnhEngine.h:99](Source/DSP/EnhEngine.h#L99)
-- **EnhEngine::getBalancerOutputScope** · function · [EnhEngine.h:100](Source/DSP/EnhEngine.h#L100)
-- **EnhEngine::getOutputLimiter** · function · [EnhEngine.h:101](Source/DSP/EnhEngine.h#L101)
-- **EnhEngine::getMeters** · function · [EnhEngine.h:102](Source/DSP/EnhEngine.h#L102)
-- **EnhEngine::getFootstepEventCount** · function · [EnhEngine.h:105](Source/DSP/EnhEngine.h#L105) — For tests: footsteps the radar has found since reset, and how much it is lifting now (0..1).
-- **EnhEngine::getFootstepConfidence** · function · [EnhEngine.h:106](Source/DSP/EnhEngine.h#L106)
-- **EnhEngine::getRadar** · function · [EnhEngine.h:107](Source/DSP/EnhEngine.h#L107)
-- **EnhEngine::setRadarLog** · function · [EnhEngine.h:108](Source/DSP/EnhEngine.h#L108)
-- **EnhEngine::getHarmonicPlan** · function · [EnhEngine.h:109](Source/DSP/EnhEngine.h#L109)
-- **EnhEngine::getEQ** · function · [EnhEngine.h:110](Source/DSP/EnhEngine.h#L110)
-- **EnhEngine::getSeraph** · function · [EnhEngine.h:111](Source/DSP/EnhEngine.h#L111)
-- **EnhEngine::getCompressor** · function · [EnhEngine.h:112](Source/DSP/EnhEngine.h#L112)
-- **EnhEngine::getLeveler** · function · [EnhEngine.h:113](Source/DSP/EnhEngine.h#L113)
-- **EnhEngine::getLimiter** · function · [EnhEngine.h:114](Source/DSP/EnhEngine.h#L114)
-- **EnhEngine::getInputScope** · function · [EnhEngine.h:117](Source/DSP/EnhEngine.h#L117) — Analyser taps: the audio thread only copies samples in, the editor does the FFT.
-- **EnhEngine::getOutputScope** · function · [EnhEngine.h:118](Source/DSP/EnhEngine.h#L118)
+- **EnhEngine** · class · [EnhEngine.h:53](Source/DSP/EnhEngine.h#L53)
+- **EnhEngine::Parameters** · struct · [EnhEngine.h:56](Source/DSP/EnhEngine.h#L56)
+- **EnhEngine::getLatencySamples** · function · [EnhEngine.h:86](Source/DSP/EnhEngine.h#L86)
+- **EnhEngine::getLatencyBreakdown** · function · [EnhEngine.h:91](Source/DSP/EnhEngine.h#L91)
+- **EnhEngine::resetLoudness** · function · [EnhEngine.h:102](Source/DSP/EnhEngine.h#L102) — The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again.
+- **EnhEngine::getBalancer** · function · [EnhEngine.h:103](Source/DSP/EnhEngine.h#L103)
+- **EnhEngine::getLoudness** · function · [EnhEngine.h:104](Source/DSP/EnhEngine.h#L104)
+- **EnhEngine::getBalancerInputScope** · function · [EnhEngine.h:105](Source/DSP/EnhEngine.h#L105)
+- **EnhEngine::getBalancerOutputScope** · function · [EnhEngine.h:106](Source/DSP/EnhEngine.h#L106)
+- **EnhEngine::getOutputLimiter** · function · [EnhEngine.h:107](Source/DSP/EnhEngine.h#L107)
+- **EnhEngine::getMeters** · function · [EnhEngine.h:108](Source/DSP/EnhEngine.h#L108)
+- **EnhEngine::getFootstepEventCount** · function · [EnhEngine.h:111](Source/DSP/EnhEngine.h#L111) — For tests: footsteps the radar has found since reset, and how much it is lifting now (0..1).
+- **EnhEngine::getFootstepConfidence** · function · [EnhEngine.h:112](Source/DSP/EnhEngine.h#L112)
+- **EnhEngine::getRadar** · function · [EnhEngine.h:113](Source/DSP/EnhEngine.h#L113)
+- **EnhEngine::setRadarLog** · function · [EnhEngine.h:114](Source/DSP/EnhEngine.h#L114)
+- **EnhEngine::getHarmonicPlan** · function · [EnhEngine.h:115](Source/DSP/EnhEngine.h#L115)
+- **EnhEngine::getEQ** · function · [EnhEngine.h:116](Source/DSP/EnhEngine.h#L116)
+- **EnhEngine::getSeraph** · function · [EnhEngine.h:117](Source/DSP/EnhEngine.h#L117)
+- **EnhEngine::getCompressor** · function · [EnhEngine.h:118](Source/DSP/EnhEngine.h#L118)
+- **EnhEngine::getLeveler** · function · [EnhEngine.h:119](Source/DSP/EnhEngine.h#L119)
+- **EnhEngine::getLimiter** · function · [EnhEngine.h:120](Source/DSP/EnhEngine.h#L120)
+- **EnhEngine::getInputScope** · function · [EnhEngine.h:123](Source/DSP/EnhEngine.h#L123) — Analyser taps: the audio thread only copies samples in, the editor does the FFT.
+- **EnhEngine::getOutputScope** · function · [EnhEngine.h:124](Source/DSP/EnhEngine.h#L124)
 
 **[Source/DSP/FinalLimiter.h](Source/DSP/FinalLimiter.h)**
 
@@ -1359,8 +1380,9 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 **[Source/DSP/ParameterMapping.h](Source/DSP/ParameterMapping.h)**
 
-- **KnobValues** · struct · [ParameterMapping.h:9](Source/DSP/ParameterMapping.h#L9)
-- **mapKnobs** · function · [ParameterMapping.h:101](Source/DSP/ParameterMapping.h#L101)
+- **KnobValues** · struct · [ParameterMapping.h:19](Source/DSP/ParameterMapping.h#L19)
+- **withLocker** · function · [ParameterMapping.h:119](Source/DSP/ParameterMapping.h#L119) — A unit in the locker is out of the rack: switched out, whatever its knobs say (its settings are kept).
+- **mapKnobs** · function · [ParameterMapping.h:138](Source/DSP/ParameterMapping.h#L138)
 
 **[Source/DSP/PrecisionEQ.cpp](Source/DSP/PrecisionEQ.cpp)**
 
@@ -1381,6 +1403,20 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **PrecisionEQ::push** · function · [PrecisionEQ.h:59](Source/DSP/PrecisionEQ.h#L59) — Audio thread, the mono input: analysis.
 - **PrecisionEQ::getBands** · function · [PrecisionEQ.h:75](Source/DSP/PrecisionEQ.h#L75)
 - **PrecisionEQ::getFineSpectrumDb** · function · [PrecisionEQ.h:83](Source/DSP/PrecisionEQ.h#L83)
+
+**[Source/DSP/ProX4.h](Source/DSP/ProX4.h)**
+
+- **ProX4** · class · [ProX4.h:35](Source/DSP/ProX4.h#L35)
+- **ProX4::Side** · struct · [ProX4.h:40](Source/DSP/ProX4.h#L40)
+- **ProX4::Settings** · struct · [ProX4.h:46](Source/DSP/ProX4.h#L46)
+- **ProX4::Readout** · struct · [ProX4.h:53](Source/DSP/ProX4.h#L53)
+- **ProX4::prepare** · function · [ProX4.h:60](Source/DSP/ProX4.h#L60)
+- **ProX4::reset** · function · [ProX4.h:70](Source/DSP/ProX4.h#L70)
+- **ProX4::getReadout** · function · [ProX4.h:85](Source/DSP/ProX4.h#L85)
+- **ProX4::process** · function · [ProX4.h:87](Source/DSP/ProX4.h#L87)
+- **ProX4::resetDsp** · function · [ProX4.h:160](Source/DSP/ProX4.h#L160)
+- **ProX4::updateKnobs** · function · [ProX4.h:168](Source/DSP/ProX4.h#L168)
+- **ProX4::controlPid** · function · [ProX4.h:190](Source/DSP/ProX4.h#L190) — Per band (both sides together): density in dB against the DRIVE knob's target.
 
 **[Source/DSP/Seraph.cpp](Source/DSP/Seraph.cpp)**
 
@@ -1528,6 +1564,60 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **SubEnhancer::getLiftDb** · function · [SubEnhancer.h:48](Source/DSP/SubEnhancer.h#L48)
 - **SubEnhancer::Channel** · struct · [SubEnhancer.h:60](Source/DSP/SubEnhancer.h#L60)
 
+**[Source/DSP/Takeback.h](Source/DSP/Takeback.h)**
+
+- **Takeback** · class · [Takeback.h:33](Source/DSP/Takeback.h#L33)
+- **Takeback::Settings** · struct · [Takeback.h:38](Source/DSP/Takeback.h#L38)
+- **Takeback::Readout** · struct · [Takeback.h:44](Source/DSP/Takeback.h#L44)
+- **Takeback::prepare** · function · [Takeback.h:51](Source/DSP/Takeback.h#L51)
+- **Takeback::reset** · function · [Takeback.h:81](Source/DSP/Takeback.h#L81)
+- **Takeback::getReadout** · function · [Takeback.h:89](Source/DSP/Takeback.h#L89)
+- **Takeback::process** · function · [Takeback.h:91](Source/DSP/Takeback.h#L91)
+- **Takeback::Chan** · struct · [Takeback.h:223](Source/DSP/Takeback.h#L223)
+- **Takeback::target** · function · [Takeback.h:232](Source/DSP/Takeback.h#L232)
+- **Takeback::resetDsp** · function · [Takeback.h:234](Source/DSP/Takeback.h#L234)
+
+**[Source/DSP/UnitKit.h](Source/DSP/UnitKit.h)**
+
+- **Lr4** · struct · [UnitKit.h:12](Source/DSP/UnitKit.h#L12) — Linkwitz-Riley 4th order: two cascaded Butterworth sections each side (see SpectralLeveler.h).
+- **Lr4::reset** · function · [UnitKit.h:15](Source/DSP/UnitKit.h#L15)
+- **Lr4::low** · function · [UnitKit.h:16](Source/DSP/UnitKit.h#L16)
+- **Lr4::high** · function · [UnitKit.h:17](Source/DSP/UnitKit.h#L17)
+- **Allpass** · struct · [UnitKit.h:21](Source/DSP/UnitKit.h#L21) — The 2nd-order allpass an LR4 split adds, for the branch that skips that split.
+- **Allpass::reset** · function · [UnitKit.h:24](Source/DSP/UnitKit.h#L24)
+- **Allpass::process** · function · [UnitKit.h:25](Source/DSP/UnitKit.h#L25)
+- **Split3** · struct · [UnitKit.h:30](Source/DSP/UnitKit.h#L30)
+- **Split3::setup** · function · [UnitKit.h:35](Source/DSP/UnitKit.h#L35)
+- **Split3::reset** · function · [UnitKit.h:36](Source/DSP/UnitKit.h#L36)
+- **Split3::split** · function · [UnitKit.h:37](Source/DSP/UnitKit.h#L37)
+- **Split4** · struct · [UnitKit.h:47](Source/DSP/UnitKit.h#L47) — Four bands (f1 < f2 < f3) summing flat.
+- **Split4::setup** · function · [UnitKit.h:52](Source/DSP/UnitKit.h#L52)
+- **Split4::reset** · function · [UnitKit.h:56](Source/DSP/UnitKit.h#L56)
+- **Split4::split** · function · [UnitKit.h:57](Source/DSP/UnitKit.h#L57)
+- **SoftSat** · struct · [UnitKit.h:71](Source/DSP/UnitKit.h#L71)
+- **SoftSat::reset** · function · [UnitKit.h:74](Source/DSP/UnitKit.h#L74)
+- **SoftSat::curve** · function · [UnitKit.h:76](Source/DSP/UnitKit.h#L76)
+- **SoftSat::integral** · function · [UnitKit.h:77](Source/DSP/UnitKit.h#L77)
+- **SoftSat::process** · function · [UnitKit.h:84](Source/DSP/UnitKit.h#L84) — y ~ curve (x + bias) - curve (bias), anti-aliased.
+- **SoftSat::residual** · function · [UnitKit.h:98](Source/DSP/UnitKit.h#L98)
+- **Glide** · struct · [UnitKit.h:111](Source/DSP/UnitKit.h#L111) — A knob's value gliding to where it was set, across each block (no zipper noise).
+- **Glide::set** · function · [UnitKit.h:114](Source/DSP/UnitKit.h#L114)
+- **Glide::target** · function · [UnitKit.h:115](Source/DSP/UnitKit.h#L115)
+- **Glide::at** · function · [UnitKit.h:116](Source/DSP/UnitKit.h#L116)
+
+**[Source/DSP/Velvetizer.h](Source/DSP/Velvetizer.h)**
+
+- **Velvetizer** · class · [Velvetizer.h:26](Source/DSP/Velvetizer.h#L26)
+- **Velvetizer::Settings** · struct · [Velvetizer.h:32](Source/DSP/Velvetizer.h#L32)
+- **Velvetizer::prepare** · function · [Velvetizer.h:41](Source/DSP/Velvetizer.h#L41)
+- **Velvetizer::reset** · function · [Velvetizer.h:56](Source/DSP/Velvetizer.h#L56)
+- **Velvetizer::getVelvetDb** · function · [Velvetizer.h:65](Source/DSP/Velvetizer.h#L65) — The VELVET dB+ meter: how far transients are taken down now (dB, >= 0).
+- **Velvetizer::process** · function · [Velvetizer.h:67](Source/DSP/Velvetizer.h#L67)
+- **Velvetizer::Chan** · struct · [Velvetizer.h:163](Source/DSP/Velvetizer.h#L163)
+- **Velvetizer::colour** · function · [Velvetizer.h:175](Source/DSP/Velvetizer.h#L175) — One colour model on a sample;
+- **Velvetizer::target** · function · [Velvetizer.h:193](Source/DSP/Velvetizer.h#L193)
+- **Velvetizer::resetDsp** · function · [Velvetizer.h:195](Source/DSP/Velvetizer.h#L195)
+
 **[Source/Parameters/FactoryPresets.h](Source/Parameters/FactoryPresets.h)**
 
 - **Preset** · struct · [FactoryPresets.h:21](Source/Parameters/FactoryPresets.h#L21)
@@ -1576,10 +1666,10 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 **[Source/Parameters/ParameterSpecs.cpp](Source/Parameters/ParameterSpecs.cpp)**
 
-- **buildSpecs** · function · [ParameterSpecs.cpp:6](Source/Parameters/ParameterSpecs.cpp#L6)
-- **allSpecs** · function · [ParameterSpecs.cpp:134](Source/Parameters/ParameterSpecs.cpp#L134)
-- **findSpec** · function · [ParameterSpecs.cpp:140](Source/Parameters/ParameterSpecs.cpp#L140)
-- **createLayout** · function · [ParameterSpecs.cpp:149](Source/Parameters/ParameterSpecs.cpp#L149)
+- **buildSpecs** · function · [ParameterSpecs.cpp:7](Source/Parameters/ParameterSpecs.cpp#L7)
+- **allSpecs** · function · [ParameterSpecs.cpp:144](Source/Parameters/ParameterSpecs.cpp#L144)
+- **findSpec** · function · [ParameterSpecs.cpp:150](Source/Parameters/ParameterSpecs.cpp#L150)
+- **createLayout** · function · [ParameterSpecs.cpp:159](Source/Parameters/ParameterSpecs.cpp#L159)
 
 **[Source/Parameters/ParameterSpecs.h](Source/Parameters/ParameterSpecs.h)**
 
@@ -1934,67 +2024,69 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Entry::numChoices** · function · [GlassPanel.cpp:37](Source/UI/GlassPanel.cpp#L37)
 - **GlassPanel::setViewSize** · function · [GlassPanel.cpp:49](Source/UI/GlassPanel.cpp#L49) — ==============================================================================
 - **GlassPanel::open** · function · [GlassPanel.cpp:57](Source/UI/GlassPanel.cpp#L57)
-- **GlassPanel::contentHeight** · function · [GlassPanel.cpp:153](Source/UI/GlassPanel.cpp#L153) — ==============================================================================
-- **GlassPanel::layoutEntries** · function · [GlassPanel.cpp:159](Source/UI/GlassPanel.cpp#L159) — Every entry's height from its animation state, stacked;
-- **GlassPanel::listArea** · function · [GlassPanel.cpp:202](Source/UI/GlassPanel.cpp#L202)
-- **GlassPanel::entryBox** · function · [GlassPanel.cpp:207](Source/UI/GlassPanel.cpp#L207)
-- **GlassPanel::optionBox** · function · [GlassPanel.cpp:213](Source/UI/GlassPanel.cpp#L213)
-- **GlassPanel::hitTest** · function · [GlassPanel.cpp:220](Source/UI/GlassPanel.cpp#L220) — ==============================================================================
-- **GlassPanel::hover** · function · [GlassPanel.cpp:244](Source/UI/GlassPanel.cpp#L244)
-- **GlassPanel::unhover** · function · [GlassPanel.cpp:254](Source/UI/GlassPanel.cpp#L254)
-- **GlassPanel::click** · function · [GlassPanel.cpp:263](Source/UI/GlassPanel.cpp#L263)
-- **GlassPanel::scroll** · function · [GlassPanel.cpp:299](Source/UI/GlassPanel.cpp#L299)
-- **GlassPanel::tick** · function · [GlassPanel.cpp:307](Source/UI/GlassPanel.cpp#L307)
-- **GlassPanel::setExpanded** · function · [GlassPanel.cpp:328](Source/UI/GlassPanel.cpp#L328)
-- **GlassPanel::currentChoice** · function · [GlassPanel.cpp:350](Source/UI/GlassPanel.cpp#L350) — ==============================================================================
-- **GlassPanel::choose** · function · [GlassPanel.cpp:372](Source/UI/GlassPanel.cpp#L372)
-- **GlassPanel::resetUnit** · function · [GlassPanel.cpp:392](Source/UI/GlassPanel.cpp#L392)
-- **GlassPanel::pollValues** · function · [GlassPanel.cpp:399](Source/UI/GlassPanel.cpp#L399)
-- **GlassPanel::choiceText** · function · [GlassPanel.cpp:411](Source/UI/GlassPanel.cpp#L411)
-- **GlassPanel::valueText** · function · [GlassPanel.cpp:418](Source/UI/GlassPanel.cpp#L418)
-- **GlassPanel::render** · function · [GlassPanel.cpp:424](Source/UI/GlassPanel.cpp#L424) — ==============================================================================
+- **GlassPanel::contentHeight** · function · [GlassPanel.cpp:156](Source/UI/GlassPanel.cpp#L156) — ==============================================================================
+- **GlassPanel::layoutEntries** · function · [GlassPanel.cpp:162](Source/UI/GlassPanel.cpp#L162) — Every entry's height from its animation state, stacked;
+- **GlassPanel::listArea** · function · [GlassPanel.cpp:206](Source/UI/GlassPanel.cpp#L206)
+- **GlassPanel::entryBox** · function · [GlassPanel.cpp:211](Source/UI/GlassPanel.cpp#L211)
+- **GlassPanel::optionBox** · function · [GlassPanel.cpp:217](Source/UI/GlassPanel.cpp#L217)
+- **GlassPanel::hitTest** · function · [GlassPanel.cpp:224](Source/UI/GlassPanel.cpp#L224) — ==============================================================================
+- **GlassPanel::hover** · function · [GlassPanel.cpp:248](Source/UI/GlassPanel.cpp#L248)
+- **GlassPanel::unhover** · function · [GlassPanel.cpp:258](Source/UI/GlassPanel.cpp#L258)
+- **GlassPanel::click** · function · [GlassPanel.cpp:267](Source/UI/GlassPanel.cpp#L267)
+- **GlassPanel::scroll** · function · [GlassPanel.cpp:306](Source/UI/GlassPanel.cpp#L306)
+- **GlassPanel::tick** · function · [GlassPanel.cpp:314](Source/UI/GlassPanel.cpp#L314)
+- **GlassPanel::setExpanded** · function · [GlassPanel.cpp:335](Source/UI/GlassPanel.cpp#L335)
+- **GlassPanel::currentChoice** · function · [GlassPanel.cpp:357](Source/UI/GlassPanel.cpp#L357) — ==============================================================================
+- **GlassPanel::choose** · function · [GlassPanel.cpp:379](Source/UI/GlassPanel.cpp#L379)
+- **GlassPanel::resetUnit** · function · [GlassPanel.cpp:399](Source/UI/GlassPanel.cpp#L399)
+- **GlassPanel::pollValues** · function · [GlassPanel.cpp:406](Source/UI/GlassPanel.cpp#L406)
+- **GlassPanel::choiceText** · function · [GlassPanel.cpp:418](Source/UI/GlassPanel.cpp#L418)
+- **GlassPanel::valueText** · function · [GlassPanel.cpp:425](Source/UI/GlassPanel.cpp#L425)
+- **GlassPanel::buildLocker** · function · [GlassPanel.cpp:432](Source/UI/GlassPanel.cpp#L432) — ============================================================================== THE GEAR LOCKER: what is in th…
+- **GlassPanel::toggleStored** · function · [GlassPanel.cpp:459](Source/UI/GlassPanel.cpp#L459)
+- **GlassPanel::render** · function · [GlassPanel.cpp:484](Source/UI/GlassPanel.cpp#L484) — ==============================================================================
 
 **[Source/UI/GlassPanel.h](Source/UI/GlassPanel.h)**
 
-- **Entry** · struct · [GlassPanel.h:45](Source/UI/GlassPanel.h#L45) — One line of the list.
-- **GlassPanel** · class · [GlassPanel.h:66](Source/UI/GlassPanel.h#L66)
-- **GlassPanel::close** · function · [GlassPanel.h:73](Source/UI/GlassPanel.h#L73)
-- **GlassPanel::getUnit** · function · [GlassPanel.h:74](Source/UI/GlassPanel.h#L74)
-- **GlassPanel::isOpen** · function · [GlassPanel.h:75](Source/UI/GlassPanel.h#L75)
-- **GlassPanel::getBounds** · function · [GlassPanel.h:78](Source/UI/GlassPanel.h#L78)
-- **GlassPanel::needsRedraw** · function · [GlassPanel.h:92](Source/UI/GlassPanel.h#L92)
+- **Entry** · struct · [GlassPanel.h:47](Source/UI/GlassPanel.h#L47) — One line of the list.
+- **GlassPanel** · class · [GlassPanel.h:69](Source/UI/GlassPanel.h#L69)
+- **GlassPanel::close** · function · [GlassPanel.h:76](Source/UI/GlassPanel.h#L76)
+- **GlassPanel::getUnit** · function · [GlassPanel.h:77](Source/UI/GlassPanel.h#L77)
+- **GlassPanel::isOpen** · function · [GlassPanel.h:78](Source/UI/GlassPanel.h#L78)
+- **GlassPanel::getBounds** · function · [GlassPanel.h:81](Source/UI/GlassPanel.h#L81)
+- **GlassPanel::needsRedraw** · function · [GlassPanel.h:95](Source/UI/GlassPanel.h#L95)
 
 **[Source/UI/HardwareView.cpp](Source/UI/HardwareView.cpp)**
 
-- **isSwitchLike** · function · [HardwareView.cpp:18](Source/UI/HardwareView.cpp#L18) — Buttons and bat toggles flip on click;
-- **HardwareView::resized** · function · [HardwareView.cpp:136](Source/UI/HardwareView.cpp#L136)
-- **HardwareView::showViewMenu** · function · [HardwareView.cpp:149](Source/UI/HardwareView.cpp#L149) — ==============================================================================
-- **HardwareView::setSimpleView** · function · [HardwareView.cpp:166](Source/UI/HardwareView.cpp#L166)
-- **HardwareView::openPanel** · function · [HardwareView.cpp:177](Source/UI/HardwareView.cpp#L177)
-- **HardwareView::publishPanel** · function · [HardwareView.cpp:195](Source/UI/HardwareView.cpp#L195) — Hands the panel's rectangle and, when it changed, its print to the renderer.
-- **HardwareView::publishWindowGeometry** · function · [HardwareView.cpp:215](Source/UI/HardwareView.cpp#L215)
-- **HardwareView::paramIndexForControl** · function · [HardwareView.cpp:232](Source/UI/HardwareView.cpp#L232) — ==============================================================================
-- **HardwareView::pickControl** · function · [HardwareView.cpp:237](Source/UI/HardwareView.cpp#L237)
-- **HardwareView::unitUnderPointer** · function · [HardwareView.cpp:245](Source/UI/HardwareView.cpp#L245)
-- **HardwareView::setFocus** · function · [HardwareView.cpp:264](Source/UI/HardwareView.cpp#L264) — Walk toward a unit, or step back to see the whole rack.
-- **HardwareView::updateMouse** · function · [HardwareView.cpp:271](Source/UI/HardwareView.cpp#L271)
-- **HardwareView::mouseEnter** · function · [HardwareView.cpp:280](Source/UI/HardwareView.cpp#L280) — ==============================================================================
-- **HardwareView::mouseMove** · function · [HardwareView.cpp:282](Source/UI/HardwareView.cpp#L282)
-- **HardwareView::mouseExit** · function · [HardwareView.cpp:312](Source/UI/HardwareView.cpp#L312)
-- **HardwareView::mouseDown** · function · [HardwareView.cpp:319](Source/UI/HardwareView.cpp#L319)
-- **HardwareView::mouseDrag** · function · [HardwareView.cpp:395](Source/UI/HardwareView.cpp#L395)
-- **HardwareView::mouseUp** · function · [HardwareView.cpp:411](Source/UI/HardwareView.cpp#L411)
-- **HardwareView::mouseDoubleClick** · function · [HardwareView.cpp:444](Source/UI/HardwareView.cpp#L444)
-- **HardwareView::nudge** · function · [HardwareView.cpp:458](Source/UI/HardwareView.cpp#L458)
-- **HardwareView::mouseWheelMove** · function · [HardwareView.cpp:466](Source/UI/HardwareView.cpp#L466)
-- **HardwareView::fillDemoScope** · function · [HardwareView.cpp:507](Source/UI/HardwareView.cpp#L507)
-- **HardwareView::refreshOverlay** · function · [HardwareView.cpp:532](Source/UI/HardwareView.cpp#L532)
-- **HardwareView::applyTestParams** · function · [HardwareView.cpp:634](Source/UI/HardwareView.cpp#L634)
-- **HardwareView::updateRenderingState** · function · [HardwareView.cpp:650](Source/UI/HardwareView.cpp#L650)
-- **HardwareView::updateDisplayHistories** · function · [HardwareView.cpp:702](Source/UI/HardwareView.cpp#L702) — The LEVEL & LOUDNESS waveform and readout, and the MIX BALANCER's spectrum and history.
-- **HardwareView::displayChoice** · function · [HardwareView.cpp:819](Source/UI/HardwareView.cpp#L819) — A display setting's choice (MethodRegistry.h, DISPLAY), 0 = the default.
-- **HardwareView::timerCallback** · function · [HardwareView.cpp:828](Source/UI/HardwareView.cpp#L828)
-- **HardwareView::updateCallout** · function · [HardwareView.cpp:896](Source/UI/HardwareView.cpp#L896)
+- **isSwitchLike** · function · [HardwareView.cpp:25](Source/UI/HardwareView.cpp#L25)
+- **HardwareView::resized** · function · [HardwareView.cpp:157](Source/UI/HardwareView.cpp#L157)
+- **HardwareView::showViewMenu** · function · [HardwareView.cpp:170](Source/UI/HardwareView.cpp#L170) — ==============================================================================
+- **HardwareView::setSimpleView** · function · [HardwareView.cpp:191](Source/UI/HardwareView.cpp#L191)
+- **HardwareView::openPanel** · function · [HardwareView.cpp:202](Source/UI/HardwareView.cpp#L202)
+- **HardwareView::publishPanel** · function · [HardwareView.cpp:220](Source/UI/HardwareView.cpp#L220) — Hands the panel's rectangle and, when it changed, its print to the renderer.
+- **HardwareView::publishWindowGeometry** · function · [HardwareView.cpp:240](Source/UI/HardwareView.cpp#L240)
+- **HardwareView::paramIndexForControl** · function · [HardwareView.cpp:257](Source/UI/HardwareView.cpp#L257) — ==============================================================================
+- **HardwareView::pickControl** · function · [HardwareView.cpp:262](Source/UI/HardwareView.cpp#L262)
+- **HardwareView::unitUnderPointer** · function · [HardwareView.cpp:270](Source/UI/HardwareView.cpp#L270)
+- **HardwareView::setFocus** · function · [HardwareView.cpp:289](Source/UI/HardwareView.cpp#L289) — Walk toward a unit, or step back to see the whole rack.
+- **HardwareView::updateMouse** · function · [HardwareView.cpp:296](Source/UI/HardwareView.cpp#L296)
+- **HardwareView::mouseEnter** · function · [HardwareView.cpp:305](Source/UI/HardwareView.cpp#L305) — ==============================================================================
+- **HardwareView::mouseMove** · function · [HardwareView.cpp:307](Source/UI/HardwareView.cpp#L307)
+- **HardwareView::mouseExit** · function · [HardwareView.cpp:337](Source/UI/HardwareView.cpp#L337)
+- **HardwareView::mouseDown** · function · [HardwareView.cpp:344](Source/UI/HardwareView.cpp#L344)
+- **HardwareView::mouseDrag** · function · [HardwareView.cpp:420](Source/UI/HardwareView.cpp#L420)
+- **HardwareView::mouseUp** · function · [HardwareView.cpp:436](Source/UI/HardwareView.cpp#L436)
+- **HardwareView::mouseDoubleClick** · function · [HardwareView.cpp:469](Source/UI/HardwareView.cpp#L469)
+- **HardwareView::nudge** · function · [HardwareView.cpp:483](Source/UI/HardwareView.cpp#L483)
+- **HardwareView::mouseWheelMove** · function · [HardwareView.cpp:491](Source/UI/HardwareView.cpp#L491)
+- **HardwareView::fillDemoScope** · function · [HardwareView.cpp:532](Source/UI/HardwareView.cpp#L532)
+- **HardwareView::refreshOverlay** · function · [HardwareView.cpp:557](Source/UI/HardwareView.cpp#L557)
+- **HardwareView::applyTestParams** · function · [HardwareView.cpp:659](Source/UI/HardwareView.cpp#L659)
+- **HardwareView::updateRenderingState** · function · [HardwareView.cpp:675](Source/UI/HardwareView.cpp#L675)
+- **HardwareView::updateDisplayHistories** · function · [HardwareView.cpp:727](Source/UI/HardwareView.cpp#L727) — The LEVEL & LOUDNESS waveform and readout, and the MIX BALANCER's spectrum and history.
+- **HardwareView::displayChoice** · function · [HardwareView.cpp:844](Source/UI/HardwareView.cpp#L844) — A display setting's choice (MethodRegistry.h, DISPLAY), 0 = the default.
+- **HardwareView::timerCallback** · function · [HardwareView.cpp:853](Source/UI/HardwareView.cpp#L853)
+- **HardwareView::updateCallout** · function · [HardwareView.cpp:928](Source/UI/HardwareView.cpp#L928)
 
 **[Source/UI/HardwareView.h](Source/UI/HardwareView.h)**
 
@@ -2015,8 +2107,8 @@ Every class, struct, enum and function, by file, with the first line of its comm
 **[Source/UI/Render/PluginMaterials.h](Source/UI/Render/PluginMaterials.h)**
 
 - **Material** · enum · [PluginMaterials.h:9](Source/UI/Render/PluginMaterials.h#L9)
-- **coatFor** · function · [PluginMaterials.h:452](Source/UI/Render/PluginMaterials.h#L452)
-- **materialFor** · function · [PluginMaterials.h:473](Source/UI/Render/PluginMaterials.h#L473)
+- **coatFor** · function · [PluginMaterials.h:463](Source/UI/Render/PluginMaterials.h#L463)
+- **materialFor** · function · [PluginMaterials.h:485](Source/UI/Render/PluginMaterials.h#L485)
 
 **[Source/UI/Scene/CameraRig.h](Source/UI/Scene/CameraRig.h)**
 
@@ -2032,189 +2124,214 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **knobAngleForValue** · function · [DeviceLayout.h:97](Source/UI/Scene/DeviceLayout.h#L97) — Pointer rotation about the knob axis (clockwise as seen by the viewer);
 - **buttonOutline** · function · [DeviceLayout.h:103](Source/UI/Scene/DeviceLayout.h#L103)
 - **Unit** · enum · [DeviceLayout.h:130](Source/UI/Scene/DeviceLayout.h#L130)
-- **isOneU** · function · [DeviceLayout.h:136](Source/UI/Scene/DeviceLayout.h#L136)
-- **isOutboard** · function · [DeviceLayout.h:140](Source/UI/Scene/DeviceLayout.h#L140)
-- **ControlDef** · struct · [DeviceLayout.h:144](Source/UI/Scene/DeviceLayout.h#L144)
-- **switchOutline** · function · [DeviceLayout.h:164](Source/UI/Scene/DeviceLayout.h#L164)
-- **slotX** · function · [DeviceLayout.h:222](Source/UI/Scene/DeviceLayout.h#L222)
-- **slotCentre** · function · [DeviceLayout.h:227](Source/UI/Scene/DeviceLayout.h#L227)
-- **lbModuleX** · function · [DeviceLayout.h:229](Source/UI/Scene/DeviceLayout.h#L229)
-- **unitHalfH** · function · [DeviceLayout.h:239](Source/UI/Scene/DeviceLayout.h#L239)
-- **unitHalfW** · function · [DeviceLayout.h:247](Source/UI/Scene/DeviceLayout.h#L247) — Half the width of a unit's faceplate: 19 inches for the rack's, the LUNCHBOX's own frame.
-- **isShown** · function · [DeviceLayout.h:263](Source/UI/Scene/DeviceLayout.h#L263)
-- **bottomUnit** · function · [DeviceLayout.h:265](Source/UI/Scene/DeviceLayout.h#L265)
-- **topUnit** · function · [DeviceLayout.h:273](Source/UI/Scene/DeviceLayout.h#L273)
-- **unitArcPos** · function · [DeviceLayout.h:282](Source/UI/Scene/DeviceLayout.h#L282) — Distance along the arc from the bottom of the stack to the centre of a unit (the units shown).
-- **totalArcLength** · function · [DeviceLayout.h:297](Source/UI/Scene/DeviceLayout.h#L297)
-- **unitAngle** · function · [DeviceLayout.h:313](Source/UI/Scene/DeviceLayout.h#L313) — How far a unit is rotated toward the viewer: 0 at the middle of the case.
-- **unitOrigin** · function · [DeviceLayout.h:321](Source/UI/Scene/DeviceLayout.h#L321) — Centre of a unit's faceplate, in world space.
-- **panelToWorld** · function · [DeviceLayout.h:338](Source/UI/Scene/DeviceLayout.h#L338) — Panel-local (x across, z down, y out of the panel) to world, on the arc.
-- **panelToWorld** · function · [DeviceLayout.h:343](Source/UI/Scene/DeviceLayout.h#L343)
-- **unitNormal** · function · [DeviceLayout.h:346](Source/UI/Scene/DeviceLayout.h#L346) — Outward normal of a unit's faceplate (world).
-- **unitCenterY** · function · [DeviceLayout.h:353](Source/UI/Scene/DeviceLayout.h#L353) — Kept for the few places that still want a height: the world y of a panel's centre.
-- **selectorAngleForValue** · function · [DeviceLayout.h:424](Source/UI/Scene/DeviceLayout.h#L424) — Stepped selector (OFF / SILK / HEAVEN): pointer angle for a normalised choice value.
-- **stripOutletX** · function · [DeviceLayout.h:436](Source/UI/Scene/DeviceLayout.h#L436)
-- **characterSelectorAngle** · function · [DeviceLayout.h:441](Source/UI/Scene/DeviceLayout.h#L441)
-- **oneUSectionBox** · function · [DeviceLayout.h:469](Source/UI/Scene/DeviceLayout.h#L469) — Section box printed around the controls, like a hardware compressor's front panel.
-- **makerTopZ** · function · [DeviceLayout.h:484](Source/UI/Scene/DeviceLayout.h#L484) — Where an outboard unit's maker block (its name) starts, down the panel.
-- **outboardWindows** · function · [DeviceLayout.h:492](Source/UI/Scene/DeviceLayout.h#L492) — The windows cut into an outboard unit's plate besides its meters.
-- **numVus** · function · [DeviceLayout.h:528](Source/UI/Scene/DeviceLayout.h#L528)
-- **vuHalfW** · function · [DeviceLayout.h:534](Source/UI/Scene/DeviceLayout.h#L534)
-- **vuX** · function · [DeviceLayout.h:541](Source/UI/Scene/DeviceLayout.h#L541)
-- **vuZ** · function · [DeviceLayout.h:554](Source/UI/Scene/DeviceLayout.h#L554)
-- **firstNeedle** · function · [DeviceLayout.h:561](Source/UI/Scene/DeviceLayout.h#L561)
-- **outboardEarSlots** · function · [DeviceLayout.h:575](Source/UI/Scene/DeviceLayout.h#L575) — An outboard unit's ear slots: one each side on a 1U, two each side on the taller ones.
-- **hasLed** · function · [DeviceLayout.h:709](Source/UI/Scene/DeviceLayout.h#L709) — Momentary buttons (PRESET PREV / NEXT, loudness RESET) have no LED: there is no state to show.
-- **ledOffset** · function · [DeviceLayout.h:717](Source/UI/Scene/DeviceLayout.h#L717)
-- **controlIndex** · function · [DeviceLayout.h:724](Source/UI/Scene/DeviceLayout.h#L724)
-- **ladderLedZ** · function · [DeviceLayout.h:746](Source/UI/Scene/DeviceLayout.h#L746)
-- **knobBodyRadius** · function · [DeviceLayout.h:757](Source/UI/Scene/DeviceLayout.h#L757) — Body radius of a knob control as drawn.
-- **unitDisplayRect** · function · [DeviceLayout.h:767](Source/UI/Scene/DeviceLayout.h#L767) — The display window on a unit's panel (the 1U units carry VU meters instead).
+- **designedIndex** · function · [DeviceLayout.h:138](Source/UI/Scene/DeviceLayout.h#L138)
+- **isDesigned** · function · [DeviceLayout.h:139](Source/UI/Scene/DeviceLayout.h#L139)
+- **isOneU** · function · [DeviceLayout.h:144](Source/UI/Scene/DeviceLayout.h#L144)
+- **isOutboard** · function · [DeviceLayout.h:148](Source/UI/Scene/DeviceLayout.h#L148)
+- **ControlDef** · struct · [DeviceLayout.h:153](Source/UI/Scene/DeviceLayout.h#L153)
+- **switchOutline** · function · [DeviceLayout.h:173](Source/UI/Scene/DeviceLayout.h#L173)
+- **slotX** · function · [DeviceLayout.h:234](Source/UI/Scene/DeviceLayout.h#L234)
+- **slotCentre** · function · [DeviceLayout.h:239](Source/UI/Scene/DeviceLayout.h#L239)
+- **lbModuleX** · function · [DeviceLayout.h:241](Source/UI/Scene/DeviceLayout.h#L241)
+- **unitHalfH** · function · [DeviceLayout.h:251](Source/UI/Scene/DeviceLayout.h#L251)
+- **unitHalfW** · function · [DeviceLayout.h:260](Source/UI/Scene/DeviceLayout.h#L260) — Half the width of a unit's faceplate: 19 inches for the rack's, the LUNCHBOX's own frame.
+- **unitU** · function · [DeviceLayout.h:282](Source/UI/Scene/DeviceLayout.h#L282) — Rack units in U (1U = 44.45 mm), as their panels are drawn.
+- **isStorable** · function · [DeviceLayout.h:285](Source/UI/Scene/DeviceLayout.h#L285)
+- **isStored** · function · [DeviceLayout.h:287](Source/UI/Scene/DeviceLayout.h#L287)
+- **usedU** · function · [DeviceLayout.h:288](Source/UI/Scene/DeviceLayout.h#L288)
+- **isShown** · function · [DeviceLayout.h:297](Source/UI/Scene/DeviceLayout.h#L297)
+- **bottomUnit** · function · [DeviceLayout.h:304](Source/UI/Scene/DeviceLayout.h#L304)
+- **topUnit** · function · [DeviceLayout.h:312](Source/UI/Scene/DeviceLayout.h#L312)
+- **unitArcPos** · function · [DeviceLayout.h:321](Source/UI/Scene/DeviceLayout.h#L321) — Distance along the arc from the bottom of the stack to the centre of a unit (the units shown).
+- **totalArcLength** · function · [DeviceLayout.h:336](Source/UI/Scene/DeviceLayout.h#L336)
+- **unitAngle** · function · [DeviceLayout.h:352](Source/UI/Scene/DeviceLayout.h#L352) — How far a unit is rotated toward the viewer: 0 at the middle of the case.
+- **unitOrigin** · function · [DeviceLayout.h:360](Source/UI/Scene/DeviceLayout.h#L360) — Centre of a unit's faceplate, in world space.
+- **panelToWorld** · function · [DeviceLayout.h:377](Source/UI/Scene/DeviceLayout.h#L377) — Panel-local (x across, z down, y out of the panel) to world, on the arc.
+- **panelToWorld** · function · [DeviceLayout.h:382](Source/UI/Scene/DeviceLayout.h#L382)
+- **unitNormal** · function · [DeviceLayout.h:385](Source/UI/Scene/DeviceLayout.h#L385) — Outward normal of a unit's faceplate (world).
+- **unitCenterY** · function · [DeviceLayout.h:392](Source/UI/Scene/DeviceLayout.h#L392) — Kept for the few places that still want a height: the world y of a panel's centre.
+- **selectorAngleForValue** · function · [DeviceLayout.h:466](Source/UI/Scene/DeviceLayout.h#L466) — Stepped selector (OFF / SILK / HEAVEN): pointer angle for a normalised choice value.
+- **stripOutletX** · function · [DeviceLayout.h:478](Source/UI/Scene/DeviceLayout.h#L478)
+- **characterSelectorAngle** · function · [DeviceLayout.h:483](Source/UI/Scene/DeviceLayout.h#L483)
+- **oneUSectionBox** · function · [DeviceLayout.h:511](Source/UI/Scene/DeviceLayout.h#L511) — Section box printed around the controls, like a hardware compressor's front panel.
+- **makerTopZ** · function · [DeviceLayout.h:526](Source/UI/Scene/DeviceLayout.h#L526) — Where an outboard unit's maker block (its name) starts, down the panel.
+- **outboardWindows** · function · [DeviceLayout.h:534](Source/UI/Scene/DeviceLayout.h#L534) — The windows cut into an outboard unit's plate besides its meters.
+- **vuHalfHFor** · function · [DeviceLayout.h:577](Source/UI/Scene/DeviceLayout.h#L577) — A meter card's half height: the rack's standard, but for the PRO X4's small one.
+- **numVus** · function · [DeviceLayout.h:579](Source/UI/Scene/DeviceLayout.h#L579)
+- **vuHalfW** · function · [DeviceLayout.h:586](Source/UI/Scene/DeviceLayout.h#L586)
+- **vuX** · function · [DeviceLayout.h:594](Source/UI/Scene/DeviceLayout.h#L594)
+- **vuZ** · function · [DeviceLayout.h:609](Source/UI/Scene/DeviceLayout.h#L609)
+- **firstNeedle** · function · [DeviceLayout.h:617](Source/UI/Scene/DeviceLayout.h#L617)
+- **outboardEarSlots** · function · [DeviceLayout.h:632](Source/UI/Scene/DeviceLayout.h#L632) — An outboard unit's ear slots: one each side on a 1U, two each side on the taller ones.
+- **hasLed** · function · [DeviceLayout.h:824](Source/UI/Scene/DeviceLayout.h#L824) — Momentary buttons (PRESET PREV / NEXT, loudness RESET) have no LED: there is no state to show.
+- **ledOffset** · function · [DeviceLayout.h:832](Source/UI/Scene/DeviceLayout.h#L832)
+- **radioValue** · function · [DeviceLayout.h:843](Source/UI/Scene/DeviceLayout.h#L843)
+- **switchTarget** · function · [DeviceLayout.h:850](Source/UI/Scene/DeviceLayout.h#L850) — What a click sets a switch to (normalised): a radio button its own value, anything else the other way.
+- **switchLit** · function · [DeviceLayout.h:856](Source/UI/Scene/DeviceLayout.h#L856) — Whether a switch shows as on (a radio button: when its value is the one set).
+- **controlIndex** · function · [DeviceLayout.h:862](Source/UI/Scene/DeviceLayout.h#L862)
+- **ladderLedZ** · function · [DeviceLayout.h:884](Source/UI/Scene/DeviceLayout.h#L884)
+- **knobBodyRadius** · function · [DeviceLayout.h:895](Source/UI/Scene/DeviceLayout.h#L895) — Body radius of a knob control as drawn.
+- **unitDisplayRect** · function · [DeviceLayout.h:905](Source/UI/Scene/DeviceLayout.h#L905) — The display window on a unit's panel (the 1U units carry VU meters instead).
 
 **[Source/UI/Scene/GeometryFactory.cpp](Source/UI/Scene/GeometryFactory.cpp)**
 
-- **rackScrewHead** · function · [GeometryFactory.cpp:16](Source/UI/Scene/GeometryFactory.cpp#L16)
-- **unitBody** · function · [GeometryFactory.cpp:28](Source/UI/Scene/GeometryFactory.cpp#L28) — ============================================================================== Unit body: panel-local, so it…
-- **ventRects** · function · [GeometryFactory.cpp:45](Source/UI/Scene/GeometryFactory.cpp#L45) — Slots in the top face of a unit's body (panel-local;
-- **unitVents** · function · [GeometryFactory.cpp:58](Source/UI/Scene/GeometryFactory.cpp#L58)
-- **unitVentWalls** · function · [GeometryFactory.cpp:64](Source/UI/Scene/GeometryFactory.cpp#L64)
-- **unitVentFloors** · function · [GeometryFactory.cpp:72](Source/UI/Scene/GeometryFactory.cpp#L72)
-- **unitBodyScrews** · function · [GeometryFactory.cpp:80](Source/UI/Scene/GeometryFactory.cpp#L80)
-- **arcPoint** · function · [GeometryFactory.cpp:101](Source/UI/Scene/GeometryFactory.cpp#L101)
-- **caseFrame** · function · [GeometryFactory.cpp:112](Source/UI/Scene/GeometryFactory.cpp#L112) — The case's frame at a point on the arc: x across, T along the arc (up), O out toward the viewer.
-- **cheekSection** · function · [GeometryFactory.cpp:127](Source/UI/Scene/GeometryFactory.cpp#L127)
-- **caseCheeks** · function · [GeometryFactory.cpp:166](Source/UI/Scene/GeometryFactory.cpp#L166)
-- **caseBoards** · function · [GeometryFactory.cpp:227](Source/UI/Scene/GeometryFactory.cpp#L227)
-- **caseFeet** · function · [GeometryFactory.cpp:244](Source/UI/Scene/GeometryFactory.cpp#L244) — Four feet under the plinth: short turned pucks.
-- **caseBrass** · function · [GeometryFactory.cpp:257](Source/UI/Scene/GeometryFactory.cpp#L257) — Brass corner protectors on the front of each cheek, top and bottom, each held by two screws.
-- **caseRails** · function · [GeometryFactory.cpp:283](Source/UI/Scene/GeometryFactory.cpp#L283)
-- **railSpan** · function · [GeometryFactory.cpp:303](Source/UI/Scene/GeometryFactory.cpp#L303)
-- **earScrewZ** · function · [GeometryFactory.cpp:311](Source/UI/Scene/GeometryFactory.cpp#L311) — The unit's ear-screw heights (panel-local z).
-- **caseFrontRails** · function · [GeometryFactory.cpp:323](Source/UI/Scene/GeometryFactory.cpp#L323)
-- **caseRailHoles** · function · [GeometryFactory.cpp:346](Source/UI/Scene/GeometryFactory.cpp#L346)
-- **caseEdges** · function · [GeometryFactory.cpp:386](Source/UI/Scene/GeometryFactory.cpp#L386)
-- **floorHeight** · function · [GeometryFactory.cpp:409](Source/UI/Scene/GeometryFactory.cpp#L409)
-- **caseFloor** · function · [GeometryFactory.cpp:414](Source/UI/Scene/GeometryFactory.cpp#L414)
-- **backWall** · function · [GeometryFactory.cpp:420](Source/UI/Scene/GeometryFactory.cpp#L420)
-- **faceplateHoles** · function · [GeometryFactory.cpp:429](Source/UI/Scene/GeometryFactory.cpp#L429) — ============================================================================== Panel-local parts (y = out of…
-- **faceplateEdges** · function · [GeometryFactory.cpp:437](Source/UI/Scene/GeometryFactory.cpp#L437)
-- **faceplateTop** · function · [GeometryFactory.cpp:444](Source/UI/Scene/GeometryFactory.cpp#L444)
-- **displayWalls** · function · [GeometryFactory.cpp:449](Source/UI/Scene/GeometryFactory.cpp#L449)
-- **displayGlass** · function · [GeometryFactory.cpp:450](Source/UI/Scene/GeometryFactory.cpp#L450)
-- **displayBezel** · function · [GeometryFactory.cpp:452](Source/UI/Scene/GeometryFactory.cpp#L452)
-- **earSlotWalls** · function · [GeometryFactory.cpp:463](Source/UI/Scene/GeometryFactory.cpp#L463)
-- **earSlotFloors** · function · [GeometryFactory.cpp:471](Source/UI/Scene/GeometryFactory.cpp#L471)
-- **screwHeads** · function · [GeometryFactory.cpp:479](Source/UI/Scene/GeometryFactory.cpp#L479)
-- **screwSlots** · function · [GeometryFactory.cpp:488](Source/UI/Scene/GeometryFactory.cpp#L488)
-- **knobScaleRing** · function · [GeometryFactory.cpp:504](Source/UI/Scene/GeometryFactory.cpp#L504) — ============================================================================== Knob (local to knob centre)
-- **tubeFaceTop** · function · [GeometryFactory.cpp:511](Source/UI/Scene/GeometryFactory.cpp#L511) — ============================================================================== SERAPH tube unit
-- **tubeFaceEdges** · function · [GeometryFactory.cpp:518](Source/UI/Scene/GeometryFactory.cpp#L518)
-- **tubeEarSlotWalls** · function · [GeometryFactory.cpp:525](Source/UI/Scene/GeometryFactory.cpp#L525)
-- **tubeEarSlotFloors** · function · [GeometryFactory.cpp:533](Source/UI/Scene/GeometryFactory.cpp#L533)
-- **tubeScrewHeads** · function · [GeometryFactory.cpp:541](Source/UI/Scene/GeometryFactory.cpp#L541)
-- **tubeScrewSlots** · function · [GeometryFactory.cpp:550](Source/UI/Scene/GeometryFactory.cpp#L550)
-- **seraphDisplayWalls** · function · [GeometryFactory.cpp:561](Source/UI/Scene/GeometryFactory.cpp#L561)
-- **seraphDisplayGlass** · function · [GeometryFactory.cpp:566](Source/UI/Scene/GeometryFactory.cpp#L566)
-- **seraphDisplayBezel** · function · [GeometryFactory.cpp:571](Source/UI/Scene/GeometryFactory.cpp#L571)
-- **oneUFaceTop** · function · [GeometryFactory.cpp:591](Source/UI/Scene/GeometryFactory.cpp#L591) — ============================================================================== The outboard units (the three…
-- **oneUFaceEdges** · function · [GeometryFactory.cpp:603](Source/UI/Scene/GeometryFactory.cpp#L603)
-- **oneUEarWalls** · function · [GeometryFactory.cpp:610](Source/UI/Scene/GeometryFactory.cpp#L610)
-- **oneUEarFloors** · function · [GeometryFactory.cpp:618](Source/UI/Scene/GeometryFactory.cpp#L618)
-- **oneUScrewHeads** · function · [GeometryFactory.cpp:626](Source/UI/Scene/GeometryFactory.cpp#L626)
-- **oneUScrewSlots** · function · [GeometryFactory.cpp:635](Source/UI/Scene/GeometryFactory.cpp#L635)
-- **windowWalls** · function · [GeometryFactory.cpp:648](Source/UI/Scene/GeometryFactory.cpp#L648) — A display window: its well, the glass at the bottom of it (uv 0..1 across), and a bezel round it
-- **windowGlass** · function · [GeometryFactory.cpp:649](Source/UI/Scene/GeometryFactory.cpp#L649)
-- **windowBezel** · function · [GeometryFactory.cpp:651](Source/UI/Scene/GeometryFactory.cpp#L651)
-- **modulePlateRect** · function · [GeometryFactory.cpp:665](Source/UI/Scene/GeometryFactory.cpp#L665)
-- **lunchboxModulePlate** · function · [GeometryFactory.cpp:672](Source/UI/Scene/GeometryFactory.cpp#L672)
-- **lunchboxModuleEdges** · function · [GeometryFactory.cpp:681](Source/UI/Scene/GeometryFactory.cpp#L681)
-- **lunchboxModuleScrews** · function · [GeometryFactory.cpp:691](Source/UI/Scene/GeometryFactory.cpp#L691)
-- **lunchboxSlotWell** · function · [GeometryFactory.cpp:701](Source/UI/Scene/GeometryFactory.cpp#L701)
-- **lunchboxSlotRails** · function · [GeometryFactory.cpp:709](Source/UI/Scene/GeometryFactory.cpp#L709)
-- **lunchboxConnector** · function · [GeometryFactory.cpp:721](Source/UI/Scene/GeometryFactory.cpp#L721)
-- **lunchboxConnectorPins** · function · [GeometryFactory.cpp:727](Source/UI/Scene/GeometryFactory.cpp#L727)
-- **lunchboxStand** · function · [GeometryFactory.cpp:739](Source/UI/Scene/GeometryFactory.cpp#L739)
-- **lunchboxFrameHardware** · function · [GeometryFactory.cpp:778](Source/UI/Scene/GeometryFactory.cpp#L778)
-- **lunchboxRailHoles** · function · [GeometryFactory.cpp:796](Source/UI/Scene/GeometryFactory.cpp#L796)
-- **tubeAlong** · function · [GeometryFactory.cpp:806](Source/UI/Scene/GeometryFactory.cpp#L806) — ==============================================================================
-- **audioUnits** · function · [GeometryFactory.cpp:858](Source/UI/Scene/GeometryFactory.cpp#L858) — The rack units that carry audio (all but the POWER strip), bottom to top, as shown.
-- **bundleSlot** · function · [GeometryFactory.cpp:872](Source/UI/Scene/GeometryFactory.cpp#L872) — Where cable i sits in the bundle's cross-section (across, up): a loose heap, not a ribbon.
-- **wander** · function · [GeometryFactory.cpp:879](Source/UI/Scene/GeometryFactory.cpp#L879)
-- **floorRun** · function · [GeometryFactory.cpp:883](Source/UI/Scene/GeometryFactory.cpp#L883)
-- **numAudioCables** · function · [GeometryFactory.cpp:910](Source/UI/Scene/GeometryFactory.cpp#L910)
-- **audioCable** · function · [GeometryFactory.cpp:912](Source/UI/Scene/GeometryFactory.cpp#L912)
-- **audioCables** · function · [GeometryFactory.cpp:920](Source/UI/Scene/GeometryFactory.cpp#L920)
-- **xlrConnectors** · function · [GeometryFactory.cpp:932](Source/UI/Scene/GeometryFactory.cpp#L932)
-- **xlrLatches** · function · [GeometryFactory.cpp:948](Source/UI/Scene/GeometryFactory.cpp#L948)
-- **powerCables** · function · [GeometryFactory.cpp:965](Source/UI/Scene/GeometryFactory.cpp#L965)
-- **dHole** · function · [GeometryFactory.cpp:1030](Source/UI/Scene/GeometryFactory.cpp#L1030) — A D-shaped ground hole (a round top, flat bottom) and the two slots, as thin dark prisms.
-- **receptacleFace** · function · [GeometryFactory.cpp:1054](Source/UI/Scene/GeometryFactory.cpp#L1054)
-- **receptacleHoles** · function · [GeometryFactory.cpp:1061](Source/UI/Scene/GeometryFactory.cpp#L1061)
-- **plugBody** · function · [GeometryFactory.cpp:1072](Source/UI/Scene/GeometryFactory.cpp#L1072)
-- **plugPins** · function · [GeometryFactory.cpp:1087](Source/UI/Scene/GeometryFactory.cpp#L1087)
-- **stripReceptacles** · function · [GeometryFactory.cpp:1098](Source/UI/Scene/GeometryFactory.cpp#L1098)
-- **stripReceptacleHoles** · function · [GeometryFactory.cpp:1106](Source/UI/Scene/GeometryFactory.cpp#L1106)
-- **stripPlugs** · function · [GeometryFactory.cpp:1115](Source/UI/Scene/GeometryFactory.cpp#L1115)
-- **stripPlugPins** · function · [GeometryFactory.cpp:1125](Source/UI/Scene/GeometryFactory.cpp#L1125)
-- **loosePlugFrame** · function · [GeometryFactory.cpp:1129](Source/UI/Scene/GeometryFactory.cpp#L1129)
-- **loosePlug** · function · [GeometryFactory.cpp:1137](Source/UI/Scene/GeometryFactory.cpp#L1137)
-- **loosePlugPins** · function · [GeometryFactory.cpp:1138](Source/UI/Scene/GeometryFactory.cpp#L1138)
-- **wallFrame** · function · [GeometryFactory.cpp:1144](Source/UI/Scene/GeometryFactory.cpp#L1144)
-- **wallPlate** · function · [GeometryFactory.cpp:1153](Source/UI/Scene/GeometryFactory.cpp#L1153)
-- **wallReceptacles** · function · [GeometryFactory.cpp:1164](Source/UI/Scene/GeometryFactory.cpp#L1164)
-- **wallReceptacleHoles** · function · [GeometryFactory.cpp:1172](Source/UI/Scene/GeometryFactory.cpp#L1172)
-- **wallPlug** · function · [GeometryFactory.cpp:1179](Source/UI/Scene/GeometryFactory.cpp#L1179)
-- **wallOutlet** · function · [GeometryFactory.cpp:1186](Source/UI/Scene/GeometryFactory.cpp#L1186)
+- **rackScrewHead** · function · [GeometryFactory.cpp:17](Source/UI/Scene/GeometryFactory.cpp#L17)
+- **unitBody** · function · [GeometryFactory.cpp:29](Source/UI/Scene/GeometryFactory.cpp#L29) — ============================================================================== Unit body: panel-local, so it…
+- **ventRects** · function · [GeometryFactory.cpp:46](Source/UI/Scene/GeometryFactory.cpp#L46) — Slots in the top face of a unit's body (panel-local;
+- **unitVents** · function · [GeometryFactory.cpp:59](Source/UI/Scene/GeometryFactory.cpp#L59)
+- **unitVentWalls** · function · [GeometryFactory.cpp:65](Source/UI/Scene/GeometryFactory.cpp#L65)
+- **unitVentFloors** · function · [GeometryFactory.cpp:73](Source/UI/Scene/GeometryFactory.cpp#L73)
+- **unitBodyScrews** · function · [GeometryFactory.cpp:81](Source/UI/Scene/GeometryFactory.cpp#L81)
+- **arcPoint** · function · [GeometryFactory.cpp:102](Source/UI/Scene/GeometryFactory.cpp#L102)
+- **caseFrame** · function · [GeometryFactory.cpp:113](Source/UI/Scene/GeometryFactory.cpp#L113) — The case's frame at a point on the arc: x across, T along the arc (up), O out toward the viewer.
+- **cheekSection** · function · [GeometryFactory.cpp:128](Source/UI/Scene/GeometryFactory.cpp#L128)
+- **caseCheeks** · function · [GeometryFactory.cpp:167](Source/UI/Scene/GeometryFactory.cpp#L167)
+- **caseBoards** · function · [GeometryFactory.cpp:228](Source/UI/Scene/GeometryFactory.cpp#L228)
+- **caseFeet** · function · [GeometryFactory.cpp:245](Source/UI/Scene/GeometryFactory.cpp#L245) — Four feet under the plinth: short turned pucks.
+- **caseBrass** · function · [GeometryFactory.cpp:258](Source/UI/Scene/GeometryFactory.cpp#L258) — Brass corner protectors on the front of each cheek, top and bottom, each held by two screws.
+- **caseRails** · function · [GeometryFactory.cpp:284](Source/UI/Scene/GeometryFactory.cpp#L284)
+- **railSpan** · function · [GeometryFactory.cpp:304](Source/UI/Scene/GeometryFactory.cpp#L304)
+- **earScrewZ** · function · [GeometryFactory.cpp:312](Source/UI/Scene/GeometryFactory.cpp#L312) — The unit's ear-screw heights (panel-local z).
+- **caseFrontRails** · function · [GeometryFactory.cpp:324](Source/UI/Scene/GeometryFactory.cpp#L324)
+- **caseRailHoles** · function · [GeometryFactory.cpp:347](Source/UI/Scene/GeometryFactory.cpp#L347)
+- **caseEdges** · function · [GeometryFactory.cpp:387](Source/UI/Scene/GeometryFactory.cpp#L387)
+- **floorHeight** · function · [GeometryFactory.cpp:410](Source/UI/Scene/GeometryFactory.cpp#L410)
+- **caseFloor** · function · [GeometryFactory.cpp:415](Source/UI/Scene/GeometryFactory.cpp#L415)
+- **backWall** · function · [GeometryFactory.cpp:421](Source/UI/Scene/GeometryFactory.cpp#L421)
+- **faceplateHoles** · function · [GeometryFactory.cpp:430](Source/UI/Scene/GeometryFactory.cpp#L430) — ============================================================================== Panel-local parts (y = out of…
+- **faceplateEdges** · function · [GeometryFactory.cpp:438](Source/UI/Scene/GeometryFactory.cpp#L438)
+- **faceplateTop** · function · [GeometryFactory.cpp:445](Source/UI/Scene/GeometryFactory.cpp#L445)
+- **displayWalls** · function · [GeometryFactory.cpp:450](Source/UI/Scene/GeometryFactory.cpp#L450)
+- **displayGlass** · function · [GeometryFactory.cpp:451](Source/UI/Scene/GeometryFactory.cpp#L451)
+- **displayBezel** · function · [GeometryFactory.cpp:453](Source/UI/Scene/GeometryFactory.cpp#L453)
+- **earSlotWalls** · function · [GeometryFactory.cpp:464](Source/UI/Scene/GeometryFactory.cpp#L464)
+- **earSlotFloors** · function · [GeometryFactory.cpp:472](Source/UI/Scene/GeometryFactory.cpp#L472)
+- **screwHeads** · function · [GeometryFactory.cpp:480](Source/UI/Scene/GeometryFactory.cpp#L480)
+- **screwSlots** · function · [GeometryFactory.cpp:489](Source/UI/Scene/GeometryFactory.cpp#L489)
+- **knobScaleRing** · function · [GeometryFactory.cpp:505](Source/UI/Scene/GeometryFactory.cpp#L505) — ============================================================================== Knob (local to knob centre)
+- **tubeFaceTop** · function · [GeometryFactory.cpp:512](Source/UI/Scene/GeometryFactory.cpp#L512) — ============================================================================== SERAPH tube unit
+- **tubeFaceEdges** · function · [GeometryFactory.cpp:519](Source/UI/Scene/GeometryFactory.cpp#L519)
+- **tubeEarSlotWalls** · function · [GeometryFactory.cpp:526](Source/UI/Scene/GeometryFactory.cpp#L526)
+- **tubeEarSlotFloors** · function · [GeometryFactory.cpp:534](Source/UI/Scene/GeometryFactory.cpp#L534)
+- **tubeScrewHeads** · function · [GeometryFactory.cpp:542](Source/UI/Scene/GeometryFactory.cpp#L542)
+- **tubeScrewSlots** · function · [GeometryFactory.cpp:551](Source/UI/Scene/GeometryFactory.cpp#L551)
+- **seraphDisplayWalls** · function · [GeometryFactory.cpp:562](Source/UI/Scene/GeometryFactory.cpp#L562)
+- **seraphDisplayGlass** · function · [GeometryFactory.cpp:567](Source/UI/Scene/GeometryFactory.cpp#L567)
+- **seraphDisplayBezel** · function · [GeometryFactory.cpp:572](Source/UI/Scene/GeometryFactory.cpp#L572)
+- **oneUFaceTop** · function · [GeometryFactory.cpp:592](Source/UI/Scene/GeometryFactory.cpp#L592) — ============================================================================== The outboard units (the three…
+- **oneUFaceEdges** · function · [GeometryFactory.cpp:604](Source/UI/Scene/GeometryFactory.cpp#L604)
+- **oneUEarWalls** · function · [GeometryFactory.cpp:611](Source/UI/Scene/GeometryFactory.cpp#L611)
+- **oneUEarFloors** · function · [GeometryFactory.cpp:619](Source/UI/Scene/GeometryFactory.cpp#L619)
+- **oneUScrewHeads** · function · [GeometryFactory.cpp:627](Source/UI/Scene/GeometryFactory.cpp#L627)
+- **oneUScrewSlots** · function · [GeometryFactory.cpp:636](Source/UI/Scene/GeometryFactory.cpp#L636)
+- **windowWalls** · function · [GeometryFactory.cpp:649](Source/UI/Scene/GeometryFactory.cpp#L649) — A display window: its well, the glass at the bottom of it (uv 0..1 across), and a bezel round it
+- **windowGlass** · function · [GeometryFactory.cpp:650](Source/UI/Scene/GeometryFactory.cpp#L650)
+- **windowBezel** · function · [GeometryFactory.cpp:652](Source/UI/Scene/GeometryFactory.cpp#L652)
+- **modulePlateRect** · function · [GeometryFactory.cpp:666](Source/UI/Scene/GeometryFactory.cpp#L666)
+- **lunchboxModulePlate** · function · [GeometryFactory.cpp:673](Source/UI/Scene/GeometryFactory.cpp#L673)
+- **lunchboxModuleEdges** · function · [GeometryFactory.cpp:682](Source/UI/Scene/GeometryFactory.cpp#L682)
+- **lunchboxModuleScrews** · function · [GeometryFactory.cpp:692](Source/UI/Scene/GeometryFactory.cpp#L692)
+- **lunchboxSlotWell** · function · [GeometryFactory.cpp:702](Source/UI/Scene/GeometryFactory.cpp#L702)
+- **lunchboxSlotRails** · function · [GeometryFactory.cpp:710](Source/UI/Scene/GeometryFactory.cpp#L710)
+- **lunchboxConnector** · function · [GeometryFactory.cpp:722](Source/UI/Scene/GeometryFactory.cpp#L722)
+- **lunchboxConnectorPins** · function · [GeometryFactory.cpp:728](Source/UI/Scene/GeometryFactory.cpp#L728)
+- **lunchboxStand** · function · [GeometryFactory.cpp:740](Source/UI/Scene/GeometryFactory.cpp#L740)
+- **lunchboxFrameHardware** · function · [GeometryFactory.cpp:779](Source/UI/Scene/GeometryFactory.cpp#L779)
+- **lunchboxRailHoles** · function · [GeometryFactory.cpp:797](Source/UI/Scene/GeometryFactory.cpp#L797)
+- **tubeAlong** · function · [GeometryFactory.cpp:807](Source/UI/Scene/GeometryFactory.cpp#L807) — ==============================================================================
+- **audioUnits** · function · [GeometryFactory.cpp:859](Source/UI/Scene/GeometryFactory.cpp#L859) — The rack units that carry audio (all but the POWER strip), bottom to top, as shown.
+- **bundleSlot** · function · [GeometryFactory.cpp:873](Source/UI/Scene/GeometryFactory.cpp#L873) — Where cable i sits in the bundle's cross-section (across, up): a loose heap, not a ribbon.
+- **wander** · function · [GeometryFactory.cpp:880](Source/UI/Scene/GeometryFactory.cpp#L880)
+- **arcOfPanel** · function · [GeometryFactory.cpp:886](Source/UI/Scene/GeometryFactory.cpp#L886) — Where a unit's panel point (x across, y out, z down) is on the case's arc: (s along it, out).
+- **intoChannel** · function · [GeometryFactory.cpp:891](Source/UI/Scene/GeometryFactory.cpp#L891)
+- **grommetAt** · function · [GeometryFactory.cpp:907](Source/UI/Scene/GeometryFactory.cpp#L907) — The grommet in the right cheek's outer face, where the LUNCHBOX's cables leave the case.
+- **floorRun** · function · [GeometryFactory.cpp:915](Source/UI/Scene/GeometryFactory.cpp#L915)
+- **numAudioCables** · function · [GeometryFactory.cpp:946](Source/UI/Scene/GeometryFactory.cpp#L946)
+- **audioCable** · function · [GeometryFactory.cpp:948](Source/UI/Scene/GeometryFactory.cpp#L948)
+- **audioCables** · function · [GeometryFactory.cpp:956](Source/UI/Scene/GeometryFactory.cpp#L956)
+- **xlrConnectors** · function · [GeometryFactory.cpp:968](Source/UI/Scene/GeometryFactory.cpp#L968)
+- **xlrLatches** · function · [GeometryFactory.cpp:984](Source/UI/Scene/GeometryFactory.cpp#L984)
+- **powerCables** · function · [GeometryFactory.cpp:1001](Source/UI/Scene/GeometryFactory.cpp#L1001)
+- **dHole** · function · [GeometryFactory.cpp:1066](Source/UI/Scene/GeometryFactory.cpp#L1066) — A D-shaped ground hole (a round top, flat bottom) and the two slots, as thin dark prisms.
+- **receptacleFace** · function · [GeometryFactory.cpp:1090](Source/UI/Scene/GeometryFactory.cpp#L1090)
+- **receptacleHoles** · function · [GeometryFactory.cpp:1097](Source/UI/Scene/GeometryFactory.cpp#L1097)
+- **plugBody** · function · [GeometryFactory.cpp:1108](Source/UI/Scene/GeometryFactory.cpp#L1108)
+- **plugPins** · function · [GeometryFactory.cpp:1123](Source/UI/Scene/GeometryFactory.cpp#L1123)
+- **stripReceptacles** · function · [GeometryFactory.cpp:1134](Source/UI/Scene/GeometryFactory.cpp#L1134)
+- **stripReceptacleHoles** · function · [GeometryFactory.cpp:1142](Source/UI/Scene/GeometryFactory.cpp#L1142)
+- **stripPlugs** · function · [GeometryFactory.cpp:1151](Source/UI/Scene/GeometryFactory.cpp#L1151)
+- **stripPlugPins** · function · [GeometryFactory.cpp:1161](Source/UI/Scene/GeometryFactory.cpp#L1161)
+- **loosePlugFrame** · function · [GeometryFactory.cpp:1165](Source/UI/Scene/GeometryFactory.cpp#L1165)
+- **loosePlug** · function · [GeometryFactory.cpp:1173](Source/UI/Scene/GeometryFactory.cpp#L1173)
+- **loosePlugPins** · function · [GeometryFactory.cpp:1174](Source/UI/Scene/GeometryFactory.cpp#L1174)
+- **wallFrame** · function · [GeometryFactory.cpp:1180](Source/UI/Scene/GeometryFactory.cpp#L1180)
+- **wallPlate** · function · [GeometryFactory.cpp:1189](Source/UI/Scene/GeometryFactory.cpp#L1189)
+- **wallReceptacles** · function · [GeometryFactory.cpp:1200](Source/UI/Scene/GeometryFactory.cpp#L1200)
+- **wallReceptacleHoles** · function · [GeometryFactory.cpp:1208](Source/UI/Scene/GeometryFactory.cpp#L1208)
+- **wallPlug** · function · [GeometryFactory.cpp:1215](Source/UI/Scene/GeometryFactory.cpp#L1215)
+- **wallOutlet** · function · [GeometryFactory.cpp:1222](Source/UI/Scene/GeometryFactory.cpp#L1222)
+- **cableChannelSlots** · function · [GeometryFactory.cpp:1227](Source/UI/Scene/GeometryFactory.cpp#L1227) — ============================================================================== Cable management: a channel do…
+- **cableChannelLips** · function · [GeometryFactory.cpp:1242](Source/UI/Scene/GeometryFactory.cpp#L1242)
+- **cheekGrommet** · function · [GeometryFactory.cpp:1263](Source/UI/Scene/GeometryFactory.cpp#L1263)
+- **cheekGrommetHole** · function · [GeometryFactory.cpp:1272](Source/UI/Scene/GeometryFactory.cpp#L1272)
+- **designedPrint** · function · [GeometryFactory.cpp:1282](Source/UI/Scene/GeometryFactory.cpp#L1282)
+- **designedJackPlugs** · function · [GeometryFactory.cpp:1293](Source/UI/Scene/GeometryFactory.cpp#L1293)
+- **designedJackCables** · function · [GeometryFactory.cpp:1303](Source/UI/Scene/GeometryFactory.cpp#L1303)
 
 **[Source/UI/Scene/HardwareRenderer.cpp](Source/UI/Scene/HardwareRenderer.cpp)**
 
-- **mixVec** · function · [HardwareRenderer.cpp:30](Source/UI/Scene/HardwareRenderer.cpp#L30)
-- **saturateUi** · function · [HardwareRenderer.cpp:31](Source/UI/Scene/HardwareRenderer.cpp#L31)
-- **HardwareRenderer::GpuModel::upload** · function · [HardwareRenderer.cpp:80](Source/UI/Scene/HardwareRenderer.cpp#L80) — ==============================================================================
-- **HardwareRenderer::GpuModel::release** · function · [HardwareRenderer.cpp:108](Source/UI/Scene/HardwareRenderer.cpp#L108)
-- **HardwareRenderer::drawModel** · function · [HardwareRenderer.cpp:115](Source/UI/Scene/HardwareRenderer.cpp#L115)
-- **HardwareRenderer::queueGlow** · function · [HardwareRenderer.cpp:166](Source/UI/Scene/HardwareRenderer.cpp#L166)
-- **HardwareRenderer::parameterFor** · function · [HardwareRenderer.cpp:173](Source/UI/Scene/HardwareRenderer.cpp#L173)
-- **HardwareRenderer::detailFor** · function · [HardwareRenderer.cpp:181](Source/UI/Scene/HardwareRenderer.cpp#L181)
-- **HardwareRenderer::newOpenGLContextCreated** · function · [HardwareRenderer.cpp:198](Source/UI/Scene/HardwareRenderer.cpp#L198) — ==============================================================================
-- **HardwareRenderer::openGLContextClosing** · function · [HardwareRenderer.cpp:422](Source/UI/Scene/HardwareRenderer.cpp#L422)
-- **HardwareRenderer::uploadScope** · function · [HardwareRenderer.cpp:479](Source/UI/Scene/HardwareRenderer.cpp#L479) — ============================================================================== The analyser curve as a 1 x N…
-- **HardwareRenderer::uploadDisplays** · function · [HardwareRenderer.cpp:505](Source/UI/Scene/HardwareRenderer.cpp#L505) — ============================================================================== The two new displays' data, re…
-- **HardwareRenderer::uploadLevelLabelsIfChanged** · function · [HardwareRenderer.cpp:687](Source/UI/Scene/HardwareRenderer.cpp#L687)
-- **HardwareRenderer::drawWindows** · function · [HardwareRenderer.cpp:705](Source/UI/Scene/HardwareRenderer.cpp#L705) — The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window.
-- **HardwareRenderer::uploadOverlayIfChanged** · function · [HardwareRenderer.cpp:747](Source/UI/Scene/HardwareRenderer.cpp#L747)
-- **HardwareRenderer::uploadCalloutIfChanged** · function · [HardwareRenderer.cpp:767](Source/UI/Scene/HardwareRenderer.cpp#L767)
-- **HardwareRenderer::renderLoupeView** · function · [HardwareRenderer.cpp:793](Source/UI/Scene/HardwareRenderer.cpp#L793)
-- **HardwareRenderer::renderScaleFor** · function · [HardwareRenderer.cpp:846](Source/UI/Scene/HardwareRenderer.cpp#L846)
-- **HardwareRenderer::presentScene** · function · [HardwareRenderer.cpp:851](Source/UI/Scene/HardwareRenderer.cpp#L851)
-- **HardwareRenderer::drawLoupe** · function · [HardwareRenderer.cpp:869](Source/UI/Scene/HardwareRenderer.cpp#L869)
-- **HardwareRenderer::updatePanel** · function · [HardwareRenderer.cpp:922](Source/UI/Scene/HardwareRenderer.cpp#L922) — ============================================================================== Glass panel
-- **HardwareRenderer::uploadPanelIfChanged** · function · [HardwareRenderer.cpp:958](Source/UI/Scene/HardwareRenderer.cpp#L958)
-- **HardwareRenderer::blurBehindPanel** · function · [HardwareRenderer.cpp:986](Source/UI/Scene/HardwareRenderer.cpp#L986)
-- **HardwareRenderer::drawPanelConnector** · function · [HardwareRenderer.cpp:1039](Source/UI/Scene/HardwareRenderer.cpp#L1039)
-- **HardwareRenderer::drawGlassPanel** · function · [HardwareRenderer.cpp:1107](Source/UI/Scene/HardwareRenderer.cpp#L1107)
-- **HardwareRenderer::drawOutlines** · function · [HardwareRenderer.cpp:1144](Source/UI/Scene/HardwareRenderer.cpp#L1144)
-- **HardwareRenderer::pollPointer** · function · [HardwareRenderer.cpp:1182](Source/UI/Scene/HardwareRenderer.cpp#L1182)
-- **HardwareRenderer::handleInteraction** · function · [HardwareRenderer.cpp:1219](Source/UI/Scene/HardwareRenderer.cpp#L1219)
-- **rangeOf** · function · [HardwareRenderer.cpp:1309](Source/UI/Scene/HardwareRenderer.cpp#L1309) — A parameter's value in its own units, and back (the spec's range and skew).
-- **HardwareRenderer::autoTurnedValue** · function · [HardwareRenderer.cpp:1321](Source/UI/Scene/HardwareRenderer.cpp#L1321)
-- **HardwareRenderer::updateAnimation** · function · [HardwareRenderer.cpp:1354](Source/UI/Scene/HardwareRenderer.cpp#L1354)
-- **HardwareRenderer::paceFrame** · function · [HardwareRenderer.cpp:1672](Source/UI/Scene/HardwareRenderer.cpp#L1672) — ==============================================================================
-- **HardwareRenderer::recordStats** · function · [HardwareRenderer.cpp:1699](Source/UI/Scene/HardwareRenderer.cpp#L1699)
-- **HardwareRenderer::buildCase** · function · [HardwareRenderer.cpp:1728](Source/UI/Scene/HardwareRenderer.cpp#L1728) — The case, floor and wall: they follow how many units are in the case (SIMPLE / FULL view).
-- **HardwareRenderer::renderOpenGL** · function · [HardwareRenderer.cpp:1765](Source/UI/Scene/HardwareRenderer.cpp#L1765)
-- **HardwareRenderer::use** · function · [HardwareRenderer.cpp:1864](Source/UI/Scene/HardwareRenderer.cpp#L1864) — ==============================================================================
-- **HardwareRenderer::unitAtPoint** · function · [HardwareRenderer.cpp:1906](Source/UI/Scene/HardwareRenderer.cpp#L1906)
-- **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:1920](Source/UI/Scene/HardwareRenderer.cpp#L1920)
-- **HardwareRenderer::bakeOcclusion** · function · [HardwareRenderer.cpp:1965](Source/UI/Scene/HardwareRenderer.cpp#L1965)
-- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:2024](Source/UI/Scene/HardwareRenderer.cpp#L2024)
-- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:2034](Source/UI/Scene/HardwareRenderer.cpp#L2034)
-- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:2042](Source/UI/Scene/HardwareRenderer.cpp#L2042)
-- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:2053](Source/UI/Scene/HardwareRenderer.cpp#L2053)
-- **HardwareRenderer::drawPowerStrip** · function · [HardwareRenderer.cpp:2158](Source/UI/Scene/HardwareRenderer.cpp#L2158)
-- **HardwareRenderer::drawLunchbox** · function · [HardwareRenderer.cpp:2186](Source/UI/Scene/HardwareRenderer.cpp#L2186)
-- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:2236](Source/UI/Scene/HardwareRenderer.cpp#L2236) — The cover glass over a unit's meters, drawn with everything else transparent.
-- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:2251](Source/UI/Scene/HardwareRenderer.cpp#L2251)
+- **mixVec** · function · [HardwareRenderer.cpp:31](Source/UI/Scene/HardwareRenderer.cpp#L31)
+- **saturateUi** · function · [HardwareRenderer.cpp:32](Source/UI/Scene/HardwareRenderer.cpp#L32)
+- **designedPrintOf** · function · [HardwareRenderer.cpp:35](Source/UI/Scene/HardwareRenderer.cpp#L35) — A designed unit's print (DesignedLayout.h).
+- **ledColour** · function · [HardwareRenderer.cpp:44](Source/UI/Scene/HardwareRenderer.cpp#L44) — An LED's colour as designed ("#rrggbb"), in linear light, brightened to a lit LED's.
+- **takebackLedPlaces** · function · [HardwareRenderer.cpp:55](Source/UI/Scene/HardwareRenderer.cpp#L55)
+- **HardwareRenderer::GpuModel::upload** · function · [HardwareRenderer.cpp:126](Source/UI/Scene/HardwareRenderer.cpp#L126) — ==============================================================================
+- **HardwareRenderer::GpuModel::release** · function · [HardwareRenderer.cpp:154](Source/UI/Scene/HardwareRenderer.cpp#L154)
+- **HardwareRenderer::drawModel** · function · [HardwareRenderer.cpp:161](Source/UI/Scene/HardwareRenderer.cpp#L161)
+- **HardwareRenderer::queueGlow** · function · [HardwareRenderer.cpp:212](Source/UI/Scene/HardwareRenderer.cpp#L212)
+- **HardwareRenderer::parameterFor** · function · [HardwareRenderer.cpp:219](Source/UI/Scene/HardwareRenderer.cpp#L219)
+- **HardwareRenderer::detailFor** · function · [HardwareRenderer.cpp:227](Source/UI/Scene/HardwareRenderer.cpp#L227)
+- **HardwareRenderer::newOpenGLContextCreated** · function · [HardwareRenderer.cpp:244](Source/UI/Scene/HardwareRenderer.cpp#L244) — ==============================================================================
+- **HardwareRenderer::openGLContextClosing** · function · [HardwareRenderer.cpp:482](Source/UI/Scene/HardwareRenderer.cpp#L482)
+- **HardwareRenderer::uploadScope** · function · [HardwareRenderer.cpp:550](Source/UI/Scene/HardwareRenderer.cpp#L550) — ============================================================================== The analyser curve as a 1 x N…
+- **HardwareRenderer::uploadDisplays** · function · [HardwareRenderer.cpp:576](Source/UI/Scene/HardwareRenderer.cpp#L576) — ============================================================================== The two new displays' data, re…
+- **HardwareRenderer::uploadLevelLabelsIfChanged** · function · [HardwareRenderer.cpp:758](Source/UI/Scene/HardwareRenderer.cpp#L758)
+- **HardwareRenderer::drawWindows** · function · [HardwareRenderer.cpp:776](Source/UI/Scene/HardwareRenderer.cpp#L776) — The LEVEL & LOUDNESS waveform screen and the MIX BALANCER display, each in its window.
+- **HardwareRenderer::uploadOverlayIfChanged** · function · [HardwareRenderer.cpp:818](Source/UI/Scene/HardwareRenderer.cpp#L818)
+- **HardwareRenderer::uploadCalloutIfChanged** · function · [HardwareRenderer.cpp:838](Source/UI/Scene/HardwareRenderer.cpp#L838)
+- **HardwareRenderer::renderLoupeView** · function · [HardwareRenderer.cpp:864](Source/UI/Scene/HardwareRenderer.cpp#L864)
+- **HardwareRenderer::renderScaleFor** · function · [HardwareRenderer.cpp:917](Source/UI/Scene/HardwareRenderer.cpp#L917)
+- **HardwareRenderer::presentScene** · function · [HardwareRenderer.cpp:922](Source/UI/Scene/HardwareRenderer.cpp#L922)
+- **HardwareRenderer::drawLoupe** · function · [HardwareRenderer.cpp:940](Source/UI/Scene/HardwareRenderer.cpp#L940)
+- **HardwareRenderer::updatePanel** · function · [HardwareRenderer.cpp:993](Source/UI/Scene/HardwareRenderer.cpp#L993) — ============================================================================== Glass panel
+- **HardwareRenderer::uploadPanelIfChanged** · function · [HardwareRenderer.cpp:1029](Source/UI/Scene/HardwareRenderer.cpp#L1029)
+- **HardwareRenderer::blurBehindPanel** · function · [HardwareRenderer.cpp:1057](Source/UI/Scene/HardwareRenderer.cpp#L1057)
+- **HardwareRenderer::drawPanelConnector** · function · [HardwareRenderer.cpp:1110](Source/UI/Scene/HardwareRenderer.cpp#L1110)
+- **HardwareRenderer::drawGlassPanel** · function · [HardwareRenderer.cpp:1178](Source/UI/Scene/HardwareRenderer.cpp#L1178)
+- **HardwareRenderer::drawOutlines** · function · [HardwareRenderer.cpp:1215](Source/UI/Scene/HardwareRenderer.cpp#L1215)
+- **HardwareRenderer::pollPointer** · function · [HardwareRenderer.cpp:1253](Source/UI/Scene/HardwareRenderer.cpp#L1253)
+- **HardwareRenderer::handleInteraction** · function · [HardwareRenderer.cpp:1290](Source/UI/Scene/HardwareRenderer.cpp#L1290)
+- **rangeOf** · function · [HardwareRenderer.cpp:1380](Source/UI/Scene/HardwareRenderer.cpp#L1380) — A parameter's value in its own units, and back (the spec's range and skew).
+- **HardwareRenderer::autoTurnedValue** · function · [HardwareRenderer.cpp:1392](Source/UI/Scene/HardwareRenderer.cpp#L1392)
+- **HardwareRenderer::updateAnimation** · function · [HardwareRenderer.cpp:1425](Source/UI/Scene/HardwareRenderer.cpp#L1425)
+- **HardwareRenderer::paceFrame** · function · [HardwareRenderer.cpp:1767](Source/UI/Scene/HardwareRenderer.cpp#L1767) — ==============================================================================
+- **HardwareRenderer::recordStats** · function · [HardwareRenderer.cpp:1794](Source/UI/Scene/HardwareRenderer.cpp#L1794)
+- **HardwareRenderer::buildCase** · function · [HardwareRenderer.cpp:1823](Source/UI/Scene/HardwareRenderer.cpp#L1823) — The case, floor and wall: they follow how many units are in the case (SIMPLE / FULL view).
+- **HardwareRenderer::renderOpenGL** · function · [HardwareRenderer.cpp:1865](Source/UI/Scene/HardwareRenderer.cpp#L1865)
+- **HardwareRenderer::use** · function · [HardwareRenderer.cpp:1964](Source/UI/Scene/HardwareRenderer.cpp#L1964) — ==============================================================================
+- **HardwareRenderer::unitAtPoint** · function · [HardwareRenderer.cpp:2006](Source/UI/Scene/HardwareRenderer.cpp#L2006)
+- **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:2020](Source/UI/Scene/HardwareRenderer.cpp#L2020)
+- **HardwareRenderer::bakeOcclusion** · function · [HardwareRenderer.cpp:2065](Source/UI/Scene/HardwareRenderer.cpp#L2065)
+- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:2124](Source/UI/Scene/HardwareRenderer.cpp#L2124)
+- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:2134](Source/UI/Scene/HardwareRenderer.cpp#L2134)
+- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:2142](Source/UI/Scene/HardwareRenderer.cpp#L2142)
+- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:2153](Source/UI/Scene/HardwareRenderer.cpp#L2153)
+- **HardwareRenderer::buildDesignedMeshes** · function · [HardwareRenderer.cpp:2258](Source/UI/Scene/HardwareRenderer.cpp#L2258)
+- **HardwareRenderer::drawDesigned** · function · [HardwareRenderer.cpp:2297](Source/UI/Scene/HardwareRenderer.cpp#L2297)
+- **HardwareRenderer::drawPowerStrip** · function · [HardwareRenderer.cpp:2341](Source/UI/Scene/HardwareRenderer.cpp#L2341)
+- **HardwareRenderer::drawLunchbox** · function · [HardwareRenderer.cpp:2369](Source/UI/Scene/HardwareRenderer.cpp#L2369)
+- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:2419](Source/UI/Scene/HardwareRenderer.cpp#L2419) — The cover glass over a unit's meters, drawn with everything else transparent.
+- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:2434](Source/UI/Scene/HardwareRenderer.cpp#L2434)
 
 **[Source/UI/Scene/HardwareRenderer.h](Source/UI/Scene/HardwareRenderer.h)**
 
@@ -2226,10 +2343,10 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **HardwareRenderer::GpuModel** · struct · [HardwareRenderer.h:97](Source/UI/Scene/HardwareRenderer.h#L97) — A HardwareKit model on the GPU: one mesh per part plus its material hints.
 - **HardwareRenderer::GpuModel::Part** · struct · [HardwareRenderer.h:99](Source/UI/Scene/HardwareRenderer.h#L99)
 - **HardwareRenderer::draw** · function · [HardwareRenderer.h:140](Source/UI/Scene/HardwareRenderer.h#L140)
-- **HardwareRenderer::wallRackCentreY** · function · [HardwareRenderer.h:216](Source/UI/Scene/HardwareRenderer.h#L216)
-- **HardwareRenderer::Needle** · struct · [HardwareRenderer.h:226](Source/UI/Scene/HardwareRenderer.h#L226)
-- **HardwareRenderer::vuModelFor** · function · [HardwareRenderer.h:243](Source/UI/Scene/HardwareRenderer.h#L243)
-- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.h:256](Source/UI/Scene/HardwareRenderer.h#L256)
+- **HardwareRenderer::wallRackCentreY** · function · [HardwareRenderer.h:226](Source/UI/Scene/HardwareRenderer.h#L226)
+- **HardwareRenderer::Needle** · struct · [HardwareRenderer.h:236](Source/UI/Scene/HardwareRenderer.h#L236)
+- **HardwareRenderer::vuModelFor** · function · [HardwareRenderer.h:253](Source/UI/Scene/HardwareRenderer.h#L253)
+- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.h:266](Source/UI/Scene/HardwareRenderer.h#L266)
 
 **[Source/UI/Scene/LayoutAudit.cpp](Source/UI/Scene/LayoutAudit.cpp)**
 
@@ -2252,35 +2369,40 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 **[Source/UI/Scene/PanelArtwork.cpp](Source/UI/Scene/PanelArtwork.cpp)**
 
-- **copyChannel** · function · [PanelArtwork.cpp:9](Source/UI/Scene/PanelArtwork.cpp#L9)
-- **makeFont** · function · [PanelArtwork.cpp:28](Source/UI/Scene/PanelArtwork.cpp#L28)
-- **PanelMapper** · struct · [PanelArtwork.cpp:44](Source/UI/Scene/PanelArtwork.cpp#L44) — Maps panel-local (x, z) to decal pixels.
-- **PanelMapper::px** · function · [PanelArtwork.cpp:47](Source/UI/Scene/PanelArtwork.cpp#L47)
-- **PanelMapper::pz** · function · [PanelArtwork.cpp:48](Source/UI/Scene/PanelArtwork.cpp#L48)
-- **PanelMapper::len** · function · [PanelArtwork.cpp:49](Source/UI/Scene/PanelArtwork.cpp#L49)
-- **PanelMapper::rect** · function · [PanelArtwork.cpp:51](Source/UI/Scene/PanelArtwork.cpp#L51)
-- **Recorder** · struct · [PanelArtwork.cpp:58](Source/UI/Scene/PanelArtwork.cpp#L58) — Where text() records what it prints (set by the render functions).
-- **text** · function · [PanelArtwork.cpp:65](Source/UI/Scene/PanelArtwork.cpp#L65)
-- **fitHeight** · function · [PanelArtwork.cpp:98](Source/UI/Scene/PanelArtwork.cpp#L98) — The largest height (up to `height`) at which `s` fits in `maxWidth` panel units.
-- **renderFaceplateDecal** · function · [PanelArtwork.cpp:105](Source/UI/Scene/PanelArtwork.cpp#L105)
-- **renderTubeDecal** · function · [PanelArtwork.cpp:232](Source/UI/Scene/PanelArtwork.cpp#L232) — ==============================================================================
-- **renderOneUDecal** · function · [PanelArtwork.cpp:359](Source/UI/Scene/PanelArtwork.cpp#L359)
-- **renderLunchboxDecal** · function · [PanelArtwork.cpp:528](Source/UI/Scene/PanelArtwork.cpp#L528)
-- **renderVuFace** · function · [PanelArtwork.cpp:638](Source/UI/Scene/PanelArtwork.cpp#L638)
-- **renderWindowLabels** · function · [PanelArtwork.cpp:749](Source/UI/Scene/PanelArtwork.cpp#L749)
-- **renderSeraphDisplayLabels** · function · [PanelArtwork.cpp:824](Source/UI/Scene/PanelArtwork.cpp#L824)
-- **collectKnobScaleText** · function · [PanelArtwork.cpp:895](Source/UI/Scene/PanelArtwork.cpp#L895)
-- **renderCallout** · function · [PanelArtwork.cpp:924](Source/UI/Scene/PanelArtwork.cpp#L924)
-- **renderKnobScale** · function · [PanelArtwork.cpp:972](Source/UI/Scene/PanelArtwork.cpp#L972) — ==============================================================================
-- **renderDisplayOverlay** · function · [PanelArtwork.cpp:1016](Source/UI/Scene/PanelArtwork.cpp#L1016)
+- **copyChannel** · function · [PanelArtwork.cpp:10](Source/UI/Scene/PanelArtwork.cpp#L10)
+- **makeFont** · function · [PanelArtwork.cpp:29](Source/UI/Scene/PanelArtwork.cpp#L29)
+- **PanelMapper** · struct · [PanelArtwork.cpp:45](Source/UI/Scene/PanelArtwork.cpp#L45) — Maps panel-local (x, z) to decal pixels.
+- **PanelMapper::px** · function · [PanelArtwork.cpp:48](Source/UI/Scene/PanelArtwork.cpp#L48)
+- **PanelMapper::pz** · function · [PanelArtwork.cpp:49](Source/UI/Scene/PanelArtwork.cpp#L49)
+- **PanelMapper::len** · function · [PanelArtwork.cpp:50](Source/UI/Scene/PanelArtwork.cpp#L50)
+- **PanelMapper::rect** · function · [PanelArtwork.cpp:52](Source/UI/Scene/PanelArtwork.cpp#L52)
+- **Recorder** · struct · [PanelArtwork.cpp:59](Source/UI/Scene/PanelArtwork.cpp#L59) — Where text() records what it prints (set by the render functions).
+- **text** · function · [PanelArtwork.cpp:66](Source/UI/Scene/PanelArtwork.cpp#L66)
+- **fitHeight** · function · [PanelArtwork.cpp:99](Source/UI/Scene/PanelArtwork.cpp#L99) — The largest height (up to `height`) at which `s` fits in `maxWidth` panel units.
+- **renderFaceplateDecal** · function · [PanelArtwork.cpp:106](Source/UI/Scene/PanelArtwork.cpp#L106)
+- **renderTubeDecal** · function · [PanelArtwork.cpp:233](Source/UI/Scene/PanelArtwork.cpp#L233) — ==============================================================================
+- **renderOneUDecal** · function · [PanelArtwork.cpp:360](Source/UI/Scene/PanelArtwork.cpp#L360)
+- **renderLunchboxDecal** · function · [PanelArtwork.cpp:529](Source/UI/Scene/PanelArtwork.cpp#L529)
+- **renderVuFace** · function · [PanelArtwork.cpp:639](Source/UI/Scene/PanelArtwork.cpp#L639)
+- **renderWindowLabels** · function · [PanelArtwork.cpp:754](Source/UI/Scene/PanelArtwork.cpp#L754)
+- **renderSeraphDisplayLabels** · function · [PanelArtwork.cpp:829](Source/UI/Scene/PanelArtwork.cpp#L829)
+- **collectKnobScaleText** · function · [PanelArtwork.cpp:900](Source/UI/Scene/PanelArtwork.cpp#L900)
+- **renderCallout** · function · [PanelArtwork.cpp:929](Source/UI/Scene/PanelArtwork.cpp#L929)
+- **renderKnobScale** · function · [PanelArtwork.cpp:977](Source/UI/Scene/PanelArtwork.cpp#L977) — ==============================================================================
+- **renderDisplayOverlay** · function · [PanelArtwork.cpp:1021](Source/UI/Scene/PanelArtwork.cpp#L1021)
+- **designedPrint** · function · [PanelArtwork.cpp:1107](Source/UI/Scene/PanelArtwork.cpp#L1107)
+- **designedLook** · function · [PanelArtwork.cpp:1117](Source/UI/Scene/PanelArtwork.cpp#L1117)
+- **scaleNumber** · function · [PanelArtwork.cpp:1124](Source/UI/Scene/PanelArtwork.cpp#L1124)
+- **renderDesignedDecal** · function · [PanelArtwork.cpp:1133](Source/UI/Scene/PanelArtwork.cpp#L1133)
+- **renderDesignedScreens** · function · [PanelArtwork.cpp:1260](Source/UI/Scene/PanelArtwork.cpp#L1260)
 
 **[Source/UI/Scene/PanelArtwork.h](Source/UI/Scene/PanelArtwork.h)**
 
 - **RawTexture** · struct · [PanelArtwork.h:16](Source/UI/Scene/PanelArtwork.h#L16)
 - **TextureSet** · struct · [PanelArtwork.h:23](Source/UI/Scene/PanelArtwork.h#L23) — Everything the renderer uploads once when the GL context is created.
-- **TextItem** · struct · [PanelArtwork.h:39](Source/UI/Scene/PanelArtwork.h#L39) — One piece of printed text, in panel-local coordinates of its unit (for the hover callouts).
-- **renderWindowLabels** · function · [PanelArtwork.h:62](Source/UI/Scene/PanelArtwork.h#L62) — Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window).
-- **DisplayText** · struct · [PanelArtwork.h:75](Source/UI/Scene/PanelArtwork.h#L75)
+- **TextItem** · struct · [PanelArtwork.h:43](Source/UI/Scene/PanelArtwork.h#L43) — One piece of printed text, in panel-local coordinates of its unit (for the hover callouts).
+- **renderWindowLabels** · function · [PanelArtwork.h:70](Source/UI/Scene/PanelArtwork.h#L70) — Print inside the LEVEL & LOUDNESS waveform screen or the MIX BALANCER display (R8, uv across the window).
+- **DisplayText** · struct · [PanelArtwork.h:83](Source/UI/Scene/PanelArtwork.h#L83)
 
 **[Source/UI/Scene/Picking.h](Source/UI/Scene/Picking.h)**
 
@@ -2316,6 +2438,18 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **harmonicsOf** · function · [CharacterTests.h:205](Tests/CharacterTests.h#L205) — 2nd ..
 - **thdOf** · function · [CharacterTests.h:213](Tests/CharacterTests.h#L213)
 - **runCharacterTests** · function · [CharacterTests.h:222](Tests/CharacterTests.h#L222)
+
+**[Tests/DesignedUnitsTests.h](Tests/DesignedUnitsTests.h)**
+
+- **programme** · function · [DesignedUnitsTests.h:21](Tests/DesignedUnitsTests.h#L21) — A stereo test signal: a bass line, a midrange tone, a little noise (so every band has something).
+- **rmsDb** · function · [DesignedUnitsTests.h:39](Tests/DesignedUnitsTests.h#L39)
+- **run** · function · [DesignedUnitsTests.h:48](Tests/DesignedUnitsTests.h#L48)
+- **burstDb** · function · [DesignedUnitsTests.h:60](Tests/DesignedUnitsTests.h#L60) — High-frequency burst (above 9 kHz) in the 30 ms after `at`, over the steady level before it, dB.
+- **drums** · function · [DesignedUnitsTests.h:77](Tests/DesignedUnitsTests.h#L77)
+- **crestDb** · function · [DesignedUnitsTests.h:92](Tests/DesignedUnitsTests.h#L92)
+- **attackDb** · function · [DesignedUnitsTests.h:101](Tests/DesignedUnitsTests.h#L101)
+- **airDb** · function · [DesignedUnitsTests.h:115](Tests/DesignedUnitsTests.h#L115) — The level above 9 kHz, dB.
+- **runDesignedUnitsTests** · function · [DesignedUnitsTests.h:129](Tests/DesignedUnitsTests.h#L129)
 
 **[Tests/DisplayBridgeTests.h](Tests/DisplayBridgeTests.h)**
 
@@ -2362,23 +2496,23 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **presetList** · function · [EnhDspTests.cpp:708](Tests/EnhDspTests.cpp#L708)
 - **presetNamed** · function · [EnhDspTests.cpp:715](Tests/EnhDspTests.cpp#L715) — A preset by name from that list, else from the factory list (tests that need a particular one).
 - **presetParameters** · function · [EnhDspTests.cpp:727](Tests/EnhDspTests.cpp#L727) — A factory preset as the engine sees it: the panel values through the same mapping the plugin uses.
-- **rmsDb** · function · [EnhDspTests.cpp:782](Tests/EnhDspTests.cpp#L782)
-- **setEnv** · function · [EnhDspTests.cpp:791](Tests/EnhDspTests.cpp#L791) — Sets (or, with an empty value, clears) an environment variable, portably.
-- **runPresetFileTests** · function · [EnhDspTests.cpp:803](Tests/EnhDspTests.cpp#L803)
-- **runPresetTests** · function · [EnhDspTests.cpp:844](Tests/EnhDspTests.cpp#L844)
-- **bassThdPercent** · function · [EnhDspTests.cpp:941](Tests/EnhDspTests.cpp#L941) — ========================================================================== Loud bass through the whole rack:…
-- **seraphPumpingDb** · function · [EnhDspTests.cpp:968](Tests/EnhDspTests.cpp#L968)
-- **rackPumpingDb** · function · [EnhDspTests.cpp:1011](Tests/EnhDspTests.cpp#L1011) — The whole rack: the same 2 kHz tone with bass switching on and off every second.
-- **runLoudBassTests** · function · [EnhDspTests.cpp:1040](Tests/EnhDspTests.cpp#L1040)
-- **runNewUnitTests** · function · [EnhDspTests.cpp:1157](Tests/EnhDspTests.cpp#L1157) — The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER.
-- **methodsDoc** · function · [EnhDspTests.cpp:1441](Tests/EnhDspTests.cpp#L1441) — ========================================================================== The method registry as the referen…
-- **methodsDocFile** · function · [EnhDspTests.cpp:1495](Tests/EnhDspTests.cpp#L1495)
-- **runMethodTests** · function · [EnhDspTests.cpp:1508](Tests/EnhDspTests.cpp#L1508)
-- **runDeepSubTests** · function · [EnhDspTests.cpp:1920](Tests/EnhDspTests.cpp#L1920) — ==========================================================================
-- **runNewUnitsMode** · function · [EnhDspTests.cpp:2008](Tests/EnhDspTests.cpp#L2008)
-- **runGolden** · function · [EnhDspTests.cpp:2016](Tests/EnhDspTests.cpp#L2016)
-- **runCpuBenchmark** · function · [EnhDspTests.cpp:2067](Tests/EnhDspTests.cpp#L2067)
-- **main** · function · [EnhDspTests.cpp:2150](Tests/EnhDspTests.cpp#L2150)
+- **rmsDb** · function · [EnhDspTests.cpp:783](Tests/EnhDspTests.cpp#L783)
+- **setEnv** · function · [EnhDspTests.cpp:792](Tests/EnhDspTests.cpp#L792) — Sets (or, with an empty value, clears) an environment variable, portably.
+- **runPresetFileTests** · function · [EnhDspTests.cpp:804](Tests/EnhDspTests.cpp#L804)
+- **runPresetTests** · function · [EnhDspTests.cpp:845](Tests/EnhDspTests.cpp#L845)
+- **bassThdPercent** · function · [EnhDspTests.cpp:942](Tests/EnhDspTests.cpp#L942) — ========================================================================== Loud bass through the whole rack:…
+- **seraphPumpingDb** · function · [EnhDspTests.cpp:969](Tests/EnhDspTests.cpp#L969)
+- **rackPumpingDb** · function · [EnhDspTests.cpp:1012](Tests/EnhDspTests.cpp#L1012) — The whole rack: the same 2 kHz tone with bass switching on and off every second.
+- **runLoudBassTests** · function · [EnhDspTests.cpp:1041](Tests/EnhDspTests.cpp#L1041)
+- **runNewUnitTests** · function · [EnhDspTests.cpp:1158](Tests/EnhDspTests.cpp#L1158) — The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER.
+- **methodsDoc** · function · [EnhDspTests.cpp:1442](Tests/EnhDspTests.cpp#L1442) — ========================================================================== The method registry as the referen…
+- **methodsDocFile** · function · [EnhDspTests.cpp:1496](Tests/EnhDspTests.cpp#L1496)
+- **runMethodTests** · function · [EnhDspTests.cpp:1509](Tests/EnhDspTests.cpp#L1509)
+- **runDeepSubTests** · function · [EnhDspTests.cpp:1921](Tests/EnhDspTests.cpp#L1921) — ==========================================================================
+- **runNewUnitsMode** · function · [EnhDspTests.cpp:2009](Tests/EnhDspTests.cpp#L2009)
+- **runGolden** · function · [EnhDspTests.cpp:2017](Tests/EnhDspTests.cpp#L2017)
+- **runCpuBenchmark** · function · [EnhDspTests.cpp:2068](Tests/EnhDspTests.cpp#L2068)
+- **main** · function · [EnhDspTests.cpp:2152](Tests/EnhDspTests.cpp#L2152)
 
 **[Tests/LunchboxTests.h](Tests/LunchboxTests.h)**
 
@@ -2414,8 +2548,8 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **runSafetyTests** · function · [MasteringTests.h:274](Tests/MasteringTests.h#L274) — Speaker and headset safety (3.6.4.1): EnhDspTests --mastering runs these too.
 - **runKnobFuzz** · function · [MasteringTests.h:480](Tests/MasteringTests.h#L480) — Knob fuzz: every automatable parameter and every processing method moved at random, block after block, as a u…
 - **runZipperTests** · function · [MasteringTests.h:575](Tests/MasteringTests.h#L575) — Zipper noise (3.6.5.1): every continuous knob jumped from one end to the other in a single block while a stea…
-- **runAliasTests** · function · [MasteringTests.h:662](Tests/MasteringTests.h#L662) — Aliasing through the rack's own non-linear stages (3.6.5.1): a 7 kHz tone, loud, through one stage at a time…
-- **runStrengthZeroCheck** · function · [MasteringTests.h:725](Tests/MasteringTests.h#L725) — TONE at STRENGTH 0 against its input, with the oversampling's delay taken out: at a few lags, and below 4 kHz…
+- **runAliasTests** · function · [MasteringTests.h:665](Tests/MasteringTests.h#L665) — Aliasing through the rack's own non-linear stages (3.6.5.1): a 7 kHz tone, loud, through one stage at a time…
+- **runStrengthZeroCheck** · function · [MasteringTests.h:728](Tests/MasteringTests.h#L728) — TONE at STRENGTH 0 against its input, with the oversampling's delay taken out: at a few lags, and below 4 kHz…
 
 **[Tests/PrecisionTests.h](Tests/PrecisionTests.h)**
 
@@ -2494,50 +2628,50 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Setup** · struct · [AudioLab.cpp:411](Tools/AudioLab.cpp#L411) — ============================================================================== The engine, from a preset plus…
 - **findPreset** · function · [AudioLab.cpp:419](Tools/AudioLab.cpp#L419)
 - **parametersFor** · function · [AudioLab.cpp:438](Tools/AudioLab.cpp#L438)
-- **run** · function · [AudioLab.cpp:482](Tools/AudioLab.cpp#L482) — Through the engine, in blocks;
-- **averageSpectrum** · function · [AudioLab.cpp:519](Tools/AudioLab.cpp#L519) — Long-term average power spectrum of the mid signal (Welch, Hann, 50 % overlap).
-- **bandDb** · function · [AudioLab.cpp:546](Tools/AudioLab.cpp#L546)
-- **dbOf** · function · [AudioLab.cpp:557](Tools/AudioLab.cpp#L557)
-- **Tone** · struct · [AudioLab.cpp:561](Tools/AudioLab.cpp#L561) — ============================================================================== Listening: fatigue and "expens…
-- **bandPassed** · function · [AudioLab.cpp:570](Tools/AudioLab.cpp#L570)
-- **toneOf** · function · [AudioLab.cpp:585](Tools/AudioLab.cpp#L585)
-- **Stats** · struct · [AudioLab.cpp:645](Tools/AudioLab.cpp#L645)
-- **stats** · function · [AudioLab.cpp:653](Tools/AudioLab.cpp#L653)
-- **bandLevels** · function · [AudioLab.cpp:705](Tools/AudioLab.cpp#L705) — Three bands of the mid signal, RMS every 50 ms (dB): low < 150 Hz, mid 150 Hz - 2 kHz, high > 2 kHz.
-- **newClicks** · function · [AudioLab.cpp:727](Tools/AudioLab.cpp#L727)
-- **thd** · function · [AudioLab.cpp:773](Tools/AudioLab.cpp#L773)
-- **heat** · function · [AudioLab.cpp:804](Tools/AudioLab.cpp#L804) — ============================================================================== Pictures
-- **diverging** · function · [AudioLab.cpp:814](Tools/AudioLab.cpp#L814)
-- **font** · function · [AudioLab.cpp:821](Tools/AudioLab.cpp#L821)
-- **save** · function · [AudioLab.cpp:827](Tools/AudioLab.cpp#L827)
-- **stft** · function · [AudioLab.cpp:835](Tools/AudioLab.cpp#L835) — STFT magnitudes (dB) of the mid signal on a log-frequency grid: [column][row].
-- **freqAxis** · function · [AudioLab.cpp:868](Tools/AudioLab.cpp#L868)
-- **timeAxis** · function · [AudioLab.cpp:883](Tools/AudioLab.cpp#L883)
-- **spectrogramImage** · function · [AudioLab.cpp:896](Tools/AudioLab.cpp#L896) — Input, output and the difference, log frequency.
-- **spectrumImage** · function · [AudioLab.cpp:931](Tools/AudioLab.cpp#L931) — Long-term spectrum, in and out, and the change.
-- **waveformImage** · function · [AudioLab.cpp:1001](Tools/AudioLab.cpp#L1001) — Waveforms in and out, momentary loudness, and the gain per band over time.
-- **fmt** · function · [AudioLab.cpp:1100](Tools/AudioLab.cpp#L1100)
-- **report** · function · [AudioLab.cpp:1102](Tools/AudioLab.cpp#L1102)
-- **writeWav** · function · [AudioLab.cpp:1202](Tools/AudioLab.cpp#L1202)
-- **readWav** · function · [AudioLab.cpp:1213](Tools/AudioLab.cpp#L1213)
-- **Job** · struct · [AudioLab.cpp:1240](Tools/AudioLab.cpp#L1240) — ==============================================================================
-- **Result** · struct · [AudioLab.cpp:1248](Tools/AudioLab.cpp#L1248)
-- **inputFor** · function · [AudioLab.cpp:1262](Tools/AudioLab.cpp#L1262)
-- **analyse** · function · [AudioLab.cpp:1269](Tools/AudioLab.cpp#L1269) — Everything measured about one run (the output already aligned to the input).
-- **render** · function · [AudioLab.cpp:1348](Tools/AudioLab.cpp#L1348)
-- **contrib** · function · [AudioLab.cpp:1374](Tools/AudioLab.cpp#L1374) — What each unit does: the rack as set, against the rack with just that one unit out.
-- **trace** · function · [AudioLab.cpp:1456](Tools/AudioLab.cpp#L1456)
-- **ducks** · function · [AudioLab.cpp:1636](Tools/AudioLab.cpp#L1636)
-- **listen** · function · [AudioLab.cpp:1743](Tools/AudioLab.cpp#L1743)
-- **suite** · function · [AudioLab.cpp:1770](Tools/AudioLab.cpp#L1770)
-- **CheckRun** · struct · [AudioLab.cpp:1826](Tools/AudioLab.cpp#L1826)
-- **CheckRun::key** · function · [AudioLab.cpp:1831](Tools/AudioLab.cpp#L1831)
-- **checkPlan** · function · [AudioLab.cpp:1834](Tools/AudioLab.cpp#L1834)
-- **hardRules** · function · [AudioLab.cpp:1860](Tools/AudioLab.cpp#L1860) — Hard rules: none of these may ever happen, whatever the preset.
-- **metricsOf** · function · [AudioLab.cpp:1883](Tools/AudioLab.cpp#L1883)
-- **againstBaseline** · function · [AudioLab.cpp:1896](Tools/AudioLab.cpp#L1896) — Against the baseline: WORSE (fails), CHANGED (fails: someone must look, then --update).
-- **check** · function · [AudioLab.cpp:1915](Tools/AudioLab.cpp#L1915)
-- **main** · function · [AudioLab.cpp:2007](Tools/AudioLab.cpp#L2007)
+- **run** · function · [AudioLab.cpp:483](Tools/AudioLab.cpp#L483) — Through the engine, in blocks;
+- **averageSpectrum** · function · [AudioLab.cpp:520](Tools/AudioLab.cpp#L520) — Long-term average power spectrum of the mid signal (Welch, Hann, 50 % overlap).
+- **bandDb** · function · [AudioLab.cpp:547](Tools/AudioLab.cpp#L547)
+- **dbOf** · function · [AudioLab.cpp:558](Tools/AudioLab.cpp#L558)
+- **Tone** · struct · [AudioLab.cpp:562](Tools/AudioLab.cpp#L562) — ============================================================================== Listening: fatigue and "expens…
+- **bandPassed** · function · [AudioLab.cpp:571](Tools/AudioLab.cpp#L571)
+- **toneOf** · function · [AudioLab.cpp:586](Tools/AudioLab.cpp#L586)
+- **Stats** · struct · [AudioLab.cpp:646](Tools/AudioLab.cpp#L646)
+- **stats** · function · [AudioLab.cpp:654](Tools/AudioLab.cpp#L654)
+- **bandLevels** · function · [AudioLab.cpp:706](Tools/AudioLab.cpp#L706) — Three bands of the mid signal, RMS every 50 ms (dB): low < 150 Hz, mid 150 Hz - 2 kHz, high > 2 kHz.
+- **newClicks** · function · [AudioLab.cpp:728](Tools/AudioLab.cpp#L728)
+- **thd** · function · [AudioLab.cpp:774](Tools/AudioLab.cpp#L774)
+- **heat** · function · [AudioLab.cpp:805](Tools/AudioLab.cpp#L805) — ============================================================================== Pictures
+- **diverging** · function · [AudioLab.cpp:815](Tools/AudioLab.cpp#L815)
+- **font** · function · [AudioLab.cpp:822](Tools/AudioLab.cpp#L822)
+- **save** · function · [AudioLab.cpp:828](Tools/AudioLab.cpp#L828)
+- **stft** · function · [AudioLab.cpp:836](Tools/AudioLab.cpp#L836) — STFT magnitudes (dB) of the mid signal on a log-frequency grid: [column][row].
+- **freqAxis** · function · [AudioLab.cpp:869](Tools/AudioLab.cpp#L869)
+- **timeAxis** · function · [AudioLab.cpp:884](Tools/AudioLab.cpp#L884)
+- **spectrogramImage** · function · [AudioLab.cpp:897](Tools/AudioLab.cpp#L897) — Input, output and the difference, log frequency.
+- **spectrumImage** · function · [AudioLab.cpp:932](Tools/AudioLab.cpp#L932) — Long-term spectrum, in and out, and the change.
+- **waveformImage** · function · [AudioLab.cpp:1002](Tools/AudioLab.cpp#L1002) — Waveforms in and out, momentary loudness, and the gain per band over time.
+- **fmt** · function · [AudioLab.cpp:1101](Tools/AudioLab.cpp#L1101)
+- **report** · function · [AudioLab.cpp:1103](Tools/AudioLab.cpp#L1103)
+- **writeWav** · function · [AudioLab.cpp:1203](Tools/AudioLab.cpp#L1203)
+- **readWav** · function · [AudioLab.cpp:1214](Tools/AudioLab.cpp#L1214)
+- **Job** · struct · [AudioLab.cpp:1241](Tools/AudioLab.cpp#L1241) — ==============================================================================
+- **Result** · struct · [AudioLab.cpp:1249](Tools/AudioLab.cpp#L1249)
+- **inputFor** · function · [AudioLab.cpp:1263](Tools/AudioLab.cpp#L1263)
+- **analyse** · function · [AudioLab.cpp:1270](Tools/AudioLab.cpp#L1270) — Everything measured about one run (the output already aligned to the input).
+- **render** · function · [AudioLab.cpp:1349](Tools/AudioLab.cpp#L1349)
+- **contrib** · function · [AudioLab.cpp:1375](Tools/AudioLab.cpp#L1375) — What each unit does: the rack as set, against the rack with just that one unit out.
+- **trace** · function · [AudioLab.cpp:1457](Tools/AudioLab.cpp#L1457)
+- **ducks** · function · [AudioLab.cpp:1637](Tools/AudioLab.cpp#L1637)
+- **listen** · function · [AudioLab.cpp:1744](Tools/AudioLab.cpp#L1744)
+- **suite** · function · [AudioLab.cpp:1771](Tools/AudioLab.cpp#L1771)
+- **CheckRun** · struct · [AudioLab.cpp:1827](Tools/AudioLab.cpp#L1827)
+- **CheckRun::key** · function · [AudioLab.cpp:1832](Tools/AudioLab.cpp#L1832)
+- **checkPlan** · function · [AudioLab.cpp:1835](Tools/AudioLab.cpp#L1835)
+- **hardRules** · function · [AudioLab.cpp:1861](Tools/AudioLab.cpp#L1861) — Hard rules: none of these may ever happen, whatever the preset.
+- **metricsOf** · function · [AudioLab.cpp:1884](Tools/AudioLab.cpp#L1884)
+- **againstBaseline** · function · [AudioLab.cpp:1897](Tools/AudioLab.cpp#L1897) — Against the baseline: WORSE (fails), CHANGED (fails: someone must look, then --update).
+- **check** · function · [AudioLab.cpp:1916](Tools/AudioLab.cpp#L1916)
+- **main** · function · [AudioLab.cpp:2008](Tools/AudioLab.cpp#L2008)
 
 **[Tools/HostCheck.cpp](Tools/HostCheck.cpp)**
 
@@ -2557,7 +2691,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 ## Files
 
-Every source, script and workflow file. (125)
+Every source, script and workflow file. (132)
 
 - **PluginEditor.cpp** · file · [Source/PluginEditor.cpp](Source/PluginEditor.cpp)
 - **PluginEditor.h** · file · [Source/PluginEditor.h](Source/PluginEditor.h)
@@ -2578,6 +2712,7 @@ Every source, script and workflow file. (125)
 - **BandAnalyzer.h** · file · [Source/DSP/BandAnalyzer.h](Source/DSP/BandAnalyzer.h)
 - **Character.h** · file · [Source/DSP/Character.h](Source/DSP/Character.h)
 - **DeepSub.h** · file · [Source/DSP/DeepSub.h](Source/DSP/DeepSub.h)
+- **DesignedUnits.h** · file · [Source/DSP/DesignedUnits.h](Source/DSP/DesignedUnits.h)
 - **DspMath.h** · file · [Source/DSP/DspMath.h](Source/DSP/DspMath.h)
 - **DynamicCompressor.cpp** · file · [Source/DSP/DynamicCompressor.cpp](Source/DSP/DynamicCompressor.cpp)
 - **DynamicCompressor.h** · file · [Source/DSP/DynamicCompressor.h](Source/DSP/DynamicCompressor.h)
@@ -2602,6 +2737,7 @@ Every source, script and workflow file. (125)
 - **ParameterMapping.h** · file · [Source/DSP/ParameterMapping.h](Source/DSP/ParameterMapping.h)
 - **PrecisionEQ.cpp** · file · [Source/DSP/PrecisionEQ.cpp](Source/DSP/PrecisionEQ.cpp)
 - **PrecisionEQ.h** · file · [Source/DSP/PrecisionEQ.h](Source/DSP/PrecisionEQ.h)
+- **ProX4.h** · file · [Source/DSP/ProX4.h](Source/DSP/ProX4.h)
 - **Seraph.cpp** · file · [Source/DSP/Seraph.cpp](Source/DSP/Seraph.cpp)
 - **Seraph.h** · file · [Source/DSP/Seraph.h](Source/DSP/Seraph.h)
 - **SpectralLeveler.cpp** · file · [Source/DSP/SpectralLeveler.cpp](Source/DSP/SpectralLeveler.cpp)
@@ -2612,6 +2748,9 @@ Every source, script and workflow file. (125)
 - **SpectrumScope.h** · file · [Source/DSP/SpectrumScope.h](Source/DSP/SpectrumScope.h)
 - **SubEnhancer.cpp** · file · [Source/DSP/SubEnhancer.cpp](Source/DSP/SubEnhancer.cpp)
 - **SubEnhancer.h** · file · [Source/DSP/SubEnhancer.h](Source/DSP/SubEnhancer.h)
+- **Takeback.h** · file · [Source/DSP/Takeback.h](Source/DSP/Takeback.h)
+- **UnitKit.h** · file · [Source/DSP/UnitKit.h](Source/DSP/UnitKit.h)
+- **Velvetizer.h** · file · [Source/DSP/Velvetizer.h](Source/DSP/Velvetizer.h)
 - **FactoryPresets.h** · file · [Source/Parameters/FactoryPresets.h](Source/Parameters/FactoryPresets.h)
 - **KnobModifiers.h** · file · [Source/Parameters/KnobModifiers.h](Source/Parameters/KnobModifiers.h)
 - **ParameterBridge.cpp** · file · [Source/Parameters/ParameterBridge.cpp](Source/Parameters/ParameterBridge.cpp)
@@ -2644,6 +2783,7 @@ Every source, script and workflow file. (125)
 - **ControlBinding.h** · file · [Source/UI/Controls/ControlBinding.h](Source/UI/Controls/ControlBinding.h)
 - **PluginMaterials.h** · file · [Source/UI/Render/PluginMaterials.h](Source/UI/Render/PluginMaterials.h)
 - **CameraRig.h** · file · [Source/UI/Scene/CameraRig.h](Source/UI/Scene/CameraRig.h)
+- **DesignedLayout.h** · file · [Source/UI/Scene/DesignedLayout.h](Source/UI/Scene/DesignedLayout.h)
 - **DeviceLayout.h** · file · [Source/UI/Scene/DeviceLayout.h](Source/UI/Scene/DeviceLayout.h)
 - **GeometryFactory.cpp** · file · [Source/UI/Scene/GeometryFactory.cpp](Source/UI/Scene/GeometryFactory.cpp)
 - **GeometryFactory.h** · file · [Source/UI/Scene/GeometryFactory.h](Source/UI/Scene/GeometryFactory.h)
@@ -2659,6 +2799,7 @@ Every source, script and workflow file. (125)
 - **StudioWall.h** · file · [Source/UI/Scene/StudioWall.h](Source/UI/Scene/StudioWall.h)
 - **ApoCoreTests.h** · file · [Tests/ApoCoreTests.h](Tests/ApoCoreTests.h)
 - **CharacterTests.h** · file · [Tests/CharacterTests.h](Tests/CharacterTests.h)
+- **DesignedUnitsTests.h** · file · [Tests/DesignedUnitsTests.h](Tests/DesignedUnitsTests.h)
 - **DisplayBridgeTests.h** · file · [Tests/DisplayBridgeTests.h](Tests/DisplayBridgeTests.h)
 - **EnhDspTests.cpp** · file · [Tests/EnhDspTests.cpp](Tests/EnhDspTests.cpp)
 - **LunchboxTests.h** · file · [Tests/LunchboxTests.h](Tests/LunchboxTests.h)

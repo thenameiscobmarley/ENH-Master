@@ -128,7 +128,15 @@ namespace pad::layout
         and resonant hull).
         The identifiers keep the units' earlier names, as the parameter IDs do. */
     enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, levelUnit = 5, balancerUnit = 6,
-                monitorUnit = 7, deepUnit = 8, characterUnit = 9, radarUnit = 10, powerUnit = 11, lunchboxUnit = 12, numUnits = 13 };
+                monitorUnit = 7, deepUnit = 8, characterUnit = 9, radarUnit = 10, powerUnit = 11, lunchboxUnit = 12,
+                x4Unit = 13, velvetUnit = 14, takebackUnit = 15,   // designed in the Rack Unit Designer: LATINSPHIEL PRO X4,
+                numUnits = 16 };                                   // VELVETIZER, TAKEBACK
+
+    /** The units made in the Rack Unit Designer (DesignedLayout.h), and which of them a unit is (-1: none). */
+    inline constexpr int numDesigned = 3;
+    inline constexpr std::array<int, numDesigned> designedUnits { x4Unit, velvetUnit, takebackUnit };
+    inline constexpr int designedIndex (int unit) noexcept { return unit == x4Unit ? 0 : unit == velvetUnit ? 1 : unit == takebackUnit ? 2 : -1; }
+    inline constexpr bool isDesigned (int unit) noexcept { return designedIndex (unit) >= 0; }
 
     /** The rack's own units (in the case, on its arc); the LUNCHBOX stands beside it. */
     inline constexpr int numRackUnits = numUnits - 1;
@@ -139,7 +147,8 @@ namespace pad::layout
         display behind glass. The four 1U units, LEVEL (1U), MIX BALANCER (3U) and the MONITOR (3U). */
     inline constexpr bool isOutboard (int unit) noexcept { return isOneU (unit) || unit == levelUnit || unit == balancerUnit || unit == monitorUnit || unit == characterUnit
                                                                   || unit == radarUnit
-                                                                  || unit == powerUnit || unit == lunchboxUnit; }
+                                                                  || unit == powerUnit || unit == lunchboxUnit
+                                                                  || isDesigned (unit); }
 
     struct ControlDef
     {
@@ -207,6 +216,9 @@ namespace pad::layout
     inline constexpr float balancerHalfH = 3.0f * oneUHalfH;   // 3U (was 4U: the rack was getting tall)
     inline constexpr float characterHalfH = 2.0f * oneUHalfH;  // 2U: room to engrave nine model names round each selector
     inline constexpr float radarHalfH = 2.0f * oneUHalfH;      // 2U: CHARACTER's sister - the same plate, its own finish
+    inline constexpr float x4HalfH = 4.0f * oneUHalfH;         // 4U: LATINSPHIEL PRO X4 (designed)
+    inline constexpr float velvetHalfH = 2.0f * oneUHalfH;     // 2U: VELVETIZER (designed)
+    inline constexpr float takebackHalfH = 2.0f * oneUHalfH;   // 2U: TAKEBACK (designed)
 
     /*  The LUNCHBOX: a six-slot 500-series frame on a walnut stand to the right of the case. A module is
         1.5 x 5.25 inches; at this scale (the rack's 19 inches are 5.0) a slot is 0.40 wide, 1.38 tall. */
@@ -240,7 +252,8 @@ namespace pad::layout
     {
         return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : unit == levelUnit ? levelHalfH
              : unit == balancerUnit ? balancerHalfH : unit == monitorUnit ? monitorHalfH
-             : unit == characterUnit ? characterHalfH : unit == radarUnit ? radarHalfH : unit == lunchboxUnit ? lbHalfH : faceHalfH;
+             : unit == characterUnit ? characterHalfH : unit == radarUnit ? radarHalfH : unit == lunchboxUnit ? lbHalfH
+             : unit == x4Unit ? x4HalfH : unit == velvetUnit ? velvetHalfH : unit == takebackUnit ? takebackHalfH : faceHalfH;
     }
 
     /** Half the width of a unit's faceplate: 19 inches for the rack's, the LUNCHBOX's own frame. */
@@ -251,7 +264,7 @@ namespace pad::layout
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
     inline constexpr std::array<int, numRackUnits> rackOrder { powerUnit, levelUnit, enhUnit, lumenUnit, deepUnit, limiterUnit, balancerUnit, tideUnit, radarUnit,
-                                                           tubeUnit, characterUnit, monitorUnit };
+                                                           tubeUnit, characterUnit, x4Unit, velvetUnit, takebackUnit, monitorUnit };
 
     /** SIMPLE view: the units that work by themselves are taken out of the case and the rack closes up
         around the rest (they still run, as the preset set them). A bit per unit; both threads read it. */
@@ -260,7 +273,33 @@ namespace pad::layout
     inline constexpr unsigned simpleViewHidden = (1u << levelUnit) | (1u << lumenUnit) | (1u << deepUnit) | (1u << limiterUnit)
                                                | (1u << balancerUnit) | (1u << tideUnit)
                                                | (1u << lunchboxUnit);
-    inline bool isShown (int unit) noexcept { return ((hiddenUnits.load (std::memory_order_relaxed) >> unit) & 1u) == 0u; }
+    /** THE GEAR LOCKER: units taken out of the rack altogether (they don't run, and don't take room). The
+        rack holds rackCapacityU; a unit goes in only where it fits. The processor owns the state (it is saved
+        with the session) and copies it here; the designed units start in the locker. */
+    inline constexpr unsigned defaultStored = (1u << x4Unit) | (1u << velvetUnit) | (1u << takebackUnit);
+    inline std::atomic<unsigned> storedUnits { defaultStored };
+    /** Rack units in U (1U = 44.45 mm), as their panels are drawn. */
+    inline int unitU (int unit) noexcept { return (int) std::lround (unitHalfH (unit) / oneUHalfH); }
+    /** What can go into the locker: everything but the POWER strip, the OUTPUT MONITOR (the output and the
+        headphone settings live there) and the LUNCHBOX (it stands beside the rack). */
+    inline constexpr bool isStorable (int unit) noexcept { return unit != powerUnit && unit != monitorUnit && unit != lunchboxUnit; }
+    inline constexpr int rackCapacityU = 22;   // the rack as it came: every unit but the designed ones
+    inline bool isStored (int unit) noexcept { return unit >= 0 && unit < numUnits && ((storedUnits.load (std::memory_order_relaxed) >> unit) & 1u) != 0u; }
+    inline int usedU (unsigned stored) noexcept
+    {
+        int used = 0;
+        for (int u : rackOrder)
+            if (((stored >> u) & 1u) == 0u)
+                used += unitU (u);
+        return used;
+    }
+
+    inline bool isShown (int unit) noexcept
+    {
+        if (unit < 0 || unit >= numUnits)
+            return false;
+        return (((hiddenUnits.load (std::memory_order_relaxed) | storedUnits.load (std::memory_order_relaxed)) >> unit) & 1u) == 0u;
+    }
 
     inline int bottomUnit() noexcept
     {
@@ -369,6 +408,9 @@ namespace pad::layout
         { "FOOTSTEP RADAR",      "FINDS EVERY STEP - NEAR AND FAR",                          8 },
         { "POWER",               "CONDITIONED POWER - RACK LIGHTS",                          0 },
         { "LUNCHBOX",            "CLASS-A EQ - DE-HARSH - CROSSFEED",                       11 },
+        { "LATINSPHIEL PRO X4",  "SMART TUBE ENHANCER - PID - FOUR BANDS A SIDE",           13 },
+        { "VELVETIZER",          "SMOOTHING - GRAIN - COLOUR A / B",                        14 },
+        { "TAKEBACK",            "GIVES BACK ATTACK - WARMTH - ROOM - AIR",                 15 },
     }};
 
     // --- the case the units are screwed into -------------------------------------------
@@ -519,23 +561,34 @@ namespace pad::layout
     inline constexpr float characterVuX     = 1.88f;
     inline constexpr float radarVuHalfW = 0.40f;          // FOOTSTEP RADAR: the same meter, the lift it gives a step
     inline constexpr float radarVuX     = 1.88f;
+    inline constexpr float x4VuHalfH = 0.105f;   // (a short card: the design's meter is a small strip between MAIN's knobs)
+    inline constexpr float x4VuHalfW = 0.1295f, x4VuX = -0.1171f, x4VuZ = -0.0335f;       // PRO X4: its small dB+ meter (the design's)
+    inline constexpr float velvetVuHalfW = 0.3316f, velvetVuX = 1.9165f, velvetVuZ = 0.0073f;   // VELVETIZER: VELVET dB+
+    // TAKEBACK: four meters in a row, as designed - IN dB+, IN dB-, OUT dB+, OUT dB-
+    inline constexpr float tbVuHalfW = 0.2668f, tbVuHalfH = 0.2057f, tbVuZ = -0.3046f;
+    inline constexpr std::array<float, 4> tbVuX { 0.3129f, 0.8879f, 1.4681f, 2.0431f };
     inline constexpr float lbVuHalfW    = 0.155f;         // LUNCHBOX: the OUTPUT module's meter
     inline constexpr float lbVuZ        = -0.46f;
     inline constexpr float monitorVuHalfW = 0.36f;
     inline constexpr float monitorVuX     = 1.83f;        // MOMENTARY above SHORT-TERM
     inline constexpr std::array<float, 2> monitorVuZ { -0.60f, -0.08f };
 
+    /** A meter card's half height: the rack's standard, but for the PRO X4's small one. */
+    inline constexpr float vuHalfHFor (int unit) noexcept { return unit == x4Unit ? x4VuHalfH : unit == takebackUnit ? tbVuHalfH : vuHalfH; }
+
     inline constexpr int numVus (int unit) noexcept
     {
-        return unit == tideUnit || unit == levelUnit || unit == deepUnit || unit == characterUnit || unit == radarUnit || unit == lunchboxUnit ? 1
-             : unit == limiterUnit || unit == monitorUnit ? 2 : unit == lumenUnit ? 3 : 0;
+        return unit == tideUnit || unit == levelUnit || unit == deepUnit || unit == characterUnit || unit == radarUnit || unit == lunchboxUnit
+            || unit == x4Unit || unit == velvetUnit ? 1
+             : unit == limiterUnit || unit == monitorUnit ? 2 : unit == lumenUnit ? 3 : unit == takebackUnit ? 4 : 0;
     }
 
     inline constexpr float vuHalfW (int unit) noexcept
     {
         return unit == tideUnit ? tideVuHalfW : unit == limiterUnit ? limiterVuHalfW : unit == levelUnit ? levelVuHalfW
              : unit == monitorUnit ? monitorVuHalfW : unit == deepUnit ? deepVuHalfW : unit == characterUnit ? characterVuHalfW
-             : unit == radarUnit ? radarVuHalfW : unit == lunchboxUnit ? lbVuHalfW : lumenVuHalfW;
+             : unit == radarUnit ? radarVuHalfW : unit == lunchboxUnit ? lbVuHalfW
+             : unit == x4Unit ? x4VuHalfW : unit == velvetUnit ? velvetVuHalfW : unit == takebackUnit ? tbVuHalfW : lumenVuHalfW;
     }
 
     inline constexpr float vuX (int unit, int index) noexcept
@@ -548,12 +601,15 @@ namespace pad::layout
              : unit == characterUnit ? characterVuX
              : unit == radarUnit ? radarVuX
              : unit == lunchboxUnit ? lbModuleX (3)
+             : unit == x4Unit ? x4VuX : unit == velvetUnit ? velvetVuX
+             : unit == takebackUnit ? tbVuX[(size_t) std::clamp (index, 0, 3)]
                                  : lumenVuX + (float) index * lumenVuStep;
     }
 
     inline constexpr float vuZ (int unit, int index) noexcept
     {
-        return unit == monitorUnit ? monitorVuZ[(size_t) std::clamp (index, 0, 1)] : unit == lunchboxUnit ? lbVuZ : vuCentreZ;
+        return unit == monitorUnit ? monitorVuZ[(size_t) std::clamp (index, 0, 1)] : unit == lunchboxUnit ? lbVuZ
+             : unit == x4Unit ? x4VuZ : unit == velvetUnit ? velvetVuZ : unit == takebackUnit ? tbVuZ : vuCentreZ;
     }
 
     /** First needle of each metered unit in the renderer's needle array (compressor 1, leveler 3, limiter 2,
@@ -561,9 +617,10 @@ namespace pad::layout
     inline constexpr int firstNeedle (int unit) noexcept
     {
         return unit == tideUnit ? 0 : unit == lumenUnit ? 1 : unit == levelUnit ? 6 : unit == monitorUnit ? 7 : unit == deepUnit ? 9
-             : unit == characterUnit ? 10 : unit == radarUnit ? 11 : unit == lunchboxUnit ? 12 : 4;
+             : unit == characterUnit ? 10 : unit == radarUnit ? 11 : unit == lunchboxUnit ? 12
+             : unit == x4Unit ? 13 : unit == velvetUnit ? 14 : unit == takebackUnit ? 15 : 4;
     }
-    inline constexpr int numNeedles = 13;
+    inline constexpr int numNeedles = 19;
 
     inline constexpr float oneUDisplayDepth = vuDepth;
 
@@ -588,7 +645,7 @@ namespace pad::layout
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 85> controls {{
+    inline constexpr std::array<ControlDef, 140> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode, enhUnit, nullptr, 1.0f, KnobStyle::smallRibbed },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::smallRibbed },
@@ -701,6 +758,64 @@ namespace pad::layout
         { ControlKind::knob,     lbFeedX,  -0.10f, pid::lbFeedAmount,  "AMOUNT", nullptr, nullptr, lunchboxUnit, "CROSSFEED", 0.95f, KnobStyle::apiBlue },
 
         { ControlKind::toggle,    1.20f,  0.16f, pid::radarListen, "LISTEN", nullptr, nullptr, radarUnit, "RADAR", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+
+        // The designed units (DesignedLayout.h has their print): placed where the owner's designs put them
+        { ControlKind::knob, -1.7571f, -0.3106f, "x4L1Drive", "DRIVE", nullptr, nullptr, x4Unit, "LEFT LOW", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, -1.3925f, -0.3106f, "x4L2Drive", "DRIVE", nullptr, nullptr, x4Unit, "LEFT LO MID", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, -1.7002f, 0.2602f, "x4L1Tone", "TONE", nullptr, nullptr, x4Unit, "LEFT LOW", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, -1.3355f, 0.2602f, "x4L2Tone", "TONE", nullptr, nullptr, x4Unit, "LEFT LO MID", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, -1.0288f, -0.3106f, "x4L3Drive", "DRIVE", nullptr, nullptr, x4Unit, "LEFT HI MID", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, -0.6641f, -0.3106f, "x4L4Drive", "DRIVE", nullptr, nullptr, x4Unit, "LEFT HIGH", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, -0.9708f, 0.2602f, "x4L3Tone", "TONE", nullptr, nullptr, x4Unit, "LEFT HI MID", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, -0.6061f, 0.2602f, "x4L4Tone", "TONE", nullptr, nullptr, x4Unit, "LEFT HIGH", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, -1.6535f, 0.7446f, "x4L1Mix", "MIX", nullptr, nullptr, x4Unit, "LEFT LOW", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, -1.2889f, 0.7446f, "x4L2Mix", "MIX", nullptr, nullptr, x4Unit, "LEFT LO MID", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, -0.9242f, 0.7446f, "x4L3Mix", "MIX", nullptr, nullptr, x4Unit, "LEFT HI MID", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, -0.5595f, 0.7446f, "x4L4Mix", "MIX", nullptr, nullptr, x4Unit, "LEFT HIGH", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, -1.7230f, -0.8415f, "x4P", "PROPORTIONAL", nullptr, nullptr, x4Unit, "PRO X4", 0.567f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -1.4484f, -0.8415f, "x4I", "INTEGRAL", nullptr, nullptr, x4Unit, "PRO X4", 0.567f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -1.1738f, -0.8415f, "x4D", "DERIVATIVE", nullptr, nullptr, x4Unit, "PRO X4", 0.567f, KnobStyle::porticoBlack },
+        { ControlKind::toggle, -2.2669f, -0.7486f, "x4Pwr", "PWR", nullptr, nullptr, x4Unit, "PRO X4", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+        { ControlKind::toggle, -2.1581f, -0.7486f, "x4Mono", "MONO", nullptr, nullptr, x4Unit, "PRO X4", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+        { ControlKind::toggle, -2.0493f, -0.7486f, "x4X2", "X2", nullptr, nullptr, x4Unit, "PRO X4", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+        { ControlKind::toggle, -1.9405f, -0.7486f, "x4Pid", "PID", nullptr, nullptr, x4Unit, "PRO X4", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+        { ControlKind::knob, 0.4300f, -0.3106f, "x4R1Drive", "DRIVE", nullptr, nullptr, x4Unit, "RIGHT LOW", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, 0.7947f, -0.3106f, "x4R2Drive", "DRIVE", nullptr, nullptr, x4Unit, "RIGHT LO MID", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, 0.3719f, 0.2602f, "x4R1Tone", "TONE", nullptr, nullptr, x4Unit, "RIGHT LOW", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, 0.7366f, 0.2602f, "x4R2Tone", "TONE", nullptr, nullptr, x4Unit, "RIGHT LO MID", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, 1.1583f, -0.3106f, "x4R3Drive", "DRIVE", nullptr, nullptr, x4Unit, "RIGHT HI MID", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, 1.5251f, -0.3106f, "x4R4Drive", "DRIVE", nullptr, nullptr, x4Unit, "RIGHT HIGH", 0.987f, KnobStyle::fetSilver },
+        { ControlKind::knob, 1.1013f, 0.2602f, "x4R3Tone", "TONE", nullptr, nullptr, x4Unit, "RIGHT HI MID", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, 1.4660f, 0.2602f, "x4R4Tone", "TONE", nullptr, nullptr, x4Unit, "RIGHT HIGH", 0.913f, KnobStyle::pointerBarBlack },
+        { ControlKind::knob, 0.3305f, 0.7446f, "x4R1Mix", "MIX", nullptr, nullptr, x4Unit, "RIGHT LOW", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, 0.6952f, 0.7446f, "x4R2Mix", "MIX", nullptr, nullptr, x4Unit, "RIGHT LO MID", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, 1.0599f, 0.7446f, "x4R3Mix", "MIX", nullptr, nullptr, x4Unit, "RIGHT HI MID", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, 1.4246f, 0.7446f, "x4R4Mix", "MIX", nullptr, nullptr, x4Unit, "RIGHT HIGH", 0.715f, KnobStyle::apiBlue },
+        { ControlKind::knob, -0.2518f, -0.3504f, "x4Populate", "POPULATE", nullptr, nullptr, x4Unit, "PRO X4", 0.641f, KnobStyle::porticoBlack },
+        { ControlKind::knob, 0.0176f, -0.3504f, "x4Saturate", "SATURATE", nullptr, nullptr, x4Unit, "PRO X4", 0.641f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -0.1171f, 0.2310f, "x4Widen", "WIDEN", nullptr, nullptr, x4Unit, "PRO X4", 0.839f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -0.1171f, 0.7154f, "x4Crisp", "CRISP", nullptr, nullptr, x4Unit, "PRO X4", 0.839f, KnobStyle::porticoBlack },
+        { ControlKind::toggle, -2.3394f, 0.0073f, "velPower", "POWER", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+        { ControlKind::knob, -1.8784f, 0.0073f, "velLow", "VELVET LOW", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -1.4950f, 0.0073f, "velMid", "VELVET MID", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -1.1117f, 0.0073f, "velHigh", "VELVET HIGH", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -0.6506f, 0.0073f, "velGrain", "GRAIN", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::apiWhite },
+        { ControlKind::knob, -0.2673f, 0.0073f, "velCrisp", "CRISP", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::apiWhite },
+        { ControlKind::button, 2.3487f, 0.0073f, "velBypass", "BYPASS", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.0f, KnobStyle::proXl, SwitchStyle::rocker, ButtonStyle::square },
+        { ControlKind::selector, 0.1927f, 0.0538f, "velColorA", "COLOR TYPE A", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob, 0.5760f, 0.0073f, "velBalance", "BALANCE", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::chickenHeadKnob },
+        { ControlKind::selector, 0.9594f, 0.0538f, "velColorB", "COLOR TYPE B", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::chickenHeadKnob },
+        { ControlKind::button, -2.1529f, -0.1188f, "velMode", "ADD", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.0f, KnobStyle::proXl, SwitchStyle::rocker, ButtonStyle::square },
+        { ControlKind::button, -2.1529f, 0.2130f, "velMode", "BALANCE", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.0f, KnobStyle::proXl, SwitchStyle::rocker, ButtonStyle::square },
+        // TAKEBACK (designed; its knobs are the design's own "Grey Ribbed Khris", made in the knob maker)
+        { ControlKind::knob, -0.1585f, -0.3113f, "tbMix", "MIX", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
+        { ControlKind::knob, -0.4807f, -0.3113f, "tbShine", "SHINE", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
+        { ControlKind::knob, -0.8029f, -0.3113f, "tbRaw", "RAW", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
+        { ControlKind::knob, -1.1252f, -0.3113f, "tbColor", "COLOR", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
+        { ControlKind::knob, -1.4474f, -0.3113f, "tbSharpen", "SHARPEN", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
+        { ControlKind::knob, -1.7696f, -0.3113f, "tbBlur", "BLUR", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
+        { ControlKind::toggle, -2.0804f, 0.2993f, "tbAuto", "AUTO", nullptr, nullptr, takebackUnit, "TAKEBACK", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+        { ControlKind::toggle, -2.2410f, 0.2993f, "tbPower", "POWER", nullptr, nullptr, takebackUnit, "TAKEBACK", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
     }};
 
     inline constexpr int numControls = (int) controls.size();
@@ -718,7 +833,30 @@ namespace pad::layout
     {
         if (std::string_view (c.paramId) == pad::params::id::heavenAuto)
             return { 0.135f, 0.0f };
+        if (std::string_view (c.paramId) == "velMode")   // the VELVETIZER's ADD / BALANCE: each lamp beside its own button
+            return { 0.13f, 0.0f };
         return { 0.0f, buttonLedDz };
+    }
+
+    /** Radio pairs: two buttons on one switch parameter, each setting its own value - the VELVETIZER's
+        ADD (0) and BALANCE (1). -1: an ordinary switch. */
+    inline int radioValue (const ControlDef& c) noexcept
+    {
+        if (std::string_view (c.paramId) == "velMode")
+            return std::string_view (c.label) == "ADD" ? 0 : 1;
+        return -1;
+    }
+    /** What a click sets a switch to (normalised): a radio button its own value, anything else the other way. */
+    inline float switchTarget (const ControlDef& c, float normalised) noexcept
+    {
+        const int r = radioValue (c);
+        return r >= 0 ? (float) r : (normalised > 0.5f ? 0.0f : 1.0f);
+    }
+    /** Whether a switch shows as on (a radio button: when its value is the one set). */
+    inline bool switchLit (const ControlDef& c, float normalised) noexcept
+    {
+        const int r = radioValue (c);
+        return r >= 0 ? ((normalised > 0.5f) == (r == 1)) : normalised > 0.5f;
     }
 
     inline int controlIndex (const char* paramId) noexcept

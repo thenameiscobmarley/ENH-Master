@@ -15,6 +15,13 @@ namespace pad
     using namespace layout;
 
     /** Buttons and bat toggles flip on click; knobs and the selector are dragged. */
+    // THE GEAR LOCKER: the engine and the rack number the units alike
+    static_assert (enhUnit == enh::dsp::rack::enhancer && tubeUnit == enh::dsp::rack::toneSpace && tideUnit == enh::dsp::rack::compressor
+                   && lumenUnit == enh::dsp::rack::leveler && limiterUnit == enh::dsp::rack::limiter && levelUnit == enh::dsp::rack::level
+                   && balancerUnit == enh::dsp::rack::balancer && deepUnit == enh::dsp::rack::deepSub && characterUnit == enh::dsp::rack::character
+                   && radarUnit == enh::dsp::rack::radar && x4Unit == enh::dsp::rack::x4 && velvetUnit == enh::dsp::rack::velvet
+                   && takebackUnit == enh::dsp::rack::takeback && numUnits == enh::dsp::rack::numUnits);
+
     static bool isSwitchLike (ControlKind k) noexcept { return k == ControlKind::button || k == ControlKind::toggle; }
 
     HardwareView::HardwareView (PluginProcessor& p)
@@ -31,6 +38,10 @@ namespace pad
             const bool simple = viewTest.isNotEmpty() ? viewTest == "simple" : config.simpleView;
             hiddenUnits = simple ? simpleViewHidden : 0u;
         }
+        // Dev-only: PAD_UI_TEST_STORED=<mask> sets THE GEAR LOCKER (screenshots of other rack line-ups)
+        if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STORED", {}); t.isNotEmpty())
+            processor.setStoredUnits ((unsigned) t.getIntValue());
+        storedUnits = processor.getStoredUnits();   // THE GEAR LOCKER, as the session left it
 
         artwork::TextureSet textures;
         textures.faceplateDecal = artwork::renderFaceplateDecal (config.panelTextureWidth, &textItems);
@@ -56,6 +67,16 @@ namespace pad
         textures.powerDecal = artwork::renderOneUDecal (powerUnit, config.panelTextureWidth, &textItems);
         textures.lunchboxDecal = artwork::renderLunchboxDecal (config.panelTextureWidth / 2, &textItems);
         textures.lunchboxVuFace = artwork::renderVuFace (lunchboxUnit, 512, &textItems);
+        textures.x4Decal = artwork::renderDesignedDecal (x4Unit, config.panelTextureWidth, &textItems);
+        textures.x4VuFace = artwork::renderVuFace (x4Unit, 512, &textItems);
+        textures.x4Screens = artwork::renderDesignedScreens (x4Unit, config.panelTextureWidth / 2);
+        textures.velvetDecal = artwork::renderDesignedDecal (velvetUnit, config.panelTextureWidth, &textItems);
+        textures.velvetVuFace = artwork::renderVuFace (velvetUnit, 1024, &textItems);
+        textures.velvetScreens = artwork::renderDesignedScreens (velvetUnit, config.panelTextureWidth / 2);
+        textures.takebackDecal = artwork::renderDesignedDecal (takebackUnit, config.panelTextureWidth, &textItems);
+        for (int m = 0; m < 4; ++m)
+            textures.takebackVuFace[(size_t) m] = artwork::renderVuFace (takebackUnit, 512, &textItems, m);
+        textures.takebackScreens = artwork::renderDesignedScreens (takebackUnit, config.panelTextureWidth / 2);
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
         textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);
@@ -106,7 +127,7 @@ namespace pad
             {
                 if (safe == nullptr)
                     return;
-                safe->openPanel (juce::jlimit (0, numUnits - 1, parts[0].getIntValue()));
+                safe->openPanel (parts[0].getIntValue() == glass::lockerPage ? glass::lockerPage : juce::jlimit (0, numUnits - 1, parts[0].getIntValue()));
                 if (parts.size() > 1)
                     safe->glassPanel->setExpanded (parts[1].getIntValue(), parts.size() > 2 ? parts[2].getIntValue() : -1);
                 safe->publishPanel (true);
@@ -152,7 +173,9 @@ namespace pad
         juce::PopupMenu m;
         m.addSectionHeader ("THE RACK");
         m.addItem (1, "Simple view - the 5 units you use", true, simple);
-        m.addItem (2, "Full rack - all 11 units", true, ! simple);
+        m.addItem (2, "Full rack - every unit installed", true, ! simple);
+        m.addSeparator();
+        m.addItem (4, "Gear locker...  (swap units in and out of the rack)", true, glassPanel->getUnit() == glass::lockerPage);
         m.addSeparator();
         m.addItem (3, "Units put away keep working, as the preset set them", false, false);
         m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(),
@@ -160,13 +183,15 @@ namespace pad
                          {
                              if (safe != nullptr && (chosen == 1 || chosen == 2))
                                  safe->setSimpleView (chosen == 1);
+                             if (safe != nullptr && chosen == 4)
+                                 safe->openPanel (glass::lockerPage);
                          });
     }
 
     void HardwareView::setSimpleView (bool simple)
     {
         hiddenUnits = simple ? simpleViewHidden : 0u;
-        if (glassPanel->isOpen() && ! isShown (glassPanel->getUnit()))
+        if (glassPanel->isOpen() && glassPanel->getUnit() < numUnits && ! isShown (glassPanel->getUnit()))
             openPanel (-1);
         if (! isShown (shared.focusUnit.load()))
             shared.focusUnit = enhUnit;   // it was walked up to a unit now put away: to the enhancer instead
@@ -178,7 +203,7 @@ namespace pad
     {
         // Level with the unit on screen (its centre, projected), so the line from it runs short
         float anchorY = 0.5f * (float) getHeight();
-        if (unit >= 0)
+        if (unit >= 0 && unit < numUnits)
         {
             const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
             const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(),
@@ -378,7 +403,7 @@ namespace pad
         if (isToggle)
         {
             bridge.beginGesture (p, ControlSource::user);
-            bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
+            bridge.setValueWithSource (p, switchTarget (controls[(size_t) hit], bridge.getNormalised (p)), ControlSource::user);
             bridge.endGesture (p);
             return;
         }
@@ -423,7 +448,7 @@ namespace pad
 
             // A click shorter than one rendered frame can slip past the pointer poll: apply it here.
             if (shared.renderPressMs.load() < pressEventMs - 1500.0)
-                bridge.setValueWithSource (p, bridge.getNormalised (p) > 0.5f ? 0.0f : 1.0f, ControlSource::user);
+                bridge.setValueWithSource (p, switchTarget (controls[(size_t) pendingToggle], bridge.getNormalised (p)), ControlSource::user);
 
             bridge.endGesture (p);
             pendingToggle = -1;
@@ -827,6 +852,13 @@ namespace pad
 
     void HardwareView::timerCallback()
     {
+        // THE GEAR LOCKER: the processor's (a session loaded, the locker page) is what the rack shows
+        if (const unsigned stored = processor.getStoredUnits(); stored != storedUnits.load())
+        {
+            storedUnits = stored;
+            if (! isShown (shared.focusUnit.load()))
+                shared.focusUnit = enhUnit;
+        }
         // Spectrum: pull the newest window out of the audio thread's FIFOs and analyse it here
         {
             const double now = juce::Time::getMillisecondCounterHiRes();
