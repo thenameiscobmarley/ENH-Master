@@ -14,7 +14,7 @@ namespace enh::dsp
         Compression and limiting squash the attacks, and codecs and heavy processing dull the top. TAKEBACK
         gives them back:
           - SHARPEN (0 - 10): the attacks restored - a fast level against a slower one finds each attack,
-            and it is lifted by up to the amount it stood out (6 dB at most);
+            and it is lifted by up to twice the amount it stood out (9 dB at most);
           - BLUR (0 - 10): the opposite - each attack's first ~10 ms taken down, softer and smoother. The two work against
             each other, like a photo editor's;
           - COLOR (0 - 10): warmth - a valve stage's harmonics, even-rich, under the sound;
@@ -106,8 +106,8 @@ namespace enh::dsp
 
             const int nc = std::min (numChannels, 2);
             // AUTO: what was lost scales what is given back (a third of it, even on a sound that lost nothing)
-            const float autoSharp = s.autoOn ? 0.35f + 0.65f * lost : 1.0f;
-            const float autoShine = s.autoOn ? 0.35f + 0.65f * dull : 1.0f;
+            const float autoSharp = s.autoOn ? 0.6f + 0.4f * lost : 1.0f;
+            const float autoShine = s.autoOn ? 0.6f + 0.4f * dull : 1.0f;
             target (sharpG, std::clamp (s.sharpen, 0.0f, 10.0f) / 10.0f * autoSharp, n);
             target (blurG, std::clamp (s.blur, 0.0f, 10.0f) / 10.0f, n);
             target (colourG, std::clamp (s.colour, 0.0f, 10.0f) / 10.0f, n);
@@ -139,7 +139,7 @@ namespace enh::dsp
                 auto over = [&] (float slow) { return envFast > 1.0e-5f ? std::clamp (20.0f * std::log10 ((envFast + 1.0e-9f) / (slow + 1.0e-6f)), 0.0f, 24.0f) : 0.0f; };
                 // SHARPEN lifts the attack's first few ms; BLUR takes down its first ~10 ms and lets go over
                 // ~15 ms (longer, and the loudness match just brings the whole hit back up)
-                const float wantDb = std::clamp (0.8f * sharp * over (envSlow) - 0.8f * blur * over (envBlur), -12.0f, 6.0f);
+                const float wantDb = std::clamp (2.2f * sharp * over (envSlow) - 0.8f * blur * over (envBlur), -12.0f, 9.0f);
                 // (a lift comes fast and goes in ~8 ms; a cut comes fast and lets go over ~30 ms, smoothly)
                 const float gk = wantDb > gainDb ? (gainDb < 0.0f ? blurRel : gainAtt) : (gainDb > 0.0f ? gainRel : gainAtt);
                 gainDb = wantDb + gk * (gainDb - wantDb);
@@ -162,8 +162,9 @@ namespace enh::dsp
                     const float shaped = x * tg;
 
                     // COLOR: a valve's harmonics, even-rich, under the sound
-                    const float d = 1.2f + 1.8f * colour;
-                    const float col = colour * 0.45f * st.valve.residual (shaped * d, 0.22f) / d;
+                    // (driven against its own level: about -30 dB of harmonics at 3, -16 dB at 10, loud or quiet)
+                    const float lvl = st.level.process (shaped);
+                    const float col = colour * 1.3f * kit::harmonicsAt (st.valve, shaped, lvl, 0.8f + 1.2f * colour, 0.22f);
 
                     // SHINE: the upper mids' harmonics, only what lands above 9 kHz
                     // (driven at a steady level - the band over its own envelope - so the air it builds follows
@@ -172,7 +173,7 @@ namespace enh::dsp
                     const float band = st.band.process (shineBand, shaped), ab = std::abs (band);
                     st.bandEnv = ab > st.bandEnv ? ab + fastAtt * (st.bandEnv - ab) : ab + envRel * (st.bandEnv - ab);
                     const float airIn = st.bandEnv * st.shineSat.residual (1.2f * band / (st.bandEnv + 1.0e-6f), 0.15f) / 1.2f;
-                    const float air = shine * 6.0f * st.shineHp.process (shineHp, airIn);
+                    const float air = shine * 12.0f * st.shineHp.process (shineHp, airIn);
 
                     // RAW: a short room bloom
                     auto& rb = ring[(size_t) c];
@@ -181,7 +182,7 @@ namespace enh::dsp
                     for (int t = 0; t < numTaps; ++t)
                         er += tapGain[(size_t) t] * rb[(size_t) ((st.w - taps[(size_t) c][(size_t) t]) & (ringSize - 1))];
                     st.w = (st.w + 1) & (ringSize - 1);
-                    const float bloom = raw * 0.40f * er;
+                    const float bloom = raw * 0.9f * er;
 
                     // AUTO: the top octave against the upper mids, as it came in
                     const float hi = st.airHp.process (airHp, x), md = st.mid.process (mid, x);
@@ -229,6 +230,7 @@ namespace enh::dsp
         struct Chan
         {
             kit::SoftSat valve, shineSat;
+            kit::Level level;
             BiquadState band, shineHp, airHp, mid, bloomHp, bloomLp;
             int w = 0;
             float hiPow = 0.0f, midPow = 0.0f, bandEnv = 0.0f;
@@ -238,7 +240,7 @@ namespace enh::dsp
 
         void resetDsp() noexcept
         {
-            for (auto& c : chan) c = {};
+            for (auto& c : chan) { c = {}; c.level.setup (sr, 0.15); }
             for (auto& r : ring) std::fill (r.begin(), r.end(), 0.0f);
             envFast = envSlow = envBlur = gainDb = crestPeak = crestPow = 0.0f;
             inPow = outPow = 1.0e-9f;

@@ -27,7 +27,7 @@ namespace enh::dsp
     {
     public:
         static constexpr int numBands = 3, numColours = 6;
-        static constexpr float colourMix = 0.45f;   // how much of a colour model's harmonics are blended in
+        static constexpr float colourMix = 0.30f;   // how much of a colour model's harmonics are blended in
 
         struct Settings
         {
@@ -117,24 +117,25 @@ namespace enh::dsp
                         auto& sl = st.slow[(size_t) k];
                         f = av > f ? av + fastAtt * (f - av) : av + fastRel * (f - av);
                         sl = av > sl ? av + slowAtt * (sl - av) : av + slowRel * (sl - av);
-                        const float over = f / (1.25f * sl + 1.0e-6f);
-                        const float want_ = over > 1.0f ? std::pow (over, -0.6f * a) : 1.0f;
+                        const float over = f / (1.1f * sl + 1.0e-6f);
+                        const float want_ = over > 1.0f ? std::pow (over, -1.6f * a) : 1.0f;
                         auto& g = st.gr[(size_t) k];
                         g = want_ < g ? want_ + grAtt * (g - want_) : want_ + grRel * (g - want_);
                         grMax = std::max (grMax, -20.0f * std::log10 (std::max (g, 1.0e-4f)));
                         const float sm = v * g;
-                        // A soft analog saturation that thickens it (more of it the more velvet)
-                        const float drive = 1.0f + 1.2f * a;   // (smooth, never gritty: ~2 - 3 % on a loud tone at 5)
+                        // A soft analog saturation that thickens it (more of it the more velvet), driven against the
+                        // band's own level: about -28 dB of harmonics at 5, -18 dB at 10, loud or quiet
+                        const float lvl = st.level[(size_t) k].process (sm);
                         lin += sm;
-                        harm += 0.6f * a * st.sat[(size_t) k].residual (sm * drive, 0.08f) / drive;
+                        harm += (0.15f + 0.45f * a) * kit::harmonicsAt (st.sat[(size_t) k], sm, lvl, 0.7f + 1.0f * a, 0.08f);
                     }
                     float y = lin + harm;
                     // GRAIN: fine low-level harmonics (an asymmetric curve's difference only, well under the sound)
-                    const float gIn = y * 2.0f;
-                    harm += grain * 0.10f * st.grain.residual (gIn, 0.3f) / 2.0f;
+                    const float lvlY = st.levelY.process (y);
+                    harm += grain * 0.08f * kit::harmonicsAt (st.grain, y, lvlY, 1.5f, 0.3f);
                     y = lin + harm;
                     // COLOR TYPE A and B, balanced
-                    const float colA = colour (ca, y, st, 0), colB = colour (cb, y, st, 1);
+                    const float colA = colour (ca, y, lvlY, st, 0), colB = colour (cb, y, lvlY, st, 1);
                     harm += colourMix * (colA + bal * (colB - colA) - y);   // (a colour, blended in: never a fuzz)
                     y = lin + harm;
                     // CRISP: the treble's attack (its HF above its own slow level) brought forward
@@ -164,6 +165,8 @@ namespace enh::dsp
         {
             std::array<float, numBands> fast {}, slow {}, gr { 1.0f, 1.0f, 1.0f };
             std::array<kit::SoftSat, numBands> sat {};
+            std::array<kit::Level, numBands> level {};
+            kit::Level levelY;
             kit::SoftSat grain;
             std::array<kit::SoftSat, 2> col {};
             std::array<float, 2> lp {};   // TAPE's top / TRANSFORMER's low, per colour slot
@@ -172,20 +175,20 @@ namespace enh::dsp
         };
 
         /** One colour model on a sample; `slot` 0 / 1 keeps A's and B's state apart. */
-        float colour (int model, float x, Chan& st, int slot) noexcept
+        float colour (int model, float x, float lvl, Chan& st, int slot) noexcept
         {
             auto& sat = st.col[(size_t) slot];
             auto& lp = st.lp[(size_t) slot];
             switch (model)
             {
-                // (each the curve's own harmonics on top of the sound: see SoftSat::residual)
-                case 0: { const float d = 1.1f; return x + sat.residual (x * d, 0.25f) / d; }       // TUBE: even-rich
-                case 1: { const float d = 0.9f; const float y = x + sat.residual (x * d, 0.0f) / d; // TAPE: soft, top rounded
+                // (each the curve's own harmonics on top of the sound, driven against its level: see UnitKit)
+                case 0: return x + kit::harmonicsAt (sat, x, lvl, 1.1f, 0.25f);                          // TUBE: even-rich
+                case 1: { const float y = x + kit::harmonicsAt (sat, x, lvl, 0.9f, 0.0f);                 // TAPE: soft, top rounded
                           lp += tapeLp * (y - lp); return lp; }
-                case 2: { lp += ironLp * (x - lp); const float d = 1.8f;                            // TRANSFORMER: the lows saturate
-                          return x + sat.residual (lp * d, 0.05f) / d; }
-                case 3: { const float d = 0.8f; return x + sat.residual (x * d, 0.02f) / d; }       // CONSOLE: gentle, odd
-                case 4: { const float d = 1.5f; return x + sat.residual (x * d, 0.0f) / d; }        // TRANSISTOR: firmer, odd
+                case 2: { lp += ironLp * (x - lp);                                                      // TRANSFORMER: the lows saturate
+                          return x + kit::harmonicsAt (sat, lp, lvl, 1.8f, 0.05f); }
+                case 3: return x + kit::harmonicsAt (sat, x, lvl, 0.8f, 0.02f);                          // CONSOLE: gentle, odd
+                case 4: return x + kit::harmonicsAt (sat, x, lvl, 1.5f, 0.0f);                           // TRANSISTOR: firmer, odd
                 default: return x;                                                                  // CRYSTAL: clean
             }
         }
@@ -195,7 +198,12 @@ namespace enh::dsp
         void resetDsp() noexcept
         {
             for (auto& s : split) s.reset();
-            for (auto& c : chan) c = {};
+            for (auto& c : chan)
+            {
+                c = {};
+                for (auto& l : c.level) l.setup (sr, 0.15);
+                c.levelY.setup (sr, 0.15);
+            }
             inPow = outPow = addPow = 1.0e-9f;
             matchGain = addGain = 1.0f;
         }

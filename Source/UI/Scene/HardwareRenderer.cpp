@@ -97,8 +97,14 @@ namespace pad
                         autoRole[(size_t) i] = k;
                 if (pid == id::silkOutput)
                     autoRole[(size_t) i] = autoOutputRole;
+                // The designed units: PRO X4's DRIVE knobs follow its PID; TAKEBACK's SHARPEN and SHINE its AUTO
+                if (pid.size() == 9 && (pid.substr (0, 3) == "x4L" || pid.substr (0, 3) == "x4R") && pid.substr (4) == "Drive")
+                    autoRole[(size_t) i] = x4DriveRole + (pid[3] - '1');
+                if (pid == "tbSharpen") autoRole[(size_t) i] = tbSharpenRole;
+                if (pid == "tbShine") autoRole[(size_t) i] = tbShineRole;
                 autoSpec[(size_t) i] = autoRole[(size_t) i] >= 0 ? params::findSpec (controls[(size_t) i].paramId) : nullptr;
             }
+            x4PidParam = bridge.indexOf ("x4Pid"); tbAutoParam = bridge.indexOf ("tbAuto");
             silkAutoParam = bridge.indexOf (id::silkAuto);
             silkAutoSpec = params::findSpec (id::silkAuto);
             seraphMultiplyParam = bridge.indexOf (id::seraphMultiply);
@@ -440,6 +446,7 @@ namespace pad
         upload (velvetScreenTex, textureData.velvetScreens);
         upload (takebackDecalTex, textureData.takebackDecal);
         upload (takebackScreenTex, textureData.takebackScreens);
+        setUpLiveScreens();
         for (size_t m = 0; m < takebackVuFaceTex.size(); ++m)
             upload (takebackVuFaceTex[m], textureData.takebackVuFace[m]);
         upload (powerDecalTex, textureData.powerDecal);
@@ -508,7 +515,7 @@ namespace pad
         takebackVu.release();
         for (auto& t : takebackVuFaceTex)
             t.release();
-        for (auto* list : { &designedScrews, &designedJackRings, &designedJackHoles, &designedScreens, &designedJackPlugs })
+        for (auto* list : { &designedScrews, &designedJackRings, &designedJackHoles, &designedScreens, &designedJackPlugs, &designedVentWalls })
             for (auto& m : *list)
                 m.release();
         for (auto* m : { &cableSlots, &cableLips, &grommet, &grommetHole, &designedJackCables })
@@ -1404,7 +1411,25 @@ namespace pad
         };
 
         float shown = user;
-        if (role == autoOutputRole)
+        const auto on = [this] (int index) { return index >= 0 && bridge.getNormalised (index) > 0.5f; };
+        if (role >= x4DriveRole && role < x4DriveRole + 4)
+        {
+            // PID: the drive it is really running at (the knob is 0.30 dB a step)
+            if (! on (x4PidParam) || ! on (designedPowerParam[0]))
+                return value;
+            const int band = role - x4DriveRole;
+            shown = user + (demoMeters ? 9.0f * std::sin ((float) timeSeconds * 0.6f + (float) band) : meters.x4PidDb[(size_t) band].load (std::memory_order_relaxed)) / 0.30f;
+        }
+        else if (role == tbSharpenRole || role == tbShineRole)
+        {
+            // AUTO: as much as it is giving back (0.6 .. 1 of the knob, by what it measured)
+            if (! on (tbAutoParam) || ! on (designedPowerParam[2]))
+                return value;
+            const float m = demoMeters ? 0.5f + 0.5f * std::sin ((float) timeSeconds * (role == tbSharpenRole ? 0.7f : 0.45f))
+                                       : (role == tbSharpenRole ? meters.takebackLost : meters.takebackDull).load (std::memory_order_relaxed);
+            shown = user * (0.6f + 0.4f * m);
+        }
+        else if (role == autoOutputRole)
         {
             if (realOf (silkAutoParam, silkAutoSpec) > 0.5f)
                 shown = user + meters.silkMatchDb.load (std::memory_order_relaxed);
@@ -2266,7 +2291,7 @@ namespace pad
         for (int k = 0; k < numDesigned; ++k)
         {
             const int unit = designedUnits[(size_t) k];
-            gfx::MeshData screws, rings, holes, screens;
+            gfx::MeshData screws, rings, holes, screens, ventWalls;
             const auto print = designedPrintOf (unit);
             for (const auto& p : print)
             {
@@ -2282,11 +2307,25 @@ namespace pad
                 }
                 else if (p.kind == 'D')
                     append (screens, hwk::geo::horizontalQuad ({ p.x, p.z, 0.5f * p.w, 0.5f * p.h }, 0.002f), 0.0f, 0.0f, 0.0f);
+                else if (p.kind == 'V')
+                {
+                    // Vent slots cut through the plate: dark, with the far wall of each (its lower edge, seen from
+                    // above the rack) catching a little light
+                    const int n = std::max (2, p.steps);
+                    const float sw = p.w / (float) n;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float cx = p.x - 0.5f * p.w + ((float) i + 0.5f) * sw;
+                        append (holes, hwk::geo::horizontalQuad ({ cx, p.z, 0.25f * sw, 0.5f * p.h }, 0.0021f), 0.0f, 0.0f, 0.0f);
+                        append (ventWalls, hwk::geo::horizontalQuad ({ cx, p.z + 0.39f * p.h, 0.25f * sw, 0.11f * p.h }, 0.0023f), 0.0f, 0.0f, 0.0f);
+                    }
+                }
             }
             designedScrews[(size_t) k].upload (screws);
             designedJackRings[(size_t) k].upload (rings);
             designedJackHoles[(size_t) k].upload (holes);
             designedScreens[(size_t) k].upload (screens);
+            designedVentWalls[(size_t) k].upload (ventWalls);
             designedJackPlugs[(size_t) k].upload (geo::designedJackPlugs (unit));
             juce::ignoreUnused (unit);
         }
@@ -2312,6 +2351,7 @@ namespace pad
         draw (designedJackRings[(size_t) k], panel, { 0.70f, 0.70f, 0.73f });
         use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (designedJackHoles[(size_t) k], panel, { 0.010f, 0.010f, 0.012f });
+        draw (designedVentWalls[(size_t) k], panel, plate[(size_t) k] * 0.35f);   // (the slots' far walls: the plate's colour, in shadow)
         // Every jack has its cable plugged in: a satin-chrome XLR barrel on each
         use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
         draw (designedJackPlugs[(size_t) k], panel, { 0.62f, 0.62f, 0.65f });
@@ -2321,6 +2361,7 @@ namespace pad
         auto& screen = use (shaders::designedScreen);
         screen.set ("uParams", -unitHalfW (unit), -unitHalfH (unit), 2.0f * unitHalfW (unit), 2.0f * unitHalfH (unit));
         const bool on = bridge.getNormalised (designedPowerParam[(size_t) k]) > 0.5f;
+        updateLiveScreens (unit, on);
         static constexpr std::array<Vec3, numDesigned> glow { Vec3 { 0.40f, 0.80f, 1.0f }, Vec3 { 0.97f, 1.0f, 0.70f }, Vec3 { 0.64f, 0.90f, 1.0f } };
         const Vec3 glowColour = glow[(size_t) k];
         current->set ("uEmissive", glowColour * (on ? 0.55f : 0.04f));
@@ -2334,6 +2375,156 @@ namespace pad
                 if (p.kind == 'E' && i < (int) takebackLeds.size())
                     drawLed (panel, p.x, p.z, ledColour (p.param), takebackLeds[(size_t) i++]);
         }
+    }
+
+    /** Finds each designed unit's displays in its screen texture (as PanelArtwork drew their titles there) and
+        keeps the baked pixels of each, to draw the live picture over. */
+    void HardwareRenderer::setUpLiveScreens()
+    {
+        liveScreens.clear();
+        for (int unit : designedUnits)
+        {
+            const auto& raw = unit == x4Unit ? textureData.x4Screens : unit == velvetUnit ? textureData.velvetScreens : textureData.takebackScreens;
+            if (raw.width <= 0 || raw.channels != 1)
+                continue;
+            const float halfH = unitHalfH (unit), sx = (float) raw.width / (2.0f * faceHalfW), sz = (float) raw.height / (2.0f * halfH);
+            int index = 0;
+            for (const auto& p : designedPrintOf (unit))
+            {
+                if (p.kind != 'D')
+                    continue;
+                LiveScreen ls;
+                ls.unit = unit; ls.index = index++;
+                ls.x = std::clamp ((int) std::floor ((p.x - 0.5f * p.w + faceHalfW) * sx), 0, raw.width - 1);
+                ls.y = std::clamp ((int) std::floor ((p.z - 0.5f * p.h + halfH) * sz), 0, raw.height - 1);
+                ls.w = std::clamp ((int) std::ceil (p.w * sx), 1, raw.width - ls.x);
+                ls.h = std::clamp ((int) std::ceil (p.h * sz), 1, raw.height - ls.y);
+                ls.mx = sx * 2.0f * faceHalfW / 482.6f;
+                ls.mz = sz * 2.0f * halfH / (44.45f * (float) unitU (unit));
+                ls.base.resize ((size_t) (ls.w * ls.h));
+                for (int r = 0; r < ls.h; ++r)
+                    std::copy_n (raw.pixels.data() + (size_t) ((ls.y + r) * raw.width + ls.x), ls.w, ls.base.data() + (size_t) (r * ls.w));
+                ls.buf = ls.base;
+                liveScreens.push_back (std::move (ls));
+            }
+        }
+    }
+
+    namespace
+    {
+        /** Drawing into a display's glow (one channel): the brightest of what is there and what is drawn. */
+        struct ScreenInk
+        {
+            std::vector<juce::uint8>& px; int w, h;
+            void dot (int x, int y, float v) { if (x >= 0 && y >= 0 && x < w && y < h) { auto& p = px[(size_t) (y * w + x)]; p = (juce::uint8) std::max ((int) p, (int) (255.0f * std::clamp (v, 0.0f, 1.0f))); } }
+            void rect (float x0, float y0, float x1, float y1, float v)
+            {
+                for (int y = (int) std::floor (std::min (y0, y1)); y < (int) std::ceil (std::max (y0, y1)); ++y)
+                    for (int x = (int) std::floor (std::min (x0, x1)); x < (int) std::ceil (std::max (x0, x1)); ++x)
+                        dot (x, y, v);
+            }
+            /** An anti-aliased line `t` pixels thick. */
+            void line (float x0, float y0, float x1, float y1, float t, float v)
+            {
+                const float dx = x1 - x0, dy = y1 - y0, len2 = std::max (1.0e-6f, dx * dx + dy * dy), r = 0.5f * t + 1.0f;
+                for (int y = (int) std::floor (std::min (y0, y1) - r); y <= (int) std::ceil (std::max (y0, y1) + r); ++y)
+                    for (int x = (int) std::floor (std::min (x0, x1) - r); x <= (int) std::ceil (std::max (x0, x1) + r); ++x)
+                    {
+                        const float u = std::clamp (((float) x - x0) * dx / len2 + ((float) y - y0) * dy / len2, 0.0f, 1.0f);
+                        const float ex = x0 + u * dx - (float) x, ey = y0 + u * dy - (float) y;
+                        dot (x, y, v * std::clamp (0.5f * t + 0.5f - std::sqrt (ex * ex + ey * ey), 0.0f, 1.0f));
+                    }
+            }
+        };
+    }
+
+    /** The designed units' displays, live (about 30 times a second, only while the unit is powered):
+          PRO X4 - each band's harmonic density (a bar) and the PID's target for it (a line; dim with PID off);
+          VELVETIZER - PROCESS: how far it has been smoothing, scrolling; VELVET dB+: how far now, a bar;
+          TAKEBACK - PROCESS: its attack shaping scrolling (up: lifted, down: rounded off), and what AUTO measured. */
+    void HardwareRenderer::updateLiveScreens (int unit, bool on)
+    {
+        const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        auto& clock = liveScreenClock[(size_t) std::max (0, designedIndex (unit))];
+        const bool tick = now - clock > 1.0 / 30.0;
+        auto& tex = unit == x4Unit ? x4ScreenTex : unit == velvetUnit ? velvetScreenTex : takebackScreenTex;
+        for (auto& ls : liveScreens)
+        {
+            if (ls.unit != unit || (! on && ! ls.shownOn) || (on && ! tick))
+                continue;
+            ls.buf = ls.base;
+            if (on)
+            {
+                ScreenInk g { ls.buf, ls.w, ls.h };
+                const float W = (float) ls.w, H = (float) ls.h;
+                const float mm = ls.mz, mmx = ls.mx;   // a millimetre down, and across, in pixels
+                auto scroll = [&] (float v) { ls.history[(size_t) ls.head] = v; ls.head = (ls.head + 1) % (int) ls.history.size(); };
+                auto historyAt = [&] (int i) { return ls.history[(size_t) ((ls.head + i) % (int) ls.history.size())]; };
+                if (unit == x4Unit)
+                {
+                    const bool pid = x4PidParam >= 0 && bridge.getNormalised (x4PidParam) > 0.5f;
+                    const float top = 7.5f * mm, bottom = H - 5.0f * mm;
+                    for (int b = 0; b < 4; ++b)
+                    {
+                        const float cx = W * (0.125f + 0.25f * (float) b), bw = W * 0.09f;
+                        auto yOf = [&] (float db) { return bottom - (bottom - top) * std::clamp ((db + 60.0f) / 54.0f, 0.0f, 1.0f); };
+                        const float pv = demoMeters ? -30.0f + 6.0f * std::sin ((float) timeSeconds * (0.9f + 0.3f * (float) b) + (float) b) : meters.x4PvDb[(size_t) b].load (std::memory_order_relaxed);
+                        const float sp = demoMeters ? -28.0f + 2.0f * (float) b : meters.x4SpDb[(size_t) b].load (std::memory_order_relaxed);
+                        g.rect (cx - bw, yOf (pv), cx + bw, bottom, 0.85f);
+                        g.line (cx - bw * 1.5f, yOf (sp), cx + bw * 1.5f, yOf (sp), 1.6f, pid ? 1.0f : 0.35f);
+                    }
+                }
+                else if (unit == velvetUnit && ls.index == 0)   // PROCESS: its smoothing, scrolling
+                {
+                    const float vdb = demoMeters ? 4.0f + 3.5f * std::sin ((float) timeSeconds * 1.3f) * std::sin ((float) timeSeconds * 0.37f) : meters.velvetDb.load (std::memory_order_relaxed);
+                    scroll (std::clamp (vdb / 12.0f, 0.0f, 1.0f));
+                    const float x0 = 22.0f * mmx, x1 = W - 3.0f * mmx, y0 = 2.0f * mm, y1 = H - 2.0f * mm;
+                    const int n = (int) ls.history.size();
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float x = x0 + (x1 - x0) * (float) i / (float) (n - 1), v = historyAt (i);
+                        g.rect (x, y1 - (y1 - y0) * v, x + (x1 - x0) / (float) (n - 1) + 0.5f, y1, 0.55f + 0.45f * v);
+                    }
+                    g.line (x0, y1, x1, y1, 1.0f, 0.4f);
+                }
+                else if (unit == velvetUnit)   // VELVET dB+: now, as a segmented bar
+                {
+                    const float v = std::clamp ((demoMeters ? 4.0f + 3.0f * std::sin ((float) timeSeconds * 1.3f) : meters.velvetDb.load (std::memory_order_relaxed)) / 12.0f, 0.0f, 1.0f);
+                    const float x0 = 30.0f * mmx, x1 = W - 3.0f * mmx, y0 = 3.5f * mm, y1 = H - 3.0f * mm;
+                    const int segs = 16;
+                    for (int i = 0; i < segs; ++i)
+                    {
+                        const float a = x0 + (x1 - x0) * (float) i / (float) segs, bx = a + (x1 - x0) / (float) segs * 0.75f;
+                        g.rect (a, y0, bx, y1, (float) i < v * (float) segs ? 1.0f : 0.12f);
+                    }
+                }
+                else   // TAKEBACK PROCESS: attacks lifted (up) or rounded off (down), scrolling; AUTO's two readings
+                {
+                    const float tdb = demoMeters ? 6.0f * std::pow (std::max (0.0f, std::sin ((float) timeSeconds * 5.0f)), 6.0f) - 1.5f * std::pow (std::max (0.0f, std::sin ((float) timeSeconds * 2.3f + 1.0f)), 4.0f)
+                                                 : meters.takebackGainDb.load (std::memory_order_relaxed);
+                    scroll (std::clamp (tdb / 9.0f, -1.0f, 1.0f));
+                    const float x0 = 22.0f * mmx, x1 = W - 22.0f * mmx, mid = 0.5f * H + 1.0f * mm, amp = 0.5f * H - 2.2f * mm;
+                    g.line (x0, mid, x1, mid, 1.0f, 0.3f);
+                    const int n = (int) ls.history.size();
+                    for (int i = 1; i < n; ++i)
+                        g.line (x0 + (x1 - x0) * (float) (i - 1) / (float) (n - 1), mid - amp * historyAt (i - 1),
+                                x0 + (x1 - x0) * (float) i / (float) (n - 1), mid - amp * historyAt (i), 1.6f, 1.0f);
+                    const bool autoOn = tbAutoParam >= 0 && bridge.getNormalised (tbAutoParam) > 0.5f;
+                    const float lost = demoMeters ? 0.7f : meters.takebackLost.load (std::memory_order_relaxed), dull = demoMeters ? 0.35f : meters.takebackDull.load (std::memory_order_relaxed);
+                    const float bx = W - 18.0f * mmx, bw = 6.0f * mmx, by0 = 2.5f * mm, by1 = H - 2.5f * mm;
+                    for (int k = 0; k < 2; ++k)
+                    {
+                        const float v = k == 0 ? lost : dull, a = bx + (float) k * (bw + 2.0f * mmx);
+                        g.rect (a, by0, a + bw, by1, 0.12f);
+                        g.rect (a, by1 - (by1 - by0) * v, a + bw, by1, autoOn ? 0.95f : 0.4f);
+                    }
+                }
+            }
+            ls.shownOn = on;
+            tex.updateRegion (ls.buf.data(), ls.x, ls.y, ls.w, ls.h);
+        }
+        if (on && tick)
+            clock = now;
     }
 
     /** The POWER strip: a black 1U panel, its three status lamps, and a gooseneck lamp at each end

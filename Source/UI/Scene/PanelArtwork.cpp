@@ -1233,17 +1233,7 @@ namespace pad::artwork
                     break;
                 }
                 case 'N': g.fillRect (m.rect (p.x - 0.5f * p.w, p.z - 0.5f * p.h, p.x + 0.5f * p.w, p.z + 0.5f * p.h)); break;
-                case 'V':
-                {
-                    const int n = std::max (2, p.steps);
-                    const float sw = p.w / (float) n;
-                    for (int i = 0; i < n; ++i)
-                    {
-                        const float x0 = p.x - 0.5f * p.w + (float) i * sw + 0.25f * sw;
-                        g.drawRoundedRectangle (m.rect (x0, p.z - 0.5f * p.h, x0 + 0.5f * sw, p.z + 0.5f * p.h), m.len (0.25f * sw), m.len (0.004f));
-                    }
-                    break;
-                }
+                case 'V': break;   // vent slots: cut through the plate (modelled)
                 case 'D':
                     g.drawRoundedRectangle (m.rect (p.x - 0.5f * p.w - 0.012f, p.z - 0.5f * p.h - 0.012f, p.x + 0.5f * p.w + 0.012f, p.z + 0.5f * p.h + 0.012f),
                                             m.len (0.02f), m.len (0.005f));
@@ -1264,6 +1254,7 @@ namespace pad::artwork
         const int h = juce::roundToInt ((float) textureWidth * halfH / faceHalfW);
         const PanelMapper m { (float) w / (2.0f * faceHalfW), (float) h / (2.0f * halfH), halfH };
         const float mmX = 2.0f * faceHalfW / 482.6f, mmZ = 2.0f * halfH / (44.45f * (float) unitU (unit));
+        const auto centred = juce::Justification::horizontallyCentred;
         juce::Image glow (juce::Image::SingleChannel, w, h, true, juce::SoftwareImageType());
         juce::Graphics g (glow);
         g.setColour (juce::Colours::white);
@@ -1271,17 +1262,15 @@ namespace pad::artwork
         {
             if (p.kind != 'D')
                 continue;
-            // What the design shows in it: its title, and a trace across it
+            // What the design shows in it: its title (the renderer draws what it shows, live, beside it)
             const juce::String title = unit == x4Unit ? juce::String ("PID   PV / SP") : juce::String (p.text);
             text (g, m, title, p.x - 0.5f * p.w + 3.0f * mmX, p.z - 0.5f * p.h + 3.5f * mmZ, 2.4f * mmX, juce::Justification::left, true, 0.10f, p.w);
-            juce::Path trace;
-            for (int i = 0; i <= 60; ++i)
+            if (unit == x4Unit)   // its four bands' names, under the columns the renderer draws
             {
-                const float x = p.x - 0.5f * p.w + 3.0f * mmX + (p.w - 6.0f * mmX) * (float) i / 60.0f;
-                const float z = p.z + std::sin ((float) i * 0.45f) * std::cos ((float) i * 0.11f) * p.h * 0.22f;
-                if (i == 0) trace.startNewSubPath (m.px (x), m.pz (z)); else trace.lineTo (m.px (x), m.pz (z));
+                static const char* bands[4] { "LOW", "LO MID", "HI MID", "HIGH" };
+                for (int b = 0; b < 4; ++b)
+                    text (g, m, bands[b], p.x - 0.5f * p.w + p.w * (0.125f + 0.25f * (float) b), p.z + 0.5f * p.h - 2.4f * mmZ, 1.8f * mmX, centred, true, 0.10f, 0.2f);
             }
-            g.strokePath (trace, juce::PathStrokeType (m.len (0.006f)));
         }
         RawTexture tex { w, h, 1, {} };
         tex.pixels.assign ((size_t) (w * h), 0);

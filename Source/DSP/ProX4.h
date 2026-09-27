@@ -23,11 +23,13 @@ namespace enh::dsp
         Switches: PWR (in), MONO (the left half's settings for both sides, and a mono output), X2 (the
         effect doubled), PID.
 
+        Each valve is driven against its band's own level, so its colour is the same loud or quiet: DRIVE 40
+        adds about -28 dB of harmonics (clearly there), 100 with SATURATE up about -10 dB (a lot).
+
         PID: the harmonic density of each band (its added harmonics against its own level, in dB) is the
-        process variable; the DRIVE knob sets the target (0 .. 100 -> -54 .. -18 dB). The controller
-        turns each band's drive up or down (24 dB at most either way: a valve's harmonics grow about
-        1 dB per dB of drive, so that covers music 20 dB quieter) to hold it there: quiet passages as
-        rich as loud ones, and a loud one never harsher. PROPORTIONAL (0 - 10), INTEGRAL (0 - 1) and
+        process variable; the DRIVE knob sets the target (0 .. 100 -> -40 .. -10 dB). The controller
+        turns each band's drive up or down (24 dB at most either way) to hold it there, whatever the
+        material: dense mixes, sparse ones, sustained or percussive. PROPORTIONAL (0 - 10), INTEGRAL (0 - 1) and
         DERIVATIVE (0 - 4) set how firmly, how persistently and how quickly it corrects.
 
         The output is matched in loudness to what came in (over ~1 s): the knobs change the colour, not
@@ -61,6 +63,7 @@ namespace enh::dsp
         {
             sr = sampleRate > 0.0 ? sampleRate : 48000.0;
             for (auto& s : split) s.setup (sr, 200.0, 1000.0, 5000.0);
+            for (auto& c : level) for (auto& l : c) l.setup (sr, 0.15);
             matchK = 1.0f - (float) std::exp (-1.0 / (1.0 * sr));
             densK = 1.0f - (float) std::exp (-1.0 / (0.1 * sr));
             fadeStep = (float) (1.0 / (0.030 * sr));
@@ -123,8 +126,11 @@ namespace enh::dsp
                         const float tone = glides[(size_t) k][(size_t) (numBands + band)].at (i);          // band level (gain)
                         const float mix = glides[(size_t) k][(size_t) (2 * numBands + band)].at (i);       // 0 .. 1
                         const float v = b[band];
-                        float res = sat[(size_t) c][(size_t) band].residual (v * g, 0.18f) / g * populate * mix;
+                        // (driven against the band's own level: the same colour loud or quiet)
+                        const float lvl = level[(size_t) c][(size_t) band].process (v);
+                        float res = kit::harmonicsAt (sat[(size_t) c][(size_t) band], v, lvl, g, 0.18f) * populate * mix;
                         if (band >= 2) res *= crisp;
+                        if (band == 3) res *= 0.5f;   // (over 5 kHz its harmonics are all air: half, or pushed hard it fizzes)
                         direct[(size_t) c] += v * tone;
                         harm[(size_t) c] += res * tone;
                         resPow[(size_t) c][(size_t) band] += densK * (res * res - resPow[(size_t) c][(size_t) band]);
@@ -161,6 +167,7 @@ namespace enh::dsp
         {
             for (auto& sp : split) sp.reset();
             for (auto& c : sat) for (auto& x : c) x.reset();
+            for (auto& c : level) for (auto& l : c) l.reset();
             inPow = outPow = 1.0e-9f;
             matchGain = 1.0f;
         }
@@ -199,7 +206,7 @@ namespace enh::dsp
                 const float r = resPow[0][(size_t) band] + resPow[1][(size_t) band];
                 const float g = sigPow[0][(size_t) band] + sigPow[1][(size_t) band];
                 const float pv = g > 1.0e-8f ? 10.0f * std::log10 ((r + 1.0e-14f) / g) : -120.0f;
-                const float sp = -54.0f + 0.36f * std::clamp (s.side[0].drive[(size_t) band], 0.0f, 100.0f);
+                const float sp = -40.0f + 0.30f * std::clamp (s.side[0].drive[(size_t) band], 0.0f, 100.0f);
                 readout.pvDb[(size_t) band] = pv;
                 readout.spDb[(size_t) band] = sp;
                 if (g > 1.0e-8f) { densSum += pv; ++densCount; }
@@ -224,6 +231,7 @@ namespace enh::dsp
         double sr = 48000.0;
         std::array<kit::Split4, 2> split {};
         std::array<std::array<kit::SoftSat, numBands>, 2> sat {};
+        std::array<std::array<kit::Level, numBands>, 2> level {};
         std::array<std::array<kit::Glide, 3 * numBands>, 2> glides {};   // per side: drive, tone, mix per band
         std::array<std::array<float, numBands>, 2> resPow {}, sigPow {};
         std::array<float, numBands> pidOut {}, pidInt {}, pidPrevErr {};

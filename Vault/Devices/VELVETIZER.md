@@ -15,8 +15,10 @@ doesn't touch the sound at all.
   **BALANCE** between them.
 - **ADD** puts the warmth on top of the sound (a little fuller, about 1 dB louder). **BALANCE**
   rebalances what is there, just as loud.
-- The **VELVET dB+** meter shows how much it is smoothing.
+- The **VELVET dB+** meter and display show how much it is smoothing now; **PROCESS** shows it over
+  the last few seconds.
 
-About 3–4 % harmonics on a loud tone at the defaults: warm, never fuzzy. No latency.
+Its saturation is driven against each band's own level, so it sounds the same loud or quiet: clearly warm
+at the defaults (about 5 % harmonics), rich at 10. No latency.
 
 Code: `DSP/Velvetizer.h`, `DSP/UnitKit.h`. Tests: `EnhDspTests --designed`.

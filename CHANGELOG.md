@@ -5,6 +5,23 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.13.16 — the new units, stronger and alive
+
+![TAKEBACK and VELVETIZER, powered, with their live displays](docs/img/release-3.7.13.16.jpg)
+
+- **You can hear them now.** The PRO X4, VELVETIZER and TAKEBACK drove their saturation by the signal's
+  raw level, and everyday audio is far too quiet for that: at the defaults they added about -50 dB of
+  harmonics (nothing), and less the quieter the music. Each now drives against its own band's level, so its
+  colour is the same at any volume: the PRO X4 adds about -28 dB of harmonics at the defaults (clear warmth)
+  and -13 dB turned up; the VELVETIZER smooths attacks by 6 dB and warms by about -26 dB; TAKEBACK gives
+  back 2 - 3 dB of punch at the defaults and 7 dB turned up. Still just as loud as what came in.
+- **Live displays.** The PRO X4's shows each band's harmonic density and its PID target; the VELVETIZER's
+  PROCESS and VELVET dB+ show its smoothing; TAKEBACK's PROCESS scrolls its attack shaping and AUTO's
+  readings. (They were placeholder pictures.)
+- **Knobs that move by themselves:** with PID on, the PRO X4's DRIVE knobs turn to the drive it is really
+  using; with AUTO on, TAKEBACK's SHARPEN and SHINE turn to what it is giving back.
+- **Real vents:** the designed units' vent slots are cut through the plate, not printed outlines.
+
 ## 3.7.13.15 — your units in the rack, and a gear locker
 
 - **Three units designed in the Rack Unit Designer, now real units in the rack** (sound and 3D, built to

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include "DspMath.h"
@@ -106,6 +107,30 @@ namespace enh::dsp::kit
             return r;
         }
     };
+
+    /** A signal's level, as a sine's peak would read it (RMS x 1.41): it rises in about a millisecond (so an
+        attack never finds the saturator driven for a quiet level and gets crushed) and falls over `seconds`.
+        What the saturators below are driven against, so their colour is the same at any volume. */
+    struct Level
+    {
+        float ms = 0.0f, up = 0.0f, down = 0.0f;
+        void setup (double sr, double seconds) noexcept
+        {
+            up = 1.0f - (float) std::exp (-1.0 / (0.001 * sr));
+            down = 1.0f - (float) std::exp (-1.0 / (seconds * sr));
+        }
+        void reset() noexcept { ms = 0.0f; }
+        float process (float x) noexcept { const float p = x * x; ms += (p > ms ? up : down) * (p - ms); return 1.41421356f * std::sqrt (ms); }
+    };
+
+    /** The harmonics a saturator adds to `x`, driven relative to its level (`level`, from Level): `drive` 1
+        puts a sine's peaks at the curve's knee - about -22 dB of harmonics - whatever the volume. The
+        result scales back with the level. Quieter than -80 dBFS nothing is driven (no noise-floor fizz). */
+    inline float harmonicsAt (SoftSat& sat, float x, float level, float drive, float bias) noexcept
+    {
+        const float l = std::max (level, 1.0e-4f);
+        return l * sat.residual (x / l * drive, bias) / drive;
+    }
 
     /** A knob's value gliding to where it was set, across each block (no zipper noise). */
     struct Glide

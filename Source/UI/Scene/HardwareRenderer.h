@@ -119,6 +119,8 @@ namespace pad
         float autoTurnedValue (int control, float value) const;
         static constexpr int autoOutputRole = 7;
         std::array<int, layout::numControls> autoRole {};
+        static constexpr int x4DriveRole = 100, tbSharpenRole = 110, tbShineRole = 111;   // (designed units' auto-turned knobs)
+        int x4PidParam = -1, tbAutoParam = -1;
         std::array<const params::Spec*, layout::numControls> autoSpec {};
         int silkAutoParam = -1, seraphMultiplyParam = -1;
         const params::Spec* silkAutoSpec = nullptr;
@@ -205,7 +207,7 @@ namespace pad
         // modelled flat on the panel from the design - its screws, jack sockets and display screens
         gfx::Texture2D x4DecalTex, x4VuFaceTex, x4ScreenTex, velvetDecalTex, velvetVuFaceTex, velvetScreenTex, takebackDecalTex, takebackScreenTex;
         std::array<gfx::Texture2D, 4> takebackVuFaceTex;
-        std::array<gfx::GpuMesh, layout::numDesigned> designedScrews, designedJackRings, designedJackHoles, designedScreens, designedJackPlugs;
+        std::array<gfx::GpuMesh, layout::numDesigned> designedScrews, designedJackRings, designedJackHoles, designedScreens, designedJackPlugs, designedVentWalls;
         // Cable management (with the case: it follows the rack's size): the channels down the cheeks, the
         // grommet, and the designed units' jack cables running into the channels
         gfx::GpuMesh cableSlots, cableLips, grommet, grommetHole, designedJackCables;
@@ -351,6 +353,21 @@ namespace pad
         int seraphModeParam = -1;
         std::array<int, layout::numDesigned> designedPowerParam { -1, -1, -1 };   // the designed units' power (their screens light with it)
         std::array<float, 36> takebackLeds {};   // TAKEBACK's LED ladders as lit now (they ease like real LEDs)
+        /** A designed unit's display, drawn live: its area of the unit's screen texture (pixels), the baked
+            title under it, and what it has shown lately (a scrolling history). */
+        struct LiveScreen
+        {
+            int unit = -1, index = 0, x = 0, y = 0, w = 0, h = 0;
+            float mx = 1.0f, mz = 1.0f;   // pixels per millimetre across and down
+            std::vector<juce::uint8> base, buf;
+            std::array<float, 160> history {};
+            int head = 0;
+            bool shownOn = false;
+        };
+        std::vector<LiveScreen> liveScreens;
+        std::array<double, layout::numDesigned> liveScreenClock {};
+        void setUpLiveScreens();
+        void updateLiveScreens (int unit, bool on);
         int footstepControl = -1, modeControl = -1, heldButton = -1;
         float modeBlend = -1.0f, swapPulse = 0.0f;   // 0 = NORM scale, 1 = ADD scale
         bool lastAddMode = false;

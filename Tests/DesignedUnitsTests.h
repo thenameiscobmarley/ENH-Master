@@ -182,7 +182,7 @@ static void runDesignedUnitsTests (double sr)
         check (std::abs (dt) < 1.0 && std::abs (dth) < 1.0, "TAKEBACK comes out as loud as it went in");
     }
 
-    // 3. PID: the density holds as the music gets quieter
+    // 3. PID: the density held at the DRIVE knob's setpoint
     {
         auto density = [&] (bool pid, float levelDb)
         {
@@ -194,9 +194,11 @@ static void runDesignedUnitsTests (double sr)
         };
         const float loudOff = density (false, -10.0f), quietOff = density (false, -24.0f);
         const float loudOn = density (true, -10.0f), quietOn = density (true, -24.0f);
-        std::printf ("  midrange density: PID off %.1f / %.1f dB (loud / quiet), on %.1f / %.1f dB (setpoint -39.6)\n", loudOff, quietOff, loudOn, quietOn);
-        check (std::abs (loudOn - quietOn) < std::abs (loudOff - quietOff) * 0.5f, "PID holds the harmonic density as the level changes");
-        check (std::abs (quietOn + 39.6f) < 4.0f, "PID brings the density to its setpoint");
+        const float sp = -40.0f + 0.30f * ProX4::Settings {}.side[0].drive[1];
+        std::printf ("  midrange density: PID off %.1f / %.1f dB (loud / quiet), on %.1f / %.1f dB (setpoint %.1f)\n", loudOff, quietOff, loudOn, quietOn, sp);
+        check (std::abs (loudOff - quietOff) < 2.0f, "the valves' colour is the same loud or quiet (driven against each band's level)");
+        check (std::abs (quietOn - sp) < 2.0f && std::abs (loudOn - sp) < 2.0f, "PID brings the density to its setpoint, loud and quiet");
+        check (std::abs (loudOff - sp) > 3.0f, "PID actually moves it (off, the density is elsewhere)");
     }
 
     // 4. MONO: one channel out on both sides

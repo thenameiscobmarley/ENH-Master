@@ -552,6 +552,16 @@ namespace enh::dsp
                 meters.takebackDb[m].store (dbs[m], std::memory_order_relaxed);
             for (size_t m = 0; m < 6; ++m)
                 meters.takebackLeds[m].store (tr.ladder[m], std::memory_order_relaxed);
+            meters.takebackLost.store (tr.lost, std::memory_order_relaxed);
+            meters.takebackDull.store (tr.dull, std::memory_order_relaxed);
+            meters.takebackGainDb.store (tr.inPlusDb - tr.inMinusDb, std::memory_order_relaxed);
+            const auto& xr = x4.getReadout();
+            for (size_t b = 0; b < 4; ++b)
+            {
+                meters.x4PidDb[b].store (xr.pidDb[b], std::memory_order_relaxed);
+                meters.x4PvDb[b].store (xr.pvDb[b], std::memory_order_relaxed);
+                meters.x4SpDb[b].store (xr.spDb[b], std::memory_order_relaxed);
+            }
         }
 
         // LUNCHBOX: the side rack's modules (each bit-for-bit out until switched in; no latency)
