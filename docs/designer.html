@@ -13,8 +13,8 @@
 <meta name="theme-color" content="#050608">
 <link rel="stylesheet" href="site.css?v=ff697ec39b">
 <link rel="stylesheet" href="designer.css?v=bf0e5592e0">
-<script src="designer.js?v=ad989a1cf7" defer></script>
-<script type="module" src="designer3d.js?v=5f002e12ab"></script>
+<script src="designer.js?v=4c0ef122d2" defer></script>
+<script type="module" src="designer3d.js?v=f87e186a79"></script>
 </head>
 <body class="designer">
 <svg id="d-defs" class="d-defs" aria-hidden="true" focusable="false"></svg>
@@ -56,7 +56,7 @@
   <aside class="d-panel d-left" aria-label="Tools">
     <section role="tabpanel" id="p-look" aria-labelledby="t-look">
       <h2>Look</h2>
-      <label>Height <select id="u-height"><option value="1">1U</option><option value="2">2U</option><option value="3">3U</option><option value="4">4U</option></select></label>
+      <label>Height <select id="u-height"><option value="1">1U</option><option value="2">2U</option><option value="3">3U</option><option value="4">4U</option><option value="5">5U</option><option value="6">6U</option></select></label>
       <div class="d-field"><span>Finish</span><div id="u-finish"></div></div>
       <label>Shine <input type="range" id="u-shine" min="0" max="100" aria-describedby="shine-hint"></label>
       <p class="muted small d-hint-inline" id="shine-hint">Left: matte. Middle: as the finish comes. Right: wet gloss.</p>
@@ -71,6 +71,22 @@
       <div class="d-field"><span>Handles</span><div id="u-handles"></div></div>
       <div class="d-field"><span>Rack screws</span><div id="u-screws"></div></div>
       <label>Wear <input type="range" id="u-wear" min="0" max="100"></label>
+      <h3 class="d-sub">Paint and trim</h3>
+      <label class="row">Accent <input type="color" id="u-accent"></label>
+      <div class="d-field"><span>Trim</span><div id="u-trim"></div></div>
+      <div class="d-field"><span>Two-tone</span><div id="u-twoTone"></div></div>
+      <div class="d-row2" id="tone-row">
+        <label class="row">Second colour <input type="color" id="u-toneColour"></label>
+        <label>Size <input type="range" id="u-toneSize" min="10" max="90"></label>
+      </div>
+      <h3 class="d-sub">Lettering</h3>
+      <label>Name goes <select id="u-titlePos"><option value="topleft">Top left</option><option value="topcentre">Top centre</option><option value="bottomleft">Bottom left</option><option value="hidden">Nowhere (hidden)</option></select></label>
+      <label>Name size <input type="range" id="u-titleSize" min="3" max="9" step="0.1"></label>
+      <label class="row"><input type="checkbox" id="u-glow"> Backlit print (it glows)</label>
+      <h3 class="d-sub">Hardware</h3>
+      <label>Rack screw metal <select id="u-screwMetal"><option value="chrome">Chrome</option><option value="black">Black</option><option value="brass">Brass</option></select></label>
+      <label class="row">Chassis <input type="color" id="u-chassis"></label>
+      <label>Chassis depth (3D) <input type="range" id="u-depth" min="60" max="400" step="10"></label>
       <label class="row"><input type="checkbox" id="u-grid"> Snap to grid</label>
     </section>
     <section role="tabpanel" id="p-details" aria-labelledby="t-details" hidden>
@@ -79,6 +95,7 @@
       <label>Model <input id="u-model" maxlength="24" autocomplete="off"></label>
       <label>Second line <input id="u-sub" maxlength="40" autocomplete="off" placeholder="e.g. CLASS A  -  DISCRETE"></label>
       <label>Badge <input id="u-badge" maxlength="16" autocomplete="off" placeholder="(none)"></label>
+      <label>Serial number <input id="u-serial" maxlength="16" autocomplete="off" placeholder="(none) - printed bottom right"></label>
       <label>Description <textarea id="u-desc" rows="9" maxlength="600" placeholder="What does this unit do, and how does it work? Whoever opens your design reads this."></textarea></label>
       <p class="muted small">Plain text, up to 600 characters. It travels with the design in its share code.</p>
     </section>

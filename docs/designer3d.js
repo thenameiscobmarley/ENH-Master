@@ -72,6 +72,7 @@ function start () {
     brass: m ({ color: 0xc9a64a, metalness: 1, roughness: 0.3 }),
     glass: m ({ color: 0xffffff, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.12, clearcoat: 1, clearcoatRoughness: 0.02 }),
     chassis: m ({ color: 0x1a1a1c, metalness: 0.6, roughness: 0.55 }),
+    blackMetal: m ({ color: 0x151518, metalness: 0.9, roughness: 0.35 }),
   });
   root = new Group(); scene.add (root);
   bindPointer();
@@ -213,11 +214,12 @@ function knob (style, r, deg, pointer) {
 const colourMat = (hex, o = {}) => new MeshPhysicalMaterial (Object.assign ({ color: new Color (/^#[0-9a-f]{6}$/i.test (hex) ? hex : "#1a1a1c"), roughness: 0.4, clearcoat: 0.4 }, o));
 
 /** A cable: short cylinders along a smooth path (x, y, z points), all black rubber. */
-function cable (pts, radius) {
+function cable (pts, radius, colour) {
   const g = new Group(), cyl = new CylinderGeometry (radius, radius, 1, 12).rotateX (Math.PI / 2);
+  const mat = colour && colour !== "#141416" ? colourMat (colour, { roughness: 0.6, clearcoat: 0.1 }) : mats.rubber;
   for (let i = 0; i + 1 < pts.length; ++i) {
     const a = new Vector3 (...pts[i]), b = new Vector3 (...pts[i + 1]), len = a.distanceTo (b);
-    const m = mesh (cyl, mats.rubber); m.scale.set (1, 1, len + radius * 0.5);
+    const m = mesh (cyl, mat); m.scale.set (1, 1, len + radius * 0.5);
     m.position.copy (a).lerp (b, 0.5); m.lookAt (b); g.add (m);
   }
   return g;
@@ -232,23 +234,23 @@ function curve (p0, p1, p2, p3, n = 16) {
 
 function jack3d (p, r) {
   const types = D.JACK_TYPES || {}, [, shape, accent = "#1a1a1c"] = types[p.style] || ["", "round"];
-  const g = new Group();
+  const g = new Group(), nutMat = metalMat (p.nut);
   const disc = (rr, z, mat) => { const d = mesh (new CircleGeometry (rr, 32).translate (0, 0, z), mat, false); g.add (d); return d; };
   const ringT = (r0, r1, h, mat) => g.add (mesh (turned ([[r0, 0], [r1, 0], [r1, h * 0.7], [r1 - 0.2, h], [r0, h]], 40), mat));
   const box = (w, h, d, mat, x = 0, y = 0, z = 0) => { const b = mesh (new BoxGeometry (w, h, d), mat); b.position.set (x, y, z); g.add (b); return b; };
   const pins = (list, rr, mat = mats.brass, z = 0.35) => { for (const [x, y] of list) { const pn = mesh (new CircleGeometry (rr, 12), mat, false); pn.position.set (x, y, z); g.add (pn); } };
   switch (shape) {
-    case "round": case "mini": case "tt": { const k = shape === "mini" ? 0.6 : shape === "tt" ? 0.5 : 1; ringT (r * k * 0.78, r * k + 0.6, 1.8, mats.chrome); disc (r * k * 0.78, 0.3, mats.dark); disc (r * k * 0.3, 0.32, mats.brass); break; }
-    case "xlrf": case "combo": ringT (r * 0.78, r + 0.6, 1.8, mats.chrome); disc (r * 0.78, 0.3, mats.dark);
+    case "round": case "mini": case "tt": { const k = shape === "mini" ? 0.6 : shape === "tt" ? 0.5 : 1; ringT (r * k * 0.78, r * k + 0.6, 1.8, nutMat); disc (r * k * 0.78, 0.3, mats.dark); disc (r * k * 0.3, 0.32, mats.brass); break; }
+    case "xlrf": case "combo": ringT (r * 0.78, r + 0.6, 1.8, nutMat); disc (r * 0.78, 0.3, mats.dark);
       pins ([[-r * 0.3, r * 0.15], [r * 0.3, r * 0.15], [0, -r * 0.3]], r * 0.1); if (shape === "combo") disc (r * 0.24, 0.34, mats.grey); break;
-    case "xlrm": ringT (r * 0.8, r + 0.6, 1.8, mats.chrome); disc (r * 0.8, 0.3, mats.blackMatte);
+    case "xlrm": ringT (r * 0.8, r + 0.6, 1.8, nutMat); disc (r * 0.8, 0.3, mats.blackMatte);
       for (const [x, y] of [[-r * 0.3, r * 0.15], [r * 0.3, r * 0.15], [0, -r * 0.3]]) { const pn = mesh (new CylinderGeometry (r * 0.1, r * 0.1, 1.4, 12).rotateX (Math.PI / 2), mats.brass); pn.position.set (x, y, 1.0); g.add (pn); } break;
     case "rca": ringT (r * 0.62, r * 0.9, 1.4, colourMat (accent)); g.add (mesh (new CylinderGeometry (r * 0.55, r * 0.6, 3.2, 24).rotateX (Math.PI / 2).translate (0, 0, 1.6), mats.alu)); disc (r * 0.36, 3.22, mats.dark); break;
     case "bnc": g.add (mesh (new CylinderGeometry (r * 0.75, r * 0.78, 3.0, 24).rotateX (Math.PI / 2).translate (0, 0, 1.5), mats.chrome));
       for (const x of [-r * 0.8, r * 0.8]) { const n = mesh (new SphereGeometry (r * 0.12, 10, 8), mats.chrome); n.position.set (x, 0, 2.2); g.add (n); }
       disc (r * 0.55, 3.02, colourMat ("#e8e2d0")); disc (r * 0.12, 3.04, mats.brass); break;
     case "toslink": box (r * 1.6, r * 1.6, 1.4, mats.blackMatte, 0, 0, 0.7); box (r * 1.0, r * 1.0, 0.2, mats.grey, 0, 0, 1.45); break;
-    case "din": ringT (r * 0.8, r + 0.6, 1.8, mats.chrome); disc (r * 0.8, 0.3, mats.dark);
+    case "din": ringT (r * 0.8, r + 0.6, 1.8, nutMat); disc (r * 0.8, 0.3, mats.dark);
       pins (Array.from ({ length: 5 }, (_, i) => { const a = Math.PI + i * Math.PI / 4; return [Math.cos (a) * r * 0.5, -Math.sin (a) * r * 0.5]; }), r * 0.09); break;
     case "banana": g.add (mesh (new CylinderGeometry (r * 0.85, r * 0.85, 2.6, 6).rotateX (Math.PI / 2).translate (0, 0, 1.3), colourMat (accent)));
       g.add (mesh (new CylinderGeometry (r * 0.45, r * 0.45, 3.4, 20).rotateX (Math.PI / 2).translate (0, 0, 1.7), mats.alu)); disc (r * 0.2, 3.42, mats.dark); break;
@@ -261,7 +263,7 @@ function jack3d (p, r) {
     case "rj45": box (r * 1.6, r * 1.3, 1.0, mats.alu, 0, 0, 0.5); box (r * 1.3, r * 1.0, 0.1, mats.dark, 0, 0, 1.02); break;
     case "dsub": box (r * 3.2, r * 1.0, 1.0, mats.alu, 0, 0, 0.5); box (r * 2.8, r * 0.76, 0.1, mats.blackMatte, 0, 0, 1.02);
       for (const x of [-r * 1.95, r * 1.95]) g.add (mesh (new CylinderGeometry (r * 0.22, r * 0.22, 1.2, 6).rotateX (Math.PI / 2).translate (x, 0, 0.6), mats.chrome)); break;
-    default: ringT (r * 0.78, r + 0.6, 1.8, mats.chrome); disc (r * 0.78, 0.3, mats.dark);
+    default: ringT (r * 0.78, r + 0.6, 1.8, nutMat); disc (r * 0.78, 0.3, mats.dark);
   }
   if (p.plugged) {
     // Its plug, then the cable out of its back, hanging down off the front of the panel
@@ -276,20 +278,29 @@ function jack3d (p, r) {
       box (w, h, len * 0.7, mats.blackGloss, 0, 0, 1.2 + len * 0.35);
     }
     const cr = Math.max (0.8, pr * 0.28), z0 = 1.5 + len;
-    g.add (cable (curve ([0, 0, z0], [0, 0, z0 + r * 1.5], [r * 0.5, -r * 3, z0 + r * 2.5], [r * 1.5, -r * 9, z0 + r * 2]), cr));
+    g.add (cable (curve ([0, 0, z0], [0, 0, z0 + r * 1.5], [r * 0.5, -r * 3, z0 + r * 2.5], [r * 1.5, -r * 9, z0 + r * 2]), cr, p.cable));
   }
   return g;
 }
 
-function screw (style, r) {
+/** Chrome, black or brass (gold) metal, as a part asks for. */
+function metalMat (m) { return m === "black" ? mats.blackMetal : m === "brass" || m === "gold" ? mats.brass : mats.chrome; }
+
+function screw (style, r, metal = "chrome") {
   const g = new Group();
-  g.add (mesh (turned ([[0, 0], [r, 0], [r, 0.3], [r * 0.85, r * 0.45], [0, r * 0.55]], 32), mats.chrome));
+  g.add (mesh (turned ([[0, 0], [r, 0], [r, 0.3], [r * 0.85, r * 0.45], [0, r * 0.55]], 32), metalMat (metal)));
   const slot = new MeshStandardMaterial ({ color: 0x222222, roughness: 0.6 });
-  if (style === "phillips") { for (const rot of [0, Math.PI / 2]) { const s = mesh (new BoxGeometry (r * 1.1, r * 0.2, 0.3), slot, false); s.rotation.z = rot; s.position.z = r * 0.5; g.add (s); } }
-  else if (style === "hex") { const s = mesh (new CylinderGeometry (r * 0.45, r * 0.45, 0.4, 6).rotateX (Math.PI / 2), slot, false); s.position.z = r * 0.45; g.add (s); }
-  else { g.add (mesh (turned ([[0, 0.3], [r * 1.25, 0.3], [r * 1.25, r * 0.9], [0, r * 1.0]], 32, { count: 24, depth: 0.08, y0: 0.4, y1: r * 0.85, sharp: 0.7 }), mats.aluSatin)); }
+  const bar = (rot, len) => { const s = mesh (new BoxGeometry (r * len, r * 0.2, 0.3), slot, false); s.rotation.z = rot; s.position.z = r * 0.5; g.add (s); };
+  if (style === "phillips") { bar (0, 1.1); bar (Math.PI / 2, 1.1); }
+  else if (style === "flat") bar (Math.PI / 5, 1.5);
+  else if (style === "hex" || style === "torx") { const s = mesh (new CylinderGeometry (r * 0.45, r * 0.45, 0.4, style === "hex" ? 6 : 12).rotateX (Math.PI / 2), slot, false); s.position.z = r * 0.45; g.add (s); }
+  else { g.add (mesh (turned ([[0, 0.3], [r * 1.25, 0.3], [r * 1.25, r * 0.9], [0, r * 1.0]], 32, { count: 24, depth: 0.08, y0: 0.4, y1: r * 0.85, sharp: 0.7 }), metal === "chrome" ? mats.aluSatin : metalMat (metal))); }
   return g;
 }
+
+/** A glowing lens: lit, it glows its colour; off, a dark tint of it. */
+const lensMat = (hex, lit) => new MeshPhysicalMaterial ({ color: hex, roughness: 0.15, clearcoat: 1,
+  emissive: lit ? new Color (hex).multiplyScalar (1.4) : new Color (hex).multiplyScalar (0.05) });
 
 // ----------------------------------------------------------------------------------------------------
 // Building the unit
@@ -319,10 +330,11 @@ async function rebuild () {
     face.position.z = 0.02; root.add (face);
   }
   // The chassis behind it
-  const ch = mesh (new BoxGeometry (W - 2 * EAR - 4, H - 2, 180), mats.chassis); ch.position.z = -93; root.add (ch);
+  const depth = u.depth || 180;
+  const ch = mesh (new BoxGeometry (W - 2 * EAR - 4, H - 2, depth), colourMat (u.chassis || "#1a1a1c", { metalness: 0.6, roughness: 0.55, clearcoat: 0 })); ch.position.z = -3 - depth / 2; root.add (ch);
 
   const at = (o, x, y, z = 0) => { o.position.set (x - W / 2, H / 2 - y, z); root.add (o); return o; };
-  if (u.ears !== "none") for (const x of [EAR / 2, W - EAR / 2]) for (let k = 0; k < u.height; ++k) at (screw (u.screws, 3.2), x, (k + 0.5) * D.U, 0.1);
+  if (u.ears !== "none") for (const x of [EAR / 2, W - EAR / 2]) for (let k = 0; k < u.height; ++k) at (screw (u.screws, 3.2, u.screwMetal), x, (k + 0.5) * D.U, 0.1);
   if (u.handles !== "none") for (const x of [EAR + 6, W - EAR - 6]) {
     if (u.handles === "bar") { const b = mesh (new ExtrudeGeometry (rrect (5, H - 8, 2.5), { depth: 6, bevelEnabled: true, bevelThickness: 1.2, bevelSize: 1.2, bevelSegments: 4 }), mats.chrome); at (b, x, H / 2, 1.5); }
     else { const n = 14; for (let i = 0; i < n; ++i) { const t0 = i / n, t1 = (i + 1) / n, pt = (t) => { const a = Math.PI * t; return [Math.sin (a) * 11, (H / 2 - 5) * Math.cos (a)]; };
@@ -333,33 +345,79 @@ async function rebuild () {
   for (const p of d.parts) {
     const r = Math.min (p.w, p.h) / 2; let o = null;
     switch (p.type) {
-      case "knob": o = knob (p.style, r, D.knobAngle ? D.knobAngle (p) : -135 + 2.7 * p.value, p.pointer); break;
+      case "knob": o = knob (p.style, r, D.knobAngle ? D.knobAngle (p) : -135 + 2.7 * p.value, p.pointer);
+        if (p.ring) {   // the LED ring: small lenses round it, lit up to where it points (from the middle, centre-zero)
+          const ring = new Group(), n = 15, R = r + 2.4, sweep = p.sweep || 270;
+          for (let i = 0; i < n; ++i) { const t = i / (n - 1) * 100, a = (-sweep / 2 + sweep * t / 100) * Math.PI / 180;
+            const lit = p.bipolar ? (p.value >= 50 ? t >= 50 && t <= p.value : t <= 50 && t >= p.value) : t <= p.value;
+            const l = mesh (new SphereGeometry (0.6, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX (Math.PI / 2), lensMat (p.ringColour, lit), false);
+            l.position.set (Math.sin (a) * R, Math.cos (a) * R, 0.1); ring.add (l); }
+          const g2 = new Group(); g2.add (o); g2.add (ring); o = g2;
+        }
+        break;
+      case "selector": { const n = Math.max (2, String (p.stops || "").split ("|").filter (Boolean).length), sweep = p.sweep || 240;
+        o = knob (p.style, r, -sweep / 2 + sweep * Math.min (n - 1, p.value) / Math.max (1, n - 1), p.pointer); break; }
+      case "slider": { o = new Group(); const hz = p.horizontal, L = hz ? p.w : p.h, T = hz ? p.h : p.w, capL = Math.min (10, L * 0.18);
+        const slot = mesh (new BoxGeometry (hz ? L : 1.8, hz ? 1.8 : L, 0.4), mats.dark, false); slot.position.z = 0.1; o.add (slot);
+        const pos = -L / 2 + L * p.value / 100;
+        const capMat = { black: mats.blackGloss, silver: mats.alu, white: mats.capWhite, red: mats.capRed }[p.style] || mats.blackGloss;
+        const cap = mesh (new ExtrudeGeometry (rrect (hz ? capL : T, hz ? T : capL, 1), { depth: 5, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.5, bevelSegments: 3 }), capMat);
+        cap.position.set (hz ? pos : 0, hz ? 0 : pos, 1.2); o.add (cap);
+        const stem = mesh (new BoxGeometry (hz ? 1.2 : 1.6, hz ? 1.6 : 1.2, 1.4), mats.aluSatin); stem.position.set (hz ? pos : 0, hz ? 0 : pos, 0.7); o.add (stem);
+        const lineM = mesh (new BoxGeometry (hz ? 0.4 : T * 0.9, hz ? T * 0.9 : 0.4, 0.1), new MeshStandardMaterial ({ color: p.style === "white" || p.style === "silver" ? 0x111111 : 0xf2f2f2 }), false);
+        lineM.position.set (hz ? pos : 0, hz ? 0 : pos, 7.35); o.add (lineM); break; }
+      case "lamp": { o = new Group(); const lit = p.on;
+        if (p.style === "square") { o.add (mesh (new ExtrudeGeometry (rrect (2 * r + 1.6, 2 * r + 1.6, 1), { depth: 1.2, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.3, bevelSegments: 2 }), mats.chrome));
+          const lens = mesh (new ExtrudeGeometry (rrect (2 * r, 2 * r, 0.6), { depth: 2.4, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.4, bevelSegments: 3 }), lensMat (p.colour, lit), false); o.add (lens); }
+        else { o.add (mesh (turned ([[0, 0], [r + 0.9, 0], [r + 0.9, 1.6], [r * 0.95, 2.2], [0, 2.2]], 32), mats.chrome));
+          const lens = p.style === "jewel" ? new SphereGeometry (r * 0.95, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2) : new SphereGeometry (r * 0.95, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+          const l = mesh (lens.rotateX (Math.PI / 2).scale (1, 1, 0.9).translate (0, 0, 2.0), lensMat (p.colour, lit), false); if (p.style === "jewel") l.material.flatShading = true; o.add (l); }
+        break; }
+      case "plate": { o = new Group();   // (the plate and its engraving are in the print - flat, as a real one is - its screws are real)
+        if (p.screws) for (const x of [-p.w / 2 + 2.6, p.w / 2 - 2.6]) { const sc = screw ("phillips", 1.3, p.style === "black" ? "black" : p.style === "silver" ? "chrome" : "brass"); sc.position.set (x, 0, 0.1); o.add (sc); }
+        break; }
       case "toggle": o = new Group();
-        if (p.style === "bat") { o.add (mesh (new CylinderGeometry (3.4, 3.4, 1.4, 6).rotateX (Math.PI / 2).translate (0, 0, 0.7), mats.chrome));
-          const lever = mesh (turned ([[1.0, 0], [0.75, 7.5], [1.25, 8.2], [1.3, 8.8], [0, 9.3]], 20), mats.chrome); lever.rotation.x = (p.on ? -1 : 1) * 0.42; lever.position.z = 1.4; o.add (lever); }
+        { const tilt = p.three && p.mid ? 0 : p.on ? -1 : 1;
+        if (p.style === "bat" || p.style === "mini" || p.style === "paddle") { const k = p.style === "mini" ? 0.7 : 1;
+          o.add (mesh (new CylinderGeometry (3.4 * k, 3.4 * k, 1.4, 6).rotateX (Math.PI / 2).translate (0, 0, 0.7), mats.chrome));
+          const lever = p.style === "paddle" ? mesh (new ExtrudeGeometry (rrect (4.4, 1.6, 0.6), { depth: 9, bevelEnabled: true, bevelThickness: 0.4, bevelSize: 0.3, bevelSegments: 2 }), mats.blackGloss)
+                                             : mesh (turned ([[1.0 * k, 0], [0.75 * k, 7.5 * k], [1.25 * k, 8.2 * k], [1.3 * k, 8.8 * k], [0, 9.3 * k]], 20), mats.chrome);
+          lever.rotation.x = tilt * 0.42; lever.position.z = 1.4; o.add (lever); }
+        else if (p.style === "slide") { o.add (mesh (new ExtrudeGeometry (rrect (4.8, 14, 1), { depth: 0.6, bevelEnabled: false }), mats.dark));
+          const knobS = mesh (new ExtrudeGeometry (rrect (4, 6, 0.8), { depth: 2.4, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.3, bevelSegments: 2 }), mats.blackGloss);
+          knobS.position.y = -tilt * 3.5; o.add (knobS); }
         else { o.add (mesh (new ExtrudeGeometry (rrect (8, 14, 1.2), { depth: 1.2, bevelEnabled: false }), mats.dark));
           const pad = mesh (new ExtrudeGeometry (rrect (6.2, 12.2, 1), { depth: 2.6, bevelEnabled: true, bevelThickness: 0.4, bevelSize: 0.4, bevelSegments: 2 }),
             p.style === "rockerred" ? new MeshPhysicalMaterial ({ color: 0xb3231c, roughness: 0.3, clearcoat: 0.8, emissive: p.on ? 0x400000 : 0 }) : mats.blackGloss);
-          pad.rotation.x = (p.on ? 1 : -1) * 0.14; pad.position.z = 0.6; o.add (pad); }
+          pad.rotation.x = -tilt * 0.14; pad.position.z = 0.6; o.add (pad); } }
         break;
       case "button": o = new Group(); o.add (mesh (new ExtrudeGeometry (rrect (p.w + 1.6, p.h + 1.6, 1.4), { depth: 1, bevelEnabled: false }), mats.dark));
-        o.add (mesh (new ExtrudeGeometry (rrect (p.w, p.h, p.style === "round" ? Math.min (p.w, p.h) / 2 : 1), { depth: p.on ? 1.6 : 3, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 3 }),
+        if (p.led) { const l = mesh (new SphereGeometry (1.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2).rotateX (Math.PI / 2), lensMat (p.colour, p.on), false); l.position.set (0, p.h / 2 + 3.5, 0.3); o.add (l); }
+        o.add (mesh (new ExtrudeGeometry (rrect (p.w, p.h, p.style === "round" || p.style === "pill" ? Math.min (p.w, p.h) / 2 : 1), { depth: p.on ? 1.6 : 3, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 3 }),
           new MeshPhysicalMaterial ({ color: p.colour, roughness: 0.35, clearcoat: 0.7, emissive: p.on ? new Color (p.colour).multiplyScalar (0.7) : 0 })));
         break;
-      case "led": o = new Group(); o.add (mesh (new CylinderGeometry (r + 0.6, r + 0.6, 0.8, 24).rotateX (Math.PI / 2).translate (0, 0, 0.4), mats.chrome));
-        o.add (mesh (new SphereGeometry (r, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX (Math.PI / 2).translate (0, 0, 0.8),
-          new MeshPhysicalMaterial ({ color: p.colour, roughness: 0.15, transmission: 0, clearcoat: 1, emissive: p.on ? new Color (p.colour).multiplyScalar (1.4) : new Color (p.colour).multiplyScalar (0.05) }), false));
-        break;
+      case "led": { o = new Group(); const round = !p.shape || p.shape === "round";
+        const bw = p.shape === "rect" ? r * 3 : r * 2, bh = p.shape === "rect" ? r * 1.2 : r * 2;
+        if (p.bezel !== "none") o.add (round ? mesh (new CylinderGeometry (r + 0.6, r + 0.6, 0.8, 24).rotateX (Math.PI / 2).translate (0, 0, 0.4), p.bezel === "black" ? mats.blackMetal : mats.chrome)
+                                             : mesh (new ExtrudeGeometry (rrect (bw + 1.2, bh + 1.2, 0.5), { depth: 0.8, bevelEnabled: false }), p.bezel === "black" ? mats.blackMetal : mats.chrome));
+        if (round) o.add (mesh (new SphereGeometry (r, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX (Math.PI / 2).translate (0, 0, 0.8), lensMat (p.colour, p.on), false));
+        else if (p.shape === "triangle") { const t = new Shape(); t.moveTo (0, r * 1.1); t.lineTo (r, -r * 0.7); t.lineTo (-r, -r * 0.7); t.closePath();
+          o.add (mesh (new ExtrudeGeometry (t, { depth: 1.2, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.2, bevelSegments: 2 }), lensMat (p.colour, p.on), false)); }
+        else o.add (mesh (new ExtrudeGeometry (rrect (bw, bh, r * 0.2), { depth: 1.2, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.2, bevelSegments: 2 }), lensMat (p.colour, p.on), false));
+        break; }
       case "jack": o = jack3d (p, r); break;
-      case "screw": o = screw (u.screws, r); break;
+      case "screw": o = screw (p.style && p.style !== "unit" ? p.style : u.screws, r, p.metal && p.metal !== "unit" ? p.metal : u.screwMetal); break;
       case "vu": case "display": { o = new Group(); const gl = mesh (new PlaneGeometry (p.w, p.h), mats.glass, false); gl.position.z = 0.25; o.add (gl); break; }
-      case "ladder": { o = new Group(); const n = p.segments, sh = p.h / n, lit = Math.round (n * p.value / 100);
-        for (let i = 0; i < lit; ++i) { const c = i >= n - 1 ? 0xff4a3a : i >= n - 3 ? 0xffcc33 : 0x46e070;
-          const s = mesh (new BoxGeometry (p.w, sh * 0.72, 0.3), new MeshStandardMaterial ({ color: c, emissive: c, emissiveIntensity: 1.2 }), false); s.position.set (0, -p.h / 2 + (i + 0.5) * sh, 0.2); o.add (s); }
+      case "ladder": { o = new Group(); const n = p.segments, hz = p.horizontal, L = hz ? p.w : p.h, T = hz ? p.h : p.w, sh = L / n, litN = Math.round (n * p.value / 100);
+        const pal = { green: 0x46e070, blue: 0x3aa0ff, amber: 0xffb020, white: 0xf4f6ff, red: 0xff3b30 }[p.palette];
+        for (let i = 0; i < n; ++i) { if (!(i < litN || (p.peak && i === Math.min (n - 1, litN + 1)))) continue;
+          const c = pal || (i >= n - 1 ? 0xff4a3a : i >= n - 3 ? 0xffcc33 : 0x46e070), at = -L / 2 + (i + 0.5) * sh;
+          const s = mesh (new BoxGeometry (hz ? sh * 0.72 : T, hz ? T : sh * 0.72, 0.3), new MeshStandardMaterial ({ color: c, emissive: c, emissiveIntensity: 1.2 }), false);
+          s.position.set (hz ? at : 0, hz ? 0 : at, 0.2); o.add (s); }
         break; }
       default: break;
     }
-    if (o) { o.userData.id = p.id; o.traverse ((c) => (c.userData.id = p.id)); if (p.rot && ["jack"].includes (p.type)) o.rotation.z = -p.rot * Math.PI / 180; at (o, p.x, p.y, 0.02); }
+    if (o) { o.userData.id = p.id; o.traverse ((c) => (c.userData.id = p.id)); if (p.rot && ["jack", "plate"].includes (p.type)) o.rotation.z = -p.rot * Math.PI / 180; at (o, p.x, p.y, 0.02); }
   }
 
   // The selected part: a thin outline around it

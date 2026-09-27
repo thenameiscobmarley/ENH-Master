@@ -17,19 +17,25 @@
     chicken: "Chicken head", pointer: "Pointer bar" };
   const TYPES = {
     knob:    { label: "Knob", w: 22, h: 22, defaults: { style: "ribbed", value: 50, text: "GAIN", scale: true, min: 0, max: 10, size: 22, pointer: "auto",
-                                                   steps: 10, nums: "ends", lean: false, sweep: 270, arcText: false } },
-    toggle:  { label: "Toggle", w: 10, h: 18, defaults: { style: "bat", on: true, text: "IN" } },
-    button:  { label: "Button", w: 12, h: 10, defaults: { style: "square", on: false, colour: "#e0a84a", text: "BYPASS" } },
-    led:     { label: "LED", w: 4, h: 4, defaults: { colour: "#46e070", on: true, text: "" } },
-    vu:      { label: "VU meter", w: 64, h: 36, defaults: { style: "cream", value: 55, text: "VU" } },
-    ladder:  { label: "LED ladder", w: 6, h: 40, defaults: { segments: 10, value: 60, text: "" } },
-    display: { label: "Display", w: 90, h: 30, defaults: { colour: "#56c8f5", text: "ENH" } },
-    label:   { label: "Text", w: 40, h: 8, defaults: { text: "LABEL", size: 5, bold: true, align: "center", bend: "none", curve: 40, radius: 20, start: 0, flip: false } },
-    box:     { label: "Section box", w: 90, h: 34, defaults: { text: "SECTION", round: 3, fill: false } },
-    line:    { label: "Line", w: 60, h: 1, defaults: {} },
-    jack:    { label: "Jack", w: 14, h: 14, defaults: { style: "trs", text: "INPUT", plugged: false } },
-    screw:   { label: "Screw", w: 5, h: 5, defaults: {} },
-    vent:    { label: "Vent slots", w: 40, h: 16, defaults: { count: 6 } },
+                                                   steps: 10, nums: "ends", lean: false, sweep: 270, arcText: false,
+                                                   marks: "ticks", bipolar: false, ring: false, ringColour: "#ff8a2a", suffix: "", labelPos: "below", labelSize: 2.6, ink: "print", detent: false } },
+    toggle:  { label: "Toggle", w: 10, h: 18, defaults: { style: "bat", on: true, text: "IN", three: false, mid: false, upText: "", downText: "", ink: "print" } },
+    button:  { label: "Button", w: 12, h: 10, defaults: { style: "square", on: false, colour: "#e0a84a", text: "BYPASS", led: false, momentary: false, capText: "", ink: "print" } },
+    led:     { label: "LED", w: 4, h: 4, defaults: { colour: "#46e070", on: true, text: "", shape: "round", blink: false, bezel: "chrome", ink: "print" } },
+    vu:      { label: "VU meter", w: 64, h: 36, defaults: { style: "cream", value: 55, text: "VU", dial: "vu", light: false, peak: false } },
+    ladder:  { label: "LED ladder", w: 6, h: 40, defaults: { segments: 10, value: 60, text: "", horizontal: false, palette: "classic", peak: false } },
+    display: { label: "Display", w: 90, h: 30, defaults: { colour: "#56c8f5", text: "ENH", kind: "wave", content: "", backlit: false } },
+    label:   { label: "Text", w: 40, h: 8, defaults: { text: "LABEL", size: 5, bold: true, align: "center", bend: "none", curve: 40, radius: 20, start: 0, flip: false,
+                                                   italic: false, spacing: 1, look: "print", ink: "print" } },
+    box:     { label: "Section box", w: 90, h: 34, defaults: { text: "SECTION", round: 3, fill: false, lineStyle: "solid", lineW: 0.35, tone: "lighter", fillCol: "#2a2b30", ink: "print" } },
+    line:    { label: "Line", w: 60, h: 1, defaults: { dashed: false, ink: "print" } },
+    jack:    { label: "Jack", w: 14, h: 14, defaults: { style: "trs", text: "INPUT", plugged: false, nut: "chrome", cable: "#141416", ink: "print" } },
+    screw:   { label: "Screw", w: 5, h: 5, defaults: { style: "unit", metal: "unit" } },
+    vent:    { label: "Vent", w: 40, h: 16, defaults: { count: 6, shape: "slots" } },
+    slider:  { label: "Slider (fader)", w: 12, h: 60, defaults: { style: "black", value: 50, text: "LEVEL", scale: true, horizontal: false, steps: 10, ink: "print" } },
+    selector: { label: "Rotary switch", w: 22, h: 22, defaults: { style: "chicken", value: 0, text: "MODE", stops: "LOW|MID|HIGH", sweep: 240, pointer: "auto", ink: "print" } },
+    lamp:    { label: "Pilot lamp", w: 10, h: 10, defaults: { style: "jewel", colour: "#ff3b1f", on: true, text: "POWER", ink: "print" } },
+    plate:   { label: "Nameplate", w: 60, h: 14, defaults: { style: "brass", text: "SERIAL 0001", screws: true } },
   };
   /* Finishes: name, the colour it comes in (null: keeps the panel's), how it looks in 3D (roughness,
      metalness, clear coat), how strong the 2D sheen is, and the surface effects drawn over the colour */
@@ -66,7 +72,19 @@
   const FINISHES = Object.keys (FINISH), FINISH_NAMES = Object.fromEntries (FINISHES.map ((k) => [k, FINISH[k][0]]));
   const EARS = ["slots", "holes", "none"];
   const HANDLES = ["none", "bar", "loop"], SCREWS = ["phillips", "hex", "thumb"];
-  const TOGGLES = ["bat", "rocker", "rockerred"], BUTTONS = ["square", "round"], VUS = ["cream", "amber", "black"];
+  const TOGGLES = ["bat", "rocker", "rockerred", "paddle", "mini", "slide"], BUTTONS = ["square", "round", "pill"];
+  const VUS = ["cream", "amber", "black", "white", "green", "blue"];
+  // The newer settings' choices (each a fixed list: a share code can only pick from them)
+  const INKS = ["print", "accent", "white", "black", "red", "gold"], MARKS = ["ticks", "dots", "arc"], LABEL_POS = ["below", "above", "none"];
+  const LED_SHAPES = ["round", "square", "rect", "triangle"], BEZELS = ["chrome", "black", "none"], DIALS = ["vu", "ppm", "percent", "gr"];
+  const PALETTES = ["classic", "green", "blue", "amber", "white", "red"], DISPLAYS = ["wave", "bars", "spectrum", "digits", "text", "blank"];
+  const LOOKS = ["print", "engraved", "embossed", "outline"], LINES = ["solid", "dashed", "double", "none"], TONES = ["lighter", "darker", "colour"];
+  const NUTS = ["chrome", "black", "gold"], SCREW_STYLES = ["unit", "phillips", "hex", "thumb", "torx", "flat"], METALS = ["unit", "chrome", "black", "brass"];
+  const VENTS = ["slots", "holes", "hex", "louvre", "grille"], FADERS = ["black", "silver", "white", "red"], LAMPS = ["jewel", "dome", "square"];
+  const PLATES = ["brass", "silver", "gold", "black"];
+  const TRIMS = ["none", "pinstripe", "double", "inset"], TWO_TONES = ["none", "left", "right", "top", "bottom", "band"];
+  const TITLE_POS = ["topleft", "topcentre", "bottomleft", "hidden"], SCREW_METALS = ["chrome", "black", "brass"];
+  const INK_COLOUR = { white: "#f2f2f2", black: "#111113", red: "#d8322b", gold: "#d4af37" };
   /* Sockets: name, how it is drawn, its accent colour (insulator, nut, ring) */
   const JACK_TYPES = {
     trs: ["1/4\" jack (TRS)", "round"], ts: ["1/4\" jack (TS)", "round"], headphone: ["Headphones (1/4\")", "round"],
@@ -90,7 +108,9 @@
 
   const blank = () => ({ v: 1, unit: { name: "MY UNIT", model: "EM-X", height: 1, finish: "anodised", colour: "#16171a",
     ink: "#e8e8ea", ears: "slots", handles: "none", screws: "phillips", wear: 15, edge: "rounded", font: "sans", badge: "",
-    earColour: "match", sub: "", shine: 50, desc: "" }, knobs: [], parts: [] });
+    earColour: "match", sub: "", shine: 50, desc: "",
+    accent: "#ff8a2a", trim: "none", twoTone: "none", toneColour: "#2a2b30", toneSize: 30, titlePos: "topleft", titleSize: 4.4,
+    glow: false, serial: "", screwMetal: "chrome", chassis: "#1a1a1c", depth: 180 }, knobs: [], parts: [] });
 
   /* Custom knobs (the Knobs tab): up to MAX_KNOBS per design, each a small set of checked choices and
      clamped numbers - never markup, never a free-form shape. Parts use them as style "c0" .. "c7". */
@@ -123,18 +143,45 @@
   // A description: the same printable text, in up to 20 lines
   const textBlock = (v, max) => (typeof v !== "string" ? "" : v.replace (/\r\n?/g, "\n").split ("\n").slice (0, 20).map ((l) => text (l, max, "")).join ("\n").slice (0, max));
 
+  /** Each part's style, from its own list (knobs: the built-in ones and the design's own). */
+  const STYLE_LISTS = { knob: (ks) => ks, selector: (ks) => ks, toggle: () => TOGGLES, button: () => BUTTONS, vu: () => VUS,
+    screw: () => SCREW_STYLES, slider: () => FADERS, lamp: () => LAMPS, plate: () => PLATES };
+  /** The newer settings, each checked by its own rule: a choice from its list, a clamped number, a
+      #rrggbb colour, a yes/no or short plain text - anything else falls back to the default. */
+  const one = (list) => (v, d) => pick (v, list, d), num = (lo, hi) => (v, d) => clamp (v, lo, hi, d);
+  const FIELDS = {
+    marks: one (MARKS), bipolar: bool, ring: bool, ringColour: colour, suffix: (v, d) => text (v, 6, d), labelPos: one (LABEL_POS), labelSize: num (1.5, 6),
+    ink: one (INKS), detent: bool, three: bool, mid: bool, upText: (v, d) => text (v, 8, d), downText: (v, d) => text (v, 8, d),
+    led: bool, momentary: bool, capText: (v, d) => text (v, 6, d), shape: (v, d) => pick (v, LED_SHAPES.includes (d) ? LED_SHAPES : VENTS, d),
+    blink: bool, bezel: one (BEZELS), dial: one (DIALS), light: bool, peak: bool, horizontal: bool, palette: one (PALETTES),
+    kind: one (DISPLAYS), content: (v, d) => text (v, 24, d), backlit: bool, italic: bool, spacing: num (0, 3), look: one (LOOKS),
+    lineStyle: one (LINES), lineW: num (0.1, 2), tone: one (TONES), fillCol: colour, dashed: bool, nut: one (NUTS), cable: colour,
+    metal: one (METALS), stops: (v, d) => stopList (typeof v === "string" ? v : d).join ("|"), screws: bool,
+  };
+  /** A rotary switch's positions: 2 - 12 names, each short plain text. */
+  function stopList (s) {
+    const a = String (s || "").split ("|").slice (0, 12).map ((x) => text (x, 10, "").trim()).filter ((x) => x.length);
+    while (a.length < 2) a.push (String (a.length + 1));
+    return a;
+  }
+
   function sanitize (raw) {
     const d = blank();
     if (!raw || typeof raw !== "object") return d;
     const u = raw.unit && typeof raw.unit === "object" ? raw.unit : {};
     d.unit = {
       name: text (u.name, 40, d.unit.name), model: text (u.model, 24, d.unit.model),
-      height: Math.round (clamp (u.height, 1, 4, 1)), finish: pick (u.finish, FINISHES, "anodised"),
+      height: Math.round (clamp (u.height, 1, 6, 1)), finish: pick (u.finish, FINISHES, "anodised"),
       colour: colour (u.colour, d.unit.colour), ink: colour (u.ink, d.unit.ink), ears: pick (u.ears, EARS, "slots"),
       handles: pick (u.handles, HANDLES, "none"), screws: pick (u.screws, SCREWS, "phillips"), wear: Math.round (clamp (u.wear, 0, 100, 15)),
       edge: pick (u.edge, EDGES, "rounded"), font: pick (u.font, FONTS, "sans"), badge: text (u.badge, 16, ""),
       earColour: pick (u.earColour, EARCOLS, "match"), sub: text (u.sub, 40, ""),
       shine: Math.round (clamp (u.shine, 0, 100, 50)), desc: textBlock (u.desc, 600),
+      accent: colour (u.accent, "#ff8a2a"), trim: pick (u.trim, TRIMS, "none"), twoTone: pick (u.twoTone, TWO_TONES, "none"),
+      toneColour: colour (u.toneColour, "#2a2b30"), toneSize: Math.round (clamp (u.toneSize, 10, 90, 30)),
+      titlePos: pick (u.titlePos, TITLE_POS, "topleft"), titleSize: clamp (u.titleSize, 3, 9, 4.4), glow: bool (u.glow, false),
+      serial: text (u.serial, 16, ""), screwMetal: pick (u.screwMetal, SCREW_METALS, "chrome"), chassis: colour (u.chassis, "#1a1a1c"),
+      depth: Math.round (clamp (u.depth, 60, 400, 180)),
     };
     // Custom knobs first (the parts may use them), each rebuilt from checked choices and clamped numbers
     const sk = (k) => { const b = blankKnob(); if (!k || typeof k !== "object") return b;
@@ -153,8 +200,7 @@
       const q = { id: nextId++, type: p.type,
         x: clamp (p.x, 0, W, W / 2), y: clamp (p.y, 0, H, H / 2),
         w: clamp (p.w, 1, W, t.w), h: clamp (p.h, 0.5, 4 * U, t.h), rot: clamp (p.rot, -180, 180, 0) };
-      if ("style" in def) q.style = pick (p.style, p.type === "knob" ? knobStyles : p.type === "toggle" ? TOGGLES : p.type === "button" ? BUTTONS
-                                                  : p.type === "vu" ? VUS : JACKS, def.style);
+      if ("style" in def) q.style = pick (p.style, STYLE_LISTS[p.type] ? STYLE_LISTS[p.type] (knobStyles) : JACKS, def.style);
       if ("value" in def) q.value = clamp (p.value, 0, 100, def.value);
       if ("text" in def) q.text = text (p.text, 40, def.text);
       if ("scale" in def) q.scale = bool (p.scale, def.scale);
@@ -181,6 +227,8 @@
       if ("start" in def) q.start = clamp (p.start, -180, 180, def.start);
       if ("flip" in def) q.flip = bool (p.flip, def.flip);
       if ("plugged" in def) q.plugged = bool (p.plugged, def.plugged);
+      for (const key in FIELDS) if (key in def) q[key] = FIELDS[key] (p[key], def[key]);
+      if (p.type === "selector") q.value = Math.round (clamp (p.value, 0, stopList (q.stops).length - 1, 0));
       q.lock = bool (p.lock, false);
       const grp = Math.round (clamp (p.grp, 0, 9999, 0)); if (grp > 0) q.grp = grp;
       d.parts.push (q);
@@ -194,7 +242,11 @@
      (Older "ENH1." / "ENH0." codes still open.) */
   const SHORT = { type: "t", x: "x", y: "y", w: "w", h: "h", rot: "r", style: "s", value: "v", text: "l", scale: "c", min: "a", max: "b",
     on: "o", colour: "k", segments: "g", size: "z", bold: "d", round: "n", count: "u", align: "e", pointer: "i", fill: "f", lock: "q",
-    steps: "st", nums: "nu", lean: "le", sweep: "sw", arcText: "at", bend: "be", curve: "cu", radius: "ra", start: "sa", flip: "fl", grp: "gp", plugged: "pl" };
+    steps: "st", nums: "nu", lean: "le", sweep: "sw", arcText: "at", bend: "be", curve: "cu", radius: "ra", start: "sa", flip: "fl", grp: "gp", plugged: "pl",
+    marks: "mk", bipolar: "bp", ring: "rg", ringColour: "rc", suffix: "sx", labelPos: "lp", labelSize: "lz", ink: "ik", detent: "dt", three: "th", mid: "md",
+    upText: "ut", downText: "dx", led: "ld", momentary: "mo", capText: "ct", shape: "sh", blink: "bk", bezel: "bz", dial: "di", light: "li", peak: "pk",
+    horizontal: "hz", palette: "pa", kind: "kd", content: "co", backlit: "bl", italic: "it", spacing: "sp", look: "lk", lineStyle: "ls", lineW: "lw",
+    tone: "tn", fillCol: "fc", dashed: "da", nut: "nt", cable: "cb", metal: "me", stops: "so", screws: "sc" };
   const LONG = Object.fromEntries (Object.entries (SHORT).map (([a, b]) => [b, a]));
   const round1 = (n) => Math.round (n * 10) / 10;
 
@@ -265,6 +317,7 @@
     const t = el ("text", { x, y, "font-size": size, fill, "text-anchor": opts.anchor || "middle", "font-family": FONT_FAMILY[design.unit.font] || FONT_FAMILY.sans,
       "font-weight": opts.bold === false ? 500 : 700, "letter-spacing": opts.spacing ?? size * 0.12, "dominant-baseline": "middle" }, parent);
     t.textContent = s;   // text, never markup
+    if (design.unit.glow) t.setAttribute ("filter", "url(#inkglow)");
     return t;
   };
   // Text along a path: the path is drawn invisibly beside it and referred to by an id unique to this drawing
@@ -315,6 +368,15 @@
     g ("vuCream", [[0, "#f3ebd2"], [1, "#d8cba5"]]);
     g ("vuAmber", [[0, "#ffd585"], [1, "#d88e2c"]]);
     g ("vuBlack", [[0, "#26272b"], [1, "#0d0e10"]]);
+    g ("vuWhite", [[0, "#fbfbf8"], [1, "#e2e2dc"]]);
+    g ("vuGreen", [[0, "#12351f"], [1, "#07160c"]]);
+    g ("vuBlue", [[0, "#10233f"], [1, "#060d1a"]]);
+    g ("vuLamp", [[0, "#ffe2a0", 0.9], [0.6, "#ffb040", 0.25], [1, "#ff9020", 0]]);
+    r ("brass", [[0, "#f3dd9a"], [0.5, "#c9a64a"], [1, "#7d6224"]]);
+    // Backlit print: the lettering's own light round it
+    const glow = el ("filter", { id: "inkglow", x: -0.3, y: -0.6, width: 1.6, height: 2.2 }, d);
+    el ("feGaussianBlur", { in: "SourceGraphic", stdDeviation: 0.7, result: "b" }, glow);
+    const mg = el ("feMerge", {}, glow); el ("feMergeNode", { in: "b" }, mg); el ("feMergeNode", { in: "b" }, mg); el ("feMergeNode", { in: "SourceGraphic" }, mg);
     // brushed lines and hammertone dimples, as filters (they only shade: the panel's colour stays its own)
     const br = el ("filter", { id: "brushed", x: 0, y: 0, width: 1, height: 1 }, d);
     el ("feTurbulence", { type: "fractalNoise", baseFrequency: "0.004 0.9", numOctaves: 2, seed: 3, result: "n" }, br);
@@ -375,7 +437,20 @@
     // The plate: shadow, body, finish, edge highlight, wear
     if (!print) el ("rect", { x: 0.8, y: 1.6, width: W, height: H, rx, fill: "#000", opacity: 0.55, filter: "url(#drop)" }, face);
     el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: u.colour }, face);
+    // Two-tone: a second paint over part of the plate (a side, the top or bottom, or a band across the middle)
+    if (u.twoTone && u.twoTone !== "none") {
+      const f = (u.toneSize || 30) / 100, t = u.twoTone;
+      const box = t === "left" ? [0, 0, W * f, H] : t === "right" ? [W * (1 - f), 0, W * f, H] : t === "top" ? [0, 0, W, H * f]
+                : t === "bottom" ? [0, H * (1 - f), W, H * f] : [0, H * (0.5 - f / 2), W, H * f];
+      el ("rect", { x: box[0], y: box[1], width: box[2], height: box[3], rx: t === "band" ? 0 : rx, fill: u.toneColour }, face);
+    }
     drawFinish (face, 0, 0, W, H, rx, u.finish, u.colour, print);
+    // Trim: a pinstripe (or two) in the accent colour, or a pressed-in inset line, inside the ears
+    if (u.trim && u.trim !== "none") {
+      const inset = (u.ears === "none" ? 3 : EAR + 2), line = (d, attrs) => el ("rect", Object.assign ({ x: inset + d, y: 2 + d, width: W - 2 * (inset + d), height: H - 4 - 2 * d, rx: 1.2, fill: "none" }, attrs), face);
+      if (u.trim === "inset") { line (0.25, { stroke: "#000", "stroke-width": 0.5, opacity: 0.45 }); line (0, { stroke: "#fff", "stroke-width": 0.35, opacity: 0.18 }); }
+      else { line (0, { stroke: u.accent, "stroke-width": 0.45 }); if (u.trim === "double") line (1.3, { stroke: u.accent, "stroke-width": 0.25 }); }
+    }
     if (u.wear > 0) el ("rect", { x: 0, y: 0, width: W, height: H, rx, fill: "#fff", filter: "url(#wear)", opacity: u.wear / 400 }, face);
     // Ears in their own finish (black or silver) where asked
     if (u.ears !== "none" && u.earColour !== "match")
@@ -395,9 +470,14 @@
     }
     // Maker block (name, model, a second line), and a badge on the right if it has text
     const left = u.ears === "none" ? 8 : EAR + (u.handles !== "none" ? 18 : 8);
-    txt (face, left, 9, u.name, 4.4, u.ink, { anchor: "start", spacing: 0.9 });
-    txt (face, left, 14.5, "MODEL " + u.model, 2.3, u.ink, { anchor: "start", spacing: 0.4, bold: false });
-    if (u.sub) txt (face, left, 19, u.sub, 2.1, u.ink, { anchor: "start", spacing: 0.35, bold: false });
+    if (u.titlePos !== "hidden") {   // the maker's block: top left (as it always was), top centre, or bottom left
+      const ts = u.titleSize || 4.4, centre = u.titlePos === "topcentre", x = centre ? W / 2 : left, anchor = centre ? "middle" : "start";
+      const y0 = u.titlePos === "bottomleft" ? H - 5 - (u.sub ? 4.5 : 0) - 5.5 - ts * 0.5 : 6.8 + ts * 0.5;
+      txt (face, x, y0, u.name, ts, u.ink, { anchor, spacing: ts * 0.2 });
+      txt (face, x, y0 + ts * 0.5 + 3.4, "MODEL " + u.model, 2.3, u.ink, { anchor, spacing: 0.4, bold: false });
+      if (u.sub) txt (face, x, y0 + ts * 0.5 + 7.9, u.sub, 2.1, u.ink, { anchor, spacing: 0.35, bold: false });
+    }
+    if (u.serial) txt (face, W - (u.ears === "none" ? 8 : EAR + 8), H - 3.5, "SN " + u.serial, 1.9, u.ink, { anchor: "end", spacing: 0.3, bold: false });
     if (u.badge) {
       const bx = W - (u.ears === "none" ? 26 : EAR + (u.handles !== "none" ? 36 : 26)), bw = Math.max (22, u.badge.length * 2.6 + 8);
       el ("rect", { x: bx - bw / 2, y: 4, width: bw, height: 8, rx: 4, fill: shade (u.colour, -0.5), stroke: u.ink, "stroke-width": 0.35 }, face);
@@ -445,10 +525,15 @@
     if (!print && gloss > 1.6) el ("rect", Object.assign ({ fill: "url(#mirror)", opacity: Math.min (0.5, (gloss - 1.6) * 0.4) }, box), parent);
   }
 
-  function screw (parent, x, y, style, r) {
-    el ("circle", { cx: x, cy: y, r, fill: "url(#knobAlu)", filter: "url(#drop)" }, parent);
-    if (style === "phillips") { el ("line", { x1: x - r * 0.55, y1: y, x2: x + r * 0.55, y2: y, stroke: "#333", "stroke-width": 0.55 }, parent); el ("line", { x1: x, y1: y - r * 0.55, x2: x, y2: y + r * 0.55, stroke: "#333", "stroke-width": 0.55 }, parent); }
-    else if (style === "hex") { const pts = []; for (let i = 0; i < 6; ++i) { const a = Math.PI / 3 * i; pts.push ((x + Math.cos (a) * r * 0.45).toFixed (2) + "," + (y + Math.sin (a) * r * 0.45).toFixed (2)); } el ("polygon", { points: pts.join (" "), fill: "#2a2a2c" }, parent); }
+  function screw (parent, x, y, style, r, metal = design.unit.screwMetal || "chrome") {
+    const head = { chrome: "url(#knobAlu)", black: "url(#knobBlack)", brass: "url(#brass)" }[metal] || "url(#knobAlu)", slot = metal === "black" ? "#5a5a60" : "#333";
+    el ("circle", { cx: x, cy: y, r, fill: head, filter: "url(#drop)" }, parent);
+    const bar = (a, len) => el ("line", { x1: x - Math.cos (a) * r * len, y1: y - Math.sin (a) * r * len, x2: x + Math.cos (a) * r * len, y2: y + Math.sin (a) * r * len, stroke: slot, "stroke-width": 0.55 }, parent);
+    if (style === "phillips") { bar (0, 0.55); bar (Math.PI / 2, 0.55); }
+    else if (style === "flat") bar (Math.PI / 5, 0.75);
+    else if (style === "hex" || style === "torx") { const pts = [], n = style === "hex" ? 6 : 12;
+      for (let i = 0; i < n; ++i) { const a = Math.PI * 2 / n * i, rr = r * (style === "torx" && i % 2 ? 0.28 : 0.45); pts.push ((x + Math.cos (a) * rr).toFixed (2) + "," + (y + Math.sin (a) * rr).toFixed (2)); }
+      el ("polygon", { points: pts.join (" "), fill: metal === "black" ? "#050506" : "#2a2a2c" }, parent); }
     else { el ("circle", { cx: x, cy: y, r: r * 1.25, fill: "none", stroke: "#8f9095", "stroke-width": 0.5, "stroke-dasharray": "0.5 0.6" }, parent); }
   }
 
@@ -461,128 +546,277 @@
   const knobAngle = (p) => angle (p.value, p.sweep || 270);
   const fmt = (n) => String (Math.round (n * 10) / 10);
 
+  /** A part's print colour: the panel's print, its accent, or one of a few fixed inks. */
+  const inkOf = (p) => (!p.ink || p.ink === "print" ? design.unit.ink : p.ink === "accent" ? design.unit.accent || design.unit.ink : INK_COLOUR[p.ink] || design.unit.ink);
+  const blinkOn = () => !play || Math.floor (performance.now() / 500) % 2 === 0;
+  const METAL_FILL = { chrome: "url(#knobAlu)", black: "url(#knobBlack)", brass: "url(#brass)", gold: "url(#brass)" };
+
   function drawPart (parent, p) {
     const g = el ("g", { "data-id": p.id, class: "d-part", transform: `translate(${p.x} ${p.y})${p.rot ? ` rotate(${p.rot})` : ""}` }, parent);
-    const ink = design.unit.ink, r = Math.min (p.w, p.h) / 2;
+    const ink = inkOf (p), r = Math.min (p.w, p.h) / 2, printing = mode === "print";
+    // A knob's (or rotary switch's) name: under it, over it, or not at all; straight or curved
+    const knobLabel = (R) => {
+      if (!p.text || p.labelPos === "none") return;
+      const size = p.labelSize || 2.6, above = p.labelPos === "above";
+      if (p.arcText) pathText (g, circlePath (R + size * 0.2, above ? 0 : 180, !above), p.text, size, ink, { spacing: 0.45 });
+      else txt (g, 0, above ? -R - size * 0.2 : R, p.text, size, ink, { spacing: 0.45 });
+    };
     switch (p.type) {
       case "knob": {
-        const sweep = p.sweep || 270, steps = p.steps || 10;
-        if (p.scale) {   // ticks round the knob; numbers at the ends and middle, at every step, or none
+        const sweep = p.sweep || 270, steps = p.steps || 10, ringR = r + 2.4, out = p.ring ? (r + 4.2) / (r * 1.18) : 1;   // (an LED ring pushes the scale out)
+        if (p.scale) {   // ticks (or dots, or an arc) round the knob; numbers at the ends and middle, at every step, or none
           const half = steps % 2 === 0 ? steps / 2 : -1, every = p.nums === "all";
           const nsize = r * (every ? Math.max (0.15, Math.min (0.24, 2.4 / steps)) : 0.24);
+          if (p.marks === "arc") {
+            const a0 = (angle (0, sweep) - 90) * Math.PI / 180, a1 = (angle (100, sweep) - 90) * Math.PI / 180, R = r * 1.28 * out;
+            el ("path", { d: `M ${Math.cos (a0) * R} ${Math.sin (a0) * R} A ${R} ${R} 0 ${sweep > 180 ? 1 : 0} 1 ${Math.cos (a1) * R} ${Math.sin (a1) * R}`, fill: "none", stroke: ink, "stroke-width": 0.45 }, g);
+          }
           for (let i = 0; i <= steps; ++i) {
             const deg = angle (i / steps * 100, sweep), a = (deg - 90) * Math.PI / 180;
-            const major = i === 0 || i === steps || i === half;
-            const r0 = r * 1.18, r1 = r * (major || every ? 1.38 : 1.3);
-            el ("line", { x1: Math.cos (a) * r0, y1: Math.sin (a) * r0, x2: Math.cos (a) * r1, y2: Math.sin (a) * r1, stroke: ink, "stroke-width": major ? 0.5 : 0.3 }, g);
+            const major = i === 0 || i === steps || i === half, centre = p.bipolar && i === half;
+            const r0 = r * 1.18 * out, r1 = r * (major || every ? 1.38 : 1.3) * out;
+            if (p.marks === "dots") el ("circle", { cx: Math.cos (a) * r * 1.3 * out, cy: Math.sin (a) * r * 1.3 * out, r: (major ? 0.55 : 0.35) * (centre ? 1.5 : 1), fill: ink }, g);
+            else el ("line", { x1: Math.cos (a) * r0, y1: Math.sin (a) * r0, x2: Math.cos (a) * r1 * (centre ? 1.06 : 1), y2: Math.sin (a) * r1 * (centre ? 1.06 : 1), stroke: ink, "stroke-width": major ? 0.5 : 0.3 }, g);
             if (p.nums === "none" || (!every && !major)) continue;
-            const x = Math.cos (a) * r * 1.62, y = Math.sin (a) * r * 1.62;
-            const t = txt (g, x, y, fmt (p.min + (p.max - p.min) * i / steps), nsize, ink, { bold: false, spacing: 0 });
+            const x = Math.cos (a) * r * 1.62 * out, y = Math.sin (a) * r * 1.62 * out;
+            let v = p.min + (p.max - p.min) * i / steps; if (p.bipolar && i === half) v = 0;
+            const label = fmt (v) + (p.suffix && (i === 0 || i === steps) ? " " + p.suffix : "");
+            const t = txt (g, x, y, label, nsize, ink, { bold: false, spacing: 0 });
             if (p.lean) t.setAttribute ("transform", `rotate(${deg.toFixed (2)} ${x.toFixed (3)} ${y.toFixed (3)})`);   // turned with the dial
           }
         }
-        if (p.text) {
-          const R = r * (p.scale ? 1.62 : 1.2) + 3;
-          if (p.arcText) pathText (g, circlePath (R, 180, true), p.text, 2.6, ink, { spacing: 0.45 });   // curved under the knob
-          else txt (g, 0, R, p.text, 2.6, ink, { spacing: 0.45 });
+        if (p.ring) {   // an LED ring round it: lit from the start (or from the middle, centre-zero) to where it points
+          const n = 15, R = ringR;
+          for (let i = 0; i < n; ++i) {
+            const t = i / (n - 1) * 100, a = (angle (t, sweep) - 90) * Math.PI / 180;
+            const lit = !printing && (p.bipolar ? (p.value >= 50 ? t >= 50 && t <= p.value : t <= 50 && t >= p.value) : t <= p.value);
+            if (lit) el ("circle", { cx: Math.cos (a) * R, cy: Math.sin (a) * R, r: 1.5, fill: p.ringColour, opacity: 0.25 }, g);
+            el ("circle", { cx: Math.cos (a) * R, cy: Math.sin (a) * R, r: 0.7, fill: lit ? p.ringColour : shade (p.ringColour, -0.55) }, g);
+          }
         }
-        if (mode !== "print") knob (g, p.style, r, angle (p.value, sweep), p.pointer);
+        knobLabel (r * (p.scale ? 1.62 * out : 1.2) + (p.ring && !p.scale ? 3 : 0) + 3);
+        if (!printing) knob (g, p.style, r, angle (p.value, sweep), p.pointer);
+        break;
+      }
+      case "selector": {   // a rotary switch: its positions named round it, the knob on the chosen one
+        const stops = stopList (p.stops), n = stops.length, sweep = p.sweep || 240, at = Math.min (n - 1, Math.max (0, Math.round (p.value)));
+        for (let i = 0; i < n; ++i) {
+          const deg = angle (i / Math.max (1, n - 1) * 100, sweep), a = (deg - 90) * Math.PI / 180;
+          el ("line", { x1: Math.cos (a) * r * 1.15, y1: Math.sin (a) * r * 1.15, x2: Math.cos (a) * r * 1.32, y2: Math.sin (a) * r * 1.32, stroke: ink, "stroke-width": 0.45 }, g);
+          const x = Math.cos (a) * r * 1.75, y = Math.sin (a) * r * 1.75;
+          txt (g, x, y, stops[i], Math.max (1.6, Math.min (2.4, r * 0.2)), ink, { bold: i === at, spacing: 0.2 });
+        }
+        if (p.text) txt (g, 0, r * 2.15 + 2, p.text, 2.6, ink, { spacing: 0.45 });
+        if (!printing) knob (g, p.style, r, angle (at / Math.max (1, n - 1) * 100, sweep), p.pointer);
+        break;
+      }
+      case "slider": {   // a fader: its slot, a scale beside it, and its cap
+        const hz = p.horizontal, L = hz ? p.w : p.h, T = hz ? p.h : p.w, steps = p.steps || 10;
+        const tr = (x, y) => (hz ? [y, x] : [x, y]);   // (drawn upright, turned for horizontal)
+        const rect = (x, y, w, h, attrs) => { const [a, b] = tr (x, y), [c, d] = hz ? [h, w] : [w, h]; return el ("rect", Object.assign ({ x: a, y: b, width: c, height: d }, attrs), g); };
+        rect (-0.9, -L / 2, 1.8, L, { rx: 0.9, fill: "#050506" });
+        if (p.scale) for (let i = 0; i <= steps; ++i) {
+          const y = L / 2 - L * i / steps, major = i === 0 || i === steps || i * 2 === steps;
+          for (const side of [-1, 1]) { const [x1, y1] = tr (side * T * 0.42, y), [x2, y2] = tr (side * T * (major ? 0.72 : 0.6), y); el ("line", { x1, y1, x2, y2, stroke: ink, "stroke-width": major ? 0.4 : 0.25 }, g); }
+        }
+        if (p.text) { const [x, y] = hz ? [0, T / 2 + 3.5] : [0, L / 2 + 4]; txt (g, x, y, p.text, 2.5, ink, { spacing: 0.4 }); }
+        if (!printing) {
+          const pos = (hz ? -1 : 1) * (L / 2 - L * p.value / 100) * (hz ? -1 : 1), capL = Math.min (10, L * 0.18);
+          const fill = { black: "url(#knobBlack)", silver: "url(#knobAlu)", white: "url(#capWhite)", red: "url(#knobRed)" }[p.style] || "url(#knobBlack)";
+          const y = hz ? -pos : pos;
+          rect (-T * 0.5, y - capL / 2, T, capL, { rx: 1, fill, filter: "url(#drop)" });
+          rect (-T * 0.5, y - 0.2, T, 0.4, { fill: p.style === "white" || p.style === "silver" ? "#111" : "#f2f2f2" });
+        }
         break;
       }
       case "toggle": {
-        if (mode === "print") { if (p.text) txt (g, 0, 12, p.text, 2.5, ink, { spacing: 0.4 }); if (p.style !== "bat") el ("rect", { x: -4, y: -7, width: 8, height: 14, rx: 1.2, fill: "#050506" }, g); break; }
-        if (p.style === "bat") {
-          el ("circle", { r: 3.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
-          el ("circle", { r: 2.2, fill: "#2b2c30" }, g);
-          const dir = p.on ? -1 : 1;
-          el ("path", { d: `M -1.1 0 L -1.6 ${dir * 8} A 1.6 1.6 0 0 0 1.6 ${dir * 8} L 1.1 0 Z`, fill: "url(#metalV)", filter: "url(#drop)" }, g);
+        const upDown = () => { if (p.upText) txt (g, 0, -12, p.upText, 2.2, ink, { spacing: 0.3, bold: false }); if (p.downText) txt (g, 0, 11.5, p.downText, 2.2, ink, { spacing: 0.3, bold: false }); };
+        const nameY = p.downText ? 15.5 : 12;
+        if (printing) { if (p.text) txt (g, 0, nameY, p.text, 2.5, ink, { spacing: 0.4 }); upDown(); if (p.style !== "bat" && p.style !== "mini") el ("rect", { x: -4, y: -7, width: 8, height: 14, rx: 1.2, fill: "#050506" }, g); break; }
+        const dir = p.three && p.mid ? 0 : p.on ? -1 : 1;
+        if (p.style === "bat" || p.style === "mini" || p.style === "paddle") {
+          const k = p.style === "mini" ? 0.7 : 1;
+          el ("circle", { r: 3.6 * k, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
+          el ("circle", { r: 2.2 * k, fill: "#2b2c30" }, g);
+          if (p.style === "paddle") el ("rect", { x: -2.2, y: dir < 0 ? -8.5 : dir > 0 ? 0 : -1.5, width: 4.4, height: dir === 0 ? 3 : 8.5, rx: 1.2, fill: "url(#knobBlack)", filter: "url(#drop)" }, g);
+          else if (dir === 0) el ("circle", { r: 1.7 * k, fill: "url(#metalV)", filter: "url(#drop)" }, g);
+          else el ("path", { d: `M ${-1.1 * k} 0 L ${-1.6 * k} ${dir * 8 * k} A ${1.6 * k} ${1.6 * k} 0 0 0 ${1.6 * k} ${dir * 8 * k} L ${1.1 * k} 0 Z`, fill: "url(#metalV)", filter: "url(#drop)" }, g);
+        } else if (p.style === "slide") {
+          el ("rect", { x: -2.4, y: -7, width: 4.8, height: 14, rx: 1, fill: "#050506" }, g);
+          el ("rect", { x: -2, y: (dir < 0 ? -6.5 : dir > 0 ? 0.5 : -3), width: 4, height: 6, rx: 0.8, fill: "url(#knobBlack)", filter: "url(#drop)" }, g);
         } else {
           const c = p.style === "rockerred" ? "#b3231c" : "#18191c";
           el ("rect", { x: -4, y: -7, width: 8, height: 14, rx: 1.2, fill: "#050506" }, g);
           el ("rect", { x: -3.2, y: -6.2, width: 6.4, height: 12.4, rx: 1, fill: c, filter: "url(#drop)" }, g);
-          el ("rect", { x: -3.2, y: p.on ? -6.2 : 0, width: 6.4, height: 6.2, rx: 1, fill: "#fff", opacity: 0.12 }, g);
+          if (dir !== 0) el ("rect", { x: -3.2, y: dir < 0 ? -6.2 : 0, width: 6.4, height: 6.2, rx: 1, fill: "#fff", opacity: 0.12 }, g);
           txt (g, 0, -3, "I", 2.4, "#eee", {}); txt (g, 0, 3, "O", 2.4, "#eee", {});
         }
-        if (p.text) txt (g, 0, 12, p.text, 2.5, ink, { spacing: 0.4 });
+        upDown();
+        if (p.text) txt (g, 0, nameY, p.text, 2.5, ink, { spacing: 0.4 });
         break;
       }
       case "button": {
-        if (mode === "print") { if (p.text) txt (g, 0, p.h / 2 + 4, p.text, 2.5, ink, { spacing: 0.4 }); break; }
-        const lit = p.on ? p.colour : shade (p.colour, -0.72);
+        const ledY = -p.h / 2 - 3.5;
+        if (printing) { if (p.text) txt (g, 0, p.h / 2 + 4, p.text, 2.5, ink, { spacing: 0.4 }); if (p.led) el ("circle", { cy: ledY, r: 1.3, fill: "#1a1a1c" }, g); break; }
+        const lit = p.on ? p.colour : shade (p.colour, -0.72), rx = p.style === "pill" ? Math.min (p.w, p.h) / 2 : 1;
         if (p.style === "round") { el ("circle", { r: r + 0.8, fill: "#08080a" }, g); el ("circle", { r, fill: lit, filter: "url(#drop)" }, g); el ("circle", { r, fill: "url(#sheen)" }, g); }
-        else { el ("rect", { x: -p.w / 2 - 0.8, y: -p.h / 2 - 0.8, width: p.w + 1.6, height: p.h + 1.6, rx: 1.4, fill: "#08080a" }, g);
-               el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1, fill: lit, filter: "url(#drop)" }, g);
-               el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1, fill: "url(#sheen)" }, g); }
+        else { el ("rect", { x: -p.w / 2 - 0.8, y: -p.h / 2 - 0.8, width: p.w + 1.6, height: p.h + 1.6, rx: rx + 0.4, fill: "#08080a" }, g);
+               el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx, fill: lit, filter: "url(#drop)" }, g);
+               el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx, fill: "url(#sheen)" }, g); }
+        if (p.capText) txt (g, 0, 0, p.capText, Math.min (p.h * 0.45, 3), "#111113", { spacing: 0.2 });
         if (p.on) el ("circle", { r: Math.max (p.w, p.h) * 0.9, fill: p.colour, opacity: 0.12 }, g);
+        if (p.led) { el ("circle", { cy: ledY, r: 1.6, fill: "#1a1a1c" }, g); el ("circle", { cy: ledY, r: 1.1, fill: p.on ? p.colour : shade (p.colour, -0.75) }, g);
+                     if (p.on) el ("circle", { cy: ledY, r: 3, fill: p.colour, opacity: 0.2 }, g); }
         if (p.text) txt (g, 0, p.h / 2 + 4, p.text, 2.5, ink, { spacing: 0.4 });
         break;
       }
       case "led": {
-        if (mode === "print") { if (p.text) txt (g, 0, r + 4, p.text, 2.2, ink, { spacing: 0.3 }); break; }
-        if (p.on) el ("circle", { r: r * 3.2, fill: p.colour, opacity: 0.18 }, g);
-        el ("circle", { r: r + 0.5, fill: "#1a1a1c" }, g);
-        el ("circle", { r, fill: p.on ? p.colour : shade (p.colour, -0.75) }, g);
-        el ("circle", { cx: -r * 0.3, cy: -r * 0.35, r: r * 0.35, fill: "#fff", opacity: p.on ? 0.7 : 0.25 }, g);
-        if (p.text) txt (g, 0, r + 4, p.text, 2.2, ink, { spacing: 0.3 });
+        const labelY = (p.shape === "rect" ? r * 0.6 : r) + 4;
+        if (printing) { if (p.text) txt (g, 0, labelY, p.text, 2.2, ink, { spacing: 0.3 }); break; }
+        const lit = p.on && (!p.blink || blinkOn()), c = lit ? p.colour : shade (p.colour, -0.75);
+        const shapeAt = (rr, fill) => {
+          if (p.shape === "square") return el ("rect", { x: -rr, y: -rr, width: rr * 2, height: rr * 2, rx: rr * 0.2, fill }, g);
+          if (p.shape === "rect") return el ("rect", { x: -rr * 1.5, y: -rr * 0.6, width: rr * 3, height: rr * 1.2, rx: rr * 0.15, fill }, g);
+          if (p.shape === "triangle") return el ("path", { d: `M 0 ${-rr * 1.1} L ${rr} ${rr * 0.7} L ${-rr} ${rr * 0.7} Z`, fill }, g);
+          return el ("circle", { r: rr, fill }, g);
+        };
+        if (lit) el ("circle", { r: r * 3.2, fill: p.colour, opacity: 0.18 }, g);
+        if (p.bezel !== "none") shapeAt (r + 0.6, p.bezel === "black" ? "#0d0d0f" : "url(#knobAlu)");
+        shapeAt (r, c);
+        el ("circle", { cx: -r * 0.3, cy: -r * 0.35, r: r * 0.3, fill: "#fff", opacity: lit ? 0.7 : 0.25 }, g);
+        if (p.text) txt (g, 0, labelY, p.text, 2.2, ink, { spacing: 0.3 });
+        break;
+      }
+      case "lamp": {   // a pilot lamp: a jewel (faceted), a dome, or a square lens, in a chrome bezel
+        if (p.text) txt (g, 0, r + 4.5, p.text, 2.4, ink, { spacing: 0.4 });
+        if (printing) break;
+        const lit = p.on, c = lit ? p.colour : shade (p.colour, -0.7);
+        if (lit) el ("circle", { r: r * 2.6, fill: p.colour, opacity: 0.2 }, g);
+        if (p.style === "square") { el ("rect", { x: -r - 0.8, y: -r - 0.8, width: 2 * r + 1.6, height: 2 * r + 1.6, rx: 1, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
+                                    el ("rect", { x: -r, y: -r, width: 2 * r, height: 2 * r, rx: 0.6, fill: c }, g); }
+        else { el ("circle", { r: r + 0.9, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); el ("circle", { r, fill: c }, g);
+          if (p.style === "jewel") for (let i = 0; i < 8; ++i) { const a = i / 8 * Math.PI * 2; el ("line", { x1: 0, y1: 0, x2: Math.cos (a) * r, y2: Math.sin (a) * r, stroke: "#fff", "stroke-width": 0.25, opacity: 0.35 }, g); } }
+        el ("circle", { cx: -r * 0.3, cy: -r * 0.35, r: r * 0.35, fill: "#fff", opacity: lit ? 0.55 : 0.2 }, g);
         break;
       }
       case "vu": {
-        const w = p.w, h = p.h;
+        const w = p.w, h = p.h, dark = ["black", "green", "blue"].includes (p.style);
         el ("rect", { x: -w / 2 - 1, y: -h / 2 - 1, width: w + 2, height: h + 2, rx: 1.5, fill: "#050506" }, g);
         el ("rect", { x: -w / 2, y: -h / 2, width: w, height: h, rx: 1, fill: `url(#vu${p.style[0].toUpperCase()}${p.style.slice (1)})` }, g);
-        const inkVu = p.style === "black" ? "#e8e8ea" : "#1d1c1a", cx = 0, cy = h * 0.55, R = h * 0.78;
+        if (p.light) el ("rect", { x: -w / 2, y: -h / 2, width: w, height: h, rx: 1, fill: "url(#vuLamp)", opacity: 0.55 }, g);
+        const inkVu = dark ? "#e8e8ea" : "#1d1c1a", cx = 0, cy = h * 0.55, R = h * 0.78;
+        // The dial: VU (-20 .. +3, red from 0), PPM (1 .. 7), percent, or gain reduction (read right to left)
+        const labels = { vu: ["-20", "-10", "-5", "0", "+3"], ppm: ["1", "2", "3", "4", "5", "6", "7"], percent: ["0", "20", "40", "60", "80", "100"], gr: ["20", "10", "5", "3", "1", "0"] }[p.dial || "vu"];
+        const redFrom = p.dial === "vu" || !p.dial ? 8 : p.dial === "ppm" ? 9 : 11;
         for (let i = 0; i <= 10; ++i) { const a = (-50 + i * 10) * Math.PI / 180, r0 = R * 0.86, r1 = R * (i % 5 === 0 ? 0.98 : 0.93);
-          el ("line", { x1: cx + Math.sin (a) * r0, y1: cy - Math.cos (a) * r0, x2: cx + Math.sin (a) * r1, y2: cy - Math.cos (a) * r1, stroke: i >= 8 ? "#b3231c" : inkVu, "stroke-width": 0.45 }, g); }
-        el ("path", { d: `M ${cx + Math.sin (0.52) * R * 0.98} ${cy - Math.cos (0.52) * R * 0.98} A ${R * 0.98} ${R * 0.98} 0 0 1 ${cx + Math.sin (0.87) * R * 0.98} ${cy - Math.cos (0.87) * R * 0.98}`, stroke: "#b3231c", "stroke-width": 1.2, fill: "none" }, g);
+          el ("line", { x1: cx + Math.sin (a) * r0, y1: cy - Math.cos (a) * r0, x2: cx + Math.sin (a) * r1, y2: cy - Math.cos (a) * r1, stroke: i >= redFrom ? "#b3231c" : inkVu, "stroke-width": 0.45 }, g); }
+        labels.forEach ((lb, i) => { const a = (-50 + 100 * i / (labels.length - 1)) * Math.PI / 180;
+          txt (g, cx + Math.sin (a) * R * 1.08, cy - Math.cos (a) * R * 1.08, lb, h * 0.075, i / (labels.length - 1) * 10 >= redFrom ? "#b3231c" : inkVu, { spacing: 0, bold: false }); });
+        if (redFrom <= 10) el ("path", { d: `M ${cx + Math.sin ((-50 + redFrom * 10) * Math.PI / 180) * R * 0.98} ${cy - Math.cos ((-50 + redFrom * 10) * Math.PI / 180) * R * 0.98} A ${R * 0.98} ${R * 0.98} 0 0 1 ${cx + Math.sin (0.87) * R * 0.98} ${cy - Math.cos (0.87) * R * 0.98}`, stroke: "#b3231c", "stroke-width": 1.2, fill: "none" }, g);
         txt (g, 0, h * 0.30, p.text, h * 0.10, inkVu, { spacing: 0.5 });
-        const na = (-50 + p.value) * Math.PI / 180;
-        el ("line", { x1: cx, y1: cy, x2: cx + Math.sin (na) * R * 0.97, y2: cy - Math.cos (na) * R * 0.97, stroke: inkVu, "stroke-width": 0.45 }, g);
+        const v = p.dial === "gr" ? 100 - p.value : p.value, na = (-50 + v) * Math.PI / 180;
+        el ("line", { x1: cx, y1: cy, x2: cx + Math.sin (na) * R * 0.97, y2: cy - Math.cos (na) * R * 0.97, stroke: dark ? "#ff6a3a" : inkVu, "stroke-width": 0.45 }, g);
         el ("circle", { cx, cy, r: 1.6, fill: "#111" }, g);
+        if (p.peak) { const lit = !printing && p.value > 85; el ("circle", { cx: w / 2 - 4, cy: -h / 2 + 4, r: 1.3, fill: lit ? "#ff3b30" : "#3a0f0c" }, g); if (lit) el ("circle", { cx: w / 2 - 4, cy: -h / 2 + 4, r: 3, fill: "#ff3b30", opacity: 0.25 }, g); }
         el ("rect", { x: -w / 2, y: -h / 2, width: w, height: h * 0.45, rx: 1, fill: "#fff", opacity: 0.07 }, g);   // the glass
         break;
       }
       case "ladder": {
-        const n = p.segments, sh = p.h / n;
-        for (let i = 0; i < n; ++i) { const lit = i < Math.round (n * p.value / 100), c = i >= n - 1 ? "#ff4a3a" : i >= n - 3 ? "#ffcc33" : "#46e070";
-          const y = p.h / 2 - (i + 0.5) * sh;
-          if (lit) el ("rect", { x: -p.w, y: y - sh * 0.7, width: p.w * 2, height: sh * 1.4, fill: c, opacity: 0.15 }, g);
-          el ("rect", { x: -p.w / 2, y: y - sh * 0.36, width: p.w, height: sh * 0.72, rx: 0.4, fill: lit ? c : shade (c, -0.78) }, g); }
+        const n = p.segments, hz = p.horizontal, L = hz ? p.w : p.h, T = hz ? p.h : p.w, sh = L / n, litN = Math.round (n * p.value / 100);
+        const pal = { classic: null, green: "#46e070", blue: "#3aa0ff", amber: "#ffb020", white: "#f4f6ff", red: "#ff3b30" }[p.palette || "classic"];
+        for (let i = 0; i < n; ++i) {
+          const lit = i < litN || (p.peak && i === Math.min (n - 1, litN + 1));
+          const c = pal || (i >= n - 1 ? "#ff4a3a" : i >= n - 3 ? "#ffcc33" : "#46e070");
+          const pos = L / 2 - (i + 0.5) * sh, [x, y] = hz ? [-pos, 0] : [0, pos];
+          const seg = (a, b, fill, op) => el ("rect", Object.assign (hz ? { x: x - a * 0.36 * 2 / 2, y: -b / 2, width: a * 0.72, height: b } : { x: -b / 2, y: y - a * 0.36, width: b, height: a * 0.72 }, { rx: 0.4, fill }, op ? { opacity: op } : {}), g);
+          if (lit && !printing) seg (sh * 1.9, T * 2, c, 0.15);
+          seg (sh, T, lit && !printing ? c : shade (c, -0.78));
+        }
         break;
       }
       case "display": {
         el ("rect", { x: -p.w / 2 - 1.2, y: -p.h / 2 - 1.2, width: p.w + 2.4, height: p.h + 2.4, rx: 2, fill: "#050506" }, g);
-        el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1.2, fill: shade (p.colour, -0.88) }, g);
-        let d = ""; for (let i = 0; i <= 60; ++i) { const x = -p.w / 2 + 3 + (p.w - 6) * i / 60, y = Math.sin (i * 0.45) * Math.cos (i * 0.11) * p.h * 0.25; d += (i ? " L " : "M ") + x.toFixed (2) + " " + y.toFixed (2); }
-        el ("path", { d, fill: "none", stroke: p.colour, "stroke-width": 0.6, opacity: 0.9 }, g);
-        if (p.text) txt (g, -p.w / 2 + 3, -p.h / 2 + 3.5, p.text, 2.4, p.colour, { anchor: "start", spacing: 0.3 });
+        el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1.2, fill: shade (p.colour, p.backlit ? -0.45 : -0.88) }, g);
+        const fg = p.backlit ? "#0a0b0c" : p.colour, x0 = -p.w / 2 + 3, span = p.w - 6;
+        const kind = p.kind || "wave", body = p.content || "";
+        if (kind === "wave") { let d = ""; for (let i = 0; i <= 60; ++i) { const x = x0 + span * i / 60, y = Math.sin (i * 0.45) * Math.cos (i * 0.11) * p.h * 0.25; d += (i ? " L " : "M ") + x.toFixed (2) + " " + y.toFixed (2); }
+          el ("path", { d, fill: "none", stroke: fg, "stroke-width": 0.6, opacity: 0.9 }, g); }
+        else if (kind === "bars" || kind === "spectrum") { const n = kind === "bars" ? 8 : 24, bw = span / n;
+          for (let i = 0; i < n; ++i) { const hgt = p.h * (kind === "bars" ? 0.25 + 0.4 * Math.abs (Math.sin (i * 1.3 + 0.4)) : 0.55 * Math.exp (-i / 14) * (0.7 + 0.3 * Math.sin (i * 2.1)));
+            el ("rect", { x: x0 + i * bw + bw * 0.15, y: p.h / 2 - 2 - hgt, width: bw * 0.7, height: hgt, fill: fg, opacity: 0.9 }, g); } }
+        else if (kind === "digits") { const t = (body || "88.8").slice (0, 12); txt (g, 0, 1, t, Math.min (p.h * 0.62, span / Math.max (3, t.length) * 1.5), fg, { spacing: 0.8 })
+          .setAttribute ("font-family", FONT_FAMILY.mono); }
+        else if (kind === "text") txt (g, 0, 1.5, body || p.text, Math.min (p.h * 0.32, 5), fg, { spacing: 0.4 });
+        if (p.text && kind !== "text") txt (g, x0, -p.h / 2 + 3.5, p.text, 2.4, fg, { anchor: "start", spacing: 0.3 });
         el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h * 0.4, rx: 1.2, fill: "#fff", opacity: 0.05 }, g);
         break;
       }
       case "label": {
         const anchor = p.align === "left" ? "start" : p.align === "right" ? "end" : "middle";
-        const opts = { bold: p.bold, spacing: p.size * 0.14, anchor, offset: anchor === "start" ? "0%" : anchor === "end" ? "100%" : "50%" };
-        if (p.bend === "circle") { opts.anchor = "middle"; opts.offset = "50%"; pathText (g, circlePath (p.radius, p.start, p.flip), p.text, p.size, ink, opts); }
-        else if (p.bend === "curve") pathText (g, curvePath (p.w, p.curve), p.text, p.size, ink, opts);
-        else txt (g, p.align === "left" ? -p.w / 2 : p.align === "right" ? p.w / 2 : 0, 0, p.text, p.size, ink, opts);
+        const opts = { bold: p.bold, spacing: p.size * 0.14 * (p.spacing ?? 1), anchor, offset: anchor === "start" ? "0%" : anchor === "end" ? "100%" : "50%" };
+        // Printed, engraved (cut in: dark, a light edge under it), embossed (raised: light, a shadow under it), or outlined
+        const layers = p.look === "engraved" ? [[0, 0.25, "#ffffff", 0.25], [0, 0, shade (design.unit.colour, -0.6), 1]]
+                     : p.look === "embossed" ? [[0, 0.3, "#000000", 0.45], [0, 0, shade (design.unit.colour, 0.35), 1]]
+                     : [[0, 0, ink, 1]];
+        for (const [dx, dy, fill, op] of layers) {
+          const gg = el ("g", { transform: `translate(${dx} ${dy})`, opacity: op }, g);
+          let t;
+          if (p.bend === "circle") { const o = Object.assign ({}, opts, { anchor: "middle", offset: "50%" }); t = pathText (gg, circlePath (p.radius, p.start, p.flip), p.text, p.size, fill, o); }
+          else if (p.bend === "curve") t = pathText (gg, curvePath (p.w, p.curve), p.text, p.size, fill, opts);
+          else t = txt (gg, p.align === "left" ? -p.w / 2 : p.align === "right" ? p.w / 2 : 0, 0, p.text, p.size, fill, opts);
+          if (p.italic) t.setAttribute ("font-style", "italic");
+          if (p.look === "outline") { t.setAttribute ("fill", "none"); t.setAttribute ("stroke", ink); t.setAttribute ("stroke-width", Math.max (0.12, p.size * 0.04)); }
+        }
         break;
       }
       case "box": {
-        if (p.fill) el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: p.round, fill: shade (design.unit.colour, 0.1) }, g);
-        el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: p.round, fill: "none", stroke: ink, "stroke-width": 0.35, opacity: 0.85 }, g);
-        if (p.text) { const tw = p.text.length * 2.1 + 3; el ("rect", { x: -tw / 2, y: -p.h / 2 - 1.5, width: tw, height: 3, fill: design.unit.colour }, g); txt (g, 0, -p.h / 2, p.text, 2.5, ink, { spacing: 0.5 }); }
+        const fill = p.tone === "darker" ? shade (design.unit.colour, -0.25) : p.tone === "colour" ? p.fillCol : shade (design.unit.colour, 0.1);
+        if (p.fill) el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: p.round, fill }, g);
+        const lw = p.lineW ?? 0.35, stroke = { fill: "none", stroke: ink, "stroke-width": lw, opacity: 0.85 };
+        if (p.lineStyle !== "none") {
+          el ("rect", Object.assign ({ x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: p.round }, stroke, p.lineStyle === "dashed" ? { "stroke-dasharray": `${lw * 6} ${lw * 4}` } : {}), g);
+          if (p.lineStyle === "double") el ("rect", Object.assign ({ x: -p.w / 2 + lw * 3, y: -p.h / 2 + lw * 3, width: Math.max (0, p.w - lw * 6), height: Math.max (0, p.h - lw * 6), rx: Math.max (0, p.round - lw * 3) }, stroke), g);
+        }
+        if (p.text) { const tw = p.text.length * 2.1 + 3; el ("rect", { x: -tw / 2, y: -p.h / 2 - 1.5, width: tw, height: 3, fill: p.fill ? fill : design.unit.colour }, g); txt (g, 0, -p.h / 2, p.text, 2.5, ink, { spacing: 0.5 }); }
         break;
       }
-      case "line": el ("rect", { x: -p.w / 2, y: -Math.max (0.3, p.h) / 2, width: p.w, height: Math.max (0.3, p.h), fill: ink, opacity: 0.85 }, g); break;
+      case "line": el ("rect", Object.assign ({ x: -p.w / 2, y: -Math.max (0.3, p.h) / 2, width: p.w, height: Math.max (0.3, p.h), fill: ink, opacity: 0.85 },
+                                              p.dashed ? { fill: "none", stroke: ink, "stroke-width": Math.max (0.3, p.h), "stroke-dasharray": "2 1.4", height: 0.01, y: 0 } : {}), g); break;
       case "jack": {
-        if (mode === "print") { if (p.text) txt (g, 0, r + 4, p.text, 2.4, ink, { spacing: 0.4 }); break; }
-        drawJack (g, p.style, r, p.plugged);
+        if (printing) { if (p.text) txt (g, 0, r + 4, p.text, 2.4, ink, { spacing: 0.4 }); break; }
+        drawJack (g, p.style, r, p.plugged, p.cable, p.nut);
         if (p.text) txt (g, 0, r + 4, p.text, 2.4, ink, { spacing: 0.4 });
         break;
       }
-      case "screw": if (mode !== "print") screw (g, 0, 0, design.unit.screws, r); break;
+      case "screw": if (!printing) screw (g, 0, 0, p.style && p.style !== "unit" ? p.style : design.unit.screws, r, p.metal && p.metal !== "unit" ? p.metal : design.unit.screwMetal); break;
       case "vent": {
-        const n = p.count, sw = p.w / n;
-        for (let i = 0; i < n; ++i) el ("rect", { x: -p.w / 2 + i * sw + sw * 0.25, y: -p.h / 2, width: sw * 0.5, height: p.h, rx: sw * 0.25, fill: "#050506" }, g);
+        const n = p.count, sw = p.w / n, dark = "#050506";
+        if (p.shape === "holes" || p.shape === "hex") {   // a grid of round (or hexagonal) holes
+          const cols = n, rows = Math.max (1, Math.round (p.h / sw)), rr = Math.min (sw, p.h / rows) * 0.34;
+          for (let j = 0; j < rows; ++j) for (let i = 0; i < cols; ++i) {
+            const x = -p.w / 2 + (i + 0.5 + (p.shape === "hex" && j % 2 ? 0.5 : 0)) * sw, y = -p.h / 2 + (j + 0.5) * p.h / rows;
+            if (x > p.w / 2) continue;
+            if (p.shape === "hex") { const pts = []; for (let k = 0; k < 6; ++k) { const a = Math.PI / 3 * k + Math.PI / 6; pts.push ((x + Math.cos (a) * rr).toFixed (2) + "," + (y + Math.sin (a) * rr).toFixed (2)); } el ("polygon", { points: pts.join (" "), fill: dark }, g); }
+            else el ("circle", { cx: x, cy: y, r: rr, fill: dark }, g);
+          }
+        } else if (p.shape === "louvre") {   // slanted louvres: a dark gap, a lit lip over it
+          const rows = n, rh = p.h / rows;
+          for (let j = 0; j < rows; ++j) { const y = -p.h / 2 + j * rh; el ("rect", { x: -p.w / 2, y: y + rh * 0.2, width: p.w, height: rh * 0.45, rx: rh * 0.2, fill: dark }, g);
+            el ("rect", { x: -p.w / 2, y: y + rh * 0.62, width: p.w, height: rh * 0.18, rx: rh * 0.09, fill: "#ffffff", opacity: 0.18 }, g); }
+        } else if (p.shape === "grille") {   // a mesh behind a frame
+          el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1, fill: dark }, g);
+          el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1, fill: "url(#perf)", opacity: 0.9 }, g);
+          el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1, fill: "none", stroke: inkOf (p), "stroke-width": 0.35, opacity: 0.6 }, g);
+        } else for (let i = 0; i < n; ++i) el ("rect", { x: -p.w / 2 + i * sw + sw * 0.25, y: -p.h / 2, width: sw * 0.5, height: p.h, rx: sw * 0.25, fill: dark }, g);
+        break;
+      }
+      case "plate": {   // a nameplate screwed to the panel: metal, the text engraved into it
+        const fill = { brass: "url(#brass)", silver: "url(#knobAlu)", gold: "url(#brass)", black: "url(#knobBlack)" }[p.style] || "url(#brass)";
+        el ("rect", Object.assign ({ x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1, fill }, printing ? {} : { filter: "url(#drop)" }), g);
+        el ("rect", { x: -p.w / 2 + 0.8, y: -p.h / 2 + 0.8, width: p.w - 1.6, height: p.h - 1.6, rx: 0.6, fill: "none", stroke: "#000", "stroke-width": 0.25, opacity: 0.4 }, g);
+        const inkP = p.style === "black" ? "#d9d9dc" : "#1d1a14";
+        if (p.text) txt (g, 0, 0.2, p.text, Math.min (p.h * 0.4, 4.5), inkP, { spacing: 0.4 });
+        if (p.screws && !printing) for (const x of [-p.w / 2 + 2.6, p.w / 2 - 2.6]) screw (g, x, 0, "phillips", 1.3, p.style === "black" ? "black" : p.style === "silver" ? "chrome" : "brass");
         break;
       }
     }
@@ -592,8 +826,9 @@
   }
 
   /** A socket, drawn as its type looks from the front; plugged: its plug in it and the cable hanging out. */
-  function drawJack (g, style, r, plugged) {
+  function drawJack (g, style, r, plugged, cable = "#0d0d0f", nut = "chrome") {
     const [, shape, accent = "#1a1a1c"] = JACK_TYPES[style] || JACK_TYPES.trs;
+    const nutFill = { chrome: "url(#knobAlu)", black: "url(#knobBlack)", gold: "url(#brass)" }[nut] || "url(#knobAlu)";
     const ring = (rr, fill) => el ("circle", { r: rr, fill }, g);
     const hole = (rr) => el ("circle", { r: rr, fill: "#0b0b0d" }, g);
     const pin = (x, y, rr, fill = "#c9a64a") => el ("circle", { cx: x, cy: y, r: rr, fill }, g);
@@ -601,27 +836,27 @@
     switch (shape) {
       case "round": case "mini": case "tt": {
         const k = shape === "mini" ? 0.6 : shape === "tt" ? 0.5 : 1;
-        el ("circle", { r: r * k + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
+        el ("circle", { r: r * k + 0.6, fill: nutFill, filter: "url(#drop)" }, g);
         hole (r * k * 0.78);
         el ("circle", { r: r * k * 0.3, fill: "#2a2a2c", stroke: "#c9a64a", "stroke-width": 0.4 }, g);
         if (style === "headphone") el ("path", { d: `M ${-r * 0.45} ${r * 0.1} A ${r * 0.45} ${r * 0.45} 0 0 1 ${r * 0.45} ${r * 0.1}`, fill: "none", stroke: "#c9cacf", "stroke-width": 0.5 }, g);
         break;
       }
       case "xlrf": case "combo":
-        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); hole (r * 0.78);
+        el ("circle", { r: r + 0.6, fill: nutFill, filter: "url(#drop)" }, g); hole (r * 0.78);
         for (const [x, y] of [[-r * 0.3, -r * 0.15], [r * 0.3, -r * 0.15], [0, r * 0.3]]) pin (x, y, r * 0.1);
         rect (-r * 0.12, -r * 0.85, r * 0.24, r * 0.3, "#c9cacf");
         if (shape === "combo") el ("circle", { r: r * 0.24, fill: "#1c1c1e", stroke: "#8f9095", "stroke-width": 0.35 }, g);
         break;
       case "xlrm":
-        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); ring (r * 0.8, "#1c1c1e");
+        el ("circle", { r: r + 0.6, fill: nutFill, filter: "url(#drop)" }, g); ring (r * 0.8, "#1c1c1e");
         for (const [x, y] of [[-r * 0.3, -r * 0.15], [r * 0.3, -r * 0.15], [0, r * 0.3]]) pin (x, y, r * 0.14, "#d8b860");
         break;
       case "rca":
         ring (r * 0.9, accent); ring (r * 0.62, "url(#knobAlu)"); hole (r * 0.36); pin (0, 0, r * 0.1, "#d8b860");
         break;
       case "bnc":
-        el ("circle", { r: r * 0.8, fill: "url(#knobAlu)", filter: "url(#drop)" }, g);
+        el ("circle", { r: r * 0.8, fill: nutFill, filter: "url(#drop)" }, g);
         pin (-r * 0.82, 0, r * 0.12, "#c9cacf"); pin (r * 0.82, 0, r * 0.12, "#c9cacf");
         ring (r * 0.55, "#e8e2d0"); pin (0, 0, r * 0.12, "#d8b860");
         break;
@@ -629,7 +864,7 @@
         rect (-r * 0.8, -r * 0.8, r * 1.6, r * 1.6, "#1a1a1c", r * 0.2); rect (-r * 0.5, -r * 0.5, r * 1.0, r * 1.0, "#4a4a4e", r * 0.15);
         break;
       case "din":
-        el ("circle", { r: r + 0.6, fill: "url(#knobAlu)", filter: "url(#drop)" }, g); hole (r * 0.8);
+        el ("circle", { r: r + 0.6, fill: nutFill, filter: "url(#drop)" }, g); hole (r * 0.8);
         for (let i = 0; i < 5; ++i) { const a = Math.PI + i * Math.PI / 4; pin (Math.cos (a) * r * 0.5, Math.sin (a) * r * 0.5, r * 0.09); }   // five pins round the top half
         rect (-r * 0.1, r * 0.55, r * 0.2, r * 0.25, "#c9cacf");
         break;
@@ -664,7 +899,7 @@
       const round = ["round", "mini", "tt", "xlrf", "xlrm", "combo", "rca", "bnc", "din", "banana", "speakon", "dc"].includes (shape);
       const pr = r * (shape === "mini" || shape === "dc" ? 0.6 : shape === "tt" ? 0.5 : 0.95);
       const cw = Math.max (0.8, pr * 0.55);
-      el ("path", { d: `M 0 0 C 0 ${r * 3} ${r * 1.2} ${r * 4} ${r * 2.2} ${r * 7}`, fill: "none", stroke: "#0d0d0f", "stroke-width": cw, "stroke-linecap": "round", filter: "url(#drop)" }, g);
+      el ("path", { d: `M 0 0 C 0 ${r * 3} ${r * 1.2} ${r * 4} ${r * 2.2} ${r * 7}`, fill: "none", stroke: cable || "#0d0d0f", "stroke-width": cw, "stroke-linecap": "round", filter: "url(#drop)" }, g);
       if (round) {
         el ("circle", { r: pr, fill: shape === "xlrf" || shape === "combo" || shape === "speakon" ? "url(#knobAlu)" : "#1b1b1e", filter: "url(#drop)" }, g);
         el ("circle", { r: pr * 0.72, fill: "#111113" }, g);
@@ -777,10 +1012,23 @@
     else if (kind === "button") drawPart (g, sanitize ({ parts: [{ type: "button", x: 0, y: 0, style: value, on: true, text: "", w: 12, h: 9, colour: "#e0a84a" }] }).parts[0]);
     else if (kind === "vu") { const q = sanitize ({ parts: [{ type: "vu", x: 0, y: 0, w: 26, h: 16, style: value, value: 55, text: "" }] }).parts[0]; drawPart (g, q); }
     else if (kind === "jack") drawJack (g, value, 7, false);
-    else if (kind === "screws") screw (g, 0, 0, value, 8);
+    else if (kind === "screws") screw (g, 0, 0, value === "unit" ? design.unit.screws : value, 8);
+    else if (kind.startsWith ("part:")) {   // a small sample of a part with this one setting (the newer choices)
+      const [, type, field] = kind.split (":"), size = THUMB_PARTS[type] || {};
+      const q = sanitize ({ knobs: design.knobs, parts: [Object.assign ({ type, x: 0, y: 0 }, size, { [field]: value })] }).parts[0];
+      if (q) { q.x = 0; q.y = 0; drawPart (g, q); }
+    }
     else if (kind === "nums") drawPart (g, sanitize ({ parts: [{ type: "knob", x: 0, y: 0, w: 10, h: 10, style: "ribbed", value: 50, text: "", scale: true, nums: value, steps: 10, min: 0, max: 10 }] }).parts[0]);
     else if (kind === "bend") drawPart (g, sanitize ({ parts: [{ type: "label", x: 0, y: value === "circle" ? 0 : 3, w: 24, text: value === "circle" ? "ROUND AND ROUND ·" : "TEXT",
       size: value === "circle" ? 3 : 5, bend: value, curve: 70, radius: 9, start: 0 }] }).parts[0]);
+    else if (kind === "trim" || kind === "twoTone") {
+      const u = design.unit;
+      el ("rect", { x: -13, y: -10, width: 26, height: 20, rx: 2, fill: u.colour }, g);
+      if (kind === "twoTone" && value !== "none") { const b = { left: [-13, -10, 9, 20], right: [4, -10, 9, 20], top: [-13, -10, 26, 7], bottom: [-13, 3, 26, 7], band: [-13, -3.5, 26, 7] }[value];
+        el ("rect", { x: b[0], y: b[1], width: b[2], height: b[3], fill: u.toneColour }, g); }
+      if (kind === "trim" && value !== "none") { el ("rect", { x: -10.5, y: -7.5, width: 21, height: 15, rx: 1, fill: "none", stroke: value === "inset" ? "#000" : u.accent, "stroke-width": 0.8, opacity: value === "inset" ? 0.5 : 1 }, g);
+        if (value === "double") el ("rect", { x: -8.5, y: -5.5, width: 17, height: 11, rx: 0.8, fill: "none", stroke: u.accent, "stroke-width": 0.5 }, g); }
+    }
     else if (kind === "finish" || kind === "edge" || kind === "ears" || kind === "handles" || kind === "earColour" || kind === "font") {
       const u = design.unit, fin = kind === "finish" ? value : u.finish;
       const rx = kind === "edge" ? (value === "square" ? 0.3 : value === "bevel" ? 2 : 5) : 3;
@@ -796,6 +1044,14 @@
     }
     return t;
   }
+
+  /** The samples the newer choices are shown on (sizes that fit a dropdown's little picture). */
+  const THUMB_PARTS = {
+    knob: { w: 11, h: 11, text: "", scale: true, nums: "none", value: 70 }, led: { w: 9, h: 9, on: true }, ladder: { w: 5, h: 22, value: 70, segments: 8 },
+    display: { w: 26, h: 18, text: "", colour: "#56c8f5", content: "12.4" }, label: { w: 24, h: 8, text: "Ab", size: 9 },
+    vent: { w: 24, h: 18, count: 5 }, slider: { w: 8, h: 24, value: 60, text: "", scale: false }, lamp: { w: 12, h: 12, text: "" },
+    plate: { w: 26, h: 12, text: "ENH" }, toggle: { text: "" }, box: { w: 24, h: 18, text: "", fill: true }, vu: { w: 26, h: 16, text: "", value: 55 },
+  };
 
   /** A dropdown of pictures: a button showing the choice, a list of every choice with its picture. */
   function picker (kind, choices, names, current, onChange, label) {
@@ -953,8 +1209,14 @@
     const p = byId (Number (g.getAttribute ("data-id"))); if (!p) return;
     e.preventDefault(); try { svg.setPointerCapture (e.pointerId); } catch (_) { /* a synthetic pointer: no capture needed */ }
     if (play) {
-      if (p.type === "toggle" || p.type === "button" || p.type === "led") { p.on = !p.on; render(); save(); return; }
-      if ("value" in p) drag = { mode: "turn", p, y0: e.clientY, v0: p.value };
+      if (p.type === "toggle" && p.three) {   // on -> middle -> off -> on
+        if (p.mid) { p.mid = false; p.on = false; } else if (p.on) p.mid = true; else p.on = true;
+        render(); save(); return;
+      }
+      if (p.type === "button" && p.momentary) { p.on = true; drag = { mode: "hold", p }; render(); return; }
+      if (p.type === "toggle" || p.type === "button" || p.type === "led" || p.type === "lamp") { p.on = !p.on; render(); save(); return; }
+      if (p.type === "selector") { p.value = (Math.round (p.value) + 1) % stopList (p.stops).length; render(); save(); return; }
+      if ("value" in p) drag = { mode: "turn", p, y0: e.clientY, x0: e.clientX, v0: p.value };
       return;
     }
     // a part in a group picks the whole group (Alt: just that part)
@@ -966,7 +1228,13 @@
   });
   svg.addEventListener ("pointermove", (e) => {
     if (!drag) return;
-    if (drag.mode === "turn") { drag.p.value = clamp (drag.v0 + (drag.y0 - e.clientY) * 0.6, 0, 100, 0); render(); return; }
+    if (drag.mode === "hold") return;
+    if (drag.mode === "turn") {
+      const q = drag.p, along = q.type === "slider" && q.horizontal ? e.clientX - drag.x0 : drag.y0 - e.clientY;
+      let v = clamp (drag.v0 + along * (q.type === "slider" ? 100 / Math.max (10, (q.horizontal ? q.w : q.h) * 2 * zoom) : 0.6), 0, 100, 0);
+      if (q.detent && q.steps) v = Math.round (v / 100 * q.steps) * 100 / q.steps;   // clicks in steps
+      q.value = v; render(); return;
+    }
     if (drag.mode === "box") {
       drag.cur = svgPoint (e); const r = boxRect (drag.start, drag.cur);
       const hit = design.parts.filter ((p) => { const b = bounds (p); return b.x < r.x + r.w && b.x + b.w > r.x && b.y < r.y + r.h && b.y + b.h > r.y; }).map ((p) => p.id);
@@ -979,6 +1247,7 @@
     render();
   });
   const endDrag = () => { if (!drag) return; const d = drag; drag = null;
+    if (d.mode === "hold") { d.p.on = false; render(); return; }
     if (d.mode === "box") { render(); props(); } else if (d.mode === "turn" || d.moved) commit(); };
   svg.addEventListener ("pointerup", endDrag); svg.addEventListener ("pointercancel", endDrag);
   svg.addEventListener ("wheel", (e) => {
@@ -1004,7 +1273,9 @@
 
   function undo () { if (!history.length) return; future.push (JSON.stringify (design)); design = JSON.parse (history.pop()); last = JSON.stringify (design); selected = []; save(); render(); props(); syncUnit(); }
   function redo () { if (!future.length) return; history.push (JSON.stringify (design)); design = JSON.parse (future.pop()); last = JSON.stringify (design); selected = []; save(); render(); props(); syncUnit(); }
-  function setPlay (on) { play = on; const b = document.getElementById ("play"); b.setAttribute ("aria-pressed", String (on)); b.textContent = on ? "Edit" : "Play"; document.body.classList.toggle ("playing", on); render(); }
+  let blinkTimer = 0;
+  function setPlay (on) { play = on;
+    clearInterval (blinkTimer); if (on) blinkTimer = setInterval (() => { if (design.parts.some ((q) => q.blink && q.on)) render(); }, 250); const b = document.getElementById ("play"); b.setAttribute ("aria-pressed", String (on)); b.textContent = on ? "Edit" : "Play"; document.body.classList.toggle ("playing", on); render(); }
 
   // ---------------------------------------------------------------------------------------------------
   // Panels
@@ -1015,6 +1286,10 @@
     $("u-name").value = u.name; $("u-model").value = u.model; $("u-height").value = String (u.height);
     $("u-colour").value = u.colour; $("u-ink").value = u.ink; $("u-wear").value = String (u.wear); $("u-grid").checked = snap;
     $("u-sub").value = u.sub; $("u-badge").value = u.badge; $("u-shine").value = String (u.shine); $("u-desc").value = u.desc;
+    $("u-accent").value = u.accent; $("u-toneColour").value = u.toneColour; $("u-toneSize").value = String (u.toneSize);
+    $("u-titlePos").value = u.titlePos; $("u-titleSize").value = String (u.titleSize); $("u-glow").checked = u.glow; $("u-serial").value = u.serial;
+    $("u-screwMetal").value = u.screwMetal; $("u-chassis").value = u.chassis; $("u-depth").value = String (u.depth);
+    $("tone-row").hidden = u.twoTone === "none";
     showAbout();
     showKnobMaker();
     for (const k in unitPickers) unitPickers[k].setValue (u[k]);
@@ -1036,7 +1311,7 @@
         design.unit[key] = pick (v, list, design.unit[key]);
         // a metal, a wood, a plastic comes in its own colour (change it after if you like)
         if (key === "finish" && FINISH[v][1]) { design.unit.colour = FINISH[v][1]; $("u-colour").value = design.unit.colour; }
-        commit(); refreshPickers(); if (key === "finish") rebuildUnitPickers(); }, key);
+        commit(); refreshPickers(); if (key === "finish") rebuildUnitPickers(); if (key === "twoTone") $("tone-row").hidden = design.unit.twoTone === "none"; }, key);
       $("u-" + key).replaceChildren (w); unitPickers[key] = w;
     };
     unitPick ("finish", FINISHES, FINISH_NAMES);
@@ -1046,12 +1321,27 @@
     unitPick ("earColour", EARCOLS, { match: "As the panel", black: "Black", silver: "Silver" });
     unitPick ("handles", HANDLES, { none: "None", bar: "Bar handles", loop: "Loop handles" });
     unitPick ("screws", SCREWS, { phillips: "Phillips", hex: "Hex", thumb: "Thumb screws" });
+    unitPick ("trim", TRIMS, { none: "None", pinstripe: "Pinstripe (accent)", double: "Double pinstripe", inset: "Pressed-in line" });
+    unitPick ("twoTone", TWO_TONES, { none: "One colour", left: "Left side", right: "Right side", top: "Top", bottom: "Bottom", band: "A band across" });
     rebuildUnitPickers = () => { unitPick ("finish", FINISHES, FINISH_NAMES);
       unitPick ("edge", EDGES, { square: "Square", rounded: "Rounded", bevel: "Bevelled" }); unitPick ("earColour", EARCOLS, { match: "As the panel", black: "Black", silver: "Silver" }); };
     on ("u-colour", (e) => (design.unit.colour = colour (e.value, design.unit.colour))); done ("u-colour");
     $("u-colour").addEventListener ("change", rebuildUnitPickers);
+    for (const id of ["u-accent", "u-toneColour"]) $(id).addEventListener ("change", () => { unitPick ("trim", TRIMS, { none: "None", pinstripe: "Pinstripe (accent)", double: "Double pinstripe", inset: "Pressed-in line" });
+      unitPick ("twoTone", TWO_TONES, { none: "One colour", left: "Left side", right: "Right side", top: "Top", bottom: "Bottom", band: "A band across" }); });
     on ("u-ink", (e) => (design.unit.ink = colour (e.value, design.unit.ink))); done ("u-ink");
     on ("u-wear", (e) => (design.unit.wear = Number (e.value))); done ("u-wear");
+    // Paint and trim, lettering, hardware (every value checked as the sanitizer would)
+    on ("u-accent", (e) => (design.unit.accent = colour (e.value, design.unit.accent))); done ("u-accent");
+    on ("u-toneColour", (e) => (design.unit.toneColour = colour (e.value, design.unit.toneColour))); done ("u-toneColour");
+    on ("u-toneSize", (e) => (design.unit.toneSize = Math.round (clamp (e.value, 10, 90, 30)))); done ("u-toneSize");
+    on ("u-titlePos", (e) => (design.unit.titlePos = pick (e.value, TITLE_POS, "topleft")), "change"); done ("u-titlePos");
+    on ("u-titleSize", (e) => (design.unit.titleSize = clamp (e.value, 3, 9, 4.4))); done ("u-titleSize");
+    on ("u-glow", (e) => (design.unit.glow = e.checked), "change"); done ("u-glow");
+    on ("u-serial", (e) => (design.unit.serial = text (e.value, 16, ""))); done ("u-serial");
+    on ("u-screwMetal", (e) => (design.unit.screwMetal = pick (e.value, SCREW_METALS, "chrome")), "change"); done ("u-screwMetal");
+    on ("u-chassis", (e) => (design.unit.chassis = colour (e.value, design.unit.chassis))); done ("u-chassis");
+    on ("u-depth", (e) => (design.unit.depth = Math.round (clamp (e.value, 60, 400, 180)))); done ("u-depth");
     $("u-grid").addEventListener ("change", (e) => (snap = e.target.checked));
   }
 
@@ -1086,7 +1376,7 @@
     body.appendChild (h);
     const mixed = (i, key) => { if (!same (key)) { i.value = ""; i.placeholder = "mixed"; } };
     const num = (key, label, lo, hi, step = 0.5, after) => { const i = document.createElement ("input"); i.type = "number"; i.min = lo; i.max = hi; i.step = step; i.value = Math.round (p[key] * 10) / 10; mixed (i, key);
-      i.addEventListener ("input", () => { if (i.value === "") return; const v = clamp (i.value, lo, hi, p[key]); for (const q of ps) { q[key] = v; if (q.type === "knob" && key === "w") q.h = v; } if (after) after(); render(); save(); });
+      i.addEventListener ("input", () => { if (i.value === "") return; const v = clamp (i.value, lo, hi, p[key]); for (const q of ps) { q[key] = v; if (["knob", "selector", "led", "lamp", "screw"].includes (q.type) && key === "w") q.h = v; } if (after) after(); render(); save(); });
       i.addEventListener ("change", commit); field (body, label, i); };
     const str = (key, label, max) => { const i = document.createElement ("input"); i.maxLength = max; i.value = p[key]; i.autocomplete = "off"; mixed (i, key);
       i.addEventListener ("input", () => { setAll (key, text (i.value, max, "")); render(); save(); }); i.addEventListener ("change", commit); field (body, label, i); };
@@ -1115,8 +1405,8 @@
     } else { num ("x", "Across (mm)", 0, W); num ("y", "Down (mm)", 0, design.unit.height * U); }
 
     if (sameType) {
-      if (p.type === "knob") num ("w", "Size (mm)", 8, 60);
-      else if (!["led", "screw"].includes (p.type)) { if (!(p.type === "label" && p.bend === "circle")) num ("w", "Width (mm)", 1, W); if (p.type !== "label") num ("h", "Height (mm)", 0.5, 4 * U); }
+      if (p.type === "knob" || p.type === "selector") num ("w", "Size (mm)", 8, 60);
+      else if (!["led", "screw", "lamp"].includes (p.type)) { if (!(p.type === "label" && p.bend === "circle")) num ("w", "Width (mm)", 1, W); if (p.type !== "label") num ("h", "Height (mm)", 0.5, 4 * U); }
       else num ("w", "Size (mm)", 2, 14);
     }
     if (ps.every ((q) => ["label", "box", "line", "display", "vent", "jack"].includes (q.type))) num ("rot", "Rotation (°)", -180, 180, 1);
@@ -1154,13 +1444,56 @@
       const l = ps.find ((q) => q.type === "label"), q = ps.find ((x) => x.type !== "label");
       if (l && q) btns ([["Wrap the text round the " + TYPES[q.type].label.toLowerCase(), () => wrapAround (l, q), "primary"]]);
     }
+    // The newer settings, each for the parts that have it
+    const ask = (key, label, list, names) => { if (has (key)) pick2 (key, label, "part:" + p.type + ":" + key, list, names); };
+    if (sameType && p.type === "knob") {
+      if (ps.some ((q) => q.scale)) ask ("marks", "Scale marks", MARKS, { ticks: "Ticks", dots: "Dots", arc: "An arc" });
+      chk ("bipolar", "Centre-zero (bipolar)");
+      chk ("ring", "LED ring round it"); if (ps.some ((q) => q.ring)) col ("ringColour", "Ring colour");
+      str ("suffix", "Unit after the numbers (dB, Hz…)", 6);
+      choice ("labelPos", "Label", LABEL_POS, { below: "Under it", above: "Over it", none: "No label" }); num ("labelSize", "Label size", 1.5, 6, 0.1);
+      chk ("detent", "Clicks in steps (Play)");
+    }
+    if (sameType && p.type === "selector") {
+      pick2 ("style", "Knob", "knob", KNOBS.concat ((design.knobs || []).map ((_, i) => "c" + i)), Object.assign ({}, KNOB_NAMES, Object.fromEntries ((design.knobs || []).map ((k, i) => ["c" + i, "Yours: " + k.n]))));
+      pick2 ("pointer", "Pointer", "pointer", POINTERS, { auto: "As the knob comes" });
+      str ("stops", "Positions (names, | between; 2 - 12)", 130);
+      if (!many) num ("value", "Set to position", 0, stopList (p.stops).length - 1, 1);
+      num ("sweep", "Turns through (°)", 180, 330, 5);
+    }
+    if (sameType && p.type === "slider") {
+      ask ("style", "Cap", FADERS, { black: "Black", silver: "Silver", white: "White", red: "Red" });
+      chk ("horizontal", "Horizontal"); chk ("scale", "Printed scale"); if (ps.some ((q) => q.scale)) num ("steps", "Steps", 2, 20, 1);
+    }
+    if (sameType && p.type === "toggle") {
+      chk ("three", "Three positions (on - off - on)"); if (ps.some ((q) => q.three)) chk ("mid", "Set in the middle");
+      str ("upText", "Word over it", 8); str ("downText", "Word under it", 8);
+    }
+    if (sameType && p.type === "button") { chk ("led", "LED over it"); chk ("momentary", "Momentary (lit only while held, in Play)"); str ("capText", "Text on the cap", 6); }
+    if (sameType && p.type === "led") { ask ("shape", "Shape", LED_SHAPES); choice ("bezel", "Bezel", BEZELS, { chrome: "Chrome", black: "Black", none: "None" }); chk ("blink", "Blinks (Play)"); }
+    if (sameType && p.type === "lamp") ask ("style", "Lens", LAMPS, { jewel: "Jewel (faceted)", dome: "Dome", square: "Square" });
+    if (sameType && p.type === "vu") { choice ("dial", "Dial", DIALS, { vu: "VU (-20 .. +3)", ppm: "PPM (1 .. 7)", percent: "Percent", gr: "Gain reduction" }); chk ("light", "Lamp behind the dial"); chk ("peak", "Peak LED"); }
+    if (sameType && p.type === "ladder") { chk ("horizontal", "Horizontal"); ask ("palette", "Colours", PALETTES, { classic: "Green, yellow, red" }); chk ("peak", "Peak hold"); }
+    if (sameType && p.type === "display") { ask ("kind", "Shows", DISPLAYS, { wave: "A waveform", bars: "Bars", spectrum: "A spectrum", digits: "Digits (7-segment)", text: "Text", blank: "Nothing" });
+      str ("content", "Digits / text on it", 24); chk ("backlit", "Backlit (lit glass, dark print)"); }
+    if (sameType && p.type === "label") { chk ("italic", "Italic"); num ("spacing", "Letter spacing (x)", 0, 3, 0.1); ask ("look", "Look", LOOKS, { print: "Printed", engraved: "Engraved", embossed: "Embossed", outline: "Outline" }); }
+    if (sameType && p.type === "box") { choice ("lineStyle", "Border", LINES, { solid: "Solid", dashed: "Dashed", double: "Double", none: "None" }); num ("lineW", "Border width", 0.1, 2, 0.05);
+      if (ps.some ((q) => q.fill)) { choice ("tone", "Fill", TONES, { lighter: "Lighter than the panel", darker: "Darker than the panel", colour: "A colour" }); if (ps.some ((q) => q.tone === "colour")) col ("fillCol", "Fill colour"); } }
+    if (sameType && p.type === "line") chk ("dashed", "Dashed");
+    if (sameType && p.type === "jack") { choice ("nut", "Nut", NUTS, { chrome: "Chrome", black: "Black", gold: "Gold" }); if (ps.some ((q) => q.plugged)) col ("cable", "Cable colour"); }
+    if (sameType && p.type === "screw") { pick2 ("style", "Head", "screws", SCREW_STYLES, { unit: "As the rack screws", phillips: "Phillips", hex: "Hex", thumb: "Thumb", torx: "Torx", flat: "Flat" });
+      choice ("metal", "Metal", METALS, { unit: "As the rack screws", chrome: "Chrome", black: "Black", brass: "Brass" }); }
+    if (sameType && p.type === "vent") ask ("shape", "Kind", VENTS, { slots: "Slots", holes: "Round holes", hex: "Hex grid", louvre: "Louvres", grille: "Grille" });
+    if (sameType && p.type === "plate") { ask ("style", "Metal", PLATES); chk ("screws", "Screwed on"); }
+    if (has ("ink")) choice ("ink", "Print colour", INKS, { print: "The panel's print", accent: "The accent colour", white: "White", black: "Black", red: "Red", gold: "Gold" });
+
     if (has ("align")) choice ("align", "Align", ALIGNS);
     if (has ("fill")) chk ("fill", "Filled");
-    if (has ("value")) num ("value", sameType && p.type === "vu" ? "Needle" : sameType && p.type === "ladder" ? "Lit (%)" : "Position (%)", 0, 100, 1);
+    if (has ("value") && !ps.some ((q) => q.type === "selector")) num ("value", sameType && p.type === "vu" ? "Needle" : sameType && p.type === "ladder" ? "Lit (%)" : "Position (%)", 0, 100, 1);
     if (has ("on")) chk ("on", sameType && p.type === "toggle" ? "On" : "Lit");
     if (has ("colour")) col ("colour", "Colour");
     if (has ("segments")) num ("segments", "Segments", 3, 24, 1);
-    if (has ("count")) num ("count", "Slots", 2, 30, 1);
+    if (has ("count")) num ("count", ps.every ((q) => !q.shape || q.shape === "slots") ? "Slots" : "How many across", 2, 30, 1);
     if (has ("size") && sameType && p.type === "label") num ("size", "Text size", 2, 20, 0.5, () => { for (const q of ps) if (q.bend === "circle") q.radius = Math.max (2, q.radius); });
     if (has ("bold")) chk ("bold", "Bold");
     if (has ("round")) num ("round", "Corner", 0, 12, 0.5);
@@ -1283,6 +1616,22 @@
       { type: "ladder", x: 440, y: 100, w: 5, h: 30, segments: 12, value: 60 },
       { type: "button", x: 370, y: 100, w: 12, h: 12, style: "round", on: true, colour: "#b77dff", text: "GATE" } ]),
   };
+
+  // A preset that shows the newer parts and settings off
+  templates["Studio showcase"] = () => T ({ name: "SHOWCASE", model: "EM-S2", height: 3, colour: "#1b2230", ink: "#e9edf4", finish: "satin", accent: "#ffb020",
+    trim: "pinstripe", twoTone: "left", toneColour: "#0f141d", toneSize: 22, glow: true, serial: "0427", screwMetal: "brass", titlePos: "topleft", titleSize: 5 }, [
+    { type: "lamp", x: 45, y: 105, w: 10, h: 10, style: "jewel", colour: "#ff3b1f", on: true, text: "POWER" },
+    { type: "toggle", x: 45, y: 72, style: "paddle", on: true, three: true, mid: false, text: "MODE", upText: "HI", downText: "LO" },
+    { type: "knob", x: 150, y: 58, w: 30, h: 30, style: "knurled", value: 62, text: "DRIVE", scale: true, min: -12, max: 12, bipolar: true, ring: true, ringColour: "#ffb020", suffix: "dB", marks: "dots" },
+    { type: "selector", x: 230, y: 58, w: 22, h: 22, style: "chicken", value: 2, text: "SHAPE", stops: "SOFT|WARM|FAT|HOT|CRUSH" },
+    { type: "slider", x: 300, y: 70, w: 12, h: 62, style: "silver", value: 65, text: "MIX", scale: true, ink: "accent" },
+    { type: "vu", x: 390, y: 52, w: 70, h: 40, style: "green", value: 58, text: "OUTPUT", dial: "ppm", light: true, peak: true },
+    { type: "ladder", x: 390, y: 104, w: 70, h: 5, segments: 16, value: 70, horizontal: true, palette: "blue", peak: true },
+    { type: "button", x: 150, y: 112, w: 14, h: 8, style: "pill", colour: "#ffb020", on: true, text: "BOOST", led: true, capText: "ON" },
+    { type: "display", x: 230, y: 112, w: 50, h: 16, colour: "#ffb020", kind: "digits", content: "-3.5", text: "" },
+    { type: "plate", x: 300, y: 12, w: 64, h: 12, style: "brass", text: "HAND BUILT", screws: true },
+    { type: "vent", x: 440, y: 20, w: 30, h: 12, count: 8, shape: "hex" },
+    { type: "box", x: 190, y: 62, w: 150, h: 70, text: "CHANNEL", round: 3, lineStyle: "double", ink: "accent" } ]);
 
   // The gradients and filters every picture on the page shares: first in the page, never hidden (see render)
   defs (document.getElementById ("d-defs"));
@@ -1475,6 +1824,7 @@
     b.addEventListener ("click", () => replaceDesign (sanitize (templates[name]()))); $("templates").appendChild (b); }
 
   // ?selftest: hostile share codes through the decoder, and a round trip (results printed on the page)
+  const strip0 = (x) => JSON.stringify (x.parts.map ((p) => Object.assign ({}, p, { id: 0 })).map ((p) => Object.fromEntries (Object.entries (p).map (([a, b]) => [a, typeof b === "number" ? Math.round (b * 10) / 10 : b]))));
   async function selftest () {
     const out = []; const ok = (c, m) => out.push ((c ? "PASS " : "FAIL ") + m);
     const mk = async (obj) => "ENH1." + b64u (await streamBytes (new TextEncoder().encode (JSON.stringify (obj)), new CompressionStream ("deflate-raw")));
@@ -1483,7 +1833,7 @@
       { t: "label", l: "javascript:alert(1)", z: 999 }, ...Array.from ({ length: 400 }, () => ({ t: "led" })) ], __proto__: { polluted: true } });
     const d = await decode (evil);
     ok (!/[<>]/.test (d.unit.name) && d.unit.name.length <= 40, "markup is stripped from names: " + JSON.stringify (d.unit.name));
-    ok (d.unit.height === 4 && d.unit.finish === "anodised" && d.unit.colour === "#16171a" && d.unit.ink === "#ffffff" && d.unit.ears === "slots", "unknown or out-of-range unit fields fall back or clamp");
+    ok (d.unit.height === 6 && d.unit.finish === "anodised" && d.unit.colour === "#16171a" && d.unit.ink === "#ffffff" && d.unit.ears === "slots", "unknown or out-of-range unit fields fall back or clamp");
     ok (!("extra" in d.unit), "fields that are not design data are dropped");
     ok (!d.parts.some ((p) => p.type === "script"), "unknown part types are dropped");
     ok (d.parts.length === MAX_PARTS, "at most " + MAX_PARTS + " parts (" + d.parts.length + ")");
@@ -1509,6 +1859,27 @@
     const [ol, ok2] = odd.parts;
     ok (ol.bend === "none" && ol.radius === 240 && ol.curve === -100 && !("grp" in ol) && ol.flip === false, "text-bending fields are checked and clamped");
     ok (ok2.steps === 20 && ok2.nums === "ends" && ok2.sweep === 180 && ok2.lean === false, "scale fields are checked and clamped");
+    // The newer settings and parts: each field checked, clamped or picked from its list; round trip intact
+    const en = await decode (await mk ({ v: 2, u: { accent: "red", trim: "<x>", twoTone: "band", toneSize: 900, titlePos: "js:", titleSize: -3, glow: "yes",
+      serial: "<b>" + "9".repeat (40), screwMetal: "gold", chassis: "#ABCDEF", depth: 1e9 },
+      p: [{ t: "knob", mk: "evil", bp: 1, rg: true, rc: "url(#x)", sx: "<i>dBdBdB", lp: "side", lz: 99, ik: "neon", dt: true },
+          { t: "selector", so: "A|<b>|" + Array.from ({ length: 30 }, (_, i) => "P" + i).join ("|"), v: 999, s: "c7" },
+          { t: "slider", s: "gold", hz: true, st: 999 }, { t: "lamp", s: "disco", k: "#00ff00" }, { t: "plate", s: "wood", sc: "no" },
+          { t: "led", sh: "star", bz: "diamond", bk: 1 }, { t: "vent", sh: "hex" }, { t: "vent", sh: "round" }, { t: "display", kd: "<svg>", co: "<script>12" },
+          { t: "box", ls: "wavy", lw: 50, tn: "x", fc: "#123" }, { t: "screw", s: "<x>", me: "gold" }, { t: "label", lk: "fire", sp: 99, it: "y" }] }));
+    const eu = en.unit, [nk, ns, nf, nl, np, nd, nv1, nv2, ndis, nb, nsc, nlab] = en.parts;
+    ok (eu.accent === "#ff8a2a" && eu.trim === "none" && eu.twoTone === "band" && eu.toneSize === 90 && eu.titlePos === "topleft" && eu.titleSize === 3 && eu.glow === false
+        && !/[<>]/.test (eu.serial) && eu.serial.length <= 16 && eu.screwMetal === "chrome" && eu.chassis === "#abcdef" && eu.depth === 400, "the new panel settings are checked and clamped");
+    ok (nk.marks === "ticks" && nk.bipolar === false && nk.ring === true && nk.ringColour === "#ff8a2a" && nk.suffix.length <= 6 && !/[<>]/.test (nk.suffix)
+        && nk.labelPos === "below" && nk.labelSize === 6 && nk.ink === "print" && nk.detent === true, "the new knob settings are checked and clamped");
+    ok (ns.stops.split ("|").length === 12 && !/[<>]/.test (ns.stops) && ns.value === 11 && ns.style === "chicken", "a rotary switch: 2 - 12 plain positions, its setting one of them, its knob one that exists");
+    ok (nf.style === "black" && nf.horizontal === true && nf.steps === 20 && nl.style === "jewel" && nl.colour === "#00ff00" && np.style === "brass" && np.screws === true,
+        "sliders, pilot lamps and nameplates: known styles only");
+    ok (nd.shape === "round" && nd.bezel === "chrome" && nd.blink === false && nv1.shape === "hex" && nv2.shape === "slots", "LED and vent shapes come from their own lists");
+    ok (ndis.kind === "wave" && !/[<>]/.test (ndis.content) && nb.lineStyle === "solid" && nb.lineW === 2 && nb.tone === "lighter" && nb.fillCol === "#2a2b30"
+        && nsc.style === "unit" && nsc.metal === "unit" && nlab.look === "print" && nlab.spacing === 3 && nlab.italic === false, "displays, boxes, screws and text: every new field checked");
+    const showcase = sanitize (templates["Studio showcase"]()), backS = await decode (await encode (showcase));
+    ok (JSON.stringify (backS.unit) === JSON.stringify (showcase.unit) && strip0 (backS) === strip0 (showcase), "the new parts and settings survive the round trip");
     const before = design.parts.length; selected = design.parts.slice (0, 2).map ((q) => q.id);
     const c = copyParts(); ok (c.startsWith (CLIP) && !/unit|name/.test (c), "copied parts carry only the parts");
     pasteParts (c); ok (design.parts.length === before + selected.length, "copied parts paste back");
