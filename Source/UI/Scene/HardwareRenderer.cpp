@@ -2111,11 +2111,26 @@ namespace pad
                     y = km.height - r;   // its top at the knob's top
                 }
                 else if (c.kind == ControlKind::toggle)
+                {
+                    // Its body, and its lever (a bat's stands tall): a second sphere at the lever's height, so
+                    // it casts the long soft shadow a real one does
+                    static const auto heights = []
+                    {
+                        std::array<float, hwk::models::numSwitchStyles> t {};
+                        for (int k = 0; k < hwk::models::numSwitchStyles; ++k)
+                            t[(size_t) k] = hwk::models::toggleSwitch ((SwitchStyle) k, 0).height;
+                        return t;
+                    }();
+                    const float th = heights[(size_t) c.switchStyle];
                     r = switchOutline (c.switchStyle).halfW + 0.01f;
+                    const float lr = std::max (0.30f * th, 0.6f * r);
+                    if (th > 2.0f * lr)
+                        spheres.push_back ({ c.x, th - lr, c.z, lr });
+                }
                 else
                 {
-                    r = buttonHalfW + 0.01f;
-                    y = -0.25f * r;
+                    r = buttonHalfW + 0.02f;
+                    y = 0.15f * r;   // (a button stands proud of the panel: sunk, it cast next to no shadow)
                 }
                 spheres.push_back ({ c.x, y, c.z, r });
             }

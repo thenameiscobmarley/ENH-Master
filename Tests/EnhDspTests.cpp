@@ -1141,6 +1141,24 @@ namespace
         const float pumpAuto = seraphPumpingDb (sr, withAuto);
         std::printf ("  ... with AUTO, HEAVEN 10: %+.2f dB\n", pumpAuto);
         check (std::abs (pumpAuto) < 0.75f, "AUTO at full: the tone does not pump with the bass");
+
+        // HEAVEN with AUTO: more is more (it used to move the knobs toward AUTO's choice, which is usually
+        // less than a preset's own - so turning it up made the heaven weaker)
+        auto depthAt = [&] (float amount)
+        {
+            enh::dsp::Seraph unit; unit.prepare (sr);
+            auto s2 = st; s2.heaven.autoHeaven = true; s2.heaven.autoAmount = amount;
+            std::vector<float> l ((size_t) (sr * 2.0)), r;
+            for (size_t i = 0; i < l.size(); ++i) l[i] = dbfs (-20.0f) * (float) std::sin (twoPi * 220.0 * (double) i / sr);
+            r = l;
+            for (int pos = 0; pos + 256 <= (int) l.size(); pos += 256) { float* ch[2] { l.data() + pos, r.data() + pos }; unit.process (ch, 2, 256, s2); }
+            const auto& c = unit.getAutoChoice();
+            return std::array<float, 3> { c.space, c.shimmer, c.air };
+        };
+        const auto lo = depthAt (0.2f), mid = depthAt (0.5f), hi = depthAt (1.0f);
+        std::printf ("  AUTO space / shimmer / air at HEAVEN 2: %.2f %.2f %.1f, 5: %.2f %.2f %.1f, 10: %.2f %.2f %.1f\n",
+                     lo[0], lo[1], lo[2], mid[0], mid[1], mid[2], hi[0], hi[1], hi[2]);
+        check (lo[0] < mid[0] && mid[0] < hi[0] && lo[1] < hi[1] && lo[2] < hi[2], "HEAVEN: more is a deeper heaven (not backwards)");
     }
 }
 

@@ -10,10 +10,11 @@
 <title>Rack Unit Designer</title>
 <meta name="description" content="Design your own rack unit in the ENH Master style - faceplate, finish, knobs, meters, switches, print - and share it with a code. Nothing is stored anywhere.">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#050608">
-<link rel="stylesheet" href="site.css?v=ff697ec39b">
-<link rel="stylesheet" href="designer.css?v=bf0e5592e0">
-<script src="designer.js?v=4c0ef122d2" defer></script>
+<meta name="theme-color" content="#0a0908">
+<link rel="stylesheet" href="site.css?v=18c3a80216">
+<link rel="stylesheet" href="designer.css?v=e0e6f574d3">
+<script src="designer.js?v=007d480209" defer></script>
+<script src="designer-audio.js?v=64896bbfe8" defer></script>
 <script type="module" src="designer3d.js?v=f87e186a79"></script>
 </head>
 <body class="designer">
@@ -33,6 +34,8 @@
       <button type="button" id="export-png" title="Save a picture of the unit">PNG</button>
       <button type="button" id="export-svg" title="Save the unit as a vector drawing">SVG</button>
     </div>
+    <button type="button" id="tidy" title="Line rows and columns up, even the gaps, snap to the grid (Undo takes it back)">Auto-tidy</button>
+    <button type="button" id="ai-open" title="Copy the design for an AI to polish, and paste its reply back">AI</button>
     <button type="button" id="share" class="primary">Share</button>
   </div>
 </header>
@@ -47,6 +50,8 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M16 6v12M13 9h6"/></svg><span>Parts</span></button>
     <button type="button" role="tab" id="t-knobs" aria-controls="p-knobs" aria-selected="false" tabindex="-1">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 5v5"/><circle cx="12" cy="12" r="10" stroke-dasharray="1.5 2.5"/></svg><span>Knobs</span></button>
+    <button type="button" role="tab" id="t-sound" aria-controls="p-sound" aria-selected="false" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-4M8 17V7M12 20V4M16 16V8M20 13v-2"/></svg><span>Sound</span></button>
     <button type="button" role="tab" id="t-presets" aria-controls="p-presets" aria-selected="false" tabindex="-1">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="5" rx="1"/><rect x="4" y="14" width="16" height="5" rx="1"/></svg><span>Presets</span></button>
     <button type="button" role="tab" id="t-library" aria-controls="p-library" aria-selected="false" tabindex="-1">
@@ -111,6 +116,24 @@
       <div class="d-btns"><button type="button" id="ck-new">New knob</button><button type="button" id="ck-use" class="primary">Use on selected knobs</button></div>
       <div id="ck-edit" class="d-ck-edit"></div>
     </section>
+    <section role="tabpanel" id="p-sound" aria-labelledby="t-sound" hidden>
+      <h2>Sound</h2>
+      <p class="muted small">Build what your unit does and hear it. Wire a knob to any setting (select the knob: Controls).</p>
+      <div class="snd-transport">
+        <label>Song <select id="snd-song"></select></label>
+        <button type="button" id="snd-play" class="primary" aria-pressed="false">Play</button>
+      </div>
+      <div class="snd-meter" aria-hidden="true"><i id="snd-meter"></i></div>
+      <label>Or your own audio <input type="file" id="snd-file" accept="audio/*"></label>
+      <p class="muted small" id="snd-msg" role="status">Your file stays on your computer.</p>
+      <label>Volume <input type="range" id="snd-vol" min="-40" max="0" value="-12"></label>
+      <label class="row"><input type="checkbox" id="snd-bypass"> Bypass (hear it without the unit)</label>
+      <h3 class="d-sub">Sound presets</h3>
+      <div class="d-save"><select id="snd-preset" aria-label="Sound preset"></select><button type="button" id="snd-preset-go">Load</button></div>
+      <h3 class="d-sub">Signal chain</h3>
+      <ol class="snd-chain" id="snd-chain"></ol>
+      <div class="d-save"><select id="snd-add-type" aria-label="Block to add"></select><button type="button" id="snd-add">Add block</button></div>
+    </section>
     <section role="tabpanel" id="p-presets" aria-labelledby="t-presets" hidden>
       <h2>Start from a preset</h2>
       <div class="d-templates" id="templates"></div>
@@ -160,6 +183,8 @@
         <button type="button" data-align="right">Align right</button><button type="button" data-align="top">Align top</button>
         <button type="button" data-align="vcenter">Middle</button><button type="button" data-align="bottom">Align bottom</button>
         <button type="button" data-align="hdist">Spread across</button><button type="button" data-align="vdist">Spread down</button>
+        <button type="button" data-align="hgap">Equal gaps across</button><button type="button" data-align="vgap">Equal gaps down</button>
+        <button type="button" data-align="grid">Arrange as a grid</button><button type="button" data-centre="x">Centre on the panel</button>
       </div>
     </section>
   </aside>
@@ -186,6 +211,17 @@
   <label>…or paste a link or code <textarea id="import-code" rows="3" placeholder="A link, or a code starting with ENH2-"></textarea></label>
   <p class="small" id="import-msg" role="status"></p>
   <div class="d-btns"><button type="button" id="import-go" class="primary">Open design</button><button type="button" id="share-close">Close</button></div>
+</dialog>
+<dialog id="ai-dialog" aria-labelledby="ai-title">
+  <h2 id="ai-title">Polish it with an AI</h2>
+  <p class="muted small">Copy this into any AI chat (ChatGPT's free tier works, or Claude), ask for what you want - "tidy this up",
+    "make it look vintage" - and paste its reply below. Nothing is sent from here: you do the copying. The reply is checked like any
+    share code: it can only change the design.</p>
+  <label>For the AI <textarea id="ai-out" rows="8" readonly></textarea></label>
+  <div class="d-btns"><button type="button" id="ai-copy" class="primary">Copy</button></div>
+  <label>Its reply <textarea id="ai-in" rows="6" placeholder="Paste the AI's reply here"></textarea></label>
+  <p class="small" id="ai-msg" role="status"></p>
+  <div class="d-btns"><button type="button" id="ai-apply" class="primary">Apply</button><button type="button" id="ai-close">Close</button></div>
 </dialog>
 <noscript><p class="d-noscript">The designer needs JavaScript. Everything runs in your browser; nothing is sent anywhere.</p></noscript>
 </body>

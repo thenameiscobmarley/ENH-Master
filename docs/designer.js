@@ -85,6 +85,44 @@
   const TRIMS = ["none", "pinstripe", "double", "inset"], TWO_TONES = ["none", "left", "right", "top", "bottom", "band"];
   const TITLE_POS = ["topleft", "topcentre", "bottomleft", "hidden"], SCREW_METALS = ["chrome", "black", "brass"];
   const INK_COLOUR = { white: "#f2f2f2", black: "#111113", red: "#d8322b", gold: "#d4af37" };
+
+  /* The unit's sound (the Sound tab): a chain of up to MAX_BLOCKS blocks, each a type from DSP_BLOCKS with
+     its parameters (each clamped to its range). A knob, slider, switch or rotary switch can be wired to one
+     parameter (its `ctl`: "<block>.<param>"; a switch's "<block>.on" turns the block in and out). Built
+     from the browser's own audio nodes (designer-audio.js); saved in the share code like everything else. */
+  const MAX_BLOCKS = 8;
+  //   type: [name, { param: [label, min, max, default, unit, log?] }]
+  const DSP_BLOCKS = {
+    eq:      ["EQ", { low: ["Low", -15, 15, 0, "dB"], lowf: ["Low freq", 30, 500, 120, "Hz", 1], mid: ["Mid", -15, 15, 0, "dB"], midf: ["Mid freq", 200, 8000, 1200, "Hz", 1],
+                      q: ["Mid width", 0.3, 6, 0.9, ""], high: ["High", -15, 15, 0, "dB"], highf: ["High freq", 2000, 16000, 8000, "Hz", 1] }],
+    filter:  ["Filter", { mode: ["Type (0 low-pass, 1 high-pass, 2 band)", 0, 2, 0, ""], freq: ["Cutoff", 20, 20000, 8000, "Hz", 1], q: ["Resonance", 0.3, 12, 0.7, ""] }],
+    drive:   ["Saturator", { drive: ["Drive", 0, 36, 9, "dB"], shape: ["Shape (0 tube, 1 tape, 2 hard)", 0, 2, 0, ""], tone: ["Tone", 1000, 20000, 9000, "Hz", 1], mix: ["Mix", 0, 100, 60, "%"] }],
+    comp:    ["Compressor", { threshold: ["Threshold", -60, 0, -18, "dB"], ratio: ["Ratio", 1, 20, 3, ":1", 1], attack: ["Attack", 0.1, 100, 10, "ms", 1],
+                              release: ["Release", 10, 1500, 150, "ms", 1], makeup: ["Makeup", 0, 24, 4, "dB"], mix: ["Mix", 0, 100, 100, "%"] }],
+    exciter: ["Exciter", { freq: ["From", 1500, 12000, 4000, "Hz", 1], amount: ["Amount", 0, 100, 30, "%"] }],
+    delay:   ["Delay", { time: ["Time", 10, 1500, 350, "ms", 1], feedback: ["Feedback", 0, 90, 35, "%"], tone: ["Tone", 500, 16000, 5000, "Hz", 1], mix: ["Mix", 0, 100, 25, "%"] }],
+    room:    ["Reverb", { size: ["Size", 0.2, 8, 1.8, "s", 1], damp: ["Damping", 0, 100, 40, "%"], predelay: ["Pre-delay", 0, 200, 15, "ms"], mix: ["Mix", 0, 100, 22, "%"] }],
+    width:   ["Stereo width", { width: ["Width", 0, 200, 120, "%"] }],
+    gain:    ["Output", { gain: ["Level", -24, 12, 0, "dB"] }],
+  };
+  const DSP_TYPES = Object.keys (DSP_BLOCKS);
+  const blankDsp = () => ({ chain: [] });
+  const blockDefaults = (b) => Object.fromEntries (Object.entries (DSP_BLOCKS[b][1]).map (([k, v]) => [k, v[3]]));
+  /** A part's wiring, checked against the chain it belongs to ("" = not wired). */
+  const ctlOk = (ctl, chain) => { const m = /^([0-7])\.([a-z]+)$/.exec (String (ctl || "")); if (!m) return false;
+    const b = chain[Number (m[1])]; return !!b && (m[2] === "on" || Object.prototype.hasOwnProperty.call (DSP_BLOCKS[b.b][1], m[2])); };
+  function sanitizeDsp (raw) {
+    const out = blankDsp();
+    const chain = raw && typeof raw === "object" && Array.isArray (raw.chain) ? raw.chain.slice (0, MAX_BLOCKS * 4) : [];   // (a bounded read)
+    for (const b of chain) {
+      if (out.chain.length >= MAX_BLOCKS) break;
+      if (!b || typeof b !== "object" || !DSP_TYPES.includes (b.b)) continue;
+      const def = DSP_BLOCKS[b.b][1], p = {};
+      for (const k in def) p[k] = clamp (b.p && typeof b.p === "object" ? b.p[k] : undefined, def[k][1], def[k][2], def[k][3]);
+      out.chain.push ({ b: b.b, on: bool (b.on, true), p });
+    }
+    return out;
+  }
   /* Sockets: name, how it is drawn, its accent colour (insulator, nut, ring) */
   const JACK_TYPES = {
     trs: ["1/4\" jack (TRS)", "round"], ts: ["1/4\" jack (TS)", "round"], headphone: ["Headphones (1/4\")", "round"],
@@ -110,7 +148,7 @@
     ink: "#e8e8ea", ears: "slots", handles: "none", screws: "phillips", wear: 15, edge: "rounded", font: "sans", badge: "",
     earColour: "match", sub: "", shine: 50, desc: "",
     accent: "#ff8a2a", trim: "none", twoTone: "none", toneColour: "#2a2b30", toneSize: 30, titlePos: "topleft", titleSize: 4.4,
-    glow: false, serial: "", screwMetal: "chrome", chassis: "#1a1a1c", depth: 180 }, knobs: [], parts: [] });
+    glow: false, serial: "", screwMetal: "chrome", chassis: "#1a1a1c", depth: 180 }, knobs: [], parts: [], dsp: { chain: [] } });
 
   /* Custom knobs (the Knobs tab): up to MAX_KNOBS per design, each a small set of checked choices and
      clamped numbers - never markup, never a free-form shape. Parts use them as style "c0" .. "c7". */
@@ -190,6 +228,7 @@
                cap: pick (k.cap, CK_CAPS, b.cap), cs: clamp (k.cs, 0.3, 1, b.cs), pt: pick (k.pt, CK_POINTERS, b.pt),
                bc: colour (k.bc, b.bc), kc: colour (k.kc, b.kc), sc: colour (k.sc, b.sc), pc: colour (k.pc, b.pc), mt: pick (k.mt, CK_MATS, b.mt) }; };
     d.knobs = Array.isArray (raw.knobs) ? raw.knobs.slice (0, MAX_KNOBS).map (sk) : [];
+    d.dsp = sanitizeDsp (raw.dsp);
     const knobStyles = KNOBS.concat (d.knobs.map ((_, i) => "c" + i));
     const H = d.unit.height * U;
     const parts = Array.isArray (raw.parts) ? raw.parts.slice (0, MAX_PARTS * 4) : [];   // (read a bounded amount)
@@ -229,6 +268,7 @@
       if ("plugged" in def) q.plugged = bool (p.plugged, def.plugged);
       for (const key in FIELDS) if (key in def) q[key] = FIELDS[key] (p[key], def[key]);
       if (p.type === "selector") q.value = Math.round (clamp (p.value, 0, stopList (q.stops).length - 1, 0));
+      if (["knob", "slider", "toggle", "button", "selector"].includes (p.type) && ctlOk (p.ctl, d.dsp.chain)) q.ctl = p.ctl;   // (wired to the sound)
       q.lock = bool (p.lock, false);
       const grp = Math.round (clamp (p.grp, 0, 9999, 0)); if (grp > 0) q.grp = grp;
       d.parts.push (q);
@@ -246,14 +286,14 @@
     marks: "mk", bipolar: "bp", ring: "rg", ringColour: "rc", suffix: "sx", labelPos: "lp", labelSize: "lz", ink: "ik", detent: "dt", three: "th", mid: "md",
     upText: "ut", downText: "dx", led: "ld", momentary: "mo", capText: "ct", shape: "sh", blink: "bk", bezel: "bz", dial: "di", light: "li", peak: "pk",
     horizontal: "hz", palette: "pa", kind: "kd", content: "co", backlit: "bl", italic: "it", spacing: "sp", look: "lk", lineStyle: "ls", lineW: "lw",
-    tone: "tn", fillCol: "fc", dashed: "da", nut: "nt", cable: "cb", metal: "me", stops: "so", screws: "sc" };
+    tone: "tn", fillCol: "fc", dashed: "da", nut: "nt", cable: "cb", metal: "me", stops: "so", screws: "sc", ctl: "cl" };
   const LONG = Object.fromEntries (Object.entries (SHORT).map (([a, b]) => [b, a]));
   const round1 = (n) => Math.round (n * 10) / 10;
 
   function pack (d) {
     const bu = blank().unit, u = {};
     for (const k in d.unit) if (d.unit[k] !== bu[k]) u[k] = d.unit[k];
-    return { v: 2, u, k: d.knobs && d.knobs.length ? d.knobs : undefined, p: d.parts.map ((p) => {
+    return { v: 2, u, k: d.knobs && d.knobs.length ? d.knobs : undefined, x: d.dsp && d.dsp.chain.length ? d.dsp : undefined, p: d.parts.map ((p) => {
       const t = TYPES[p.type], def = t.defaults, o = {};
       for (const k in SHORT) {
         if (!(k in p) || k === "id") continue;
@@ -266,7 +306,7 @@
   }
   function unpack (o) {
     if (!o || typeof o !== "object") return null;
-    return { unit: o.u, knobs: Array.isArray (o.k) ? o.k : [], parts: Array.isArray (o.p) ? o.p.map ((p) => { const q = {}; if (p && typeof p === "object") for (const k in p) if (LONG[k]) q[LONG[k]] = p[k]; return q; }) : [] };
+    return { unit: o.u, knobs: Array.isArray (o.k) ? o.k : [], dsp: o.x, parts: Array.isArray (o.p) ? o.p.map ((p) => { const q = {}; if (p && typeof p === "object") for (const k in p) if (LONG[k]) q[LONG[k]] = p[k]; return q; }) : [] };
   }
   const b64u = (bytes) => { let s = ""; for (const b of bytes) s += String.fromCharCode (b); return btoa (s).replace (/\+/g, "-").replace (/\//g, "_").replace (/=+$/, ""); };
   const unb64u = (s) => { const b = atob (s.replace (/-/g, "+").replace (/_/g, "/")); return Uint8Array.from (b, (c) => c.charCodeAt (0)); };
@@ -490,6 +530,9 @@
       const b = bounds (p);
       el ("rect", { x: b.x - 1.5, y: b.y - 1.5, width: b.w + 3, height: b.h + 3, rx: 1.5, fill: "none", stroke: p.lock ? "#f59bd6" : p.grp ? "#c7a6ff" : "#7fe3e0", "stroke-width": 0.6, "stroke-dasharray": "2 1.2", class: "d-sel" }, face);
     }
+    // Smart guides while dragging
+    if (root === svg && drag && drag.mode === "move" && drag.guides) for (const g of drag.guides)
+      el ("line", g.axis === "x" ? { x1: g.at, y1: -4, x2: g.at, y2: H + 4 } : { x1: -4, y1: g.at, x2: W + 4, y2: g.at }, face).setAttribute ("style", "stroke:#e8a33a;stroke-width:.35;stroke-dasharray:1.4 .9");
     // The box being dragged out to select with
     if (root === svg && drag && drag.mode === "box" && drag.cur) {
       const r = boxRect (drag.start, drag.cur);
@@ -993,6 +1036,10 @@
     subscribe: (f) => { listeners.push (f); f (design, selected); },
     select: (id) => { if (byId (id)) { selected = withGroups ([id]); render(); props(); } },
     printCanvas,
+    // The sound (designer-audio.js): the blocks, and a way to change the chain (sanitized, one undo step;
+    // any wiring left pointing at a block that is gone is dropped)
+    DSP_BLOCKS, MAX_BLOCKS,
+    setDsp: (d) => { design.dsp = sanitizeDsp (d); for (const q of design.parts) if (q.ctl && !ctlOk (q.ctl, design.dsp.chain)) delete q.ctl; commit(); },
   });
 
   // ---------------------------------------------------------------------------------------------------
@@ -1132,6 +1179,105 @@
     if (how === "vcenter") { const c = (lo (ys) + hi (ys)) / 2; ps.forEach ((p) => (p.y = c)); }
     if (how === "hdist" && ps.length > 2) { ps.sort ((a, b) => a.x - b.x); const a = ps[0].x, b = ps[ps.length - 1].x; ps.forEach ((p, i) => (p.x = a + (b - a) * i / (ps.length - 1))); }
     if (how === "vdist" && ps.length > 2) { ps.sort ((a, b) => a.y - b.y); const a = ps[0].y, b = ps[ps.length - 1].y; ps.forEach ((p, i) => (p.y = a + (b - a) * i / (ps.length - 1))); }
+    // Equal gaps between the parts' edges (not their centres: a big knob and a small one then look even)
+    const gaps = (axis) => { if (ps.length < 3) return; const size = axis === "x" ? ew : eh; ps.sort ((a, b) => a[axis] - b[axis]);
+      const first = ps[0][axis] - size (ps[0]) / 2, last = ps[ps.length - 1][axis] + size (ps[ps.length - 1]) / 2;
+      const gap = (last - first - ps.reduce ((t, q) => t + size (q), 0)) / (ps.length - 1);
+      let at = first; for (const q of ps) { q[axis] = snapV (at + size (q) / 2); at += size (q) + gap; } };
+    if (how === "hgap") gaps ("x");
+    if (how === "vgap") gaps ("y");
+    // A grid: rows as they already roughly are (or a square-ish grid), each cell as big as the biggest part
+    if (how === "grid") {
+      const cw = hi (ps.map (ew)) + 6, ch = hi (ps.map (eh)) + 6, cols = Math.max (1, Math.round (Math.sqrt (ps.length * cw / ch * (hi (xs) - lo (xs) + cw) / (hi (ys) - lo (ys) + ch)) || Math.ceil (Math.sqrt (ps.length))));
+      const n = Math.min (cols, ps.length), rows = Math.ceil (ps.length / n), cx = (lo (xs) + hi (xs)) / 2, cy = (lo (ys) + hi (ys)) / 2;
+      ps.sort ((a, b) => (Math.abs (a.y - b.y) > ch / 2 ? a.y - b.y : a.x - b.x));
+      ps.forEach ((q, i) => { q.x = snapV (clamp (cx + (i % n - (n - 1) / 2) * cw, 0, W, q.x)); q.y = snapV (clamp (cy + (Math.floor (i / n) - (rows - 1) / 2) * ch, 0, design.unit.height * U, q.y)); });
+    }
+    commit();
+  }
+  /** AUTO-TIDY (one undo step): rows of controls lined up on one centre line, their gaps evened out when
+      they are nearly even already, columns lined up across rows, everything on the half-millimetre grid and
+      clear of the rack ears. Section boxes, text, lines and locked parts stay where they are. */
+  function tidy () {
+    const H = design.unit.height * U, x0 = design.unit.ears === "none" ? 4 : EAR + 3, x1 = W - x0;
+    const movable = design.parts.filter ((q) => !q.lock && !["box", "label", "line", "plate", "vent", "screw"].includes (q.type));
+    // Rows: parts whose middles are within 4 mm (or a third of the bigger one) of the row's
+    const rows = [];
+    for (const q of movable.slice().sort ((a, b) => a.y - b.y)) {
+      const row = rows.find ((r) => Math.abs (r.y - q.y) < Math.max (4, Math.min (r.h, extent (q).h) / 3));
+      if (row) { row.parts.push (q); row.y = row.parts.reduce ((t, p) => t + p.y, 0) / row.parts.length; row.h = Math.max (row.h, extent (q).h); }
+      else rows.push ({ y: q.y, h: extent (q).h, parts: [q] });
+    }
+    for (const r of rows) {
+      if (r.parts.length < 2) continue;
+      const mid = r.parts.map ((q) => q.y).sort ((a, b) => a - b)[Math.floor (r.parts.length / 2)];
+      for (const q of r.parts) q.y = mid;
+      // Nearly even gaps (spread under 35 %) become exactly even
+      const ps = r.parts.slice().sort ((a, b) => a.x - b.x);
+      if (ps.length >= 3) {
+        const gaps = ps.slice (1).map ((q, i) => (q.x - extent (q).w / 2) - (ps[i].x + extent (ps[i]).w / 2));
+        const mean = gaps.reduce ((t, g) => t + g, 0) / gaps.length, sd = Math.sqrt (gaps.reduce ((t, g) => t + (g - mean) * (g - mean), 0) / gaps.length);
+        if (mean > 0 && sd / mean < 0.35) { let at = ps[0].x - extent (ps[0]).w / 2; for (const q of ps) { q.x = at + extent (q).w / 2; at += extent (q).w + mean; } }
+      }
+    }
+    // Columns: middles within 3 mm across different rows line up on their average
+    const cols = [];
+    for (const q of movable.slice().sort ((a, b) => a.x - b.x)) {
+      const c = cols.find ((k) => Math.abs (k.x - q.x) < 3);
+      if (c) { c.parts.push (q); c.x = c.parts.reduce ((t, p) => t + p.x, 0) / c.parts.length; } else cols.push ({ x: q.x, parts: [q] });
+    }
+    for (const c of cols) if (c.parts.length > 1) for (const q of c.parts) q.x = c.x;
+    for (const q of movable) {
+      const e = extent (q);
+      q.x = Math.round (clamp (q.x, x0 + e.w / 2, x1 - e.w / 2, q.x) * 2) / 2;
+      q.y = Math.round (clamp (q.y, 2 + e.h / 2, H - 2 - e.h / 2, q.y) * 2) / 2;
+    }
+    commit();
+  }
+
+  /** COPY FOR AI: the design as readable JSON under a short brief an AI can follow (any chat assistant, free
+      tier included - nothing here talks to one); its reply pasted back goes through sanitize() like any share
+      code, so it can only ever change the design, within the same limits. */
+  function aiBrief () {
+    const H = design.unit.height * U, round = (v) => (typeof v === "number" ? Math.round (v * 10) / 10 : v);
+    const parts = design.parts.map ((p) => { const o = {}; for (const k in p) if (k !== "id") o[k] = round (p[k]); return o; });
+    const lists = { knobStyles: KNOBS, toggleStyles: TOGGLES, buttonStyles: BUTTONS, vuStyles: VUS, jackStyles: JACKS, finishes: FINISHES, marks: MARKS, inks: INKS,
+      ledShapes: LED_SHAPES, dials: DIALS, ladderPalettes: PALETTES, displayKinds: DISPLAYS, textLooks: LOOKS, boxLines: LINES, ventKinds: VENTS, faderCaps: FADERS,
+      lampLenses: LAMPS, plates: PLATES, trims: TRIMS, twoTones: TWO_TONES, soundBlocks: DSP_TYPES };
+    const brief = [
+      "You are polishing a rack-unit faceplate designed in the ENH Master Rack Unit Designer. The design is the JSON below.",
+      "Units are millimetres. The panel is " + W + " mm wide and " + H + " mm tall (" + design.unit.height + "U); x runs left to right, y top to bottom, and every part's x, y is its CENTRE.",
+      design.unit.ears === "none" ? "It has no rack ears." : "Keep parts clear of the rack ears: x between " + (EAR + 3) + " and " + (W - EAR - 3) + ".",
+      "Improve the layout and look: align rows and columns, space things evenly, group related controls (a section box around them helps), keep labels readable, nothing overlapping.",
+      "Keep every part's type, text and wiring (ctl) unless asked; you may change positions, sizes, styles, colours (#rrggbb) and the unit's look.",
+      "Only use values from these lists:",
+      ...Object.entries (lists).map (([k, v]) => "  " + k + ": " + v.join (", ")),   // (plain lines: the design below is the only JSON)
+      "Reply with ONLY the complete JSON, same shape, nothing before or after it.",
+    ].join ("\n");
+    return brief + "\n\n" + JSON.stringify ({ unit: design.unit, knobs: design.knobs, dsp: design.dsp, parts }, null, 1);
+  }
+  function bindAi () {
+    const dlg = $("ai-dialog"); if (!dlg) return;
+    $("ai-open").addEventListener ("click", () => { $("ai-out").value = aiBrief(); $("ai-in").value = ""; $("ai-msg").textContent = ""; dlg.showModal(); });
+    $("ai-copy").addEventListener ("click", async () => { try { await navigator.clipboard.writeText ($("ai-out").value); $("ai-msg").textContent = "Copied. Paste it into your AI chat."; }
+      catch (_) { $("ai-out").select(); $("ai-msg").textContent = "Select all and copy (Ctrl+C)."; } });
+    $("ai-apply").addEventListener ("click", () => {
+      const t = $("ai-in").value, a = t.indexOf ("{"), b = t.lastIndexOf ("}");
+      if (t.length > MAX_JSON || a < 0 || b <= a) { $("ai-msg").textContent = "That doesn't contain a design (JSON between { and })."; return; }
+      let obj; try { obj = JSON.parse (t.slice (a, b + 1)); } catch (_) { $("ai-msg").textContent = "The reply isn't valid JSON - ask the AI to send only the JSON."; return; }
+      const d = sanitize (obj);
+      if (!d.parts.length) { $("ai-msg").textContent = "The reply had no parts - nothing changed."; return; }
+      replaceDesign (d); $("ai-msg").textContent = "Applied (Undo takes it back)."; setTimeout (() => dlg.close(), 700);
+    });
+    $("ai-close").addEventListener ("click", () => dlg.close());
+  }
+
+  /** The selection moved as one so its middle is the panel's (across, or down). */
+  function centreOnPanel (axis) {
+    const ps = selected.map (byId).filter ((q) => q && !q.lock); if (!ps.length) return;
+    const b = ps.map (bounds), lo = Math.min (...b.map ((r) => axis === "x" ? r.x : r.y)), hi = Math.max (...b.map ((r) => axis === "x" ? r.x + r.w : r.y + r.h));
+    const d = (axis === "x" ? W : design.unit.height * U) / 2 - (lo + hi) / 2;
+    for (const q of ps) q[axis] += d;
     commit();
   }
   function order (dir) {
@@ -1241,9 +1387,27 @@
       selected = [...new Set (drag.base.concat (withGroups (hit)))];
       render(); return;
     }
-    const pt = svgPoint (e), dx = pt.x - drag.start.x, dy = pt.y - drag.start.y, H = design.unit.height * U;
+    const pt = svgPoint (e), H = design.unit.height * U;
+    let dx = pt.x - drag.start.x, dy = pt.y - drag.start.y;
     if (Math.abs (dx) + Math.abs (dy) > 0.2) drag.moved = true;
-    for (const o of drag.orig) { o.q.x = clamp (snapV (o.x + dx), 0, W, o.x); o.q.y = clamp (snapV (o.y + dy), 0, H, o.y); }
+    // Smart guides: the moving parts' edges and middle snap to the other parts' (and the panel's middle)
+    // when they come within ~1.2 mm on screen; the lines they snap to are drawn while dragging (Alt: off)
+    drag.guides = [];
+    if (drag.orig.length && !e.altKey) {
+      const moving = new Set (drag.orig.map ((o) => o.q.id)), tol = 1.2 / Math.max (0.4, zoom);
+      const ob = drag.orig.map ((o) => { const e2 = extent (o.q); return { l: o.x - e2.w / 2 + dx, r: o.x + e2.w / 2 + dx, t: o.y - e2.h / 2 + dy, b: o.y + e2.h / 2 + dy }; });
+      const box = { l: Math.min (...ob.map ((b) => b.l)), r: Math.max (...ob.map ((b) => b.r)), t: Math.min (...ob.map ((b) => b.t)), b: Math.max (...ob.map ((b) => b.b)) };
+      const mine = { x: [box.l, (box.l + box.r) / 2, box.r], y: [box.t, (box.t + box.b) / 2, box.b] };
+      const lines = { x: [W / 2], y: [H / 2] };
+      for (const q of design.parts) { if (moving.has (q.id)) continue; const b = bounds (q); lines.x.push (b.x, b.x + b.w / 2, b.x + b.w); lines.y.push (b.y, b.y + b.h / 2, b.y + b.h); }
+      for (const axis of ["x", "y"]) {
+        let best = null;
+        for (const m of mine[axis]) for (const l of lines[axis]) { const d = l - m; if (Math.abs (d) < tol && (!best || Math.abs (d) < Math.abs (best.d))) best = { d, at: l }; }
+        if (best) { if (axis === "x") dx += best.d; else dy += best.d; drag.guides.push ({ axis, at: best.at }); }
+      }
+    }
+    const guided = drag.guides.length > 0;
+    for (const o of drag.orig) { o.q.x = clamp (guided ? o.x + dx : snapV (o.x + dx), 0, W, o.x); o.q.y = clamp (guided ? o.y + dy : snapV (o.y + dy), 0, H, o.y); }
     render();
   });
   const endDrag = () => { if (!drag) return; const d = drag; drag = null;
@@ -1485,6 +1649,19 @@
       choice ("metal", "Metal", METALS, { unit: "As the rack screws", chrome: "Chrome", black: "Black", brass: "Brass" }); }
     if (sameType && p.type === "vent") ask ("shape", "Kind", VENTS, { slots: "Slots", holes: "Round holes", hex: "Hex grid", louvre: "Louvres", grille: "Grille" });
     if (sameType && p.type === "plate") { ask ("style", "Metal", PLATES); chk ("screws", "Screwed on"); }
+    // Controls: what this part turns in the unit's sound (the Sound tab's chain)
+    if (!many && ["knob", "slider", "toggle", "button", "selector"].includes (p.type)) {
+      const sel = document.createElement ("select"), opt = (v, t) => { const o = document.createElement ("option"); o.value = v; o.textContent = t; sel.appendChild (o); };
+      opt ("", design.dsp.chain.length ? "Nothing (just for looks)" : "Nothing - add blocks in the Sound tab");
+      design.dsp.chain.forEach ((b, k) => {
+        const name = (k + 1) + ". " + DSP_BLOCKS[b.b][0];
+        if (p.type === "toggle" || p.type === "button") opt (k + ".on", name + ": in / out");
+        for (const key in DSP_BLOCKS[b.b][1]) opt (k + "." + key, name + ": " + DSP_BLOCKS[b.b][1][key][0]);
+      });
+      sel.value = p.ctl || "";
+      sel.addEventListener ("change", () => { if (ctlOk (sel.value, design.dsp.chain)) p.ctl = sel.value; else delete p.ctl; commit(); });
+      field (body, "Controls", sel);
+    }
     if (has ("ink")) choice ("ink", "Print colour", INKS, { print: "The panel's print", accent: "The accent colour", white: "White", black: "Black", red: "Red", gold: "Gold" });
 
     if (has ("align")) choice ("align", "Align", ALIGNS);
@@ -1510,7 +1687,7 @@
 
   // ---------------------------------------------------------------------------------------------------
   // Templates
-  const T = (unit, parts) => ({ v: 1, unit: Object.assign (blank().unit, unit), parts });
+  const T = (unit, parts, dsp) => ({ v: 1, unit: Object.assign (blank().unit, unit), parts, dsp: dsp || { chain: [] } });
   const templates = {
     "Blank 1U": () => blank(),
     "FET compressor": () => T ({ name: "LIMITING AMPLIFIER", model: "EM-76", height: 2, colour: "#101012", ink: "#e9e9ea", finish: "anodised" }, [
@@ -1616,6 +1793,100 @@
       { type: "ladder", x: 440, y: 100, w: 5, h: 30, segments: 12, value: 60 },
       { type: "button", x: 370, y: 100, w: 12, h: 12, style: "round", on: true, colour: "#b77dff", text: "GATE" } ]),
   };
+
+  /* More presets, each with its sound (a chain, its knobs wired to it) - one line each. U (unit look),
+     K: knobs as [label, "block.param", value 0-100], C: the chain [[type, params]], X: extras (meter, switches). */
+  const R = (u, K, C, X = {}) => {
+    const H = (u.height || 1) * U, n = K.length, size = X.size || (u.height > 1 ? 26 : 16), left = X.left ?? 80;
+    const meterW = Math.min (80, H * 1.9), span = X.span ?? (X.meter ? W - 100 - meterW / 2 - 16 - size * 0.9 - left : 340);   // (a meter: the knobs stop short of it)
+    const y = X.y ?? H / 2 + (u.height > 1 ? 2 : 1.5);
+    const parts = K.map (([t, ctl, v], i) => ({ type: X.selector === i ? "selector" : "knob", x: left + (n > 1 ? span * i / (n - 1) : span / 2), y, w: size, h: size,
+      style: X.selector === i ? "chicken" : X.style || "ribbed", value: v ?? 50, text: t, scale: true, min: 0, max: 10, steps: 10, nums: X.nums || "ends",
+      marks: X.marks || "ticks", ctl, stops: X.stops, ring: !!X.ring, ringColour: u.accent || "#ff8a2a" }));
+    if (X.meter) parts.push ({ type: "vu", x: W - 100, y: H / 2, w: Math.min (80, H * 1.9), h: Math.min (44, H * 0.8), style: X.meter, value: 45, text: X.meterText || "VU" });
+    if (X.ladder) parts.push ({ type: "ladder", x: W - 42, y: H / 2, w: 5, h: H * 0.7, segments: 12, value: 60, palette: X.ladder });
+    parts.push ({ type: "toggle", x: W - 26, y: H / 2, style: X.toggle || "rockerred", on: true, text: "POWER", ctl: "0.on" });
+    if (X.box) parts.push ({ type: "box", x: left + span / 2, y: y + 1, w: span + size + 20, h: H - 10, text: X.box, round: 3 });
+    return T (u, parts, { chain: C.map (([b, p]) => ({ b, on: true, p: p || {} })) });
+  };
+  Object.assign (templates, {
+    "Vari-mu compressor": () => R ({ name: "VARIABLE MU", model: "EM-VM", height: 2, colour: "#5b5f63", ink: "#f4f1ea", finish: "hammertone" },
+      [["THRESHOLD", "0.threshold", 45], ["ATTACK", "0.attack", 40], ["RELEASE", "0.release", 55], ["GAIN", "0.makeup", 40]], [["comp", { ratio: 2.5 }], ["drive", { drive: 6, shape: 0, mix: 30 }]], { style: "fluted", meter: "cream", meterText: "GAIN REDUCTION" }),
+    "Channel strip": () => R ({ name: "CHANNEL STRIP", model: "EM-CS", height: 1, colour: "#1c2230", ink: "#e9edf4" },
+      [["TRIM", "2.gain", 50], ["LOW", "0.low", 55], ["MID", "0.mid", 50], ["HIGH", "0.high", 60], ["THRESH", "1.threshold", 45], ["RATIO", "1.ratio", 30]], [["eq"], ["comp"], ["gain"]], { style: "capblue", size: 14 }),
+    "Tube saturator": () => R ({ name: "TUBE SATURATOR", model: "EM-T12", height: 1, colour: "#2a1a12", ink: "#f1d9b0", finish: "enamel", accent: "#ff8a2a" },
+      [["DRIVE", "0.drive", 45], ["TONE", "0.tone", 60], ["BLEND", "0.mix", 60], ["OUTPUT", "1.gain", 45]], [["drive", { shape: 0 }], ["gain"]], { style: "tophat", ladder: "amber" }),
+    "Tape machine": () => R ({ name: "TAPE MACHINE", model: "EM-15IPS", height: 2, colour: "#3a3d40", ink: "#f2efe6", finish: "brushed" },
+      [["INPUT", "0.drive", 40], ["BIAS", "0.tone", 55], ["WOW", "1.time", 10], ["OUTPUT", "2.gain", 50]], [["drive", { shape: 1, mix: 80 }], ["delay", { time: 12, feedback: 0, mix: 8 }], ["gain"]], { style: "knurled", meter: "amber", meterText: "RECORD" }),
+    "Spring reverb": () => R ({ name: "SPRING REVERB", model: "EM-SPR", height: 1, colour: "#0f2a1f", ink: "#e6f2ea", finish: "wrinkle" },
+      [["DWELL", "0.predelay", 30], ["DECAY", "0.size", 35], ["TONE", "0.damp", 45], ["MIX", "0.mix", 35]], [["room", { size: 1.4, damp: 55 }]], { style: "chicken" }),
+    "Hall reverb": () => R ({ name: "CONCERT HALL", model: "EM-480", height: 2, colour: "#1b1e24", ink: "#dfe6f1", accent: "#4fb3ff" },
+      [["SIZE", "0.size", 60], ["PRE-DELAY", "0.predelay", 25], ["DAMPING", "0.damp", 40], ["MIX", "0.mix", 30], ["WIDTH", "1.width", 60]], [["room", { size: 4 }], ["width"]], { style: "matte", ring: true }),
+    "Digital delay": () => R ({ name: "DIGITAL DELAY", model: "EM-DD3", height: 1, colour: "#e8e6df", ink: "#1a1a1a", finish: "powder", accent: "#d8322b" },
+      [["TIME", "0.time", 45], ["REPEATS", "0.feedback", 40], ["TONE", "0.tone", 70], ["MIX", "0.mix", 30]], [["delay"]], { style: "capred", ladder: "red" }),
+    "Ping-pong echo": () => R ({ name: "STEREO ECHO", model: "EM-PP", height: 1, colour: "#123040", ink: "#eaf6ff" },
+      [["TIME", "0.time", 40], ["FEEDBACK", "0.feedback", 50], ["WIDTH", "1.width", 80], ["MIX", "0.mix", 35]], [["delay"], ["width"]], { style: "capwhite" }),
+    "Stereo widener": () => R ({ name: "STEREO IMAGER", model: "EM-W2", height: 1, colour: "#0c0c10", ink: "#c9ccd6", finish: "carbon" },
+      [["WIDTH", "0.width", 65], ["LOW CUT", "1.lowf", 20], ["LOW", "1.low", 45], ["OUTPUT", "2.gain", 50]], [["width"], ["eq"], ["gain"]], { style: "matte", ladder: "blue" }),
+    "Exciter": () => R ({ name: "AURAL EXCITER", model: "EM-AX", height: 1, colour: "#2d2d30", ink: "#ffd27a", finish: "anodised", accent: "#ffd27a" },
+      [["TUNE", "0.freq", 45], ["DRIVE", "0.amount", 40], ["AIR", "1.high", 55]], [["exciter"], ["eq", { highf: 12000 }]], { style: "pointer" }),
+    "De-esser": () => R ({ name: "DE-ESSER", model: "EM-DS", height: 1, colour: "#1f2a33", ink: "#eef3f6" },
+      [["FREQUENCY", "0.highf", 55], ["AMOUNT", "0.high", 35], ["THRESHOLD", "1.threshold", 50]], [["eq", { high: -4, highf: 7000 }], ["comp", { ratio: 3, attack: 1, release: 60 }]], { style: "ribbed", ladder: "amber" }),
+    "Transient designer": () => R ({ name: "TRANSIENT DESIGNER", model: "EM-TD4", height: 1, colour: "#142038", ink: "#e8eefc", accent: "#46e070" },
+      [["ATTACK", "0.attack", 70], ["SUSTAIN", "0.release", 35], ["PUNCH", "0.makeup", 50], ["MIX", "0.mix", 70]], [["comp", { threshold: -30, ratio: 4 }]], { style: "capblue", ring: true }),
+    "Multiband dynamics": () => R ({ name: "MULTIBAND", model: "EM-MB3", height: 2, colour: "#202124", ink: "#f0f0f0" },
+      [["LOW", "0.low", 55], ["MID", "0.mid", 50], ["HIGH", "0.high", 55], ["THRESH", "1.threshold", 45], ["RATIO", "1.ratio", 30], ["OUT", "2.gain", 50]], [["eq"], ["comp"], ["gain"]], { style: "matte", box: "BANDS", meter: "black", meterText: "GR" }),
+    "Parallel smasher": () => R ({ name: "PARALLEL SMASHER", model: "EM-NY", height: 1, colour: "#5a0f0f", ink: "#ffe9e0", finish: "candy" },
+      [["CRUSH", "0.threshold", 20], ["BLEND", "0.mix", 35], ["COLOUR", "1.drive", 35], ["OUTPUT", "2.gain", 45]], [["comp", { ratio: 20, attack: 0.5, release: 60, makeup: 18 }], ["drive", { shape: 2, mix: 40 }], ["gain"]], { style: "redtrim" }),
+    "Lo-fi box": () => R ({ name: "LO-FI BOX", model: "EM-8BIT", height: 1, colour: "#c9b27a", ink: "#2a2112", finish: "patina" },
+      [["BANDWIDTH", "0.freq", 35], ["CRUNCH", "1.drive", 60], ["NOISE", "1.mix", 50], ["LEVEL", "2.gain", 50]], [["filter", { mode: 2 }], ["drive", { shape: 2 }], ["gain"]], { style: "chicken" }),
+    "Filter sweeper": () => R ({ name: "FILTER SWEEP", model: "EM-FS", height: 1, colour: "#26113d", ink: "#f3e8ff", accent: "#b889ff" },
+      [["CUTOFF", "0.freq", 60], ["RESONANCE", "0.q", 35], ["DRIVE", "1.drive", 20]], [["filter"], ["drive", { mix: 40 }]], { style: "capwhite", size: 20, ring: true, selector: 0 }),
+    "Guitar amp": () => R ({ name: "BRITISH STACK", model: "EM-JCM", height: 2, colour: "#1a1a1a", ink: "#e9c46a", finish: "tolex", accent: "#e9c46a" },
+      [["GAIN", "0.drive", 70], ["BASS", "1.low", 55], ["MIDDLE", "1.mid", 60], ["TREBLE", "1.high", 55], ["PRESENCE", "1.highf", 50], ["MASTER", "2.gain", 40]], [["drive", { shape: 2, mix: 100 }], ["eq"], ["gain"]], { style: "tophat", box: "PREAMP" }),
+    "Bass amp": () => R ({ name: "BASS AMPLIFIER", model: "EM-SVT", height: 2, colour: "#2b2e33", ink: "#f2f2f2", finish: "brushed" },
+      [["GAIN", "0.drive", 35], ["BASS", "1.low", 60], ["MID", "1.mid", 45], ["TREBLE", "1.high", 50], ["VOLUME", "2.gain", 45]], [["drive", { shape: 0 }], ["eq", { lowf: 80 }], ["gain"]], { style: "knurled", meter: "cream" }),
+    "Vocal chain": () => R ({ name: "VOCAL CHAIN", model: "EM-VX", height: 1, colour: "#23201c", ink: "#f6ecd9", finish: "walnut" },
+      [["WARMTH", "0.drive", 30], ["PRESENCE", "1.mid", 60], ["COMPRESS", "2.threshold", 45], ["SPACE", "3.mix", 20]], [["drive", { mix: 40 }], ["eq", { midf: 3000 }], ["comp"], ["room", { size: 1.2 }]], { style: "fluted", ladder: "green" }),
+    "Drum bus": () => R ({ name: "DRUM BUS", model: "EM-DB", height: 1, colour: "#301b10", ink: "#ffe3c4", finish: "rosewood" },
+      [["DRIVE", "0.drive", 40], ["CRUSH", "1.threshold", 40], ["BOOM", "2.low", 60], ["TRANSIENTS", "1.attack", 60], ["MIX", "1.mix", 70]], [["drive", { shape: 1 }], ["comp", { ratio: 4 }], ["eq", { lowf: 60 }]], { style: "capred" }),
+    "Mix bus glue": () => R ({ name: "MIX BUS", model: "EM-SSL", height: 1, colour: "#8a8d90", ink: "#101010", finish: "sandblast" },
+      [["THRESHOLD", "0.threshold", 55], ["RATIO", "0.ratio", 20], ["ATTACK", "0.attack", 50], ["RELEASE", "0.release", 40], ["MAKEUP", "0.makeup", 30]], [["comp", { ratio: 2 }]], { style: "knurled", meter: "black", meterText: "GR" }),
+    "Mastering EQ": () => R ({ name: "MASTERING EQUALIZER", model: "EM-MEQ", height: 2, colour: "#a8aaae", ink: "#15171a", finish: "spun" },
+      [["LOW", "0.low", 52], ["LOW FREQ", "0.lowf", 30], ["MID", "0.mid", 50], ["MID FREQ", "0.midf", 50], ["HIGH", "0.high", 55], ["AIR", "0.highf", 70]], [["eq"]], { style: "pointer", nums: "all", box: "STEPPED" }),
+    "Loudness maximizer": () => R ({ name: "MAXIMIZER", model: "EM-L1", height: 1, colour: "#07294a", ink: "#d8ecff", accent: "#4fb3ff" },
+      [["THRESHOLD", "0.threshold", 30], ["RELEASE", "0.release", 30], ["CEILING", "1.gain", 45]], [["comp", { ratio: 20, attack: 0.5, makeup: 10 }], ["gain"]], { style: "matte", ladder: "blue" }),
+    "Game audio enhancer": () => R ({ name: "GAME ENHANCER", model: "EM-GX", height: 1, colour: "#0c1410", ink: "#b4ffcf", finish: "carbon", accent: "#46e070" },
+      [["FOOTSTEPS", "0.mid", 70], ["QUIET LIFT", "1.threshold", 30], ["BASS TAME", "0.low", 35], ["WIDTH", "2.width", 60]], [["eq", { midf: 2500, lowf: 150 }], ["comp", { ratio: 6, attack: 1, makeup: 10 }], ["width"]], { style: "capwhite", ring: true }),
+    "Podcast leveler": () => R ({ name: "VOICE LEVELER", model: "EM-POD", height: 1, colour: "#2e3440", ink: "#eceff4" },
+      [["LEVEL", "1.threshold", 45], ["CLARITY", "0.mid", 60], ["ROOM CUT", "0.low", 35], ["OUTPUT", "2.gain", 50]], [["eq", { lowf: 120, midf: 2500 }], ["comp", { ratio: 4 }], ["gain"]], { style: "ribbed", ladder: "green" }),
+    "Radio voice": () => R ({ name: "TELEPHONE", model: "EM-TEL", height: 1, colour: "#1e1e1e", ink: "#f0d060", finish: "bakelite" },
+      [["BAND", "0.freq", 45], ["GRIT", "1.drive", 55], ["LEVEL", "2.gain", 50]], [["filter", { mode: 2, q: 2 }], ["drive", { shape: 2 }], ["gain"]], { style: "chicken", size: 20 }),
+    "Chorus ensemble": () => R ({ name: "ENSEMBLE", model: "EM-CE", height: 1, colour: "#3a4a8a", ink: "#ffffff", finish: "flake" },
+      [["RATE", "0.time", 10], ["DEPTH", "0.mix", 40], ["WIDTH", "1.width", 75]], [["delay", { time: 18, feedback: 20, mix: 40 }], ["width"]], { style: "capwhite" }),
+    "Ambient machine": () => R ({ name: "AMBIENT MACHINE", model: "EM-AMB", height: 2, colour: "#101a24", ink: "#d7ecff", accent: "#7fd8ff", glow: true },
+      [["SIZE", "0.size", 80], ["SHIMMER", "1.amount", 40], ["ECHO", "2.feedback", 55], ["MIX", "0.mix", 45]], [["room", { size: 6 }], ["exciter", { freq: 5000 }], ["delay", { time: 700 }]], { style: "matte", ring: true, meter: "blue", meterText: "SPACE" }),
+    "Sub enhancer": () => R ({ name: "SUB HARMONICS", model: "EM-SUB", height: 1, colour: "#150d05", ink: "#ffb35c" },
+      [["SUB", "0.low", 65], ["FREQUENCY", "0.lowf", 20], ["DRIVE", "1.drive", 25]], [["eq"], ["drive", { mix: 30 }]], { style: "matte", ladder: "amber" }),
+    "Clean boost": () => R ({ name: "CLEAN BOOST", model: "EM-CB", height: 1, colour: "#d0d3d6", ink: "#111", finish: "chrome" },
+      [["BOOST", "0.gain", 60]], [["gain"]], { style: "knurled", size: 22 }),
+    "Vintage limiter": () => R ({ name: "PEAK LIMITER", model: "EM-LA", height: 2, colour: "#b7b3a8", ink: "#1a1a1a", finish: "hammertone" },
+      [["GAIN", "0.makeup", 45], ["PEAK REDUCTION", "0.threshold", 40]], [["comp", { ratio: 8, attack: 10, release: 300 }]], { style: "fluted", size: 34, meter: "cream", meterText: "GAIN REDUCTION" }),
+    "Rotary EQ": () => R ({ name: "DJ MIXER EQ", model: "EM-ISO", height: 1, colour: "#0b0b0b", ink: "#ff4d4d", accent: "#ff4d4d" },
+      [["LOW", "0.low", 50], ["MID", "0.mid", 50], ["HIGH", "0.high", 50], ["FILTER", "1.freq", 99]], [["eq"], ["filter"]], { style: "redtrim", ring: true }),
+    "Stereo meter bridge": () => R ({ name: "METER BRIDGE", model: "EM-MB", height: 2, colour: "#222", ink: "#eee" },
+      [["TRIM", "0.gain", 50]], [["gain"]], { style: "ribbed", size: 16, meter: "white", meterText: "LEVEL", ladder: "classic", left: 60, span: 0 }),
+    "Warm console": () => R ({ name: "SUMMING MIXER", model: "EM-SUM", height: 1, colour: "#4a2f1d", ink: "#f3dfb5", finish: "walnut", accent: "#e0a84a" },
+      [["DRIVE", "0.drive", 35], ["LOW", "1.low", 55], ["HIGH", "1.high", 52], ["WIDTH", "2.width", 55], ["OUTPUT", "3.gain", 50]], [["drive", { shape: 1, mix: 50 }], ["eq"], ["width"], ["gain"]], { style: "tophat" }),
+    "Airy vocal": () => R ({ name: "AIR BAND", model: "EM-AIR", height: 1, colour: "#f2efe8", ink: "#20242a", finish: "pearl" },
+      [["AIR", "0.high", 65], ["FREQ", "0.highf", 70], ["SHINE", "1.amount", 35]], [["eq"], ["exciter", { freq: 9000 }]], { style: "capwhite" }),
+    "Dub siren delay": () => R ({ name: "DUB DELAY", model: "EM-DUB", height: 1, colour: "#1b3b1b", ink: "#ffd400", accent: "#ffd400" },
+      [["TIME", "1.time", 55], ["FEEDBACK", "1.feedback", 70], ["TONE", "1.tone", 35], ["SPACE", "2.mix", 30]], [["filter", { mode: 1, freq: 300 }], ["delay"], ["room", { size: 3 }]], { style: "chicken" }),
+    "Headphone crossfeed": () => R ({ name: "CROSSFEED", model: "EM-XF", height: 1, colour: "#121820", ink: "#cfe3ff" },
+      [["AMOUNT", "0.width", 35], ["WARMTH", "1.high", 45]], [["width", { width: 70 }], ["eq", { highf: 9000 }]], { style: "matte" }),
+    "Bit crusher": () => R ({ name: "DESTROYER", model: "EM-X", height: 1, colour: "#000000", ink: "#39ff14", accent: "#39ff14", glow: true },
+      [["DESTROY", "0.drive", 75], ["TONE", "0.tone", 40], ["MIX", "0.mix", 70], ["LEVEL", "1.gain", 35]], [["drive", { shape: 2 }], ["gain"]], { style: "pointer", ring: true }),
+  });
 
   // A preset that shows the newer parts and settings off
   templates["Studio showcase"] = () => T ({ name: "SHOWCASE", model: "EM-S2", height: 3, colour: "#1b2230", ink: "#e9edf4", finish: "satin", accent: "#ffb020",
@@ -1730,6 +2001,9 @@
   $("undo").addEventListener ("click", undo); $("redo").addEventListener ("click", redo);
   $("play").addEventListener ("click", () => setPlay (!play));
   for (const b of document.querySelectorAll ("[data-align]")) b.addEventListener ("click", () => align (b.getAttribute ("data-align")));
+  for (const b of document.querySelectorAll ("[data-centre]")) b.addEventListener ("click", () => centreOnPanel (b.getAttribute ("data-centre")));
+  $("tidy").addEventListener ("click", tidy);
+  bindAi();
   const setZoom = (z) => { zoom = Math.min (4, Math.max (0.4, z)); $("zoom-val").textContent = Math.round (zoom * 100) + "%"; render(); };
   $("zoom-in").addEventListener ("click", () => setZoom (zoom * 1.2)); $("zoom-out").addEventListener ("click", () => setZoom (zoom / 1.2));
   $("zoom-fit").addEventListener ("click", () => { const w = $("stage").clientWidth - 24; setZoom (w / ((W + 12) * 2)); });
@@ -1880,6 +2154,26 @@
         && nsc.style === "unit" && nsc.metal === "unit" && nlab.look === "print" && nlab.spacing === 3 && nlab.italic === false, "displays, boxes, screws and text: every new field checked");
     const showcase = sanitize (templates["Studio showcase"]()), backS = await decode (await encode (showcase));
     ok (JSON.stringify (backS.unit) === JSON.stringify (showcase.unit) && strip0 (backS) === strip0 (showcase), "the new parts and settings survive the round trip");
+    // The sound: blocks from the list only, every parameter clamped, at most MAX_BLOCKS; wiring checked against the chain
+    const es = await decode (await mk ({ v: 2, u: {}, x: { chain: [{ b: "comp", p: { threshold: -999, ratio: "x", evil: 1 } }, { b: "<script>" }, ...Array.from ({ length: 20 }, () => ({ b: "gain" }))] },
+      p: [{ t: "knob", cl: "0.threshold" }, { t: "knob", cl: "0.evil" }, { t: "knob", cl: "9.gain" }, { t: "toggle", cl: "1.on" }, { t: "knob", cl: "0.threshold;alert(1)" }] }));
+    ok (es.dsp.chain.length === MAX_BLOCKS && es.dsp.chain[0].b === "comp" && es.dsp.chain[0].p.threshold === -60 && es.dsp.chain[0].p.ratio === 3 && !("evil" in es.dsp.chain[0].p),
+        "sound blocks: known types only, parameters clamped, at most " + MAX_BLOCKS);
+    ok (es.parts[0].ctl === "0.threshold" && !("ctl" in es.parts[1]) && !("ctl" in es.parts[2]) && es.parts[3].ctl === "1.on" && !("ctl" in es.parts[4]), "knob wiring: only to a block and parameter that exist");
+    const wired = sanitize ({ dsp: { chain: [{ b: "drive", p: { drive: 20 } }] }, parts: [{ type: "knob", ctl: "0.drive" }] }), backW = await decode (await encode (wired));
+    ok (JSON.stringify (backW.dsp) === JSON.stringify (wired.dsp) && backW.parts[0].ctl === "0.drive", "the sound and its wiring survive the round trip");
+    // Copy for AI: the brief's JSON comes back as the same design; auto-tidy keeps every part, on the panel
+    const wasD = design; design = sanitize (templates["Console channel"]());
+    const brief = aiBrief(), js = JSON.parse (brief.slice (brief.indexOf ("{"), brief.lastIndexOf ("}") + 1)), backA = sanitize (js);
+    ok (backA.parts.length === design.parts.length && strip0 (backA) === strip0 (design), "an AI's reply of the same JSON is the same design");
+    const n0 = design.parts.length; tidy();
+    ok (design.parts.length === n0 && design.parts.every ((q) => q.x >= 0 && q.x <= W && q.y >= 0 && q.y <= design.unit.height * U), "auto-tidy keeps every part, on the panel");
+    design = wasD; undo();
+    // Every preset loads, and keeps all its wiring to its sound
+    let badPre = [];
+    for (const name in templates) { const raw = templates[name](), d = sanitize (raw), want = (raw.parts || []).filter ((q) => q.ctl).length, got = d.parts.filter ((q) => q.ctl).length;
+      if (want !== got || d.parts.length !== (raw.parts || []).length) badPre.push (name); }
+    ok (!badPre.length && Object.keys (templates).length >= 54, Object.keys (templates).length + " presets load with their wiring" + (badPre.length ? " - not: " + badPre.join (", ") : ""));
     const before = design.parts.length; selected = design.parts.slice (0, 2).map ((q) => q.id);
     const c = copyParts(); ok (c.startsWith (CLIP) && !/unit|name/.test (c), "copied parts carry only the parts");
     pasteParts (c); ok (design.parts.length === before + selected.length, "copied parts paste back");
@@ -1900,6 +2194,9 @@
     document.documentElement.classList.remove ("no-js");
     let start = load();
     if (location.hash.startsWith ("#d=")) { try { start = await decode (location.hash); } catch (_) { /* keep the saved one */ } }
+    // ?preset=<name>: the site's gallery opens a preset by name (only a name from the list: nothing else is read)
+    const presetName = new URLSearchParams (location.search).get ("preset");
+    if (presetName && Object.prototype.hasOwnProperty.call (templates, presetName)) start = sanitize (templates[presetName]());
     design = start || sanitize (templates["FET compressor"]());
     nextId = Math.max (nextId, ...design.parts.map ((p) => p.id + 1), 1);
     last = JSON.stringify (design);

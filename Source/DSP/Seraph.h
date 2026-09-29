@@ -327,7 +327,7 @@ namespace enh::dsp
 
         /** What AUTO has chosen for this programme right now (display, tests). */
         struct AutoChoice { float space = 0, decayS = 0, shimmer = 0, tone = 0, width = 1, air = 0, sub = 0; };
-        const AutoChoice& getAutoChoice() const noexcept { return autoChoice; }
+        const AutoChoice& getAutoChoice() const noexcept { return applied; }   // (what AUTO is applying, HEAVEN's depth in)
 
         struct Settings
         {
@@ -388,18 +388,30 @@ namespace enh::dsp
             // AUTO: listen to the programme and move the knobs toward the heaven it calls for
             analyse (channels, numChannels, numSamples);
             Settings s = in;
-            const float a = in.heaven.autoHeaven && in.mode != off ? std::clamp (in.heaven.autoAmount, 0.0f, 1.0f) : 0.0f;
+            // HEAVEN sets how deep AUTO's heaven goes: 5 is what it chose, 0 next to none, 10 twice as deep.
+            // (It used to set how far the knobs moved toward AUTO's choice - and AUTO usually chooses less
+            // than a preset's own settings, so turning HEAVEN up made it weaker: backwards.)
+            const float a = in.heaven.autoHeaven && in.mode != off ? 1.0f : 0.0f;
+            const float depth = 2.0f * std::clamp (in.heaven.autoAmount, 0.0f, 1.0f);
+            depthNow += (depth - depthNow) * (1.0f - std::exp (-(float) numSamples / (0.3f * (float) sr)));
+            applied.space   = std::clamp (autoChoice.space * depthNow, 0.0f, 1.0f);
+            applied.decayS  = std::clamp (1.0f + (autoChoice.decayS - 1.0f) * depthNow, 0.5f, 8.0f);
+            applied.shimmer = std::clamp (autoChoice.shimmer * depthNow, 0.0f, 1.0f);
+            applied.tone    = autoChoice.tone;
+            applied.width   = std::clamp (1.0f + (autoChoice.width - 1.0f) * depthNow, 0.0f, 2.0f);
+            applied.air     = std::clamp (autoChoice.air * depthNow, 0.0f, 10.0f);
+            applied.sub     = std::clamp (autoChoice.sub * depthNow, 0.0f, 10.0f);
             autoBlend += (a - autoBlend) * (1.0f - std::exp (-(float) numSamples / (0.5f * (float) sr)));
             if (autoBlend > 1.0e-4f)
             {
                 auto toward = [b = autoBlend] (float user, float chosen) { return user + (chosen - user) * b; };
-                s.halo.space   = toward (in.halo.space, autoChoice.space);
-                s.halo.decayS  = toward (in.halo.decayS, autoChoice.decayS);
-                s.halo.shimmer = toward (in.halo.shimmer, autoChoice.shimmer);
-                s.halo.tone    = toward (in.halo.tone, autoChoice.tone);
-                s.halo.width   = toward (in.halo.width, autoChoice.width);
-                s.silk.air     = toward (in.silk.air, autoChoice.air);
-                s.silk.sub     = toward (in.silk.sub, autoChoice.sub);
+                s.halo.space   = toward (in.halo.space, applied.space);
+                s.halo.decayS  = toward (in.halo.decayS, applied.decayS);
+                s.halo.shimmer = toward (in.halo.shimmer, applied.shimmer);
+                s.halo.tone    = toward (in.halo.tone, applied.tone);
+                s.halo.width   = toward (in.halo.width, applied.width);
+                s.silk.air     = toward (in.silk.air, applied.air);
+                s.silk.sub     = toward (in.silk.sub, applied.sub);
             }
 
             processSilk (channels, numChannels, numSamples, s.silk, s.mode >= silkOnly ? 1.0f : 0.0f);
@@ -625,6 +637,8 @@ namespace enh::dsp
         int silkDelayPos = 0;
         float silkPath = 0.0f, silkPathStep = 0.01f;   // 0: the plain delay (TONE out), 1: TONE oversampled
         AutoChoice autoChoice { 0.197f, 2.07f, 0.10f, 0.45f, 1.27f, 3.0f, 1.0f };   // = choose() on a neutral programme
+        AutoChoice applied = autoChoice;   // what AUTO applies: its choice at HEAVEN's depth
+        float depthNow = 1.0f;
         float autoBlend = 0.0f, aFast = 1.0e-8f, aPeak = 0.0f, crestAcc = 0.0f, crestDb = 12.0f, widthRatio = 0.2f;
         float brightDb = -14.0f, bassBalanceDb = 0.0f, lp8 = 0, lp4 = 0, lp1 = 0, lpB1 = 0, lpB2 = 0;
 

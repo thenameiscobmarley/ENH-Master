@@ -55,7 +55,7 @@
       document.addEventListener("click", function (e) { if (nav.classList.contains("open") && !nav.contains(e.target)) setMenu(false); });
     }
     var navLinks = [].slice.call(document.querySelectorAll("#nav-links a"));
-    var targets = navLinks.map(function (a) { return document.querySelector(a.getAttribute("href")); });
+    var targets = navLinks.map(function (a) { var h = a.getAttribute("href"); return /^#[\w-]+$/.test(h) ? document.querySelector(h) : null; });   // (places, #/rack, are hub.js's)
     var current = -1;
     function markSection(vh) {
       var idx = -1;

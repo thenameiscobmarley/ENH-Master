@@ -10,9 +10,11 @@
 <title>ENH Master</title>
 <meta name="description" content="Eleven adaptive audio processors in one plugin, drawn as real 3D hardware in a walnut case. VST3 for Windows and Linux, and an app for gamers. Open source, tested on every build.">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#050608">
-<link rel="stylesheet" href="site.css?v=ff697ec39b">
-<script src="site.js?v=f6206cd131"></script>
+<meta name="theme-color" content="#0a0908">
+<link rel="stylesheet" href="site.css?v=18c3a80216">
+<script src="site.js?v=1b156fc3eb"></script>
+<script src="gallery.js?v=420607d677" defer></script>
+<script src="hub.js?v=5394594a1f" defer></script>
 <script src="units.js?v=bc73fe1919" defer></script>
 <script src="search.js?v=4d58c80820" defer></script>
 <link rel="modulepreload" href="vendor/three/three.module.min.js?v=2e08e4d017">
@@ -28,12 +30,12 @@
 <!-- shared SVG paints for the gauges -->
 <svg width="0" height="0" class="sr" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="gAur" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#5ef0b4"/><stop offset=".3" stop-color="#46d3e6"/><stop offset=".6" stop-color="#7c8cff"/><stop offset=".82" stop-color="#b889ff"/><stop offset="1" stop-color="#f59bd6"/></linearGradient>
-    <linearGradient id="gAurH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5ef0b4"/><stop offset=".35" stop-color="#46d3e6"/><stop offset=".7" stop-color="#7c8cff"/><stop offset="1" stop-color="#c38bff"/></linearGradient>
-    <linearGradient id="gAurV" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#46d3e6" stop-opacity=".05"/><stop offset="1" stop-color="#7c8cff" stop-opacity=".38"/></linearGradient>
-    <radialGradient id="gKnob" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="#23262f"/><stop offset=".55" stop-color="#101218"/><stop offset="1" stop-color="#07080b"/></radialGradient>
-    <linearGradient id="gRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bff7e4" stop-opacity=".55"/><stop offset=".35" stop-color="#7fd8ff" stop-opacity=".18"/><stop offset=".7" stop-color="#b58bff" stop-opacity=".22"/><stop offset="1" stop-color="#f7a8dc" stop-opacity=".5"/></linearGradient>
-    <radialGradient id="gSheen" cx=".35" cy=".22" r=".6"><stop offset="0" stop-color="#e9fff8" stop-opacity=".22"/><stop offset=".5" stop-color="#9fd9ff" stop-opacity=".06"/><stop offset="1" stop-color="#b58bff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gAur" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#e0a84a"/><stop offset=".3" stop-color="#c9974a"/><stop offset=".6" stop-color="#b07a3c"/><stop offset=".82" stop-color="#9a6a3a"/><stop offset="1" stop-color="#f0c070"/></linearGradient>
+    <linearGradient id="gAurH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e0a84a"/><stop offset=".35" stop-color="#c9974a"/><stop offset=".7" stop-color="#b07a3c"/><stop offset="1" stop-color="#a86f38"/></linearGradient>
+    <linearGradient id="gAurV" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#c9974a" stop-opacity=".05"/><stop offset="1" stop-color="#b07a3c" stop-opacity=".38"/></linearGradient>
+    <radialGradient id="gKnob" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="#23262f"/><stop offset=".55" stop-color="#101218"/><stop offset="1" stop-color="#0b0a08"/></radialGradient>
+    <linearGradient id="gRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3dfb5" stop-opacity=".55"/><stop offset=".35" stop-color="#d8a860" stop-opacity=".18"/><stop offset=".7" stop-color="#a8743f" stop-opacity=".22"/><stop offset="1" stop-color="#f3c98a" stop-opacity=".5"/></linearGradient>
+    <radialGradient id="gSheen" cx=".35" cy=".22" r=".6"><stop offset="0" stop-color="#fff4e0" stop-opacity=".22"/><stop offset=".5" stop-color="#e6c48e" stop-opacity=".06"/><stop offset="1" stop-color="#a8743f" stop-opacity="0"/></radialGradient>
     <filter id="fGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
   </defs>
 </svg>
@@ -41,20 +43,16 @@
 <nav class="nav" aria-label="Main">
   <div class="wrap">
     <a class="logo" href="#top" aria-label="ENH Master, back to top">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#gAur)" stroke-width="3" stroke-dasharray="61 82" stroke-linecap="round" transform="rotate(135 16 16)"/><circle cx="16" cy="16" r="7" fill="#0c0e13" stroke="url(#gRim)" stroke-width="1.5"/><line x1="16" y1="16" x2="21" y2="11" stroke="#eef3f6" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#gAur)" stroke-width="3" stroke-dasharray="61 82" stroke-linecap="round" transform="rotate(135 16 16)"/><circle cx="16" cy="16" r="7" fill="#0c0e13" stroke="url(#gRim)" stroke-width="1.5"/><line x1="16" y1="16" x2="21" y2="11" stroke="#efe8dc" stroke-width="2" stroke-linecap="round"/></svg>
       ENH MASTER
     </a>
     <button type="button" class="menu-btn" aria-expanded="false" aria-controls="nav-links"><span class="bars" aria-hidden="true"><i></i><i></i></span><span class="sr">Menu</span></button>
     <ul id="nav-links">
-      <li><a href="#inside">Inside</a></li>
-      <li><a href="#for-you">For you</a></li>
-      <li><a href="#clarity">Clarity</a></li>
-      <li><a href="#radar">Radar</a></li>
-      <li><a href="#guard">Ear Guard</a></li>
-      <li><a href="#character">Character</a></li>
-      <li><a href="#lab">Test lab</a></li>
-      <li><a href="#get">Get it</a></li>
-      <li><a href="designer.html">Design a unit</a></li>
+      <li><a href="#/hub" data-go="hub">Hub</a></li>
+      <li><a href="#/rack" data-go="rack">The rack</a></li>
+      <li><a href="#/download" data-go="download">Download</a></li>
+      <li><a href="#/gallery" data-go="gallery">Designs</a></li>
+      <li><a href="designer.html">Unit Designer</a></li>
     </ul>
     <a class="btn primary nav-cta" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>Download</a>
   </div>
@@ -64,7 +62,7 @@
 <div class="scene" id="scene">
   <div class="gl-layer" aria-hidden="true"></div>
 
-  <section class="hero" id="top" aria-labelledby="hero-h">
+  <section class="hero" id="top" aria-labelledby="hero-h" data-home>
     <div class="hero-stage" id="hero-stage">
       <div class="hero-still"><picture><source type="image/webp" srcset="img/rack-800.webp 800w, img/rack.webp 1366w" sizes="(min-width: 1240px) 1140px, 100vw"><img src="img/rack-800.jpg" srcset="img/rack-800.jpg 800w, img/rack.jpg 1366w" sizes="(min-width: 1240px) 1140px, 100vw" width="1366" height="643" fetchpriority="high" alt="The whole ENH Master rack: eleven units stacked in a walnut case"></picture></div>
       <div class="gl-loader" aria-hidden="true"><i></i></div>
@@ -91,7 +89,7 @@
     <a class="scroll-cue" href="#inside"><span>Take it apart</span><i aria-hidden="true"></i></a>
   </section>
 
-  <section id="inside" class="xp" aria-labelledby="inside-h">
+  <section id="inside" class="xp" aria-labelledby="inside-h" data-home>
     <div class="xp-track">
       <div class="xp-pin">
         <div class="wrap xp-grid">
@@ -131,7 +129,20 @@
 
   </div>
 
-  <section id="for-you" class="band">
+  <section id="hub" class="hub" aria-labelledby="hub-h" data-home>
+    <div class="wrap">
+      <p class="kicker rv">Where to</p>
+      <h2 class="rv" id="hub-h">Pick a place.</h2>
+      <nav class="hub-grid" aria-label="Places">
+        <a class="hub-tile rv" href="#/rack" data-go="rack"><span class="hub-no">01</span><b>The rack</b><span>Every unit, what it does, live demos and the test lab.</span><i aria-hidden="true">→</i></a>
+        <a class="hub-tile rv" href="#/download" data-go="download" data-delay="60"><span class="hub-no">02</span><b>Download</b><span>The latest release for Windows and Linux, and how to check it.</span><i aria-hidden="true">→</i></a>
+        <a class="hub-tile rv" href="#/gallery" data-go="gallery" data-delay="120"><span class="hub-no">03</span><b>Designs</b><span>The units built into the plugin, and every designer preset.</span><i aria-hidden="true">→</i></a>
+        <a class="hub-tile rv" href="designer.html" data-delay="180"><span class="hub-no">04</span><b>Unit Designer</b><span>Design your own rack unit, hear it, and share it with a code.</span><i aria-hidden="true">→</i></a>
+      </nav>
+    </div>
+  </section>
+
+  <section id="for-you" class="band" data-place="rack">
     <div class="wrap">
       <header class="sec-head center">
         <p class="kicker rv">What it does for you</p>
@@ -169,7 +180,7 @@
     </div>
   </section>
 
-  <section id="clarity" class="demo-sec glow-r">
+  <section id="clarity" class="demo-sec glow-r" data-place="rack">
     <div class="wrap">
       <div class="split">
         <div>
@@ -196,7 +207,7 @@
     </div>
   </section>
 
-  <section id="radar" class="demo-sec band glow-l">
+  <section id="radar" class="demo-sec band glow-l" data-place="rack">
     <div class="wrap">
       <div class="split flip">
         <div>
@@ -279,7 +290,7 @@
           <li><b>0</b><span>lifts on the burst of gunfire, before and after</span></li>
           <li><b>13–19 dB</b><span>how far those steps stand above the match, against 23 dB and more for a shot</span></li>
         </ul>
-        <div class="rec-chart-wrap"><svg class="rec-chart" viewBox="0 0 900 250" role="img" aria-label="Timeline of the real match recording from 15.5 to 24.8 seconds: the 11 marked running steps, the gunfire burst, and what the radar lifted before (3 of the 11 steps) and after the tuning (7 of 11), with no lift on the gunfire either time."><defs><linearGradient id="rcAur" x1="0" x2="1"><stop offset="0" stop-color="#5ef0b4"/><stop offset=".5" stop-color="#56c8f5"/><stop offset="1" stop-color="#b889ff"/></linearGradient></defs><rect x="169.0" y="18" width="89.9" height="190" rx="6" fill="#f59bd6" fill-opacity=".10" stroke="#f59bd6" stroke-opacity=".35"/><text x="214.0" y="34" text-anchor="middle" font-size="12" fill="#f59bd6">gunfire</text><rect x="565.4" y="18" width="220.6" height="190" rx="6" fill="#5ef0b4" fill-opacity=".05" stroke="#5ef0b4" stroke-opacity=".25"/><text x="675.7" y="34" text-anchor="middle" font-size="12" fill="#5ef0b4">close running steps (marked)</text><text x="10" y="74" font-size="13" fill="#aab5c0">Your steps</text><line x1="120" x2="880" y1="70" y2="70" stroke="#ffffff" stroke-opacity=".08"/><text x="10" y="129" font-size="13" fill="#aab5c0">Before</text><line x1="120" x2="880" y1="125" y2="125" stroke="#ffffff" stroke-opacity=".08"/><text x="10" y="184" font-size="13" fill="#aab5c0">After</text><line x1="120" x2="880" y1="180" y2="180" stroke="#ffffff" stroke-opacity=".08"/><circle cx="570.7" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="591.8" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="614.7" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="637.3" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="656.9" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="676.6" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="698.0" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="720.7" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="742.6" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="760.7" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><circle cx="778.7" cy="70" r="5" fill="none" stroke="#eef3f6" stroke-width="1.6"/><rect x="120.6" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="138.8" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="148.6" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="153.1" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="312.9" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="432.4" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="489.7" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="513.9" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="521.5" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="526.2" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="552.3" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="589.8" y="113" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="655.0" y="113" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="683.3" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="696.0" y="113" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="753.0" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="842.9" y="113" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="120.6" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="138.8" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="148.6" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="153.0" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="312.9" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="432.4" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="454.7" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="489.7" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="513.9" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="521.5" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="526.2" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="552.3" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="589.8" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="635.3" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="654.9" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="674.6" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="683.3" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="696.0" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="718.7" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="753.0" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><rect x="776.7" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="833.7" y="168" width="4" height="24" rx="2" fill="#8894a2" fill-opacity=".55"/><text x="880" y="107" text-anchor="end" font-size="12" fill="#aab5c0">3 of 11 steps</text><text x="880" y="162" text-anchor="end" font-size="12" fill="#5ef0b4">7 of 11 steps</text><line x1="160.9" x2="160.9" y1="208" y2="214" stroke="#8894a2"/><text x="160.9" y="230" text-anchor="middle" font-size="11" fill="#8894a2">16 s</text><line x1="242.6" x2="242.6" y1="208" y2="214" stroke="#8894a2"/><text x="242.6" y="230" text-anchor="middle" font-size="11" fill="#8894a2">17 s</text><line x1="324.3" x2="324.3" y1="208" y2="214" stroke="#8894a2"/><text x="324.3" y="230" text-anchor="middle" font-size="11" fill="#8894a2">18 s</text><line x1="406.0" x2="406.0" y1="208" y2="214" stroke="#8894a2"/><text x="406.0" y="230" text-anchor="middle" font-size="11" fill="#8894a2">19 s</text><line x1="487.7" x2="487.7" y1="208" y2="214" stroke="#8894a2"/><text x="487.7" y="230" text-anchor="middle" font-size="11" fill="#8894a2">20 s</text><line x1="569.5" x2="569.5" y1="208" y2="214" stroke="#8894a2"/><text x="569.5" y="230" text-anchor="middle" font-size="11" fill="#8894a2">21 s</text><line x1="651.2" x2="651.2" y1="208" y2="214" stroke="#8894a2"/><text x="651.2" y="230" text-anchor="middle" font-size="11" fill="#8894a2">22 s</text><line x1="732.9" x2="732.9" y1="208" y2="214" stroke="#8894a2"/><text x="732.9" y="230" text-anchor="middle" font-size="11" fill="#8894a2">23 s</text><line x1="814.6" x2="814.6" y1="208" y2="214" stroke="#8894a2"/><text x="814.6" y="230" text-anchor="middle" font-size="11" fill="#8894a2">24 s</text></svg></div>
+        <div class="rec-chart-wrap"><svg class="rec-chart" viewBox="0 0 900 250" role="img" aria-label="Timeline of the real match recording from 15.5 to 24.8 seconds: the 11 marked running steps, the gunfire burst, and what the radar lifted before (3 of the 11 steps) and after the tuning (7 of 11), with no lift on the gunfire either time."><defs><linearGradient id="rcAur" x1="0" x2="1"><stop offset="0" stop-color="#e0a84a"/><stop offset=".5" stop-color="#d9a54e"/><stop offset="1" stop-color="#9a6a3a"/></linearGradient></defs><rect x="169.0" y="18" width="89.9" height="190" rx="6" fill="#f0c070" fill-opacity=".10" stroke="#f0c070" stroke-opacity=".35"/><text x="214.0" y="34" text-anchor="middle" font-size="12" fill="#f0c070">gunfire</text><rect x="565.4" y="18" width="220.6" height="190" rx="6" fill="#e0a84a" fill-opacity=".05" stroke="#e0a84a" stroke-opacity=".25"/><text x="675.7" y="34" text-anchor="middle" font-size="12" fill="#e0a84a">close running steps (marked)</text><text x="10" y="74" font-size="13" fill="#b9ae9e">Your steps</text><line x1="120" x2="880" y1="70" y2="70" stroke="#ffffff" stroke-opacity=".08"/><text x="10" y="129" font-size="13" fill="#b9ae9e">Before</text><line x1="120" x2="880" y1="125" y2="125" stroke="#ffffff" stroke-opacity=".08"/><text x="10" y="184" font-size="13" fill="#b9ae9e">After</text><line x1="120" x2="880" y1="180" y2="180" stroke="#ffffff" stroke-opacity=".08"/><circle cx="570.7" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="591.8" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="614.7" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="637.3" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="656.9" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="676.6" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="698.0" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="720.7" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="742.6" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="760.7" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><circle cx="778.7" cy="70" r="5" fill="none" stroke="#efe8dc" stroke-width="1.6"/><rect x="120.6" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="138.8" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="148.6" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="153.1" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="312.9" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="432.4" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="489.7" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="513.9" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="521.5" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="526.2" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="552.3" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="589.8" y="113" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="655.0" y="113" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="683.3" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="696.0" y="113" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="753.0" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="842.9" y="113" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="120.6" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="138.8" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="148.6" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="153.0" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="312.9" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="432.4" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="454.7" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="489.7" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="513.9" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="521.5" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="526.2" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="552.3" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="589.8" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="635.3" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="654.9" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="674.6" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="683.3" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="696.0" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="718.7" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="753.0" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><rect x="776.7" y="168" width="4" height="24" rx="2" fill="url(#rcAur)"/><rect x="833.7" y="168" width="4" height="24" rx="2" fill="#948a7c" fill-opacity=".55"/><text x="880" y="107" text-anchor="end" font-size="12" fill="#b9ae9e">3 of 11 steps</text><text x="880" y="162" text-anchor="end" font-size="12" fill="#e0a84a">7 of 11 steps</text><line x1="160.9" x2="160.9" y1="208" y2="214" stroke="#948a7c"/><text x="160.9" y="230" text-anchor="middle" font-size="11" fill="#948a7c">16 s</text><line x1="242.6" x2="242.6" y1="208" y2="214" stroke="#948a7c"/><text x="242.6" y="230" text-anchor="middle" font-size="11" fill="#948a7c">17 s</text><line x1="324.3" x2="324.3" y1="208" y2="214" stroke="#948a7c"/><text x="324.3" y="230" text-anchor="middle" font-size="11" fill="#948a7c">18 s</text><line x1="406.0" x2="406.0" y1="208" y2="214" stroke="#948a7c"/><text x="406.0" y="230" text-anchor="middle" font-size="11" fill="#948a7c">19 s</text><line x1="487.7" x2="487.7" y1="208" y2="214" stroke="#948a7c"/><text x="487.7" y="230" text-anchor="middle" font-size="11" fill="#948a7c">20 s</text><line x1="569.5" x2="569.5" y1="208" y2="214" stroke="#948a7c"/><text x="569.5" y="230" text-anchor="middle" font-size="11" fill="#948a7c">21 s</text><line x1="651.2" x2="651.2" y1="208" y2="214" stroke="#948a7c"/><text x="651.2" y="230" text-anchor="middle" font-size="11" fill="#948a7c">22 s</text><line x1="732.9" x2="732.9" y1="208" y2="214" stroke="#948a7c"/><text x="732.9" y="230" text-anchor="middle" font-size="11" fill="#948a7c">23 s</text><line x1="814.6" x2="814.6" y1="208" y2="214" stroke="#948a7c"/><text x="814.6" y="230" text-anchor="middle" font-size="11" fill="#948a7c">24 s</text></svg></div>
         <p class="muted small rec-legend"><span class="lg-step"></span>a step you can hear &nbsp; <span class="lg-hit"></span>lifted, on a step &nbsp; <span class="lg-other"></span>lifted, something else (steps outside the marked stretch, and other hits)</p>
         <p class="muted small">What it showed: close footsteps in a loud mix are as loud and as broad as a gunshot, and the radar took them for shots. The difference is the shape: a shot is top-heavy, 10 to 15 dB stronger in the high bands; a footstep lands with weight, 3 to 9 dB stronger low down. The radar now tells them apart by that, keeps a walker's beat on the first hit of each step (a game's heel and toe), and stops treating a step that lands on the walker's beat as a rattle. Every check on the test bench still passes.</p>
       </div>
@@ -296,7 +307,7 @@
     </div>
   </section>
 
-  <section id="guard" class="demo-sec glow-r">
+  <section id="guard" class="demo-sec glow-r" data-place="rack">
     <div class="wrap">
       <header class="sec-head">
         <p class="kicker rv"><span class="knum">Demo 3 / 4</span>Safe for your ears</p>
@@ -327,7 +338,7 @@
     </div>
   </section>
 
-  <section id="character" class="demo-sec band">
+  <section id="character" class="demo-sec band" data-place="rack">
     <div class="wrap">
       <header class="sec-head center">
         <p class="kicker rv"><span class="knum">Demo 4 / 4</span>Character &amp; Tone</p>
@@ -349,7 +360,7 @@
     </div>
   </section>
 
-  <section id="lab" class="glow-l">
+  <section id="lab" class="glow-l" data-place="rack">
     <div class="wrap">
       <header class="sec-head">
         <p class="kicker rv">The test lab</p>
@@ -397,7 +408,7 @@
     </div>
   </section>
 
-  <section id="get" class="band get">
+  <section id="get" class="band get" data-place="download">
     <div class="wrap">
       <header class="sec-head center">
         <p class="kicker rv">Get it</p>
@@ -430,7 +441,7 @@
     </div>
   </section>
 
-  <section id="verify">
+  <section id="verify" data-place="download">
     <div class="wrap">
       <div class="split">
         <div>
@@ -457,11 +468,23 @@
       </div>
     </div>
   </section>
+
+  <section id="gallery" class="designs" data-place="gallery" aria-labelledby="gallery-h">
+    <div class="wrap">
+      <p class="kicker">Designs</p>
+      <h2 id="gallery-h">Made in the designer.</h2>
+      <p class="muted">Units designed in the Rack Unit Designer and built into ENH Master - open any in the designer to see how it's made.</p>
+      <div class="g-grid" id="gallery-units"></div>
+      <h3 class="mt">Presets</h3>
+      <p class="muted small">Start a design from any of these.</p>
+      <div class="g-chips" id="gallery-presets"></div>
+    </div>
+  </section>
 </main>
 
 <footer>
   <div class="wrap">
-    <a class="logo" href="#top" aria-label="ENH Master, back to top"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#gAur)" stroke-width="3" stroke-dasharray="61 82" stroke-linecap="round" transform="rotate(135 16 16)"/><circle cx="16" cy="16" r="7" fill="#0c0e13" stroke="url(#gRim)" stroke-width="1.5"/><line x1="16" y1="16" x2="21" y2="11" stroke="#eef3f6" stroke-width="2" stroke-linecap="round"/></svg>ENH MASTER</a>
+    <a class="logo" href="#top" aria-label="ENH Master, back to top"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#gAur)" stroke-width="3" stroke-dasharray="61 82" stroke-linecap="round" transform="rotate(135 16 16)"/><circle cx="16" cy="16" r="7" fill="#0c0e13" stroke="url(#gRim)" stroke-width="1.5"/><line x1="16" y1="16" x2="21" y2="11" stroke="#efe8dc" stroke-width="2" stroke-linecap="round"/></svg>ENH MASTER</a>
     <span>ENH Master is open source (Apache 2.0). Screenshots and graphs are the real app and its real tests.</span>
     <span><a href="https://github.com/thenameiscobmarley/ENH-Master">GitHub</a> · <a href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">Latest release</a> · <a href="#top">Back to top ↑</a></span>
   </div>

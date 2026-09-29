@@ -3,8 +3,8 @@
    side, each scrolling on its own - the page itself never scrolls (on a wide enough screen) */
 body.designer { height: 100vh; height: 100dvh; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .d-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 12px var(--gut); background: rgba(5, 6, 8, .92); border-bottom: 1px solid var(--line); }
-.d-top h1 { margin: 0; font-size: 1.1rem; letter-spacing: .02em; background: var(--aurora); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  padding: 12px var(--gut); background: rgba(10, 9, 8, .92); border-bottom: 1px solid var(--line); }
+.d-top h1 { margin: 0; font-size: 1.1rem; letter-spacing: .02em; color: var(--accent); }
 .d-home { color: var(--muted); text-decoration: none; font-size: .9rem; }
 .d-home:hover { color: var(--ink); }
 .d-top-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
@@ -13,7 +13,7 @@ body.designer { height: 100vh; height: 100dvh; overflow: hidden; display: grid; 
 .designer button:hover { background: rgba(255, 255, 255, .09); }
 .designer button:focus-visible, .designer input:focus-visible, .designer select:focus-visible, .designer textarea:focus-visible, .d-stage:focus-visible
   { outline: 2px solid var(--teal); outline-offset: 2px; }
-.designer button.primary { background: var(--pearl); color: #07080b; border-color: transparent; font-weight: 700; }
+.designer button.primary { background: var(--pearl); color: #0b0a08; border-color: transparent; font-weight: 700; }
 .designer button[aria-pressed="true"] { border-color: var(--teal); color: var(--teal); }
 
 .d-main { display: grid; grid-template-columns: 64px 290px minmax(0, 1fr) 290px; gap: 0; min-height: 0; height: 100%; }
@@ -64,9 +64,9 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
 .designer .d-pick-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 10px 3px 4px; text-align: left; background: #0b0d11; border-radius: 8px; }
 .designer .d-pick-btn::after { content: "▾"; margin-left: auto; color: var(--dim); }
 .d-pick-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none; max-height: 320px; overflow: auto;
-  background: #0d0f14; border: 1px solid var(--line2); border-radius: 10px; box-shadow: 0 18px 40px -12px #000; }
+  background: #14120f; border: 1px solid var(--line2); border-radius: 10px; box-shadow: 0 18px 40px -12px #000; }
 .d-pick-list li { display: flex; align-items: center; gap: 10px; padding: 3px 8px 3px 4px; border-radius: 8px; cursor: pointer; color: var(--ink); font-size: .85rem; }
-.d-pick-list li:hover, .d-pick-list li:focus { background: rgba(127, 227, 224, .10); outline: none; }
+.d-pick-list li:hover, .d-pick-list li:focus { background: rgba(224, 227, 127, .10); outline: none; }
 .d-pick-list li[aria-selected="true"] { box-shadow: inset 0 0 0 1px var(--teal); }
 .d-pick svg { flex: none; border-radius: 6px; background: radial-gradient(circle at 40% 30%, #2a2622, #0c0b0a); }
 
@@ -77,7 +77,7 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
 .d-lib li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; }
 .d-lib-name { font-weight: 700; color: var(--ink); flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .designer .d-lib button { padding: 3px 8px; font-size: .78rem; }
-.designer button.danger { border-color: rgba(245, 155, 214, .4); color: var(--pink); }
+.designer button.danger { border-color: rgba(240, 192, 112, .4); color: var(--pink); }
 
 /* Views */
 .d-views { display: inline-flex; margin-right: 10px; }
@@ -108,7 +108,7 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
 .d-rail { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 10px 6px; border-right: 1px solid var(--line); background: rgba(0, 0, 0, .25); }
 .designer .d-rail button { display: grid; justify-items: center; gap: 3px; padding: 8px 2px; border: 1px solid transparent; background: none; border-radius: 10px; color: var(--muted); font-size: .68rem; letter-spacing: .04em; }
 .designer .d-rail button:hover { color: var(--ink); background: rgba(255, 255, 255, .05); }
-.designer .d-rail button[aria-selected="true"] { color: var(--teal); border-color: rgba(127, 227, 224, .35); background: rgba(127, 227, 224, .08); }
+.designer .d-rail button[aria-selected="true"] { color: var(--teal); border-color: rgba(224, 227, 127, .35); background: rgba(224, 227, 127, .08); }
 .d-rail svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 /* The stage column: its toolbar, then the stage (and 3D view, and the description) scrolling under it */
@@ -131,7 +131,7 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
   body.designer { height: auto; overflow: auto; display: block; }
   .d-main { grid-template-columns: 1fr; height: auto; }
   .d-top { position: static; }
-  .d-rail { flex-direction: row; justify-content: center; border-right: 0; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 4; background: #07080b; }
+  .d-rail { flex-direction: row; justify-content: center; border-right: 0; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 4; background: #0b0a08; }
   .d-stage-wrap { order: -1; height: auto; }
   .d-stage-scroll { overflow: visible; }
   .d-panel { overflow: visible; border: 0; }
@@ -155,3 +155,16 @@ dialog { max-height: 92vh; overflow: auto; }
 .designer .d-ck-list button { padding: 3px 8px; font-size: .75rem; }
 .d-ck-edit { margin-top: 12px; }
 .d-ck-preview { display: grid; place-items: center; margin: 4px 0 12px; border-radius: 12px; background: radial-gradient(circle at 50% 35%, #2a2622, #0c0b0a); }
+
+/* The Sound tab (designer-audio.js) */
+.snd-transport { display: flex; gap: 8px; align-items: end; }
+.snd-transport label { flex: 1; }
+.snd-meter { height: 6px; border-radius: 3px; background: rgba(255, 236, 205, .08); overflow: hidden; margin: 8px 0 12px; }
+.snd-meter i { display: block; height: 100%; background: linear-gradient(90deg, #7aa35a, #e0a84a 70%, #d8502b); transform-origin: 0 50%; transform: scaleX(0); }
+.snd-chain { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
+.snd-block { border: 1px solid var(--line2); border-radius: 10px; padding: 8px 10px; background: rgba(0, 0, 0, .2); }
+.snd-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.snd-head b { flex: 1; font-size: .9rem; }
+.snd-head button { padding: 2px 7px; min-width: 0; }
+.snd-param { display: grid; grid-template-columns: 1fr 1.2fr auto; align-items: center; gap: 6px; font-size: .8rem; margin: 2px 0; }
+.snd-param output { min-width: 64px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }

@@ -5,6 +5,19 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.13.17 — HEAVEN the right way round, and a new website
+
+- **TONE & SPACE: HEAVEN works the right way round.** With AUTO on, HEAVEN set how far the knobs moved
+  toward what AUTO chose - and AUTO usually chooses less than a preset's own settings, so turning HEAVEN up
+  made the heaven weaker. Now it sets how deep AUTO's heaven goes: 5 is what it chose, 10 twice as deep.
+- **TONE & SPACE: real shadows** under its switches (their levers) and its AUTO button.
+- **Website:** a studio-hardware look (no rainbow), and a hub after the intro: The rack, Download, Designs
+  (your units and every preset) and the Unit Designer - click, don't scroll.
+- **Unit Designer:** hear your unit - a Sound tab with a signal chain (EQ, filter, saturator, compressor,
+  exciter, delay, reverb, width, output) wired to its knobs, six built-in songs or your own file; 57 presets
+  (38 new, each with its sound) and 18 sound presets; equal gaps, grid, centring and smart guides;
+  Auto-tidy; and an AI button to copy the design to any AI chat and paste its reply back.
+
 ## 3.7.13.16 — the new units, stronger and alive
 
 ![TAKEBACK and VELVETIZER, powered, with their live displays](docs/img/release-3.7.13.16.jpg)

@@ -11,7 +11,7 @@ Jump to: [GitHub pages](#github-pages) · [Units](#units) · [Presets](#presets)
 
 ## GitHub pages
 
-Releases, downloads, issues, builds, HardwareKit, and every version. (72)
+Releases, downloads, issues, builds, HardwareKit, and every version. (74)
 
 - **ENH Master on GitHub** · GitHub: the repository home page · [github.com/thenameiscobmarley/ENH-Master](https://github.com/thenameiscobmarley/ENH-Master)
 - **Latest release / download** · GitHub: releases (Windows zip for gamers, Linux zip, VST3) · [releases/latest](https://github.com/thenameiscobmarley/ENH-Master/releases/latest)
@@ -47,6 +47,8 @@ Releases, downloads, issues, builds, HardwareKit, and every version. (72)
 - **workflow release.yml** · its source · [.github/workflows/release.yml](.github/workflows/release.yml)
 - **workflow windows-converter.yml** · GitHub Actions: its runs · [actions/workflows/windows-converter.yml](https://github.com/thenameiscobmarley/ENH-Master/actions/workflows/windows-converter.yml)
 - **workflow windows-converter.yml** · its source · [.github/workflows/windows-converter.yml](.github/workflows/windows-converter.yml)
+- **release v3.7.13.16** · GitHub: that version's page and downloads · [releases/tag/v3.7.13.16](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.13.16)
+- **source at v3.7.13.16** · GitHub: the code as it was in that version · [tree/v3.7.13.16](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.13.16)
 - **release v3.7.13.15** · GitHub: that version's page and downloads · [releases/tag/v3.7.13.15](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.13.15)
 - **source at v3.7.13.15** · GitHub: the code as it was in that version · [tree/v3.7.13.15](https://github.com/thenameiscobmarley/ENH-Master/tree/v3.7.13.15)
 - **release v3.7.13.14** · GitHub: that version's page and downloads · [releases/tag/v3.7.13.14](https://github.com/thenameiscobmarley/ENH-Master/releases/tag/v3.7.13.14)
@@ -133,9 +135,10 @@ Every factory preset, with its description. (13)
 
 ## Docs
 
-Every doc and every section in it. (236)
+Every doc and every section in it. (244)
 
 - **What changed** · doc · [CHANGELOG.md](CHANGELOG.md)
+- **3.7.13.17 — HEAVEN the right way round, and a new website** · doc section · [CHANGELOG.md › 3.7.13.17 — HEAVEN the right way round, and a new website](CHANGELOG.md#371317--heaven-the-right-way-round-and-a-new-website) — in What changed
 - **3.7.13.16 — the new units, stronger and alive** · doc section · [CHANGELOG.md › 3.7.13.16 — the new units, stronger and alive](CHANGELOG.md#371316--the-new-units-stronger-and-alive) — in What changed
 - **3.7.13.15 — your units in the rack, and a gear locker** · doc section · [CHANGELOG.md › 3.7.13.15 — your units in the rack, and a gear locker](CHANGELOG.md#371315--your-units-in-the-rack-and-a-gear-locker) — in What changed
 - **3.7.13.14 — easier on the ears, made for headphones** · doc section · [CHANGELOG.md › 3.7.13.14 — easier on the ears, made for headphones](CHANGELOG.md#371314--easier-on-the-ears-made-for-headphones) — in What changed
@@ -158,6 +161,13 @@ Every doc and every section in it. (236)
 - **1.2.4.1** · doc section · [CHANGELOG.md › 1.2.4.1](CHANGELOG.md#1241) — in What changed
 - **1.1.4.1** · doc section · [CHANGELOG.md › 1.1.4.1](CHANGELOG.md#1141) — in What changed
 - **1.0.4.1 (was 1.4.1) and earlier** · doc section · [CHANGELOG.md › 1.0.4.1 (was 1.4.1) and earlier](CHANGELOG.md#1041-was-141-and-earlier) — in What changed
+- **Work plan (resume here if a session is cut off)** · doc · [PLAN.md](PLAN.md)
+- **STATUS 2026-09-28: all items done and verified; NOTHING COMMITTED YET (website + TONE & SPACE fixes). Next: ask the owner to commit / push / release 3.7.13.17.** · doc section · [PLAN.md › STATUS 2026-09-28: all items done and verified; NOTHING COMMITTED YET (website + TONE & SPACE fixes). Next: ask the owner to commit / push / release 3.7.13.17.](PLAN.md#status-2026-09-28-all-items-done-and-verified-nothing-committed-yet-website--tone--space-fixes-next-ask-the-owner-to-commit--push--release-371317) — in Work plan (resume here if a session is cut off)
+- **0. Release 3.7.13.16** · doc section · [PLAN.md › 0. Release 3.7.13.16](PLAN.md#0-release-371316) — in Work plan (resume here if a session is cut off)
+- **1. Plugin fixes (done, uncommitted; full DSP suite run: build/lab/full4.log) (TONE & SPACE, "the space rack")** · doc section · [PLAN.md › 1. Plugin fixes (done, uncommitted; full DSP suite run: build/lab/full4.log) (TONE & SPACE, "the space rack")](PLAN.md#1-plugin-fixes-done-uncommitted-full-dsp-suite-run-buildlabfull4log-tone--space-the-space-rack) — in Work plan (resume here if a session is cut off)
+- **2. Website redesign (docs/)** · doc section · [PLAN.md › 2. Website redesign (docs/)](PLAN.md#2-website-redesign-docs) — in Work plan (resume here if a session is cut off)
+- **3. Designer** · doc section · [PLAN.md › 3. Designer](PLAN.md#3-designer) — in Work plan (resume here if a session is cut off)
+- **Notes for whoever resumes** · doc section · [PLAN.md › Notes for whoever resumes](PLAN.md#notes-for-whoever-resumes) — in Work plan (resume here if a session is cut off)
 - **Windows port** · doc · [PORTING-TO-WINDOWS.md](PORTING-TO-WINDOWS.md)
 - **ENH Master** · doc · [README.md](README.md)
 - **Three ways to use it** · doc section · [README.md › Three ways to use it](README.md#three-ways-to-use-it) — in ENH Master
@@ -634,28 +644,28 @@ Every setting in the units' glass panels, and every choice. (160)
 Test modes, tool commands, scenes, scripts. (62)
 
 - **scripts/selftest.sh** · the whole self-test in one command · [scripts/selftest.sh](scripts/selftest.sh) — every test, PASS / FAIL per step
-- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2157](Tests/EnhDspTests.cpp#L2157)
-- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2164](Tests/EnhDspTests.cpp#L2164)
-- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2167](Tests/EnhDspTests.cpp#L2167)
-- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2180](Tests/EnhDspTests.cpp#L2180)
-- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2183](Tests/EnhDspTests.cpp#L2183)
-- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2190](Tests/EnhDspTests.cpp#L2190)
-- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2199](Tests/EnhDspTests.cpp#L2199)
-- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2205](Tests/EnhDspTests.cpp#L2205)
-- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2212](Tests/EnhDspTests.cpp#L2212)
-- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2219](Tests/EnhDspTests.cpp#L2219)
-- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2226](Tests/EnhDspTests.cpp#L2226)
-- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2237](Tests/EnhDspTests.cpp#L2237)
-- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2244](Tests/EnhDspTests.cpp#L2244)
-- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2250](Tests/EnhDspTests.cpp#L2250)
-- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2257](Tests/EnhDspTests.cpp#L2257)
-- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2266](Tests/EnhDspTests.cpp#L2266)
-- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2327](Tests/EnhDspTests.cpp#L2327)
-- **EnhDspTests --designed** · test mode · [EnhDspTests.cpp:2353](Tests/EnhDspTests.cpp#L2353)
-- **EnhDspTests --lunchbox** · test mode · [EnhDspTests.cpp:2361](Tests/EnhDspTests.cpp#L2361)
-- **EnhDspTests --latency** · test mode · [EnhDspTests.cpp:2368](Tests/EnhDspTests.cpp#L2368)
-- **EnhDspTests --precision** · test mode · [EnhDspTests.cpp:2375](Tests/EnhDspTests.cpp#L2375)
-- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2382](Tests/EnhDspTests.cpp#L2382)
+- **EnhDspTests --bass** · test mode · [EnhDspTests.cpp:2175](Tests/EnhDspTests.cpp#L2175)
+- **EnhDspTests --golden** · test mode · [EnhDspTests.cpp:2182](Tests/EnhDspTests.cpp#L2182)
+- **EnhDspTests --radar** · test mode · [EnhDspTests.cpp:2185](Tests/EnhDspTests.cpp#L2185)
+- **EnhDspTests --units** · test mode · [EnhDspTests.cpp:2198](Tests/EnhDspTests.cpp#L2198)
+- **EnhDspTests --methods** · test mode · [EnhDspTests.cpp:2201](Tests/EnhDspTests.cpp#L2201)
+- **EnhDspTests --methods-doc** · test mode · [EnhDspTests.cpp:2208](Tests/EnhDspTests.cpp#L2208)
+- **EnhDspTests --str0** · test mode · [EnhDspTests.cpp:2217](Tests/EnhDspTests.cpp#L2217)
+- **EnhDspTests --alias** · test mode · [EnhDspTests.cpp:2223](Tests/EnhDspTests.cpp#L2223)
+- **EnhDspTests --zipper** · test mode · [EnhDspTests.cpp:2230](Tests/EnhDspTests.cpp#L2230)
+- **EnhDspTests --fuzz** · test mode · [EnhDspTests.cpp:2237](Tests/EnhDspTests.cpp#L2237)
+- **EnhDspTests --mastering** · test mode · [EnhDspTests.cpp:2244](Tests/EnhDspTests.cpp#L2244)
+- **EnhDspTests --character** · test mode · [EnhDspTests.cpp:2255](Tests/EnhDspTests.cpp#L2255)
+- **EnhDspTests --cpu** · test mode · [EnhDspTests.cpp:2262](Tests/EnhDspTests.cpp#L2262)
+- **EnhDspTests --presets** · test mode · [EnhDspTests.cpp:2268](Tests/EnhDspTests.cpp#L2268)
+- **EnhDspTests --limiter** · test mode · [EnhDspTests.cpp:2275](Tests/EnhDspTests.cpp#L2275)
+- **EnhDspTests --analyze** · test mode · [EnhDspTests.cpp:2284](Tests/EnhDspTests.cpp#L2284)
+- **EnhDspTests --events** · test mode · [EnhDspTests.cpp:2345](Tests/EnhDspTests.cpp#L2345)
+- **EnhDspTests --designed** · test mode · [EnhDspTests.cpp:2371](Tests/EnhDspTests.cpp#L2371)
+- **EnhDspTests --lunchbox** · test mode · [EnhDspTests.cpp:2379](Tests/EnhDspTests.cpp#L2379)
+- **EnhDspTests --latency** · test mode · [EnhDspTests.cpp:2386](Tests/EnhDspTests.cpp#L2386)
+- **EnhDspTests --precision** · test mode · [EnhDspTests.cpp:2393](Tests/EnhDspTests.cpp#L2393)
+- **EnhDspTests --diagnose** · test mode · [EnhDspTests.cpp:2400](Tests/EnhDspTests.cpp#L2400)
 - **scene gaps** · AudioLab test scene · [AudioLab.cpp:213](Tools/AudioLab.cpp#L213) — music for 3 s, near silence for 3 s, music again: what the auto gains do in the gaps
 - **scene bassduck** · AudioLab test scene · [AudioLab.cpp:214](Tools/AudioLab.cpp#L214) — unchanging quiet detail and footsteps throughout, loud bass only from 3 - 5 s: what the bass does to the rest
 - **scene steps** · AudioLab test scene · [AudioLab.cpp:215](Tools/AudioLab.cpp#L215) — ambience and footsteps only, left/right, every 0.45 s: what the rack does to footsteps over time
@@ -701,17 +711,17 @@ Test modes, tool commands, scenes, scripts. (62)
 Every environment variable the code reads, and where. (86)
 
 - **ALIAS_PRESETS** · dev setting (environment variable) · [Tests/MasteringTests.h:714](Tests/MasteringTests.h#L714)
-- **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1312](Tests/EnhDspTests.cpp#L1312)
-- **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1305](Tests/EnhDspTests.cpp#L1305)
+- **BAL_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1330](Tests/EnhDspTests.cpp#L1330)
+- **BAL_TRACE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1323](Tests/EnhDspTests.cpp#L1323)
 - **CHAR_STEPS** · dev setting (environment variable) · [Tests/CharacterTests.h:329](Tests/CharacterTests.h#L329)
-- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2102](Tests/EnhDspTests.cpp#L2102)
+- **CPU_BREAKDOWN** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:2120](Tests/EnhDspTests.cpp#L2120)
 - **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:906](Tests/EnhDspTests.cpp#L906)
 - **DIAG_EVENT** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:906](Tests/EnhDspTests.cpp#L906)
 - **EAR_TRACE** · dev setting (environment variable) · [Tests/MasteringTests.h:403](Tests/MasteringTests.h#L403)
 - **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Source/Parameters/PresetLibrary.cpp:42](Source/Parameters/PresetLibrary.cpp#L42)
 - **ENH_MASTER_PRESETS** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:829](Tests/EnhDspTests.cpp#L829)
 - **FOCUS** · dev setting (environment variable) · [Tools/LayoutViz.cpp:115](Tools/LayoutViz.cpp#L115)
-- **KEEP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1363](Tests/EnhDspTests.cpp#L1363)
+- **KEEP_DIAG** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:1381](Tests/EnhDspTests.cpp#L1381)
 - **LAB_FOOTSTEP_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:506](Tools/AudioLab.cpp#L506)
 - **LAB_GUARD_TRACE** · dev setting (environment variable) · [Tools/AudioLab.cpp:504](Tools/AudioLab.cpp#L504)
 - **LIMITER_FINE** · dev setting (environment variable) · [Tests/EnhDspTests.cpp:623](Tests/EnhDspTests.cpp#L623)
@@ -1467,19 +1477,19 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **Seraph::prepare** · function · [Seraph.h:340](Source/DSP/Seraph.h#L340)
 - **Seraph::reset** · function · [Seraph.h:361](Source/DSP/Seraph.h#L361)
 - **Seraph::process** · function · [Seraph.h:383](Source/DSP/Seraph.h#L383)
-- **Seraph::getLimiterDb** · function · [Seraph.h:413](Source/DSP/Seraph.h#L413)
-- **Seraph::getHeavenDb** · function · [Seraph.h:414](Source/DSP/Seraph.h#L414)
-- **Seraph::getLatencySamples** · function · [Seraph.h:415](Source/DSP/Seraph.h#L415)
-- **Seraph::processSilk** · function · [Seraph.h:421](Source/DSP/Seraph.h#L421)
-- **Seraph::getSilk** · function · [Seraph.h:471](Source/DSP/Seraph.h#L471)
-- **Seraph::getAutoBlend** · function · [Seraph.h:472](Source/DSP/Seraph.h#L472)
-- **Seraph::getHalo** · function · [Seraph.h:473](Source/DSP/Seraph.h#L473)
-- **Seraph::getActivityDb** · function · [Seraph.h:478](Source/DSP/Seraph.h#L478)
-- **Seraph::analyse** · function · [Seraph.h:498](Source/DSP/Seraph.h#L498)
-- **Seraph::choose** · function · [Seraph.h:534](Source/DSP/Seraph.h#L534) — AUTO's choice from what it has heard so far (before anything: a neutral, typical programme).
-- **Seraph::measure** · function · [Seraph.h:554](Source/DSP/Seraph.h#L554)
-- **Seraph::applyHeaven** · function · [Seraph.h:570](Source/DSP/Seraph.h#L570)
-- **Seraph::rampGain** · function · [Seraph.h:605](Source/DSP/Seraph.h#L605) — HEAVEN's gain, ramped across the block from what was applied last (never a step).
+- **Seraph::getLimiterDb** · function · [Seraph.h:425](Source/DSP/Seraph.h#L425)
+- **Seraph::getHeavenDb** · function · [Seraph.h:426](Source/DSP/Seraph.h#L426)
+- **Seraph::getLatencySamples** · function · [Seraph.h:427](Source/DSP/Seraph.h#L427)
+- **Seraph::processSilk** · function · [Seraph.h:433](Source/DSP/Seraph.h#L433)
+- **Seraph::getSilk** · function · [Seraph.h:483](Source/DSP/Seraph.h#L483)
+- **Seraph::getAutoBlend** · function · [Seraph.h:484](Source/DSP/Seraph.h#L484)
+- **Seraph::getHalo** · function · [Seraph.h:485](Source/DSP/Seraph.h#L485)
+- **Seraph::getActivityDb** · function · [Seraph.h:490](Source/DSP/Seraph.h#L490)
+- **Seraph::analyse** · function · [Seraph.h:510](Source/DSP/Seraph.h#L510)
+- **Seraph::choose** · function · [Seraph.h:546](Source/DSP/Seraph.h#L546) — AUTO's choice from what it has heard so far (before anything: a neutral, typical programme).
+- **Seraph::measure** · function · [Seraph.h:566](Source/DSP/Seraph.h#L566)
+- **Seraph::applyHeaven** · function · [Seraph.h:582](Source/DSP/Seraph.h#L582)
+- **Seraph::rampGain** · function · [Seraph.h:617](Source/DSP/Seraph.h#L617) — HEAVEN's gain, ramped across the block from what was applied last (never a step).
 
 **[Source/DSP/SpectralLeveler.cpp](Source/DSP/SpectralLeveler.cpp)**
 
@@ -2330,22 +2340,22 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **HardwareRenderer::unitAtPoint** · function · [HardwareRenderer.cpp:2031](Source/UI/Scene/HardwareRenderer.cpp#L2031)
 - **HardwareRenderer::draw** · function · [HardwareRenderer.cpp:2045](Source/UI/Scene/HardwareRenderer.cpp#L2045)
 - **HardwareRenderer::bakeOcclusion** · function · [HardwareRenderer.cpp:2090](Source/UI/Scene/HardwareRenderer.cpp#L2090)
-- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:2149](Source/UI/Scene/HardwareRenderer.cpp#L2149)
-- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:2159](Source/UI/Scene/HardwareRenderer.cpp#L2159)
-- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:2167](Source/UI/Scene/HardwareRenderer.cpp#L2167)
-- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:2178](Source/UI/Scene/HardwareRenderer.cpp#L2178)
-- **HardwareRenderer::buildDesignedMeshes** · function · [HardwareRenderer.cpp:2283](Source/UI/Scene/HardwareRenderer.cpp#L2283)
-- **HardwareRenderer::drawDesigned** · function · [HardwareRenderer.cpp:2336](Source/UI/Scene/HardwareRenderer.cpp#L2336)
-- **HardwareRenderer::setUpLiveScreens** · function · [HardwareRenderer.cpp:2382](Source/UI/Scene/HardwareRenderer.cpp#L2382)
-- **ScreenInk** · struct · [HardwareRenderer.cpp:2416](Source/UI/Scene/HardwareRenderer.cpp#L2416) — Drawing into a display's glow (one channel): the brightest of what is there and what is drawn.
-- **ScreenInk::dot** · function · [HardwareRenderer.cpp:2419](Source/UI/Scene/HardwareRenderer.cpp#L2419)
-- **ScreenInk::rect** · function · [HardwareRenderer.cpp:2420](Source/UI/Scene/HardwareRenderer.cpp#L2420)
-- **ScreenInk::line** · function · [HardwareRenderer.cpp:2427](Source/UI/Scene/HardwareRenderer.cpp#L2427) — An anti-aliased line `t` pixels thick.
-- **HardwareRenderer::updateLiveScreens** · function · [HardwareRenderer.cpp:2445](Source/UI/Scene/HardwareRenderer.cpp#L2445)
-- **HardwareRenderer::drawPowerStrip** · function · [HardwareRenderer.cpp:2532](Source/UI/Scene/HardwareRenderer.cpp#L2532)
-- **HardwareRenderer::drawLunchbox** · function · [HardwareRenderer.cpp:2560](Source/UI/Scene/HardwareRenderer.cpp#L2560)
-- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:2610](Source/UI/Scene/HardwareRenderer.cpp#L2610) — The cover glass over a unit's meters, drawn with everything else transparent.
-- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:2625](Source/UI/Scene/HardwareRenderer.cpp#L2625)
+- **HardwareRenderer::drawShadow** · function · [HardwareRenderer.cpp:2164](Source/UI/Scene/HardwareRenderer.cpp#L2164)
+- **HardwareRenderer::drawLed** · function · [HardwareRenderer.cpp:2174](Source/UI/Scene/HardwareRenderer.cpp#L2174)
+- **HardwareRenderer::Needle::update** · function · [HardwareRenderer.cpp:2182](Source/UI/Scene/HardwareRenderer.cpp#L2182)
+- **HardwareRenderer::drawOneU** · function · [HardwareRenderer.cpp:2193](Source/UI/Scene/HardwareRenderer.cpp#L2193)
+- **HardwareRenderer::buildDesignedMeshes** · function · [HardwareRenderer.cpp:2298](Source/UI/Scene/HardwareRenderer.cpp#L2298)
+- **HardwareRenderer::drawDesigned** · function · [HardwareRenderer.cpp:2351](Source/UI/Scene/HardwareRenderer.cpp#L2351)
+- **HardwareRenderer::setUpLiveScreens** · function · [HardwareRenderer.cpp:2397](Source/UI/Scene/HardwareRenderer.cpp#L2397)
+- **ScreenInk** · struct · [HardwareRenderer.cpp:2431](Source/UI/Scene/HardwareRenderer.cpp#L2431) — Drawing into a display's glow (one channel): the brightest of what is there and what is drawn.
+- **ScreenInk::dot** · function · [HardwareRenderer.cpp:2434](Source/UI/Scene/HardwareRenderer.cpp#L2434)
+- **ScreenInk::rect** · function · [HardwareRenderer.cpp:2435](Source/UI/Scene/HardwareRenderer.cpp#L2435)
+- **ScreenInk::line** · function · [HardwareRenderer.cpp:2442](Source/UI/Scene/HardwareRenderer.cpp#L2442) — An anti-aliased line `t` pixels thick.
+- **HardwareRenderer::updateLiveScreens** · function · [HardwareRenderer.cpp:2460](Source/UI/Scene/HardwareRenderer.cpp#L2460)
+- **HardwareRenderer::drawPowerStrip** · function · [HardwareRenderer.cpp:2547](Source/UI/Scene/HardwareRenderer.cpp#L2547)
+- **HardwareRenderer::drawLunchbox** · function · [HardwareRenderer.cpp:2575](Source/UI/Scene/HardwareRenderer.cpp#L2575)
+- **HardwareRenderer::drawVuGlass** · function · [HardwareRenderer.cpp:2625](Source/UI/Scene/HardwareRenderer.cpp#L2625) — The cover glass over a unit's meters, drawn with everything else transparent.
+- **HardwareRenderer::drawScene** · function · [HardwareRenderer.cpp:2640](Source/UI/Scene/HardwareRenderer.cpp#L2640)
 
 **[Source/UI/Scene/HardwareRenderer.h](Source/UI/Scene/HardwareRenderer.h)**
 
@@ -2519,15 +2529,15 @@ Every class, struct, enum and function, by file, with the first line of its comm
 - **seraphPumpingDb** · function · [EnhDspTests.cpp:969](Tests/EnhDspTests.cpp#L969)
 - **rackPumpingDb** · function · [EnhDspTests.cpp:1012](Tests/EnhDspTests.cpp#L1012) — The whole rack: the same 2 kHz tone with bass switching on and off every second.
 - **runLoudBassTests** · function · [EnhDspTests.cpp:1041](Tests/EnhDspTests.cpp#L1041)
-- **runNewUnitTests** · function · [EnhDspTests.cpp:1158](Tests/EnhDspTests.cpp#L1158) — The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER.
-- **methodsDoc** · function · [EnhDspTests.cpp:1442](Tests/EnhDspTests.cpp#L1442) — ========================================================================== The method registry as the referen…
-- **methodsDocFile** · function · [EnhDspTests.cpp:1496](Tests/EnhDspTests.cpp#L1496)
-- **runMethodTests** · function · [EnhDspTests.cpp:1509](Tests/EnhDspTests.cpp#L1509)
-- **runDeepSubTests** · function · [EnhDspTests.cpp:1921](Tests/EnhDspTests.cpp#L1921) — ==========================================================================
-- **runNewUnitsMode** · function · [EnhDspTests.cpp:2009](Tests/EnhDspTests.cpp#L2009)
-- **runGolden** · function · [EnhDspTests.cpp:2017](Tests/EnhDspTests.cpp#L2017)
-- **runCpuBenchmark** · function · [EnhDspTests.cpp:2068](Tests/EnhDspTests.cpp#L2068)
-- **main** · function · [EnhDspTests.cpp:2152](Tests/EnhDspTests.cpp#L2152)
+- **runNewUnitTests** · function · [EnhDspTests.cpp:1176](Tests/EnhDspTests.cpp#L1176) — The LEVEL & LOUDNESS unit, the output limiter's 0 dBFS rule and the MIX BALANCER.
+- **methodsDoc** · function · [EnhDspTests.cpp:1460](Tests/EnhDspTests.cpp#L1460) — ========================================================================== The method registry as the referen…
+- **methodsDocFile** · function · [EnhDspTests.cpp:1514](Tests/EnhDspTests.cpp#L1514)
+- **runMethodTests** · function · [EnhDspTests.cpp:1527](Tests/EnhDspTests.cpp#L1527)
+- **runDeepSubTests** · function · [EnhDspTests.cpp:1939](Tests/EnhDspTests.cpp#L1939) — ==========================================================================
+- **runNewUnitsMode** · function · [EnhDspTests.cpp:2027](Tests/EnhDspTests.cpp#L2027)
+- **runGolden** · function · [EnhDspTests.cpp:2035](Tests/EnhDspTests.cpp#L2035)
+- **runCpuBenchmark** · function · [EnhDspTests.cpp:2086](Tests/EnhDspTests.cpp#L2086)
+- **main** · function · [EnhDspTests.cpp:2170](Tests/EnhDspTests.cpp#L2170)
 
 **[Tests/LunchboxTests.h](Tests/LunchboxTests.h)**
 
@@ -2706,7 +2716,7 @@ Every class, struct, enum and function, by file, with the first line of its comm
 
 ## Files
 
-Every source, script and workflow file. (132)
+Every source, script and workflow file. (133)
 
 - **PluginEditor.cpp** · file · [Source/PluginEditor.cpp](Source/PluginEditor.cpp)
 - **PluginEditor.h** · file · [Source/PluginEditor.h](Source/PluginEditor.h)
@@ -2827,6 +2837,7 @@ Every source, script and workflow file. (132)
 - **HostCheck.cpp** · file · [Tools/HostCheck.cpp](Tools/HostCheck.cpp)
 - **LayoutViz.cpp** · file · [Tools/LayoutViz.cpp](Tools/LayoutViz.cpp)
 - **HOW-TO-CHECK.txt** · file · [scripts/HOW-TO-CHECK.txt](scripts/HOW-TO-CHECK.txt)
+- **make-gallery.py** · file · [scripts/make-gallery.py](scripts/make-gallery.py)
 - **make-searchbar.py** · file · [scripts/make-searchbar.py](scripts/make-searchbar.py)
 - **package-release-windows.ps1** · file · [scripts/package-release-windows.ps1](scripts/package-release-windows.ps1)
 - **package-release.sh** · file · [scripts/package-release.sh](scripts/package-release.sh)
