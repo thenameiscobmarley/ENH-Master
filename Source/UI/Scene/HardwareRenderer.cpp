@@ -37,6 +37,7 @@ namespace pad
         if (unit == x4Unit) return { designed::x4Print.begin(), designed::x4Print.end() };
         if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
         if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
+        if (unit == scopeUnit) return { designed::scPrint.begin(), designed::scPrint.end() };
         return {};
     }
 
@@ -82,7 +83,7 @@ namespace pad
         : bridge (b), shared (s), meters (m), scope (sc), balancerScope (bsc), history (dh), config (c), textureData (std::move (textures))
     {
         seraphModeParam = bridge.indexOf (params::id::seraphMode);
-        designedPowerParam = { bridge.indexOf ("x4Pwr"), bridge.indexOf ("velPower"), bridge.indexOf ("tbPower") };
+        designedPowerParam = { bridge.indexOf ("x4Pwr"), bridge.indexOf ("velPower"), bridge.indexOf ("tbPower"), bridge.indexOf ("scPower") };
 
         // Which knobs an auto mode turns (AUTO heaven: REVERB .. SUB; MATCH: OUTPUT), resolved once
         {
@@ -446,6 +447,8 @@ namespace pad
         upload (velvetScreenTex, textureData.velvetScreens);
         upload (takebackDecalTex, textureData.takebackDecal);
         upload (takebackScreenTex, textureData.takebackScreens);
+        upload (scopeDecalTex, textureData.scopeDecal);
+        upload (scopeScreenTex, textureData.scopeScreens);
         setUpLiveScreens();
         for (size_t m = 0; m < takebackVuFaceTex.size(); ++m)
             upload (takebackVuFaceTex[m], textureData.takebackVuFace[m]);
@@ -529,7 +532,7 @@ namespace pad
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
                            &limiterLabelTex[0], &limiterLabelTex[1], &deepDecalTex, &deepLabelTex, &characterDecalTex, &characterLabelTex,
                            &radarDecalTex, &radarVuFaceTex, &wallTex, &envTex, &occTex,
-                           &x4DecalTex, &x4VuFaceTex, &x4ScreenTex, &velvetDecalTex, &velvetVuFaceTex, &velvetScreenTex, &takebackDecalTex, &takebackScreenTex,
+                           &x4DecalTex, &x4VuFaceTex, &x4ScreenTex, &velvetDecalTex, &velvetVuFaceTex, &velvetScreenTex, &takebackDecalTex, &takebackScreenTex, &scopeDecalTex, &scopeScreenTex,
                            &powerDecalTex, &lunchboxDecalTex, &lunchboxVuFaceTex, &blankTex, &smudgeTex })
             tex->release();
         loupeTarget.release();
@@ -2353,10 +2356,13 @@ namespace pad
         if (! isShown (unit))
             return;
         const int k = designedIndex (unit);
-        // The designs' colours (#464749 dark grey, #04581d green, #264787 blue), in linear light
-        static constexpr std::array<Vec3, numDesigned> plate { Vec3 { 0.061f, 0.064f, 0.068f }, Vec3 { 0.0012f, 0.098f, 0.012f }, Vec3 { 0.0194f, 0.063f, 0.242f } };
-        const gfx::Texture2D& decal = k == 0 ? x4DecalTex : k == 1 ? velvetDecalTex : takebackDecalTex;
-        if (k == 2)
+        // The designs' colours (#464749 dark grey, #04581d green, #264787 blue; PHOSPHOR: laboratory blue-grey), in linear light
+        static constexpr std::array<Vec3, numDesigned> plate { Vec3 { 0.061f, 0.064f, 0.068f }, Vec3 { 0.0012f, 0.098f, 0.012f }, Vec3 { 0.0194f, 0.063f, 0.242f },
+                                                               Vec3 { 0.028f, 0.036f, 0.048f } };
+        const gfx::Texture2D& decal = k == 0 ? x4DecalTex : k == 1 ? velvetDecalTex : k == 2 ? takebackDecalTex : scopeDecalTex;
+        if (k == 3)
+            drawOneU (unit, panel, plate[3], decal, {}, Finish::hammertone);
+        else if (k == 2)
             drawOneU (unit, panel, plate[2], decal, { &takebackVuFaceTex[0], &takebackVuFaceTex[1], &takebackVuFaceTex[2], &takebackVuFaceTex[3] }, Finish::paint);
         else
             drawOneU (unit, panel, plate[(size_t) k], decal, { k == 0 ? &x4VuFaceTex : &velvetVuFaceTex }, Finish::paint);
@@ -2372,15 +2378,17 @@ namespace pad
         draw (designedJackPlugs[(size_t) k], panel, { 0.62f, 0.62f, 0.65f });
 
         // Displays: dark glass, glowing in the design's colour where it has something to show
-        (k == 0 ? x4ScreenTex : k == 1 ? velvetScreenTex : takebackScreenTex).bind (0);
+        (k == 0 ? x4ScreenTex : k == 1 ? velvetScreenTex : k == 2 ? takebackScreenTex : scopeScreenTex).bind (0);
         auto& screen = use (shaders::designedScreen);
         screen.set ("uParams", -unitHalfW (unit), -unitHalfH (unit), 2.0f * unitHalfW (unit), 2.0f * unitHalfH (unit));
         const bool on = bridge.getNormalised (designedPowerParam[(size_t) k]) > 0.5f;
         updateLiveScreens (unit, on);
-        static constexpr std::array<Vec3, numDesigned> glow { Vec3 { 0.40f, 0.80f, 1.0f }, Vec3 { 0.97f, 1.0f, 0.70f }, Vec3 { 0.64f, 0.90f, 1.0f } };
+        static constexpr std::array<Vec3, numDesigned> glow { Vec3 { 0.40f, 0.80f, 1.0f }, Vec3 { 0.97f, 1.0f, 0.70f }, Vec3 { 0.64f, 0.90f, 1.0f },
+                                                              Vec3 { 0.30f, 1.0f, 0.42f } };   // (P31 phosphor green)
         const Vec3 glowColour = glow[(size_t) k];
-        current->set ("uEmissive", glowColour * (on ? 0.55f : 0.04f));
-        draw (designedScreens[(size_t) k], panel, { 0.006f, 0.007f, 0.009f }, glowColour * (on ? 0.55f : 0.04f));
+        const float lit = on ? (k == 3 ? 1.15f : 0.55f) : 0.04f;   // (a CRT's phosphor glows far brighter than a panel display)
+        current->set ("uEmissive", glowColour * lit);
+        draw (designedScreens[(size_t) k], panel, k == 3 ? Vec3 { 0.004f, 0.012f, 0.006f } : Vec3 { 0.006f, 0.007f, 0.009f }, glowColour * lit);
 
         // TAKEBACK's LED ladders: under each knob, lit from the bottom by how hard its section works
         if (k == 2)
@@ -2399,7 +2407,8 @@ namespace pad
         liveScreens.clear();
         for (int unit : designedUnits)
         {
-            const auto& raw = unit == x4Unit ? textureData.x4Screens : unit == velvetUnit ? textureData.velvetScreens : textureData.takebackScreens;
+            const auto& raw = unit == x4Unit ? textureData.x4Screens : unit == velvetUnit ? textureData.velvetScreens
+                            : unit == takebackUnit ? textureData.takebackScreens : textureData.scopeScreens;
             if (raw.width <= 0 || raw.channels != 1)
                 continue;
             const float halfH = unitHalfH (unit), sx = (float) raw.width / (2.0f * faceHalfW), sz = (float) raw.height / (2.0f * halfH);
@@ -2462,13 +2471,15 @@ namespace pad
         const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
         auto& clock = liveScreenClock[(size_t) std::max (0, designedIndex (unit))];
         const bool tick = now - clock > 1.0 / 30.0;
-        auto& tex = unit == x4Unit ? x4ScreenTex : unit == velvetUnit ? velvetScreenTex : takebackScreenTex;
+        auto& tex = unit == x4Unit ? x4ScreenTex : unit == velvetUnit ? velvetScreenTex : unit == takebackUnit ? takebackScreenTex : scopeScreenTex;
         for (auto& ls : liveScreens)
         {
             if (ls.unit != unit || (! on && ! ls.shownOn) || (on && ! tick))
                 continue;
             ls.buf = ls.base;
-            if (on)
+            if (on && unit == scopeUnit)
+                drawScopeTrace (ls, (float) std::min (0.25, now - clock));
+            else if (on)
             {
                 ScreenInk g { ls.buf, ls.w, ls.h };
                 const float W = (float) ls.w, H = (float) ls.h;
@@ -2540,6 +2551,158 @@ namespace pad
         }
         if (on && tick)
             clock = now;
+    }
+
+    /** PHOSPHOR's CRT. A beam moves from sample to sample of the rack's output and leaves its glow where it goes:
+        more where it lingers (a slow part of the trace), less where it sweeps fast - that is what gives a real
+        vectorscope its look. The glow fades with PERSIST; FOCUS is the beam's width; INTENSITY its brightness;
+        V/DIV the size. X-Y: left across, right up. M/S: turned 45 degrees (mono stands up straight, the stereo
+        spreads sideways). Y-T: the waveform, triggered on a rising zero crossing so it stands still. */
+    void HardwareRenderer::drawScopeTrace (LiveScreen& ls, float dt)
+    {
+        const int W = ls.w, H = ls.h;
+        if ((int) ls.phosphor.size() != W * H)
+            ls.phosphor.assign ((size_t) (W * H), 0.0f);
+        auto real = [this] (const char* id, float fallback)
+        {
+            const int i = bridge.indexOf (id);
+            const auto* spec = params::findSpec (id);
+            return i >= 0 && spec != nullptr ? rangeOf (*spec).convertFrom0to1 (bridge.getNormalised (i)) : fallback;
+        };
+        const int mode = (int) std::lround (real ("scMode", 0.0f));
+        const float intensity = real ("scIntensity", 6.0f) / 10.0f, focus = real ("scFocus", 6.0f) / 10.0f;
+        const float tau = 0.02f * std::pow (2.0f, 0.8f * real ("scPersist", 5.0f));        // 20 ms .. ~5 s
+        const float scale = 0.25f * std::pow (16.0f, real ("scGain", 5.0f) / 10.0f);       // x0.25 .. x4
+        const float divTime = 0.0002f * std::pow (10.0f, 0.3f * real ("scTime", 4.0f));   // 0.2 ms .. 200 ms a division
+
+        // The glow fades
+        const float fade = std::exp (-dt / std::max (0.005f, tau));
+        for (auto& v : ls.phosphor) v *= fade;
+
+        // The graticule's divisions, and the beam: a soft spot (FOCUS) that deposits light per step
+        const float dx = 0.94f * (float) W / 10.0f, dy = 0.92f * (float) H / 8.0f, cx = 0.5f * (float) W, cy = 0.5f * (float) H;
+        const float sigma = 0.55f + 2.2f * (1.0f - focus);
+        const int rad = (int) std::ceil (2.2f * sigma);
+        std::array<float, 81> kern {};
+        for (int y = -rad; y <= rad; ++y) for (int x = -rad; x <= rad; ++x)
+            if (std::abs (x) <= 4 && std::abs (y) <= 4) kern[(size_t) ((y + 4) * 9 + x + 4)] = std::exp (-(float) (x * x + y * y) / (2.0f * sigma * sigma));
+        const float gainK = 0.35f * (0.15f + 1.7f * intensity * intensity) / (sigma * sigma);
+        auto splat = [&] (float px, float py, float e)
+        {
+            const int ix = (int) std::lround (px), iy = (int) std::lround (py);
+            for (int y = -std::min (rad, 4); y <= std::min (rad, 4); ++y)
+            {
+                const int yy = iy + y; if (yy < 0 || yy >= H) continue;
+                for (int x = -std::min (rad, 4); x <= std::min (rad, 4); ++x)
+                {
+                    const int xx = ix + x; if (xx < 0 || xx >= W) continue;
+                    ls.phosphor[(size_t) (yy * W + xx)] += e * kern[(size_t) ((y + 4) * 9 + x + 4)];
+                }
+            }
+        };
+        // One sample's worth of beam from a to b: the same light spread over the distance it travels
+        auto segment = [&] (float ax, float ay, float bx, float by)
+        {
+            const float len = std::hypot (bx - ax, by - ay);
+            const int steps = std::clamp ((int) std::ceil (len / 0.8f), 1, 48);
+            const float e = gainK / (float) steps * std::min (1.0f, 6.0f / std::max (0.35f, len));
+            for (int k = 1; k <= steps; ++k) { const float t = (float) k / (float) steps; splat (ax + (bx - ax) * t, ay + (by - ay) * t, e); }
+        };
+
+        // The samples: the rack's output (or, with PAD_UI_TEST_DEMO, a slowly turning Lissajous figure and a
+        // little music-like wobble, for screenshots)
+        const int ring = enh::dsp::EngineMeters::scopeRing;
+        const float sr = meters.scopeRate.load (std::memory_order_relaxed);
+        std::vector<std::pair<float, float>> lr;
+        if (demoMeters)
+        {
+            const int n = (int) (sr * std::max (0.004f, dt));
+            lr.resize ((size_t) n);
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = demoScopeTime + (double) i / (double) sr;
+                const float a = (float) (0.55 * std::sin (6.2831853 * 220.0 * t) + 0.12 * std::sin (6.2831853 * 1375.0 * t));
+                const float b = (float) (0.55 * std::sin (6.2831853 * 330.0 * t + 0.4 * std::sin (0.7 * t)) + 0.1 * std::sin (6.2831853 * 910.0 * t));
+                lr[(size_t) i] = { a, b };
+            }
+            demoScopeTime += (double) n / (double) sr;
+        }
+        else
+        {
+            const unsigned w = meters.scopeWrite.load (std::memory_order_acquire);
+            unsigned from = ls.readAt;
+            if (w - from > (unsigned) (ring / 2) || from > w) from = w - (unsigned) std::min (ring / 2, (int) (sr * std::max (0.004f, dt)));
+            if (mode == 2)   // Y-T: enough to find a trigger and fill the screen
+                from = w - (unsigned) std::min (ring - 64, (int) (sr * divTime * 10.0f) + (int) (sr * 0.05f));
+            lr.resize ((size_t) (w - from));
+            for (unsigned i = from, k = 0; i != w; ++i, ++k)
+                lr[k] = { meters.scopeL[(size_t) (i % (unsigned) ring)], meters.scopeR[(size_t) (i % (unsigned) ring)] };
+            ls.readAt = w;
+        }
+
+        if (mode == 2)
+        {
+            // Y-T: the last screenful, from a rising zero crossing (with a little hysteresis) so it stands still
+            const int span = std::max (8, (int) (sr * divTime * 10.0f));
+            const int n = (int) lr.size();
+            int start = std::max (0, n - span);
+            for (int i = n - span - 1; i > 1; --i)
+            {
+                const float m0 = lr[(size_t) (i - 1)].first + lr[(size_t) (i - 1)].second, m1 = lr[(size_t) i].first + lr[(size_t) i].second;
+                if (m0 < -0.004f && m1 >= 0.0f) { start = i; break; }
+            }
+            float px = -1.0f, py = 0.0f;
+            const int stride = std::max (1, span / 2400);   // (a long timebase: a few thousand steps across is plenty)
+            for (int i = start; i < std::min (n, start + span); i += stride)
+            {
+                const float m = 0.5f * (lr[(size_t) i].first + lr[(size_t) i].second);
+                const float x = cx - 5.0f * dx + 10.0f * dx * (float) (i - start) / (float) span, y = cy - m * scale * 4.0f * dy;
+                if (px >= 0.0f) segment (px, py, x, std::clamp (y, 0.0f, (float) H - 1.0f)); else splat (x, y, gainK);
+                px = x; py = std::clamp (y, 0.0f, (float) H - 1.0f);
+            }
+        }
+        else
+        {
+            float px = ls.beamX, py = ls.beamY;
+            for (const auto& [l, r] : lr)
+            {
+                const float ax = mode == 1 ? (l - r) * 0.7071f : l, ay = mode == 1 ? (l + r) * 0.7071f : r;
+                const float x = std::clamp (cx + ax * scale * 4.0f * dy, 0.0f, (float) W - 1.0f), y = std::clamp (cy - ay * scale * 4.0f * dy, 0.0f, (float) H - 1.0f);
+                if (px >= 0.0f) segment (px, py, x, y); else splat (x, y, gainK);
+                px = x; py = y;
+            }
+            ls.beamX = px; ls.beamY = py;
+        }
+
+        // The glass: the glow (a soft ceiling, like phosphor), a bloom round it, over the graticule
+        std::vector<float> bloom ((size_t) (W * H));
+        for (int y = 0; y < H; ++y)   // (a separable box blur, 7 px: the halo a bright trace has on real glass)
+        {
+            float acc = 0.0f;
+            for (int x = -3; x < W + 3; ++x)
+            {
+                if (x + 3 < W) acc += ls.phosphor[(size_t) (y * W + x + 3)];
+                if (x - 4 >= 0) acc -= ls.phosphor[(size_t) (y * W + x - 4)];
+                if (x >= 0 && x < W) bloom[(size_t) (y * W + x)] = acc / 7.0f;
+            }
+        }
+        std::vector<float> col ((size_t) H);
+        for (int x = 0; x < W; ++x)
+        {
+            float acc = 0.0f;
+            for (int y = -3; y < H + 3; ++y)
+            {
+                if (y + 3 < H) acc += bloom[(size_t) ((y + 3) * W + x)];
+                if (y - 4 >= 0) acc -= bloom[(size_t) ((y - 4) * W + x)];
+                if (y >= 0 && y < H) col[(size_t) y] = acc / 7.0f;
+            }
+            for (int y = 0; y < H; ++y)
+            {
+                const float v = 1.0f - std::exp (-(ls.phosphor[(size_t) (y * W + x)] + 0.45f * col[(size_t) y]));
+                const auto base = ls.base[(size_t) (y * W + x)];
+                ls.buf[(size_t) (y * W + x)] = (juce::uint8) std::max ((int) base, (int) std::lround (255.0f * v));
+            }
+        }
     }
 
     /** The POWER strip: a black 1U panel, its three status lamps, and a gooseneck lamp at each end
@@ -2672,12 +2835,13 @@ namespace pad
         const Mat4 x4Panel = panelToWorld (x4Unit);
         const Mat4 velvetPanel = panelToWorld (velvetUnit);
         const Mat4 takebackPanel = panelToWorld (takebackUnit);
+        const Mat4 scopePanel = panelToWorld (scopeUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
                  : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == characterUnit ? characterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
                  : unit == radarUnit ? radarPanel : unit == powerUnit ? powerPanel : unit == lunchboxUnit ? lunchboxPanel
-                 : unit == x4Unit ? x4Panel : unit == velvetUnit ? velvetPanel : unit == takebackUnit ? takebackPanel
+                 : unit == x4Unit ? x4Panel : unit == velvetUnit ? velvetPanel : unit == takebackUnit ? takebackPanel : unit == scopeUnit ? scopePanel
                  : unit == monitorUnit ? monitorPanel : panel;
         };
 
@@ -2831,6 +2995,7 @@ namespace pad
         drawDesigned (x4Unit, x4Panel);
         drawDesigned (velvetUnit, velvetPanel);
         drawDesigned (takebackUnit, takebackPanel);
+        drawDesigned (scopeUnit, scopePanel);
 
         // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
         drawOneU (levelUnit, levelPanel, Vec3 { 0.045f, 0.045f, 0.05f }, levelDecalTex, { &levelFaceTex }, Finish::anodised);   // black, like a monitor controller

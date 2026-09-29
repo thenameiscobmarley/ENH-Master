@@ -5,6 +5,14 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.7.13.18 — PHOSPHOR, a green CRT scope
+
+- **A new unit: PHOSPHOR SCOPE** (2U, in the gear locker) - a vintage green-phosphor CRT oscilloscope and
+  vectorscope watching the rack's output: X-Y (Lissajous), M/S (goniometer) and Y-T (a triggered waveform),
+  with INTENSITY, FOCUS, PERSIST, V/DIV and TIME/DIV. The trace is drawn like a real beam - bright where it
+  lingers, faint where it sweeps, fading on the phosphor. It never changes the sound. See
+  [PHOSPHOR SCOPE](Vault/Devices/PHOSPHOR%20SCOPE.md).
+
 ## 3.7.13.17 — HEAVEN the right way round, and a new website
 
 - **TONE & SPACE: HEAVEN works the right way round.** With AUTO on, HEAVEN set how far the knobs moved

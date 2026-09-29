@@ -205,7 +205,7 @@ namespace pad
         gfx::Texture2D radarDecalTex, radarVuFaceTex;   // FOOTSTEP RADAR: panel print, its meter's dial
         // The designed units (PRO X4, VELVETIZER): print, meter dial, what glows in the displays; and what is
         // modelled flat on the panel from the design - its screws, jack sockets and display screens
-        gfx::Texture2D x4DecalTex, x4VuFaceTex, x4ScreenTex, velvetDecalTex, velvetVuFaceTex, velvetScreenTex, takebackDecalTex, takebackScreenTex;
+        gfx::Texture2D x4DecalTex, x4VuFaceTex, x4ScreenTex, velvetDecalTex, velvetVuFaceTex, velvetScreenTex, takebackDecalTex, takebackScreenTex, scopeDecalTex, scopeScreenTex;
         std::array<gfx::Texture2D, 4> takebackVuFaceTex;
         std::array<gfx::GpuMesh, layout::numDesigned> designedScrews, designedJackRings, designedJackHoles, designedScreens, designedJackPlugs, designedVentWalls;
         // Cable management (with the case: it follows the rack's size): the channels down the cheeks, the
@@ -351,7 +351,7 @@ namespace pad
         std::array<float, 18> seraphColumns {};    // per column x channel, 0..1 (LEVEL: -1..1)
         float tubePower = 0.0f, tubeWarmth = 0.0f;
         int seraphModeParam = -1;
-        std::array<int, layout::numDesigned> designedPowerParam { -1, -1, -1 };   // the designed units' power (their screens light with it)
+        std::array<int, layout::numDesigned> designedPowerParam { -1, -1, -1, -1 };   // the designed units' power (their screens light with it)
         std::array<float, 36> takebackLeds {};   // TAKEBACK's LED ladders as lit now (they ease like real LEDs)
         /** A designed unit's display, drawn live: its area of the unit's screen texture (pixels), the baked
             title under it, and what it has shown lately (a scrolling history). */
@@ -363,11 +363,16 @@ namespace pad
             std::array<float, 160> history {};
             int head = 0;
             bool shownOn = false;
+            std::vector<float> phosphor;   // PHOSPHOR's CRT: the glow the beam has left, fading
+            unsigned readAt = 0;           //   and how far through the scope ring it has drawn
+            float beamX = -1.0f, beamY = -1.0f;   // (-1: no beam yet)
         };
         std::vector<LiveScreen> liveScreens;
         std::array<double, layout::numDesigned> liveScreenClock {};
         void setUpLiveScreens();
         void updateLiveScreens (int unit, bool on);
+        void drawScopeTrace (LiveScreen&, float dt);
+        double demoScopeTime = 0.0;
         int footstepControl = -1, modeControl = -1, heldButton = -1;
         float modeBlend = -1.0f, swapPulse = 0.0f;   // 0 = NORM scale, 1 = ADD scale
         bool lastAddMode = false;

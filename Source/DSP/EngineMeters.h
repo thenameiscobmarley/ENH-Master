@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 #include <atomic>
 
 namespace enh::dsp
@@ -80,6 +81,12 @@ namespace enh::dsp
         std::array<std::atomic<float>, 4> x4PidDb {};       // PRO X4: what its PID adds to each band's drive (dB)
         std::array<std::atomic<float>, 4> x4PvDb {}, x4SpDb {};   //   and each band's density and target (its display)
         std::atomic<float> takebackLost { 0.0f }, takebackDull { 0.0f };   // TAKEBACK: what AUTO measured (0 .. 1)
+        /** PHOSPHOR (the scope): the rack's output, every sample, in a ring the UI reads behind the write
+            position (one writer, the audio thread; a torn read is one wrong dot, never a crash). */
+        static constexpr int scopeRing = 16384;
+        std::vector<float> scopeL = std::vector<float> ((size_t) scopeRing), scopeR = std::vector<float> ((size_t) scopeRing);   // (on the heap: the engine lives on callers' stacks)
+        std::atomic<unsigned> scopeWrite { 0 };
+        std::atomic<float> scopeRate { 48000.0f };
         std::atomic<float> takebackGainDb { 0.0f };          //   and the attack shaping now (+ lift, - cut): its display
         std::atomic<float> charHarmonicsDb { -120.0f };   // CHARACTER: what its models add, against the signal
         std::atomic<float> compareGainDb { 0.0f };         // COMPARE: what the input is brought up or down by

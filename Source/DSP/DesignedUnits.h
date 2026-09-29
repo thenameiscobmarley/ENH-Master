@@ -18,9 +18,9 @@ namespace enh::dsp::designed
         std::string_view texts;   // toggle: "off|on" (optional); choice: the choices, '|' between
     };
 
-    inline constexpr int numParams = 54;
+    inline constexpr int numParams = 61;
     inline constexpr int numX4 = 35;        // the first 35 are PRO X4's, then VELVETIZER's (11), then TAKEBACK's (8)
-    inline constexpr int numVelvet = 11;
+    inline constexpr int numVelvet = 11, numTakeback = 8;   // (then PHOSPHOR, the scope: its 7 settings)
 
     inline constexpr std::array<Param, numParams> params {{
         { "x4Pwr", "Pro X4 Power", "PWR", "", 1, 0.0f, 1.0f, 0.0f, 0, "Off|On" },
@@ -77,6 +77,14 @@ namespace enh::dsp::designed
         { "tbRaw", "Takeback Raw", "RAW", "", 0, 0.0f, 10.0f, 2.0f, 1, "" },
         { "tbShine", "Takeback Shine", "SHINE", "", 0, 0.0f, 10.0f, 4.0f, 1, "" },
         { "tbMix", "Takeback Mix", "MIX", "%", 0, 0.0f, 100.0f, 45.0f, 0, "" },
+        // PHOSPHOR (the scope): it draws the sound, it doesn't change it - these only set the picture
+        { "scPower", "Scope Power", "POWER", "", 1, 0.0f, 1.0f, 1.0f, 0, "Off|On" },
+        { "scMode", "Scope Mode", "MODE", "", 2, 0.0f, 2.0f, 0.0f, 0, "X-Y|M/S|Y-T" },
+        { "scIntensity", "Scope Intensity", "INTENSITY", "", 0, 0.0f, 10.0f, 6.0f, 1, "" },
+        { "scFocus", "Scope Focus", "FOCUS", "", 0, 0.0f, 10.0f, 6.0f, 1, "" },
+        { "scPersist", "Scope Persistence", "PERSIST", "", 0, 0.0f, 10.0f, 5.0f, 1, "" },
+        { "scGain", "Scope Gain", "V/DIV", "", 0, 0.0f, 10.0f, 5.0f, 1, "" },
+        { "scTime", "Scope Timebase", "TIME/DIV", "", 0, 0.0f, 10.0f, 4.0f, 1, "" },
     }};
 
     /** Where an ID sits in the table (-1: not one of these). */
@@ -102,7 +110,8 @@ namespace enh::dsp::designed
         x4Pwr, x4Mono, x4X2, x4Pid, x4P, x4I, x4D, x4Populate, x4Saturate, x4Widen, x4Crisp,
         x4Bands,                                  // x4Bands + side * 12 + band * 3 + (0 drive, 1 tone, 2 mix)
         velPower = numX4, velBypass, velMode, velLow, velMid, velHigh, velGrain, velCrisp, velColorA, velBalance, velColorB,
-        tbPower = numX4 + numVelvet, tbAuto, tbBlur, tbSharpen, tbColor, tbRaw, tbShine, tbMix
+        tbPower = numX4 + numVelvet, tbAuto, tbBlur, tbSharpen, tbColor, tbRaw, tbShine, tbMix,
+        scPower = numX4 + numVelvet + numTakeback, scMode, scIntensity, scFocus, scPersist, scGain, scTime
     };
-    static_assert (tbMix == numParams - 1, "the index list matches the table");
+    static_assert (scTime == numParams - 1, "the index list matches the table");
 }

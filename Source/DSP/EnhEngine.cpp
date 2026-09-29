@@ -593,5 +593,18 @@ namespace enh::dsp
         meters.earGuardUsualLufs.store (earGuard.getUsualLufs(), std::memory_order_relaxed);
         output.setCeilingMethod (p.methods[(size_t) methods::outputCeiling]);
         output.process (chunk, chans, n);
+
+        // PHOSPHOR, the scope: what leaves the rack, every sample (it only watches)
+        {
+            unsigned w = meters.scopeWrite.load (std::memory_order_relaxed);
+            for (int i = 0; i < n; ++i, ++w)
+            {
+                const size_t at = (size_t) (w % (unsigned) EngineMeters::scopeRing);
+                meters.scopeL[at] = chunk[0][i];
+                meters.scopeR[at] = chunk[chans > 1 ? 1 : 0][i];
+            }
+            meters.scopeWrite.store (w, std::memory_order_release);
+            meters.scopeRate.store ((float) sampleRate, std::memory_order_relaxed);
+        }
     }
 }

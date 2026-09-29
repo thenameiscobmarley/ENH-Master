@@ -130,12 +130,15 @@ namespace pad::layout
     enum Unit { enhUnit = 0, tubeUnit = 1, tideUnit = 2, lumenUnit = 3, limiterUnit = 4, levelUnit = 5, balancerUnit = 6,
                 monitorUnit = 7, deepUnit = 8, characterUnit = 9, radarUnit = 10, powerUnit = 11, lunchboxUnit = 12,
                 x4Unit = 13, velvetUnit = 14, takebackUnit = 15,   // designed in the Rack Unit Designer: LATINSPHIEL PRO X4,
-                numUnits = 16 };                                   // VELVETIZER, TAKEBACK
+                                                                   // VELVETIZER, TAKEBACK
+                scopeUnit = 16,                                    // PHOSPHOR: a green CRT oscilloscope / vectorscope
+                numUnits = 17 };
 
     /** The units made in the Rack Unit Designer (DesignedLayout.h), and which of them a unit is (-1: none). */
-    inline constexpr int numDesigned = 3;
-    inline constexpr std::array<int, numDesigned> designedUnits { x4Unit, velvetUnit, takebackUnit };
-    inline constexpr int designedIndex (int unit) noexcept { return unit == x4Unit ? 0 : unit == velvetUnit ? 1 : unit == takebackUnit ? 2 : -1; }
+    /** (PHOSPHOR, the scope, is drawn by hand but built with the same machinery: print table, live screen.) */
+    inline constexpr int numDesigned = 4;
+    inline constexpr std::array<int, numDesigned> designedUnits { x4Unit, velvetUnit, takebackUnit, scopeUnit };
+    inline constexpr int designedIndex (int unit) noexcept { return unit == x4Unit ? 0 : unit == velvetUnit ? 1 : unit == takebackUnit ? 2 : unit == scopeUnit ? 3 : -1; }
     inline constexpr bool isDesigned (int unit) noexcept { return designedIndex (unit) >= 0; }
 
     /** The rack's own units (in the case, on its arc); the LUNCHBOX stands beside it. */
@@ -219,6 +222,7 @@ namespace pad::layout
     inline constexpr float x4HalfH = 4.0f * oneUHalfH;         // 4U: LATINSPHIEL PRO X4 (designed)
     inline constexpr float velvetHalfH = 2.0f * oneUHalfH;     // 2U: VELVETIZER (designed)
     inline constexpr float takebackHalfH = 2.0f * oneUHalfH;   // 2U: TAKEBACK (designed)
+    inline constexpr float scopeHalfH = 2.0f * oneUHalfH;      // 2U: PHOSPHOR (the scope)
 
     /*  The LUNCHBOX: a six-slot 500-series frame on a walnut stand to the right of the case. A module is
         1.5 x 5.25 inches; at this scale (the rack's 19 inches are 5.0) a slot is 0.40 wide, 1.38 tall. */
@@ -253,7 +257,7 @@ namespace pad::layout
         return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : unit == levelUnit ? levelHalfH
              : unit == balancerUnit ? balancerHalfH : unit == monitorUnit ? monitorHalfH
              : unit == characterUnit ? characterHalfH : unit == radarUnit ? radarHalfH : unit == lunchboxUnit ? lbHalfH
-             : unit == x4Unit ? x4HalfH : unit == velvetUnit ? velvetHalfH : unit == takebackUnit ? takebackHalfH : faceHalfH;
+             : unit == x4Unit ? x4HalfH : unit == velvetUnit ? velvetHalfH : unit == takebackUnit ? takebackHalfH : unit == scopeUnit ? scopeHalfH : faceHalfH;
     }
 
     /** Half the width of a unit's faceplate: 19 inches for the rack's, the LUNCHBOX's own frame. */
@@ -264,7 +268,7 @@ namespace pad::layout
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
     inline constexpr std::array<int, numRackUnits> rackOrder { powerUnit, levelUnit, enhUnit, lumenUnit, deepUnit, limiterUnit, balancerUnit, tideUnit, radarUnit,
-                                                           tubeUnit, characterUnit, x4Unit, velvetUnit, takebackUnit, monitorUnit };
+                                                           tubeUnit, characterUnit, x4Unit, velvetUnit, takebackUnit, scopeUnit, monitorUnit };
 
     /** SIMPLE view: the units that work by themselves are taken out of the case and the rack closes up
         around the rest (they still run, as the preset set them). A bit per unit; both threads read it. */
@@ -276,7 +280,7 @@ namespace pad::layout
     /** THE GEAR LOCKER: units taken out of the rack altogether (they don't run, and don't take room). The
         rack holds rackCapacityU; a unit goes in only where it fits. The processor owns the state (it is saved
         with the session) and copies it here; the designed units start in the locker. */
-    inline constexpr unsigned defaultStored = (1u << x4Unit) | (1u << velvetUnit) | (1u << takebackUnit);
+    inline constexpr unsigned defaultStored = (1u << x4Unit) | (1u << velvetUnit) | (1u << takebackUnit) | (1u << scopeUnit);
     inline std::atomic<unsigned> storedUnits { defaultStored };
     /** Rack units in U (1U = 44.45 mm), as their panels are drawn. */
     inline int unitU (int unit) noexcept { return (int) std::lround (unitHalfH (unit) / oneUHalfH); }
@@ -411,6 +415,7 @@ namespace pad::layout
         { "LATINSPHIEL PRO X4",  "SMART TUBE ENHANCER - PID - FOUR BANDS A SIDE",           13 },
         { "VELVETIZER",          "SMOOTHING - GRAIN - COLOUR A / B",                        14 },
         { "TAKEBACK",            "GIVES BACK ATTACK - WARMTH - ROOM - AIR",                 15 },
+        { "PHOSPHOR",            "GREEN CRT SCOPE - X-Y - M/S - WAVEFORM",                  16 },
     }};
 
     // --- the case the units are screwed into -------------------------------------------
@@ -645,7 +650,7 @@ namespace pad::layout
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 140> controls {{
+    inline constexpr std::array<ControlDef, 147> controls {{
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode, enhUnit, nullptr, 1.0f, KnobStyle::smallRibbed },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::smallRibbed },
@@ -816,6 +821,14 @@ namespace pad::layout
         { ControlKind::knob, -1.7696f, -0.3113f, "tbBlur", "BLUR", nullptr, nullptr, takebackUnit, "TAKEBACK", 0.839f, KnobStyle::greyRibbedMetal },
         { ControlKind::toggle, -2.0804f, 0.2993f, "tbAuto", "AUTO", nullptr, nullptr, takebackUnit, "TAKEBACK", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
         { ControlKind::toggle, -2.2410f, 0.2993f, "tbPower", "POWER", nullptr, nullptr, takebackUnit, "TAKEBACK", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
+        // PHOSPHOR (the scope): laboratory knobs, a bat switch
+        { ControlKind::selector, 0.6000f, -0.2000f, "scMode", "MODE", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::chickenHeadKnob },
+        { ControlKind::knob, 1.0000f, -0.2000f, "scIntensity", "INTENSITY", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
+        { ControlKind::knob, 1.3900f, -0.2000f, "scFocus", "FOCUS", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
+        { ControlKind::knob, 0.6000f, 0.3100f, "scPersist", "PERSIST", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
+        { ControlKind::knob, 1.0000f, 0.3100f, "scGain", "V/DIV", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
+        { ControlKind::knob, 1.3900f, 0.3100f, "scTime", "TIME/DIV", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
+        { ControlKind::toggle, 2.0600f, -0.1800f, "scPower", "POWER", nullptr, nullptr, scopeUnit, "PHOSPHOR", 1.0f, KnobStyle::proXl, SwitchStyle::batToggle },
     }};
 
     inline constexpr int numControls = (int) controls.size();

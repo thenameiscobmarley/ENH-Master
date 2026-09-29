@@ -37,6 +37,7 @@ namespace pad::artwork
         RawTexture velvetDecal, velvetVuFace, velvetScreens;          // VELVETIZER (designed)
         RawTexture takebackDecal, takebackScreens;                    // TAKEBACK (designed): print, display
         std::array<RawTexture, 4> takebackVuFace;                     //   and its four meters' dials
+        RawTexture scopeDecal, scopeScreens;                          // PHOSPHOR (the scope): print, and its CRT's graticule
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */

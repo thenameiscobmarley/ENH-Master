@@ -1110,7 +1110,8 @@ namespace pad::artwork
             static const std::vector<designed::Print> x4 (designed::x4Print.begin(), designed::x4Print.end());
             static const std::vector<designed::Print> vel (designed::velPrint.begin(), designed::velPrint.end());
             static const std::vector<designed::Print> tb (designed::tbPrint.begin(), designed::tbPrint.end());
-            return unit == x4Unit ? x4 : unit == velvetUnit ? vel : unit == takebackUnit ? tb : none;
+            static const std::vector<designed::Print> sc (designed::scPrint.begin(), designed::scPrint.end());
+            return unit == x4Unit ? x4 : unit == velvetUnit ? vel : unit == takebackUnit ? tb : unit == scopeUnit ? sc : none;
         }
 
         struct DesignedLook { const char* name; const char* model; const char* sub; };
@@ -1118,6 +1119,7 @@ namespace pad::artwork
         {
             return unit == x4Unit ? DesignedLook { "LATINSPHIEL PRO X4", "PRO X4", "BY LATINSPHIEL AUDIO" }
                  : unit == takebackUnit ? DesignedLook { "TAKEBACK", "BLONDEX", "BY TEXAS STUDIOS" }
+                 : unit == scopeUnit ? DesignedLook { "PHOSPHOR", "XY-2", "CRT VECTOR / WAVEFORM MONITOR" }
                                         : DesignedLook { "VELVETIZER", "BSK-14D1", "BY KHRIS'S AUDIO" };
         }
 
@@ -1262,6 +1264,20 @@ namespace pad::artwork
         {
             if (p.kind != 'D')
                 continue;
+            if (unit == scopeUnit)
+            {
+                // The CRT's graticule, etched on the inside of the glass: 10 x 8 divisions, the centre lines
+                // ticked in fifths - dim (the renderer draws the trace over it in the same phosphor green)
+                const float x0 = p.x - 0.5f * p.w * 0.94f, x1 = p.x + 0.5f * p.w * 0.94f, z0 = p.z - 0.5f * p.h * 0.92f, z1 = p.z + 0.5f * p.h * 0.92f;
+                g.setColour (juce::Colours::white.withAlpha (0.16f));
+                for (int i = 0; i <= 10; ++i) { const float x = x0 + (x1 - x0) * (float) i / 10.0f; g.drawLine (m.px (x), m.pz (z0), m.px (x), m.pz (z1), i == 5 ? 1.4f : 0.9f); }
+                for (int j = 0; j <= 8; ++j) { const float z = z0 + (z1 - z0) * (float) j / 8.0f; g.drawLine (m.px (x0), m.pz (z), m.px (x1), m.pz (z), j == 4 ? 1.4f : 0.9f); }
+                const float tx = (x1 - x0) / 50.0f, tz = (z1 - z0) / 40.0f, cx = 0.5f * (x0 + x1), cz = 0.5f * (z0 + z1);
+                for (int i = 0; i <= 50; ++i) { const float x = x0 + tx * (float) i; g.drawLine (m.px (x), m.pz (cz - 0.25f * tz * 4.0f), m.px (x), m.pz (cz + 0.25f * tz * 4.0f), 0.8f); }
+                for (int j = 0; j <= 40; ++j) { const float z = z0 + tz * (float) j; g.drawLine (m.px (cx - 0.25f * tx * 5.0f), m.pz (z), m.px (cx + 0.25f * tx * 5.0f), m.pz (z), 0.8f); }
+                g.setColour (juce::Colours::white);
+                continue;
+            }
             // What the design shows in it: its title (the renderer draws what it shows, live, beside it)
             const juce::String title = unit == x4Unit ? juce::String ("PID   PV / SP") : juce::String (p.text);
             text (g, m, title, p.x - 0.5f * p.w + 3.0f * mmX, p.z - 0.5f * p.h + 3.5f * mmZ, 2.4f * mmX, juce::Justification::left, true, 0.10f, p.w);

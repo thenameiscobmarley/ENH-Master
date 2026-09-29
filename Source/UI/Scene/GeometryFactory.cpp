@@ -1284,6 +1284,7 @@ namespace pad::geo
             if (unit == x4Unit) return { designed::x4Print.begin(), designed::x4Print.end() };
             if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
             if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
+            if (unit == scopeUnit) return { designed::scPrint.begin(), designed::scPrint.end() };
             return {};
         }
     }

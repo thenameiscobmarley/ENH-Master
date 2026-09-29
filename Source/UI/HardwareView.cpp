@@ -20,7 +20,7 @@ namespace pad
                    && lumenUnit == enh::dsp::rack::leveler && limiterUnit == enh::dsp::rack::limiter && levelUnit == enh::dsp::rack::level
                    && balancerUnit == enh::dsp::rack::balancer && deepUnit == enh::dsp::rack::deepSub && characterUnit == enh::dsp::rack::character
                    && radarUnit == enh::dsp::rack::radar && x4Unit == enh::dsp::rack::x4 && velvetUnit == enh::dsp::rack::velvet
-                   && takebackUnit == enh::dsp::rack::takeback && numUnits == enh::dsp::rack::numUnits);
+                   && takebackUnit == enh::dsp::rack::takeback && scopeUnit == enh::dsp::rack::scope && numUnits == enh::dsp::rack::numUnits);
 
     static bool isSwitchLike (ControlKind k) noexcept { return k == ControlKind::button || k == ControlKind::toggle; }
 
@@ -77,6 +77,8 @@ namespace pad
         for (int m = 0; m < 4; ++m)
             textures.takebackVuFace[(size_t) m] = artwork::renderVuFace (takebackUnit, 512, &textItems, m);
         textures.takebackScreens = artwork::renderDesignedScreens (takebackUnit, config.panelTextureWidth / 2);
+        textures.scopeDecal = artwork::renderDesignedDecal (scopeUnit, config.panelTextureWidth, &textItems);
+        textures.scopeScreens = artwork::renderDesignedScreens (scopeUnit, config.panelTextureWidth / 2);
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
         textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);

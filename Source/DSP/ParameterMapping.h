@@ -9,9 +9,9 @@ namespace enh::dsp
     namespace rack
     {
         enum : int { enhancer = 0, toneSpace = 1, compressor = 2, leveler = 3, limiter = 4, level = 5, balancer = 6, monitor = 7,
-                     deepSub = 8, character = 9, radar = 10, power = 11, lunchbox = 12, x4 = 13, velvet = 14, takeback = 15, numUnits = 16 };
+                     deepSub = 8, character = 9, radar = 10, power = 11, lunchbox = 12, x4 = 13, velvet = 14, takeback = 15, scope = 16, numUnits = 17 };
         /** What the plugin starts with in the locker: the designed units (installed from the GEAR LOCKER). */
-        inline constexpr unsigned defaultStored = (1u << x4) | (1u << velvet) | (1u << takeback);
+        inline constexpr unsigned defaultStored = (1u << x4) | (1u << velvet) | (1u << takeback) | (1u << scope);
     }
 
     /** Raw knob values exactly as the host / panel holds them (their own units), plus each device's
