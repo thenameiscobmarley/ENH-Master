@@ -1235,6 +1235,133 @@
     commit();
   }
 
+  // ---------------------------------------------------------------------------------------------------
+  // On the panel: every part in a list (front last, as drawn) - pick one that is buried under another, lock
+  // it, move it forward or back
+  function refreshLayers () {
+    const list = $("layers"); if (!list) return;
+    list.replaceChildren();
+    $("layers-count").textContent = design.parts.length ? design.parts.length + " part" + (design.parts.length === 1 ? "" : "s") + ", the front one last." : "Nothing on the panel yet.";
+    design.parts.forEach ((p, i) => {
+      const li = document.createElement ("li");
+      if (selected.includes (p.id)) li.className = "on";
+      const pickB = document.createElement ("button"); pickB.type = "button"; pickB.className = "d-layer-name"; pickB.textContent = partName (p);
+      pickB.title = "Select it (Shift or Ctrl: add to the selection)";
+      pickB.addEventListener ("click", (e) => {
+        if (e.shiftKey || e.ctrlKey || e.metaKey) selected = selected.includes (p.id) ? selected.filter ((id) => id !== p.id) : selected.concat (p.id);
+        else selected = [p.id];
+        render(); props();
+      });
+      const mk = (label, title, fn, pressed) => { const b = document.createElement ("button"); b.type = "button"; b.textContent = label; b.title = title; b.setAttribute ("aria-label", title + ": " + partName (p));
+        if (pressed !== undefined) b.setAttribute ("aria-pressed", String (pressed)); b.addEventListener ("click", fn); return b; };
+      li.append (pickB,
+        mk (p.lock ? "Locked" : "Lock", p.lock ? "Unlock it" : "Lock it (it can't be dragged)", () => { p.lock = !p.lock; if (!p.lock) delete p.lock; commit(); }, !!p.lock),
+        mk ("↑", "Back one", () => { if (i > 0) { [design.parts[i - 1], design.parts[i]] = [design.parts[i], design.parts[i - 1]]; commit(); } }),
+        mk ("↓", "Forward one", () => { if (i < design.parts.length - 1) { [design.parts[i + 1], design.parts[i]] = [design.parts[i], design.parts[i + 1]]; commit(); } }));
+      list.appendChild (li);
+    });
+  }
+
+  // ---------------------------------------------------------------------------------------------------
+  // Check the design: what would look wrong or be awkward on a real panel - parts off the panel or under the
+  // ears, controls on top of each other, knobs too close for fingers, print too small to read, controls with
+  // no name. Each problem selects its parts when clicked; "Fix" mends what can be mended (one undo step).
+  const CONTROLS = ["knob", "toggle", "button", "slider", "selector", "jack", "vu", "ladder", "display", "lamp", "led"];
+  function designIssues () {
+    const H = design.unit.height * U, x0 = design.unit.ears === "none" ? 2 : EAR + 1, x1 = W - x0, out = [];
+    const ctl = design.parts.filter ((q) => CONTROLS.includes (q.type));
+    for (const q of design.parts) {
+      const b = bounds (q);
+      if (b.x < x0 - 0.2 || b.x + b.w > x1 + 0.2 || b.y < -0.2 || b.y + b.h > H + 0.2)
+        out.push ({ level: "bad", ids: [q.id], text: partName (q) + ": off the panel" + (b.x < x0 || b.x + b.w > x1 ? " (or under the rack ears)" : ""), fix: "inside" });
+      if (q.type === "label" && q.size < 2.2) out.push ({ level: "warn", ids: [q.id], text: partName (q) + ": text " + fmt (q.size) + " mm tall - hard to read on a real panel", fix: "text" });
+      if (["knob", "slider", "selector"].includes (q.type) && q.labelSize !== undefined && q.labelSize < 2) out.push ({ level: "warn", ids: [q.id], text: partName (q) + ": its label is very small", fix: "text" });
+      if (["knob", "slider", "selector"].includes (q.type) && !String (q.text || "").trim()) out.push ({ level: "info", ids: [q.id], text: TYPES[q.type].label + " with no name - what does it do?" });
+    }
+    for (let i = 0; i < ctl.length; ++i)
+      for (let j = i + 1; j < ctl.length; ++j) {
+        const a = bounds (ctl[i]), b = bounds (ctl[j]);
+        const ox = Math.min (a.x + a.w, b.x + b.w) - Math.max (a.x, b.x), oy = Math.min (a.y + a.h, b.y + b.h) - Math.max (a.y, b.y);
+        if (ox > 0.4 && oy > 0.4) { out.push ({ level: "bad", ids: [ctl[i].id, ctl[j].id], text: partName (ctl[i]) + " and " + partName (ctl[j]) + " overlap", fix: "apart" }); continue; }
+        const round = (q) => q.type === "knob" || q.type === "selector";
+        if (round (ctl[i]) && round (ctl[j])) {
+          const gap = Math.hypot (ctl[i].x - ctl[j].x, ctl[i].y - ctl[j].y) - (ctl[i].w + ctl[j].w) / 2;
+          if (gap < 4) out.push ({ level: "warn", ids: [ctl[i].id, ctl[j].id], text: partName (ctl[i]) + " and " + partName (ctl[j]) + ": " + fmt (Math.max (0, gap)) + " mm apart - tight for fingers (4 mm or more)", fix: "apart" });
+        }
+      }
+    return out;
+  }
+  function showIssues () {
+    const list = $("issues"), all = designIssues();
+    list.replaceChildren();
+    $("check-fix").disabled = !all.some ((it) => it.fix);
+    $("check-msg").textContent = all.length ? all.length + " thing" + (all.length === 1 ? "" : "s") + " to look at." : "Nothing to fix: it would build.";
+    for (const it of all.slice (0, 40)) {
+      const li = document.createElement ("li"); li.className = "d-issue " + it.level;
+      const b = document.createElement ("button"); b.type = "button"; b.textContent = it.text; b.title = "Select " + (it.ids.length > 1 ? "them" : "it");
+      b.addEventListener ("click", () => { selected = it.ids.filter (byId); render(); props(); });
+      li.appendChild (b); list.appendChild (li);
+    }
+  }
+  function fixIssues () {
+    const H = design.unit.height * U, x0 = design.unit.ears === "none" ? 2 : EAR + 1, x1 = W - x0;
+    for (let pass = 0; pass < 30; ++pass) {
+      const all = designIssues().filter ((it) => it.fix);
+      if (!all.length) break;
+      for (const it of all) {
+        const ps = it.ids.map (byId).filter (Boolean);
+        if (it.fix === "text") for (const q of ps) { if (q.type === "label") q.size = Math.max (q.size, 2.4); if (q.labelSize !== undefined) q.labelSize = Math.max (q.labelSize, 2.2); }
+        if (it.fix === "apart" && ps.length === 2) {
+          // the unlocked one (the smaller, if both are) steps away along the axis it overlaps least on
+          const [a, b] = ps[1].lock || (!ps[0].lock && extent (ps[0]).w * extent (ps[0]).h < extent (ps[1]).w * extent (ps[1]).h) ? [ps[1], ps[0]] : [ps[0], ps[1]];
+          if (b.lock) continue;
+          const ea = bounds (a), eb = bounds (b), need = (a.type === "knob" || a.type === "selector") && (b.type === "knob" || b.type === "selector") ? 4 : 1;
+          const dx = (ea.w + eb.w) / 2 + need - Math.abs (b.x - a.x), dy = (ea.h + eb.h) / 2 + need - Math.abs (b.y - a.y);
+          // (sideways, unless the panel is tall enough to step down and that is the shorter way: a 1U or 2U
+          // panel has no room to spare up and down, and the edge would only push it back)
+          const room = H - extent (b).h - 4 > 2 * extent (b).h;
+          if (dx <= dy || !room) b.x += (b.x >= a.x ? 1 : -1) * (dx + 0.25); else b.y += (b.y >= a.y ? 1 : -1) * (dy + 0.25);
+        }
+        for (const q of ps) {   // (and everything back inside, "inside" or not)
+          if (q.lock) continue;
+          const e = extent (q);
+          q.x = clamp (q.x, x0 + e.w / 2, Math.max (x0 + e.w / 2, x1 - e.w / 2), q.x);
+          q.y = clamp (q.y, e.h / 2, Math.max (e.h / 2, H - e.h / 2), q.y);
+        }
+      }
+    }
+    commit(); showIssues();
+    toast ("Mended what it could - Undo takes it back");
+  }
+
+  // ---------------------------------------------------------------------------------------------------
+  // Ideas: six takes on the current design - other colours and finishes, other knobs - to click and keep
+  const IDEA_LOOKS = [
+    ["#16171a", "#e8e8ea", "#ff8a2a", "anodised"], ["#c9c6bd", "#1a1a1a", "#c0392b", "paint"], ["#2d4a6b", "#f2f2f2", "#ffcc33", "anodised"],
+    ["#b4b6ba", "#141414", "#3aa0ff", "brushed"], ["#0e2a1f", "#d9e8d0", "#46e070", "hammertone"], ["#5a3721", "#f1e2c6", "#ffb020", "walnut"],
+    ["#1a1b1e", "#e6e6e6", "#ff3b30", "carbon"], ["#e9e2cf", "#2b2b2b", "#1f6fb2", "enamel"], ["#7a1f1f", "#f4e9d0", "#ffd27a", "enamel"],
+    ["#3b3f45", "#f0f0f0", "#8fd3ff", "wrinkle"], ["#a9abaf", "#101010", "#e0412e", "sandblast"], ["#26282c", "#d8c49a", "#d8c49a", "satin"],
+    ["#5b6b4a", "#f3eedf", "#ffb020", "powder"], ["#0f1c2e", "#9fd0ff", "#56c8f5", "gloss"], ["#c9a24a", "#1c140a", "#1c140a", "gold"] ];
+  const IDEA_KNOBS = ["tophat", "knurled", "fluted", "ribbed", "matte", "capblue", "capred", "capwhite", "chicken"];
+  function ideas () {
+    const grid = $("ideas-grid"); grid.replaceChildren();
+    const looks = IDEA_LOOKS.slice().sort (() => Math.random() - 0.5).filter ((l, i, all) => all.findIndex ((m) => m[3] === l[3]) === i).slice (0, 6);   // (six different finishes)
+    looks.forEach ((l, i) => {
+      const d = JSON.parse (JSON.stringify (design));
+      [d.unit.colour, d.unit.ink, d.unit.accent, d.unit.finish] = l;
+      if (FINISH[l[3]] && FINISH[l[3]][1]) d.unit.colour = FINISH[l[3]][1];
+      const k = IDEA_KNOBS[Math.floor (Math.random() * IDEA_KNOBS.length)];
+      if (i > 0) for (const q of d.parts) if (q.type === "knob" && KNOBS.includes (q.style)) q.style = k;   // (the first keeps its knobs)
+      const b = document.createElement ("button"); b.type = "button"; b.className = "d-tpl";
+      b.appendChild (designThumb (d, 150));
+      const cap = document.createElement ("span"); cap.textContent = FINISH[l[3]] ? FINISH[l[3]][0] : l[3]; b.appendChild (cap);
+      b.setAttribute ("aria-label", "Use this take: " + cap.textContent);
+      b.addEventListener ("click", () => { replaceDesign (sanitize (d)); refreshPickers(); toast ("Taken - Undo takes it back"); });
+      grid.appendChild (b);
+    });
+    $("ideas").textContent = "Six more";   // (another click: six others)
+  }
+
   /** COPY FOR AI: the design as readable JSON under a short brief an AI can follow (any chat assistant, free
       tier included - nothing here talks to one); its reply pasted back goes through sanitize() like any share
       code, so it can only ever change the design, within the same limits. */
@@ -1526,6 +1653,7 @@
   /** The selected part's settings - or, with several selected, the settings they share: a change goes to
       all of them (a field they differ on shows "mixed" until it is set). */
   function props () {
+    refreshLayers();
     const body = $("props-body"); body.replaceChildren();
     const ps = selected.map (byId).filter (Boolean);
     $("props-empty").hidden = ps.length > 0;
@@ -1908,10 +2036,10 @@
   defs (document.getElementById ("d-defs"));
 
   /** A whole design as a small picture (the preset cards): drawn as the editor draws it. */
-  function designThumb (d, width = 150) {
+  function designThumb (d, width = 150, ownDefs = false) {
     const t = document.createElementNS (NS, "svg"), was = design, wasSel = selected;
     design = d; selected = [];
-    render (t, "edit", false);
+    render (t, "edit", ownDefs);
     design = was; selected = wasSel;
     t.setAttribute ("width", width); t.setAttribute ("height", Math.round (width * (d.unit.height * U + 12) / (W + 12)));
     t.setAttribute ("aria-hidden", "true");
@@ -1947,7 +2075,7 @@
     const a = readLib(), at = Date.now(), found = a.findIndex ((e) => e.name === name);
     const entry = { name, at, design: sanitize (JSON.parse (JSON.stringify (design))) };
     if (found >= 0) { if (!confirm ("Replace the saved \"" + name + "\"?")) return; a[found] = entry; } else a.unshift (entry);
-    if (!writeLib (a)) alert ("This browser would not keep it (private mode or storage is full)."); showLib();
+    if (!writeLib (a)) alert ("This browser would not keep it (private mode or storage is full)."); else toast ("Saved in this browser"); showLib();
   });
 
   // Sharing: a link (the design rides in the part after "#", which browsers never send to any server), the
@@ -1960,7 +2088,7 @@
     dialog.showModal();
   });
   $("share-close").addEventListener ("click", () => dialog.close());
-  const copy = async (s, btn) => { try { await navigator.clipboard.writeText (s); const t = btn.textContent; btn.textContent = "Copied"; setTimeout (() => (btn.textContent = t), 1400); } catch (_) { $("share-code").select(); } };
+  const copy = async (s, btn) => { try { await navigator.clipboard.writeText (s); const t = btn.textContent; btn.textContent = "Copied"; setTimeout (() => (btn.textContent = t), 1400); toast ("Copied"); } catch (_) { $("share-code").select(); } };
   $("copy-code").addEventListener ("click", (e) => copy ($("share-code").value, e.currentTarget));
   $("copy-link").addEventListener ("click", (e) => copy (shareLink(), e.currentTarget));
   $("send-native").addEventListener ("click", async () => { try { await navigator.share ({ title: design.unit.name || "My rack unit", text: "A rack unit I designed", url: shareLink() }); } catch (_) { /* cancelled */ } });
@@ -1987,6 +2115,14 @@
   // A link clicked while the designer is already open
   window.addEventListener ("hashchange", () => { if (location.hash.startsWith ("#d=")) openCode (location.hash, null); });
 
+  /** A short note at the foot of the screen (what just happened), gone after two seconds. */
+  let toastTimer = 0;
+  function toast (msg) {
+    const t = $("toast"); if (!t) return;
+    t.textContent = msg; t.classList.add ("on");
+    clearTimeout (toastTimer); toastTimer = setTimeout (() => t.classList.remove ("on"), 2000);
+  }
+
   function download (blob, name) { const a = document.createElement ("a"); a.href = URL.createObjectURL (blob); a.download = name; a.click(); setTimeout (() => URL.revokeObjectURL (a.href), 2000); }
   const fileName = (ext) => (design.unit.name || "unit").toLowerCase().replace (/[^a-z0-9]+/g, "-").replace (/^-|-$/g, "") + "." + ext;
   function svgString () { const was = selected; selected = []; render(); const s = new XMLSerializer().serializeToString (svg); selected = was; render(); return s; }
@@ -2002,7 +2138,7 @@
   $("play").addEventListener ("click", () => setPlay (!play));
   for (const b of document.querySelectorAll ("[data-align]")) b.addEventListener ("click", () => align (b.getAttribute ("data-align")));
   for (const b of document.querySelectorAll ("[data-centre]")) b.addEventListener ("click", () => centreOnPanel (b.getAttribute ("data-centre")));
-  $("tidy").addEventListener ("click", tidy);
+  $("tidy").addEventListener ("click", () => { tidy(); toast ("Tidied up - Undo takes it back"); });
   bindAi();
   const setZoom = (z) => { zoom = Math.min (4, Math.max (0.4, z)); $("zoom-val").textContent = Math.round (zoom * 100) + "%"; render(); };
   $("zoom-in").addEventListener ("click", () => setZoom (zoom * 1.2)); $("zoom-out").addEventListener ("click", () => setZoom (zoom / 1.2));
@@ -2091,11 +2227,65 @@
 
   // Palette and templates
   for (const type in TYPES) { const b = document.createElement ("button"); b.type = "button"; b.textContent = TYPES[type].label; b.addEventListener ("click", () => addPart (type)); $("palette").appendChild (b); }
+  $("check-run").addEventListener ("click", showIssues);
+  $("check-fix").addEventListener ("click", fixIssues);
+  $("ideas").addEventListener ("click", ideas);
+  // The preset cards. Each picture is drawn once, as a plain image (a live SVG with the finishes' noise
+  // filters, times sixty, made the list crawl whenever it scrolled or repainted): the cards on screen first,
+  // the rest when the browser is idle - opening the tab never waits for all of them.
+  const thumbJobs = [];
+  function thumbImage (name, holder) {
+    const t = designThumb (sanitize (templates[name]()), 150, true);
+    t.setAttribute ("xmlns", NS);
+    const url = URL.createObjectURL (new Blob ([new XMLSerializer().serializeToString (t)], { type: "image/svg+xml" }));
+    const img = document.createElement ("img");
+    img.alt = ""; img.decoding = "async"; img.width = 150; img.height = Number (t.getAttribute ("height")) || 40;
+    img.src = url;
+    holder.replaceChildren (img);
+  }
+  const idle = window.requestIdleCallback || ((f) => setTimeout (() => f ({ timeRemaining: () => 8 }), 30));
+  function drainThumbs (deadline) {
+    while (thumbJobs.length && deadline.timeRemaining() > 4) { const j = thumbJobs.shift(); if (!j.done) { j.done = true; thumbImage (j.name, j.holder); } }
+    if (thumbJobs.length) idle (drainThumbs);
+  }
+  const thumbSeen = "IntersectionObserver" in window ? new IntersectionObserver ((entries) => {
+    for (const e of entries) if (e.isIntersecting) { const j = e.target._job; thumbSeen.unobserve (e.target); if (j && !j.done) { j.done = true; thumbImage (j.name, j.holder); } }
+  }, { root: null, rootMargin: "200px" }) : null;
   for (const name in templates) {
     const b = document.createElement ("button"); b.type = "button"; b.className = "d-tpl";
-    b.appendChild (designThumb (sanitize (templates[name]())));
+    const holder = document.createElement ("span"); holder.className = "d-tpl-pic"; b.appendChild (holder);
     const n = document.createElement ("span"); n.textContent = name; b.appendChild (n);
-    b.addEventListener ("click", () => replaceDesign (sanitize (templates[name]()))); $("templates").appendChild (b); }
+    b.addEventListener ("click", () => replaceDesign (sanitize (templates[name]()))); $("templates").appendChild (b);
+    const job = { name, holder, done: false }; thumbJobs.push (job); b._job = job;
+    if (thumbSeen) thumbSeen.observe (b);
+  }
+  idle (drainThumbs);
+  // Search: by name, every word must match (so "tube pre" finds the valve preamps)
+  function filterPresets () {
+    const words = $("tpl-search").value.toLowerCase().split (/\s+/).filter (Boolean);
+    let shown = 0;
+    for (const b of $("templates").children) {
+      const name = b.textContent.toLowerCase(), on = words.every ((w) => name.includes (w));
+      b.hidden = !on; if (on) shown++;
+    }
+    $("tpl-count").textContent = words.length ? shown + (shown === 1 ? " preset" : " presets") : Object.keys (templates).length + " presets";
+  }
+  $("tpl-search").addEventListener ("input", filterPresets);
+  filterPresets();
+
+  // Quick start (the empty "Selected" panel): each step opens its tab, or the share dialog
+  document.querySelectorAll (".d-start [data-go]").forEach ((b) => b.addEventListener ("click", () => { const t = $(b.dataset.go); if (t) { showTab (t, true); if (b.dataset.go === "t-presets") $("tpl-search").focus(); } }));
+  document.querySelectorAll (".d-start [data-do=share]").forEach ((b) => b.addEventListener ("click", () => $("share").click()));
+
+  // Keyboard shortcuts: the list, from its button or "?"
+  const keysDialog = $("keys-dialog");
+  $("keys-open").addEventListener ("click", () => keysDialog.showModal());
+  $("keys-close").addEventListener ("click", () => keysDialog.close());
+  document.addEventListener ("keydown", (e) => {
+    if (e.key !== "?" || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target; if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    e.preventDefault(); if (!keysDialog.open) keysDialog.showModal();
+  });
 
   // ?selftest: hostile share codes through the decoder, and a round trip (results printed on the page)
   const strip0 = (x) => JSON.stringify (x.parts.map ((p) => Object.assign ({}, p, { id: 0 })).map ((p) => Object.fromEntries (Object.entries (p).map (([a, b]) => [a, typeof b === "number" ? Math.round (b * 10) / 10 : b]))));

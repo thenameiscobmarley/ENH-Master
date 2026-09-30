@@ -28,9 +28,14 @@ namespace pad
         float wetCoat         = 1.0f;   // 0..1: the clear coat's strength (the wet look); 0 saves ~2-4 ms a frame on a weak GPU
         bool  simpleView      = false;  // SIMPLE: only the units you use are in the case (right-click the rack).
                                         // A new config starts SIMPLE; one written before it existed stays FULL
+        bool  showWelcome     = true;   // the hologram welcome screen when the window opens
+        juce::String welcomeSeen;       // the version it was last shown for (a new version shows it once more)
+        bool  holoPanel       = false;  // the glass panel drawn as a hologram (phosphor green) instead of smoked glass
 
         /** Remember the view (right-click menu): rewrites only that key in the file. */
         static void saveSimpleView (bool simple, const juce::File& file = getDefaultFile());
+        /** Rewrite one key in the file (the welcome screen's and the panel style's choices). */
+        static void saveKey (const juce::String& key, const juce::var& value, const juce::File& file = getDefaultFile());
 
         juce::StringArray warnings;
 

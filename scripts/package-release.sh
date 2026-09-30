@@ -53,3 +53,31 @@ mkdir -p "$dist"
 ( cd "$dist" && zip -qr "$name.zip" "$name" )
 rm -rf "$stage"
 echo "$dist/$name.zip"
+
+# ENH Master 2D: the same plugin with the flat, no-OpenGL editor (for older graphics), its own zip
+bundle2d="$build/EnhMaster2D_artefacts/Release/VST3/ENH Master 2D.vst3"
+if [ -d "$bundle2d" ]; then
+  name2="ENH-Master-2D-${version}-linux-x64"
+  stage2="$dist/$name2"
+  rm -rf "$stage2"; mkdir -p "$stage2"
+  cp -r "$bundle2d" "$stage2/"
+  find "$stage2" -name '*.so' -exec strip --strip-unneeded {} +
+  cp "$src/README.md" "$src/LICENSE" "$src/NOTICE" "$src/scripts/HOW-TO-CHECK.txt" "$stage2/"
+  cat > "$stage2/INSTALL.txt" <<'EOF2'
+ENH Master 2D - installation (Linux, VST3)
+==========================================
+
+The same plugin as ENH Master - the same sound, presets and settings - with a flat 2D rack instead of
+the 3D one: every unit's faceplate, one under another (the wheel or a drag slides the rack up and down).
+No OpenGL: for older or weaker graphics. It installs alongside ENH Master (its own plugin).
+
+    mkdir -p ~/.vst3
+    cp -r "ENH Master 2D.vst3" ~/.vst3/
+
+Then rescan plugins in your host.
+EOF2
+  ( cd "$stage2" && find . -type f ! -name CHECKSUMS.txt -print0 | sort -z | xargs -0 sha256sum > CHECKSUMS.txt )
+  ( cd "$dist" && zip -qr "$name2.zip" "$name2" )
+  rm -rf "$stage2"
+  echo "$dist/$name2.zip"
+fi

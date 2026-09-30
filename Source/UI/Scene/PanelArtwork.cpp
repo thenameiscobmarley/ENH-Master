@@ -1,5 +1,6 @@
 #include "PanelArtwork.h"
 #include "DesignedLayout.h"
+#include "CustomLayout.h"
 #include "DeviceLayout.h"
 #include <string_view>
 
@@ -539,15 +540,19 @@ namespace pad::artwork
         g.setColour (juce::Colours::white);
         const auto centred = juce::Justification::horizontallyCentred;
 
-        for (int mi = 0; mi < (int) lbModules.size(); ++mi)
+        for (int mi = 0; mi < lb::numModules; ++mi)
         {
-            const auto& mod = lbModules[(size_t) mi];
-            const float cx = lbModuleX (mi), hw = 0.5f * lbSlotW * (float) mod.width - 0.03f;
-            text (g, m, mod.name, cx, lbTitleZ, fitHeight (m, mod.name, 0.034f, 2.0f * hw - 0.02f, true, 0.18f), centred, true, 0.18f, 2.0f * hw);
+            if (! lb::installed (mi)) continue;
+            const float cx = lbModuleX (mi), hw = 0.5f * lbSlotW * (float) lb::widthOf (mi) - 0.03f;
+            const char* name = lb::nameOf (mi);
+            text (g, m, name, cx, lbTitleZ, fitHeight (m, name, 0.034f, 2.0f * hw - 0.02f, true, 0.18f), centred, true, 0.18f, 2.0f * hw);
             g.fillRect (m.rect (cx - hw + 0.02f, lbTitleZ + 0.050f, cx + hw - 0.02f, lbTitleZ + 0.054f));
+            if (mi >= 4)   // the module's model at its foot
+                text (g, m, enh::dsp::lbmods::info[mi - 4].model, cx, lbModuleHalfH - 0.13f, 0.018f, centred, true, 0.22f, 2.0f * hw);
         }
 
         // The CROSSFEED module: two ears and the sound reaching both, engraved under its knob
+        if (lb::installed (2))
         {
             const float cx = lbModuleX (2), cz = 0.42f;
             for (float s : { -1.0f, 1.0f })
@@ -563,16 +568,17 @@ namespace pad::artwork
 
         // Under the OUTPUT meter: what the frame is
         text (g, m, "LUNCHBOX", lbModuleX (3), 0.02f, 0.030f, centred, true, 0.20f, 0.38f);
-        text (g, m, "6-SLOT FRAME", lbModuleX (3), 0.08f, 0.017f, centred, true, 0.20f, 0.38f);
+        text (g, m, "10-SLOT FRAME", lbModuleX (3), 0.08f, 0.017f, centred, true, 0.20f, 0.38f);
         text (g, m, "CLASS A", lbModuleX (3), 0.40f, 0.022f, centred, true, 0.24f, 0.38f);
         text (g, m, "DISCRETE", lbModuleX (3), 0.45f, 0.017f, centred, true, 0.24f, 0.38f);
 
         // DE-HARSH's cut lamp
-        text (g, m, "CUT", lbModuleX (1) + lbCutLedDx, lbCutLedZ + 0.075f, 0.016f, centred, true, 0.20f, 0.2f);
+        if (lb::installed (1))
+            text (g, m, "CUT", lbModuleX (1) + lbCutLedDx, lbCutLedZ + 0.075f, 0.016f, centred, true, 0.20f, 0.2f);
 
         for (auto& c : controls)
         {
-            if (c.unit != unit)
+            if (c.unit != unit || isParked (c))
                 continue;
             recorder.control = (int) (&c - controls.data());
             const bool isKnob = c.kind == ControlKind::knob || c.kind == ControlKind::selector;
@@ -1111,6 +1117,18 @@ namespace pad::artwork
             static const std::vector<designed::Print> vel (designed::velPrint.begin(), designed::velPrint.end());
             static const std::vector<designed::Print> tb (designed::tbPrint.begin(), designed::tbPrint.end());
             static const std::vector<designed::Print> sc (designed::scPrint.begin(), designed::scPrint.end());
+            static const auto genPrints = []   // (the newer units: UnitPanels.h)
+            {
+                std::array<std::vector<designed::Print>, gen::count> a;
+                for (int k = 0; k < gen::count; ++k) { const auto [p, n] = gen::printOf (k); a[(size_t) k].assign (p, p + n); }
+                return a;
+            }();
+            if (unit >= firstGenUnit && unit < firstGenUnit + gen::count) return genPrints[(size_t) (unit - firstGenUnit)];
+            if (unit == customUnit)   // (the design loaded: kept alive while this copy is used)
+            {
+                static std::shared_ptr<const custom::Look> keep; static std::vector<designed::Print> copy;
+                keep = custom::get(); copy = keep->print; return copy;
+            }
             return unit == x4Unit ? x4 : unit == velvetUnit ? vel : unit == takebackUnit ? tb : unit == scopeUnit ? sc : none;
         }
 
@@ -1120,6 +1138,8 @@ namespace pad::artwork
             return unit == x4Unit ? DesignedLook { "LATINSPHIEL PRO X4", "PRO X4", "BY LATINSPHIEL AUDIO" }
                  : unit == takebackUnit ? DesignedLook { "TAKEBACK", "BLONDEX", "BY TEXAS STUDIOS" }
                  : unit == scopeUnit ? DesignedLook { "PHOSPHOR", "XY-2", "CRT VECTOR / WAVEFORM MONITOR" }
+                 : unit >= firstGenUnit && unit < firstGenUnit + gen::count ? DesignedLook { gen::looks[unit - firstGenUnit].name, gen::looks[unit - firstGenUnit].model, gen::looks[unit - firstGenUnit].sub }
+                 : unit == customUnit ? [] { static std::shared_ptr<const custom::Look> k; k = custom::get(); return DesignedLook { k->name.c_str(), k->model.c_str(), k->sub.c_str() }; }()
                                         : DesignedLook { "VELVETIZER", "BSK-14D1", "BY KHRIS'S AUDIO" };
         }
 

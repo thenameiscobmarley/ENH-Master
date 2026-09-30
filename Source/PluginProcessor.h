@@ -5,6 +5,7 @@
 #include "DSP/EnhEngine.h"
 #include "DSP/ParameterMapping.h"
 #include "Parameters/KnobModifiers.h"
+#include "Custom/DesignCode.h"
 
 /*  ENH Master processor: owns the parameters and the DSP engine (Source/DSP). */
 class PluginProcessor final : public juce::AudioProcessor
@@ -49,14 +50,53 @@ public:
         return 1000.0 * engine.getLatencySamples() / rate;
     }
 
+    /** CUSTOM: load a Rack Unit Designer share code into the slot (message thread). An empty code clears it.
+        setKnobs: turn the slot's knobs to the design's positions (a fresh load; not when a session reopens).
+        Returns "" or why the code was refused. */
+    juce::String setCustomCode (const juce::String& code, bool setKnobs)
+    {
+        if (code.isEmpty())
+        {
+            engine.setCustomConfig (nullptr);
+            customCode.clear();
+        }
+        else
+        {
+            const auto d = pad::custom::decode (code);
+            if (! d.ok) return d.error;
+            customConfigs.push_back (std::make_unique<enh::dsp::units::CustomConfig> (d.config));   // (kept: the audio thread may still hold an older one)
+            engine.setCustomConfig (customConfigs.back().get());
+            customCode = code.removeCharacters (" \t\r\n");
+            if (setKnobs)
+                for (int i = 0; i < 20; ++i)
+                    if (d.slots[(size_t) i].used)
+                        if (auto* prm = state.getParameter (i < 16 ? "cuK" + juce::String (i + 1) : "cuS" + juce::String (i - 15)))
+                            prm->setValueNotifyingHost (i < 16 ? d.slots[(size_t) i].value / 100.0f : (d.slots[(size_t) i].value > 0.5f ? 1.0f : 0.0f));
+        }
+        state.state.setProperty ("customCode", customCode, nullptr);
+        customVersion.fetch_add (1);
+        return {};
+    }
+    juce::String getCustomCode() const { return customCode; }
+    int getCustomVersion() const noexcept { return customVersion.load(); }
+
     /** THE GEAR LOCKER: the units out of the rack (a bit per unit, the layout's numbering). Saved with the
         session; the designed units start in it. setStoredUnits: message thread. */
-    unsigned getStoredUnits() const noexcept { return storedUnits.load (std::memory_order_relaxed); }
-    void setStoredUnits (unsigned mask)
+    enh::dsp::rack::Mask getStoredUnits() const noexcept { return storedUnits.load (std::memory_order_relaxed); }
+    void setStoredUnits (enh::dsp::rack::Mask mask)
     {
         storedUnits.store (mask, std::memory_order_relaxed);
-        state.state.setProperty ("lockerStored", (int) mask, nullptr);
+        state.state.setProperty ("lockerStored", (juce::int64) mask, nullptr);
         state.state.setProperty ("lockerUnits", enh::dsp::rack::numUnits, nullptr);   // (units added later start stored)
+    }
+    /** The LUNCHBOX's own locker: its modules out of the frame (rack::lbBit). Saved with the session. */
+    enh::dsp::rack::LbMask getStoredModules() const noexcept { return storedModules.load (std::memory_order_relaxed); }
+    void setStoredModules (enh::dsp::rack::LbMask mask)
+    {
+        mask &= ~enh::dsp::rack::lbBit (enh::dsp::rack::lbOutput);   // (the meter never leaves)
+        storedModules.store (mask, std::memory_order_relaxed);
+        state.state.setProperty ("lunchboxStored", (juce::int64) mask, nullptr);
+        state.state.setProperty ("lunchboxModules", enh::dsp::rack::lbModules, nullptr);
     }
 
     /** The loudness meter's RESET button (any thread). */
@@ -106,7 +146,11 @@ private:
                         *lbMidGain = nullptr, *lbMidHiQ = nullptr, *lbHighGain = nullptr, *lbIron = nullptr, *lbHarshIn = nullptr,
                         *lbHarshAmount = nullptr, *lbHarshFreq = nullptr, *lbHarshSpeed = nullptr, *lbFeedIn = nullptr, *lbFeedAmount = nullptr;
     std::array<std::atomic<float>*, enh::dsp::designed::numParams> designedParams {};   // PRO X4, VELVETIZER
-    std::atomic<unsigned> storedUnits { enh::dsp::rack::defaultStored };                // THE GEAR LOCKER
+    std::atomic<enh::dsp::rack::Mask> storedUnits { enh::dsp::rack::defaultStored };
+    std::atomic<enh::dsp::rack::LbMask> storedModules { enh::dsp::rack::defaultLbStored };
+    juce::String customCode;                                                              // CUSTOM: the design loaded (its share code)
+    std::vector<std::unique_ptr<enh::dsp::units::CustomConfig>> customConfigs;             //   every chain handed to the engine (kept alive)
+    std::atomic<int> customVersion { 0 };                // THE GEAR LOCKER
     std::atomic<float>* charModelA = nullptr, *charModelB = nullptr, *charBlend = nullptr, *charDrive = nullptr, *charColour = nullptr, *charActive = nullptr;
     std::atomic<float>* abCompare = nullptr, *charGrit = nullptr;
     std::atomic<float>* lumenTarget = nullptr, *lumenResponse = nullptr, *lumenActive = nullptr;
@@ -119,7 +163,7 @@ private:
                       * haloWidth = nullptr, *haloSpace = nullptr, *haloDecay = nullptr, *haloShimmer = nullptr, *haloTone = nullptr,
                       * haloDuck = nullptr, *haloBassMono = nullptr, *haloMod = nullptr;
     std::atomic<float>* clarityNorm = nullptr, *clarityAdd = nullptr, *clarityMode = nullptr, *adaptSpeed = nullptr, *sub = nullptr, *subBoost = nullptr, *footstep = nullptr,
-                        *radarSens = nullptr, *radarBoost = nullptr, *radarSpace = nullptr, *radarListen = nullptr;
+                        *radarSens = nullptr, *radarBoost = nullptr, *radarSpace = nullptr, *radarReach = nullptr, *radarListen = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

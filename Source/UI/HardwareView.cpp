@@ -1,4 +1,5 @@
 #include "HardwareView.h"
+#include "Scene/CustomLayout.h"
 #include "Scene/HardwareRenderer.h"
 #include "Scene/CameraRig.h"
 #include "Scene/DeviceLayout.h"
@@ -20,7 +21,7 @@ namespace pad
                    && lumenUnit == enh::dsp::rack::leveler && limiterUnit == enh::dsp::rack::limiter && levelUnit == enh::dsp::rack::level
                    && balancerUnit == enh::dsp::rack::balancer && deepUnit == enh::dsp::rack::deepSub && characterUnit == enh::dsp::rack::character
                    && radarUnit == enh::dsp::rack::radar && x4Unit == enh::dsp::rack::x4 && velvetUnit == enh::dsp::rack::velvet
-                   && takebackUnit == enh::dsp::rack::takeback && scopeUnit == enh::dsp::rack::scope && numUnits == enh::dsp::rack::numUnits);
+                   && takebackUnit == enh::dsp::rack::takeback && scopeUnit == enh::dsp::rack::scope && customUnit == enh::dsp::rack::custom && numUnits == enh::dsp::rack::numUnits);
 
     static bool isSwitchLike (ControlKind k) noexcept { return k == ControlKind::button || k == ControlKind::toggle; }
 
@@ -40,8 +41,16 @@ namespace pad
         }
         // Dev-only: PAD_UI_TEST_STORED=<mask> sets THE GEAR LOCKER (screenshots of other rack line-ups)
         if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STORED", {}); t.isNotEmpty())
-            processor.setStoredUnits ((unsigned) t.getIntValue());
+            processor.setStoredUnits ((layout::UnitMask) t.getLargeIntValue());
         storedUnits = processor.getStoredUnits();   // THE GEAR LOCKER, as the session left it
+        // Dev-only: PAD_UI_TEST_LBSTORED=<mask> sets the LUNCHBOX's locker (screenshots of other line-ups)
+        if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_LBSTORED", {}); t.isNotEmpty())
+            processor.setStoredModules ((std::uint32_t) t.getLargeIntValue());
+        seenStoredModules = processor.getStoredModules();
+        layout::placeLunchbox (seenStoredModules);   // the LUNCHBOX's modules in their slots (before its print is drawn)
+        // Dev-only: PAD_UI_TEST_CUSTOM=<share code> loads a design into the CUSTOM slot
+        if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_CUSTOM", {}); t.isNotEmpty())
+            processor.setCustomCode (t, true);
 
         artwork::TextureSet textures;
         textures.faceplateDecal = artwork::renderFaceplateDecal (config.panelTextureWidth, &textItems);
@@ -79,6 +88,11 @@ namespace pad
         textures.takebackScreens = artwork::renderDesignedScreens (takebackUnit, config.panelTextureWidth / 2);
         textures.scopeDecal = artwork::renderDesignedDecal (scopeUnit, config.panelTextureWidth, &textItems);
         textures.scopeScreens = artwork::renderDesignedScreens (scopeUnit, config.panelTextureWidth / 2);
+        for (int k = 0; k < gen::count; ++k)   // the newer units
+        {
+            textures.genDecal.push_back (artwork::renderDesignedDecal (firstGenUnit + k, config.panelTextureWidth, &textItems));
+            textures.genScreens.push_back (artwork::renderDesignedScreens (firstGenUnit + k, config.panelTextureWidth / 2));
+        }
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
         textures.monitorDecal = artwork::renderOneUDecal (monitorUnit, config.panelTextureWidth, &textItems);
@@ -117,6 +131,22 @@ namespace pad
             setFocus (juce::jlimit (0, numUnits - 1, focusTest.getIntValue()), 1.0f);
 
         glassPanel = std::make_unique<GlassPanel> (bridge, processor);
+        if (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_HOLO", {}).isNotEmpty())   // (dev: the HOLOGRAM panel)
+            config.holoPanel = true;
+        glassPanel->setHolo (config.holoPanel);
+        shared.panelHolo = config.holoPanel;
+
+        // The welcome screen: at start (unless switched off), and once after an update in any case. Not in
+        // the screenshot runs (PAD_UI_TEST_SIZE) unless asked for (PAD_UI_TEST_WELCOME)
+        welcome.version = JucePlugin_VersionString;
+        welcome.showAtStart = config.showWelcome;
+        welcome.holoPanel = config.holoPanel;
+        {
+            const bool testing = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_SIZE", {}).isNotEmpty();
+            const bool asked = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_WELCOME", {}).isNotEmpty();
+            if (asked || (! testing && (config.showWelcome || config.welcomeSeen != welcome.version)))
+                showWelcome (true);
+        }
 
         // Dev-only: PAD_UI_TEST_PANEL=<unit>[,<dropdown>[,<choice>]] opens a unit's glass panel, optionally
         // with a dropdown expanded and one of its choices hovered (screenshots, frame-time checks)
@@ -130,7 +160,12 @@ namespace pad
                 if (safe == nullptr)
                     return;
                 safe->openPanel (parts[0].getIntValue() == glass::lockerPage ? glass::lockerPage : juce::jlimit (0, numUnits - 1, parts[0].getIntValue()));
-                if (parts.size() > 1)
+                // (PAD_UI_TEST_SEARCH: typed into THE GEAR LOCKER's search)
+                for (auto c : juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_SEARCH", {}))
+                    safe->glassPanel->keyPressed (juce::KeyPress (0, 0, c));
+                if (parts.size() > 1 && parts[1].startsWith ("t"))   // (",t2": show that tab)
+                    safe->glassPanel->selectTab (parts[1].substring (1).getIntValue());
+                else if (parts.size() > 1)
                     safe->glassPanel->setExpanded (parts[1].getIntValue(), parts.size() > 2 ? parts[2].getIntValue() : -1);
                 safe->publishPanel (true);
             });
@@ -178,6 +213,8 @@ namespace pad
         m.addItem (2, "Full rack - every unit installed", true, ! simple);
         m.addSeparator();
         m.addItem (4, "Gear locker...  (swap units in and out of the rack)", true, glassPanel->getUnit() == glass::lockerPage);
+        m.addItem (5, "Welcome screen...");
+        m.addItem (6, "Hologram settings panel", true, config.holoPanel);
         m.addSeparator();
         m.addItem (3, "Units put away keep working, as the preset set them", false, false);
         m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(),
@@ -187,6 +224,17 @@ namespace pad
                                  safe->setSimpleView (chosen == 1);
                              if (safe != nullptr && chosen == 4)
                                  safe->openPanel (glass::lockerPage);
+                             if (safe != nullptr && chosen == 5)
+                                 safe->showWelcome (true);
+                             if (safe != nullptr && chosen == 6)
+                             {
+                                 safe->config.holoPanel = ! safe->config.holoPanel;
+                                 safe->welcome.holoPanel = safe->config.holoPanel;
+                                 UIConfig::saveKey ("holoPanel", safe->config.holoPanel);
+                                 safe->glassPanel->setHolo (safe->config.holoPanel);
+                                 safe->shared.panelHolo = safe->config.holoPanel;
+                                 safe->publishPanel (true);
+                             }
                          });
     }
 
@@ -216,6 +264,9 @@ namespace pad
         }
         glassPanel->open (unit, anchorY, getLocalBounds().toFloat());
         publishPanel (true);
+        // THE GEAR LOCKER takes the keyboard (its search): ask for it while it is open
+        setWantsKeyboardFocus (glassPanel->wantsKeys());
+        if (glassPanel->wantsKeys()) grabKeyboardFocus();
     }
 
     /** Hands the panel's rectangle and, when it changed, its print to the renderer. */
@@ -343,8 +394,71 @@ namespace pad
         shared.hoveredControl = -1;
     }
 
+    void HardwareView::showWelcome (bool show)
+    {
+        shared.welcomeOpen = show;
+        if (show)
+            publishWelcome();
+        else if (config.welcomeSeen != welcome.version)
+        {
+            config.welcomeSeen = welcome.version;
+            UIConfig::saveKey ("welcomeSeen", welcome.version);
+        }
+    }
+
+    void HardwareView::publishWelcome()
+    {
+        const float scale = juce::jmax (1.0f, shared.platformScale.load()) * 1.5f;
+        const auto img = welcome.renderFrames (scale);   // (its jitter frames, stacked: the shader flips between them)
+        artwork::RawTexture tex { img.getWidth(), img.getHeight(), 4, {} };
+        tex.pixels.resize ((size_t) (tex.width * tex.height * 4));
+        const juce::Image::BitmapData data (img, juce::Image::BitmapData::readOnly);
+        for (int y = 0; y < tex.height; ++y)
+            for (int x = 0; x < tex.width; ++x)
+            {
+                const auto px = reinterpret_cast<const juce::PixelARGB*> (data.getPixelPointer (x, y))->getUnpremultiplied();
+                auto* d = tex.pixels.data() + ((size_t) y * (size_t) tex.width + (size_t) x) * 4;
+                d[0] = px.getRed(); d[1] = px.getGreen(); d[2] = px.getBlue(); d[3] = px.getAlpha();
+            }
+        const juce::SpinLock::ScopedLockType lock (shared.welcomeLock);
+        shared.welcomePending = std::move (tex);
+        ++shared.welcomeVersion;
+    }
+
+    bool HardwareView::welcomeClick (juce::Point<float> p)
+    {
+        if (! shared.welcomeOpen.load())
+            return false;
+        const auto r = holo::Welcome::placeIn ((float) getWidth(), (float) getHeight());
+        if (! r.contains (p)) { showWelcome (false); return true; }   // (outside the card: it goes)
+        const float s = r.getWidth() / holo::Welcome::cardW;
+        switch (welcome.hit ((p - r.getPosition()) / s))
+        {
+            case 1: showWelcome (false); break;
+            case 2:
+                welcome.showAtStart = ! welcome.showAtStart;
+                config.showWelcome = welcome.showAtStart;
+                UIConfig::saveKey ("showWelcome", welcome.showAtStart);
+                publishWelcome();
+                break;
+            case 3:
+                welcome.holoPanel = ! welcome.holoPanel;
+                config.holoPanel = welcome.holoPanel;
+                UIConfig::saveKey ("holoPanel", welcome.holoPanel);
+                glassPanel->setHolo (welcome.holoPanel);
+                shared.panelHolo = welcome.holoPanel;
+                publishPanel (true);
+                publishWelcome();
+                break;
+            default: break;
+        }
+        return true;
+    }
+
     void HardwareView::mouseDown (const juce::MouseEvent& e)
     {
+        if (welcomeClick (e.position))
+            return;
         updateMouse (e.position);
 
         if (e.mods.isPopupMenu())
@@ -852,10 +966,53 @@ namespace pad
         return juce::roundToInt (bridge.getNormalised (p) * (spec != nullptr ? spec->maxValue : 1.0f));
     }
 
+    /** CUSTOM: the processor's design onto the slot - its knobs and switches where the design put them
+        (the rest parked), its name, colour and print, and its textures for the renderer. */
+    void HardwareView::applyCustomDesign()
+    {
+        seenCustomVersion = processor.getCustomVersion();
+        const auto d = pad::custom::decode (processor.getCustomCode());
+        auto look = std::make_shared<layout::custom::Look>();
+        if (d.ok)
+        {
+            look->name = d.name.toStdString(); look->model = d.model.toStdString(); look->sub = d.sub.toStdString();
+            std::copy (std::begin (d.plate), std::end (d.plate), look->plate);
+            for (const auto& p : d.parts)
+                look->print.push_back (layout::designed::Print { p.kind, p.x, p.z, p.w, p.h, p.size, look->keep (p.text.toStdString()), p.align, p.steps, p.nums, 0, p.sweep, look->keep (p.param.toStdString()) });
+        }
+        for (int i = 0; i < 20; ++i)
+        {
+            auto& c = layout::controls[(size_t) (layout::firstCustomControl + i)];
+            const auto& sl = d.slots[(size_t) i];
+            auto& label = layout::custom::labels[(size_t) i];
+            const auto text = sl.used ? sl.label.substring (0, 23) : juce::String (i < 16 ? "KNOB " + juce::String (i + 1) : "SWITCH " + juce::String (i - 15));
+            std::fill (label.begin(), label.end(), 0);
+            text.copyToUTF8 (label.data(), label.size() - 1);
+            c.label = label.data();
+            c.x = sl.used ? sl.x : 0.0f;
+            c.z = sl.used ? sl.z : layout::parkedZ;
+            if (i < 16 && sl.used) c.size = sl.size;
+        }
+        layout::custom::set (look);
+        if (renderer != nullptr)
+            renderer->setCustomTextures (artwork::renderDesignedDecal (customUnit, config.panelTextureWidth, nullptr),
+                                         artwork::renderDesignedScreens (customUnit, config.panelTextureWidth / 2));
+    }
+
     void HardwareView::timerCallback()
     {
+        if (processor.getCustomVersion() != seenCustomVersion)
+            applyCustomDesign();
+        // The LUNCHBOX's locker (its page in THE GEAR LOCKER, a session loaded): modules into their slots
+        if (const auto lbs = processor.getStoredModules(); lbs != seenStoredModules)
+        {
+            seenStoredModules = lbs;
+            layout::placeLunchbox (lbs);
+            if (renderer != nullptr)
+                renderer->setLunchboxDecal (artwork::renderLunchboxDecal (config.panelTextureWidth / 2, nullptr));
+        }
         // THE GEAR LOCKER: the processor's (a session loaded, the locker page) is what the rack shows
-        if (const unsigned stored = processor.getStoredUnits(); stored != storedUnits.load())
+        if (const auto stored = processor.getStoredUnits(); stored != storedUnits.load())
         {
             storedUnits = stored;
             if (! isShown (shared.focusUnit.load()))
@@ -1059,5 +1216,15 @@ namespace pad
         shared.calloutPixelScale = pixelScale;
         shared.calloutAtPointer = ! testHover.containsChar (',');
         shared.calloutVisible = true;
+    }
+
+    bool HardwareView::keyPressed (const juce::KeyPress& k)
+    {
+        if (glassPanel != nullptr && glassPanel->isOpen() && glassPanel->keyPressed (k))
+        {
+            publishPanel (true);
+            return true;
+        }
+        return false;
     }
 }

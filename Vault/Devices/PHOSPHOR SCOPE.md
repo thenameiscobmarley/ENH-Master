@@ -17,6 +17,9 @@ and fainter where it sweeps fast, and fades slowly on the phosphor.
 - **PERSIST** — how long the glow lasts (20 ms to about 5 s).
 - **V/DIV** — the size of the picture.
 - **TIME/DIV** — Y-T only: how much time the screen shows (0.2 ms to 200 ms a division).
+- **FIT** — sizes the picture to fill the whole screen, across and up, whatever the level: quiet detail is
+  drawn as large as loud (it follows the loudest part of the last second; V/DIV is ignored while it's on).
+  Below -60 dBFS it stops growing, so silence isn't blown up into hiss.
 - **POWER** — the screen on or off (the sound is never touched either way).
 
 Code: `UI/Scene/HardwareRenderer.cpp` (`drawScopeTrace`), `UI/Scene/DesignedLayout.h` (`scPrint`),

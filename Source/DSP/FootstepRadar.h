@@ -3,6 +3,7 @@
 #include <array>
 #include <vector>
 #include "DspMath.h"
+#include "RadarReach.h"
 
 namespace enh::dsp
 {
@@ -49,6 +50,7 @@ namespace enh::dsp
             float sensitivity = 6.0f;   // SENSITIVITY 0 .. 10
             float boostDb = 6.0f;       // BOOST 0 .. 34 dB, for a far, quiet step (near ones get less)
             float space = 4.0f;         // SPACE 0 .. 10: how much room a far step is given
+            float reach = 5.0f;         // REACH 0 .. 10: quiet impacts lifted, whatever the game (RadarReach)
             bool solo = false;          // LISTEN: only what the radar adds (to hear what it finds)
             int detection = 0;          // DETECTION method: 0 standard, 1 sensitive, 2 strict
             int room = 0;               // ROOM method: 0 room, 1 hall, 2 open air
@@ -113,7 +115,7 @@ namespace enh::dsp
             float most = 0.0f;
             for (float g : lift)
                 most = std::max (most, g);
-            return 20.0f * std::log10 (1.0f + most);
+            return std::max (20.0f * std::log10 (1.0f + most), reachDbNow);   // (REACH's lift too)
         }
         int getAcceptedCount() const noexcept                      { return accepted; }
         int getEventCount() const noexcept                         { return events; }
@@ -134,7 +136,10 @@ namespace enh::dsp
 
         static constexpr std::array<float, numBands> bandHz { 90.0f, 250.0f, 630.0f, 1600.0f, 3800.0f, 8000.0f };
 
+
     private:
+        RadarReach reach;
+        float reachDbNow = 0.0f;
         void controlTick (const Settings&) noexcept;
         struct Event;
         void startEvent (Event&, const Settings&) noexcept;

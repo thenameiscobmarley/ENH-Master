@@ -2,7 +2,7 @@
 #  ENH Master — adaptive clarity / footstep / sub enhancer with a 3D hardware UI
 # ==============================================================================
 cmake_minimum_required(VERSION 3.22)
-project(EnhMaster VERSION 3.7.13.18 LANGUAGES C CXX)
+project(EnhMaster VERSION 3.8.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -49,22 +49,7 @@ set(ENH_DSP_SOURCES
     Source/DSP/SpectrumScope.cpp
     Source/DSP/EnhEngine.cpp)
 
-juce_add_plugin(EnhMaster
-    COMPANY_NAME                "Khris Audio"
-    PLUGIN_MANUFACTURER_CODE    Khra
-    PLUGIN_CODE                 EnhM
-    FORMATS                     ${ENH_FORMATS}
-    PRODUCT_NAME                "ENH Master"
-    BUNDLE_ID                   "com.khrisaudio.enhmaster"
-    IS_SYNTH                    FALSE
-    NEEDS_MIDI_INPUT            FALSE
-    NEEDS_MIDI_OUTPUT           FALSE
-    IS_MIDI_EFFECT              FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    VST3_CATEGORIES             Fx Dynamics EQ
-    COPY_PLUGIN_AFTER_BUILD     ${ENH_COPY_PLUGIN})
-
-target_sources(EnhMaster PRIVATE
+set(ENH_PLUGIN_SOURCES
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
 
@@ -83,38 +68,70 @@ target_sources(EnhMaster PRIVATE
     Source/UI/Scene/LayoutAudit.cpp
     Source/UI/Scene/HardwareRenderer.cpp)
 
-target_include_directories(EnhMaster PRIVATE Source)
+set(ENH_STANDALONE_SOURCES
+    Source/Standalone/StandaloneApp.cpp
+    Source/Standalone/SystemAudioDevice.cpp
+    Source/Standalone/AudioRouting.cpp
+    Source/Standalone/AudioRoutingLinux.cpp
+    Source/Standalone/AudioRoutingWindows.cpp
+    Source/Standalone/RouterBar.cpp)
 
-target_compile_definitions(EnhMaster PUBLIC
-    JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0
-    JUCE_DISPLAY_SPLASH_SCREEN=0)
+# ENH Master (3D) and ENH Master 2D: the same plugin, the same processing and sessions' settings; the 2D one
+# draws the faceplates flat (Source/UI/Flat) instead of the 3D rack - no OpenGL - for older graphics.
+# Its own plugin code, so both can be installed side by side.
+function(enh_add_variant target code product bundle is2d)
+    juce_add_plugin(${target}
+        COMPANY_NAME                "Khris Audio"
+        PLUGIN_MANUFACTURER_CODE    Khra
+        PLUGIN_CODE                 ${code}
+        FORMATS                     ${ENH_FORMATS}
+        PRODUCT_NAME                "${product}"
+        BUNDLE_ID                   "${bundle}"
+        IS_SYNTH                    FALSE
+        NEEDS_MIDI_INPUT            FALSE
+        NEEDS_MIDI_OUTPUT           FALSE
+        IS_MIDI_EFFECT              FALSE
+        EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+        VST3_CATEGORIES             Fx Dynamics EQ
+        COPY_PLUGIN_AFTER_BUILD     ${ENH_COPY_PLUGIN})
 
-if(ENH_BUILD_STANDALONE AND TARGET EnhMaster_Standalone)
-    target_sources(EnhMaster_Standalone PRIVATE
-        Source/Standalone/StandaloneApp.cpp
-        Source/Standalone/SystemAudioDevice.cpp
-        Source/Standalone/AudioRouting.cpp
-        Source/Standalone/AudioRoutingLinux.cpp
-        Source/Standalone/AudioRoutingWindows.cpp
-        Source/Standalone/RouterBar.cpp)
-    target_compile_definitions(EnhMaster_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
-    if(WIN32)
-        target_link_libraries(EnhMaster_Standalone PRIVATE runtimeobject)   # the per-app device setting (WinRT)
+    target_sources(${target} PRIVATE ${ENH_PLUGIN_SOURCES})
+    if(is2d)
+        target_sources(${target} PRIVATE Source/UI/Flat/FlatRackView.cpp)
     endif()
-endif()
+    target_include_directories(${target} PRIVATE Source)
+    target_compile_definitions(${target} PUBLIC
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_DISPLAY_SPLASH_SCREEN=0
+        ENH_2D=$<BOOL:${is2d}>)
 
-target_link_libraries(EnhMaster
-    PRIVATE
-        juce::juce_audio_utils
-        juce::juce_dsp
-        juce::juce_opengl
-        hardwarekit
-        $<$<PLATFORM_ID:Linux>:X11::X11>
-    PUBLIC
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_warning_flags)
+    if(ENH_BUILD_STANDALONE AND TARGET ${target}_Standalone)
+        target_sources(${target}_Standalone PRIVATE ${ENH_STANDALONE_SOURCES})
+        target_compile_definitions(${target}_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
+        if(WIN32)
+            target_link_libraries(${target}_Standalone PRIVATE runtimeobject)   # the per-app device setting (WinRT)
+        endif()
+    endif()
+
+    target_link_libraries(${target}
+        PRIVATE
+            juce::juce_audio_utils
+            juce::juce_dsp
+            juce::juce_opengl
+            hardwarekit
+            $<$<PLATFORM_ID:Linux>:X11::X11>
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+endfunction()
+
+enh_add_variant(EnhMaster   EnhM "ENH Master"    "com.khrisaudio.enhmaster"   OFF)
+option(ENH_BUILD_2D "Build ENH Master 2D (the flat, no-OpenGL editor) too" ON)
+if(ENH_BUILD_2D)
+    enh_add_variant(EnhMaster2D EnhF "ENH Master 2D" "com.khrisaudio.enhmaster2d" ON)
+endif()
 
 # ------------------------------------------------------------------------------
 if(ENH_BUILD_TESTS)

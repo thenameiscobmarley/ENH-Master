@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <array>
 #include <atomic>
 #include <string_view>
@@ -9,6 +11,8 @@
 #include <cmath>
 #include "../HardwareKit.h"
 #include "../../Parameters/ParameterSpecs.h"
+#include "UnitPanels.h"
+#include "../../DSP/units/LbList.h"
 
 /*  Layout of the rack unit. Shared by geometry, artwork, rendering and picking.
 
@@ -132,13 +136,27 @@ namespace pad::layout
                 x4Unit = 13, velvetUnit = 14, takebackUnit = 15,   // designed in the Rack Unit Designer: LATINSPHIEL PRO X4,
                                                                    // VELVETIZER, TAKEBACK
                 scopeUnit = 16,                                    // PHOSPHOR: a green CRT oscilloscope / vectorscope
-                numUnits = 17 };
+                // the newer units (Tools/units/gen_units.py)
+#include "UnitIds.inc"
+                customUnit = 17 + gen::count,                      // CUSTOM: a unit loaded from a Rack Unit Designer share code
+                numUnits = 18 + gen::count };
 
     /** The units made in the Rack Unit Designer (DesignedLayout.h), and which of them a unit is (-1: none). */
     /** (PHOSPHOR, the scope, is drawn by hand but built with the same machinery: print table, live screen.) */
-    inline constexpr int numDesigned = 4;
-    inline constexpr std::array<int, numDesigned> designedUnits { x4Unit, velvetUnit, takebackUnit, scopeUnit };
-    inline constexpr int designedIndex (int unit) noexcept { return unit == x4Unit ? 0 : unit == velvetUnit ? 1 : unit == takebackUnit ? 2 : unit == scopeUnit ? 3 : -1; }
+    /** (The newer units are designed-style too: indices 4 .. 4 + gen::count - 1, units 17 on.) */
+    inline constexpr int numDesigned = 5 + gen::count, firstGenUnit = 17, customDesigned = 4 + gen::count;
+    inline constexpr std::array<int, numDesigned> designedUnits = []
+    {
+        std::array<int, numDesigned> a { x4Unit, velvetUnit, takebackUnit, scopeUnit };
+        for (int k = 0; k < gen::count; ++k) a[(size_t) (4 + k)] = firstGenUnit + k;
+        a[(size_t) customDesigned] = customUnit;
+        return a;
+    }();
+    inline constexpr int designedIndex (int unit) noexcept
+    {
+        return unit == x4Unit ? 0 : unit == velvetUnit ? 1 : unit == takebackUnit ? 2 : unit == scopeUnit ? 3
+             : unit >= firstGenUnit && unit < firstGenUnit + gen::count ? 4 + (unit - firstGenUnit) : unit == customUnit ? customDesigned : -1;
+    }
     inline constexpr bool isDesigned (int unit) noexcept { return designedIndex (unit) >= 0; }
 
     /** The rack's own units (in the case, on its arc); the LUNCHBOX stands beside it. */
@@ -224,10 +242,12 @@ namespace pad::layout
     inline constexpr float takebackHalfH = 2.0f * oneUHalfH;   // 2U: TAKEBACK (designed)
     inline constexpr float scopeHalfH = 2.0f * oneUHalfH;      // 2U: PHOSPHOR (the scope)
 
-    /*  The LUNCHBOX: a six-slot 500-series frame on a walnut stand to the right of the case. A module is
-        1.5 x 5.25 inches; at this scale (the rack's 19 inches are 5.0) a slot is 0.40 wide, 1.38 tall. */
+    /*  The LUNCHBOX: a ten-slot 500-series frame on a walnut stand to the right of the case. A module is
+        1.5 x 5.25 inches; at this scale (the rack's 19 inches are 5.0) a slot is 0.40 wide, 1.38 tall.
+        Which modules are in it is the LUNCHBOX's own locker (lb:: below); these first positions are the ones
+        its first four modules' controls were laid out at. */
     inline constexpr float lbSlotW   = 0.50f;   // (a touch wider and taller than a real card, to read at a distance)
-    inline constexpr int   lbSlots   = 6;
+    inline constexpr int   lbSlots   = 10;
     inline constexpr float lbFrame   = 0.10f;                          // the frame round the slots
     inline constexpr float lbHalfW   = 0.5f * lbSlotW * (float) lbSlots + lbFrame;
     inline constexpr float lbModuleHalfH = 0.96f;
@@ -236,16 +256,91 @@ namespace pad::layout
     inline constexpr float lbHalfH   = lbModuleHalfH + lbFrame;
     inline constexpr float lbStandH  = 2.30f;                          // floor to the frame's underside
     inline constexpr float slotX (int slot) noexcept { return -0.5f * lbSlotW * (float) (lbSlots - 1) + lbSlotW * (float) slot; }
-    /** The modules: first slot, how many slots wide, and which is which. The last slot is left empty. */
-    struct LbModule { int slot, width; const char* name; };
-    inline constexpr std::array<LbModule, 4> lbModules {{ { 0, 2, "CLASS-A EQ" }, { 2, 1, "DE-HARSH" }, { 3, 1, "CROSSFEED" }, { 4, 1, "OUTPUT" } }};
-    inline constexpr int lbEmptySlot = 5;
     inline constexpr float slotCentre (int first, int width) noexcept { return -0.5f * lbSlotW * (float) (lbSlots - 1) + lbSlotW * ((float) first + 0.5f * (float) (width - 1)); }
     inline constexpr float lbEqX = slotCentre (0, 2), lbHarshX = slotCentre (2, 1), lbFeedX = slotCentre (3, 1);
-    inline constexpr float lbModuleX (int m) noexcept
+    inline constexpr float lbOutX = slotCentre (4, 1);
+
+    /*  The LUNCHBOX's locker: its modules by number (0 CLASS-A EQ, 1 DE-HARSH, 2 CROSSFEED, 3 OUTPUT, then the
+        500-series modules of DSP/units/LbList.h - the same numbering as rack::lb* and the processor's mask).
+        arrange() packs the installed ones left to right in signal order - those that go before the CLASS-A
+        EQ, the EQ and DE-HARSH, those after, CROSSFEED - with the OUTPUT meter always last; slots left over
+        stay empty. Message thread (the renderer reads the result after a rebuild). */
+    namespace lb
     {
-        return slotX (lbModules[(size_t) m].slot) + 0.5f * lbSlotW * (float) (lbModules[(size_t) m].width - 1);
+        inline constexpr int numModules = 4 + enh::dsp::lbmods::count;
+        inline constexpr int widthOf (int m) noexcept { return m == 0 ? 2 : m < 4 ? 1 : enh::dsp::lbmods::info[m - 4].width; }
+        inline const char* nameOf (int m) noexcept
+        {
+            static constexpr const char* first[4] { "CLASS-A EQ", "DE-HARSH", "CROSSFEED", "OUTPUT" };
+            return m < 4 ? first[m] : enh::dsp::lbmods::info[m - 4].name;
+        }
+        /** Where a module's controls were laid out (the first four in the frame as it was first made; the
+            generated ones about 0). */
+        inline float designX (int m) noexcept { const float x[4] { lbEqX, lbHarshX, lbFeedX, lbOutX }; return m < 4 ? x[m] : 0.0f; }
+        /** The module a control belongs to, from its group ("EQ", "DE-HARSH", "CROSSFEED", a module's name). */
+        inline int moduleOfGroup (const char* group) noexcept
+        {
+            if (group == nullptr) return -1;
+            const std::string_view g (group);
+            if (g == "EQ") return 0;
+            if (g == "DE-HARSH") return 1;
+            if (g == "CROSSFEED") return 2;
+            for (int k = 0; k < enh::dsp::lbmods::count; ++k) if (g == enh::dsp::lbmods::info[k].name) return 4 + k;
+            return -1;
+        }
+        inline std::array<int, numModules> firstSlot {};   // -1: in the locker
+        inline std::uint32_t arrangedFor = 0xffffffffu;
+        /** The order modules sit in the frame (the signal's order). */
+        inline std::array<int, numModules> signalOrder() noexcept
+        {
+            std::array<int, numModules> o {}; int n = 0;
+            for (int k = 0; k < enh::dsp::lbmods::count; ++k) if (enh::dsp::lbmods::info[k].pre) o[(size_t) n++] = 4 + k;
+            o[(size_t) n++] = 0; o[(size_t) n++] = 1;
+            for (int k = 0; k < enh::dsp::lbmods::count; ++k) if (! enh::dsp::lbmods::info[k].pre) o[(size_t) n++] = 4 + k;
+            o[(size_t) n++] = 2; o[(size_t) n++] = 3;
+            return o;
+        }
+        /** Slots the modules not in `stored` need (the OUTPUT meter always counted). */
+        inline int slotsFor (std::uint32_t stored) noexcept
+        {
+            int used = 0;
+            for (int m = 0; m < numModules; ++m) if (m == 3 || ((stored >> m) & 1u) == 0u) used += widthOf (m);
+            return used;
+        }
+        inline void arrange (std::uint32_t stored) noexcept
+        {
+            arrangedFor = stored;
+            firstSlot.fill (-1);
+            int slot = 0;
+            for (int m : signalOrder())
+            {
+                if (m != 3 && ((stored >> m) & 1u) != 0u) continue;
+                const int room = lbSlots - (m == 3 ? 0 : 1);   // (always room for the meter)
+                if (slot + widthOf (m) > room) continue;       // (more than fits: the locker keeps it)
+                firstSlot[(size_t) m] = slot;
+                slot += widthOf (m);
+            }
+        }
+        inline bool installed (int m) noexcept { return m >= 0 && m < numModules && firstSlot[(size_t) m] >= 0; }
+        inline float moduleX (int m) noexcept
+        {
+            if (arrangedFor == 0xffffffffu) arrange (0u);
+            return installed (m) ? slotCentre (firstSlot[(size_t) m], widthOf (m)) : 0.0f;
+        }
+        /** The slots nothing sits in. */
+        inline std::vector<int> emptySlots()
+        {
+            if (arrangedFor == 0xffffffffu) arrange (0u);
+            std::array<bool, lbSlots> used {};
+            for (int m = 0; m < numModules; ++m)
+                if (installed (m)) for (int k = 0; k < widthOf (m); ++k) used[(size_t) (firstSlot[(size_t) m] + k)] = true;
+            std::vector<int> e;
+            for (int k = 0; k < lbSlots; ++k) if (! used[(size_t) k]) e.push_back (k);
+            return e;
+        }
     }
+    /** Centre of LUNCHBOX module m where the locker has put it. */
+    inline float lbModuleX (int m) noexcept { return lb::moduleX (m); }
 
     inline constexpr float arcRadius  = 9.60f;    // viewer to panel
     inline constexpr float arcCentreY = 1.62f;    // the viewer's eye height
@@ -257,7 +352,9 @@ namespace pad::layout
         return unit == tubeUnit ? tubeHalfH : isOneU (unit) ? oneUHalfH : unit == levelUnit ? levelHalfH
              : unit == balancerUnit ? balancerHalfH : unit == monitorUnit ? monitorHalfH
              : unit == characterUnit ? characterHalfH : unit == radarUnit ? radarHalfH : unit == lunchboxUnit ? lbHalfH
-             : unit == x4Unit ? x4HalfH : unit == velvetUnit ? velvetHalfH : unit == takebackUnit ? takebackHalfH : unit == scopeUnit ? scopeHalfH : faceHalfH;
+             : unit == x4Unit ? x4HalfH : unit == velvetUnit ? velvetHalfH : unit == takebackUnit ? takebackHalfH : unit == scopeUnit ? scopeHalfH
+             : unit >= 17 && unit < 17 + gen::count ? (float) gen::looks[unit - 17].heightU * oneUHalfH
+             : unit == 17 + gen::count ? 2.0f * oneUHalfH : faceHalfH;   // (CUSTOM: 2U)
     }
 
     /** Half the width of a unit's faceplate: 19 inches for the rack's, the LUNCHBOX's own frame. */
@@ -267,21 +364,38 @@ namespace pad::layout
     }
 
     /** Units in case order, bottom to top - which is also the order the signal runs. */
-    inline constexpr std::array<int, numRackUnits> rackOrder { powerUnit, levelUnit, enhUnit, lumenUnit, deepUnit, limiterUnit, balancerUnit, tideUnit, radarUnit,
-                                                           tubeUnit, characterUnit, x4Unit, velvetUnit, takebackUnit, scopeUnit, monitorUnit };
+    inline constexpr std::array<int, numRackUnits> rackOrder = []
+    {
+        std::array<int, numRackUnits> a { powerUnit, levelUnit, enhUnit, lumenUnit, deepUnit, limiterUnit, balancerUnit, tideUnit, radarUnit,
+                                          tubeUnit, characterUnit, x4Unit, velvetUnit, takebackUnit };
+        int at = 14;
+        for (int k = 0; k < gen::count; ++k) a[(size_t) at++] = 17 + k;   // the newer units, in their signal order
+        a[(size_t) at++] = 17 + gen::count;                               // CUSTOM
+        a[(size_t) at++] = scopeUnit;                                     // PHOSPHOR watches what leaves: last before the monitor
+        a[(size_t) at++] = monitorUnit;
+        return a;
+    }();
 
     /** SIMPLE view: the units that work by themselves are taken out of the case and the rack closes up
         around the rest (they still run, as the preset set them). A bit per unit; both threads read it. */
     inline constexpr float hiddenY = -1000.0f;
-    inline std::atomic<unsigned> hiddenUnits { 0u };
-    inline constexpr unsigned simpleViewHidden = (1u << levelUnit) | (1u << lumenUnit) | (1u << deepUnit) | (1u << limiterUnit)
-                                               | (1u << balancerUnit) | (1u << tideUnit)
-                                               | (1u << lunchboxUnit);
+    using UnitMask = std::uint64_t;   // a bit per unit (64: room to grow)
+    inline constexpr UnitMask unitBit (int u) noexcept { return UnitMask { 1 } << u; }
+    inline std::atomic<UnitMask> hiddenUnits { 0u };
+    inline constexpr UnitMask simpleViewHidden = unitBit (levelUnit) | unitBit (lumenUnit) | unitBit (deepUnit) | unitBit (limiterUnit)
+                                               | unitBit (balancerUnit) | unitBit (tideUnit)
+                                               | unitBit (lunchboxUnit);
     /** THE GEAR LOCKER: units taken out of the rack altogether (they don't run, and don't take room). The
         rack holds rackCapacityU; a unit goes in only where it fits. The processor owns the state (it is saved
         with the session) and copies it here; the designed units start in the locker. */
-    inline constexpr unsigned defaultStored = (1u << x4Unit) | (1u << velvetUnit) | (1u << takebackUnit) | (1u << scopeUnit);
-    inline std::atomic<unsigned> storedUnits { defaultStored };
+    inline constexpr UnitMask defaultStored = []
+    {
+        UnitMask m = unitBit (x4Unit) | unitBit (velvetUnit) | unitBit (takebackUnit) | unitBit (scopeUnit);
+        for (int k = 0; k < gen::count; ++k) m |= unitBit (17 + k);   // (the newer units start in the locker too)
+        m |= unitBit (17 + gen::count);                               // (and CUSTOM)
+        return m;
+    }();
+    inline std::atomic<UnitMask> storedUnits { defaultStored };
     /** Rack units in U (1U = 44.45 mm), as their panels are drawn. */
     inline int unitU (int unit) noexcept { return (int) std::lround (unitHalfH (unit) / oneUHalfH); }
     /** What can go into the locker: everything but the POWER strip, the OUTPUT MONITOR (the output and the
@@ -289,7 +403,7 @@ namespace pad::layout
     inline constexpr bool isStorable (int unit) noexcept { return unit != powerUnit && unit != monitorUnit && unit != lunchboxUnit; }
     inline constexpr int rackCapacityU = 22;   // the rack as it came: every unit but the designed ones
     inline bool isStored (int unit) noexcept { return unit >= 0 && unit < numUnits && ((storedUnits.load (std::memory_order_relaxed) >> unit) & 1u) != 0u; }
-    inline int usedU (unsigned stored) noexcept
+    inline int usedU (UnitMask stored) noexcept
     {
         int used = 0;
         for (int u : rackOrder)
@@ -398,7 +512,7 @@ namespace pad::layout
     /** Where each unit sits in the signal chain, and what it is called on the panel. */
     struct UnitInfo { const char* name; const char* role; int chainPosition; };
 
-    inline constexpr std::array<UnitInfo, numUnits> unitInfo {{
+    inline constexpr std::array<UnitInfo, numUnits> unitInfo = [] { std::array<UnitInfo, numUnits> a {{
         { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB",                     2 },
         { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   9 },
         { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       7 },
@@ -417,6 +531,9 @@ namespace pad::layout
         { "TAKEBACK",            "GIVES BACK ATTACK - WARMTH - ROOM - AIR",                 15 },
         { "PHOSPHOR",            "GREEN CRT SCOPE - X-Y - M/S - WAVEFORM",                  16 },
     }};
+        for (int k = 0; k < gen::count; ++k) a[(size_t) (17 + k)] = { gen::looks[k].name, gen::looks[k].role, 17 + k };
+        a[(size_t) (17 + gen::count)] = { "CUSTOM", "YOUR DESIGN FROM THE RACK UNIT DESIGNER", 17 + gen::count };
+        return a; }();
 
     // --- the case the units are screwed into -------------------------------------------
     inline constexpr float caseSideX     = faceHalfW + 0.115f;   // inner face of each cheek
@@ -539,7 +656,11 @@ namespace pad::layout
     inline std::vector<Rect> outboardWindows (int unit)
     {
         if (unit == lunchboxUnit)
-            return { { slotX (lbEmptySlot), 0.0f, 0.5f * lbSlotW - 0.012f, lbModuleHalfH - 0.012f } };   // the empty slot
+        {
+            std::vector<Rect> holes;   // the empty slots
+            for (int k : lb::emptySlots()) holes.push_back ({ slotX (k), 0.0f, 0.5f * lbSlotW - 0.012f, lbModuleHalfH - 0.012f });
+            return holes;
+        }
         if (unit == monitorUnit) return { monitorDisplayRect };
         if (unit == balancerUnit) return { balancerDisplayRect };
         return {};
@@ -596,7 +717,7 @@ namespace pad::layout
              : unit == x4Unit ? x4VuHalfW : unit == velvetUnit ? velvetVuHalfW : unit == takebackUnit ? tbVuHalfW : lumenVuHalfW;
     }
 
-    inline constexpr float vuX (int unit, int index) noexcept
+    inline float vuX (int unit, int index) noexcept
     {
         return unit == tideUnit ? tideVuX
              : unit == limiterUnit ? limiterVuX + (float) index * limiterVuStep
@@ -650,7 +771,11 @@ namespace pad::layout
 
     // CLARITY is one physical knob with two printed scales: NORM (0-30) and ADD + NORM (0-10).
     // Each mode keeps its own setting; the MODE button swaps which one the knob drives.
-    inline constexpr std::array<ControlDef, 147> controls {{
+    /** Every control. Not constant: the CUSTOM slot's 20 (at the end) take their places and names from the
+        design loaded into it (Custom/DesignCode.h); until then they are parked far off the panel. */
+    inline constexpr int numControlsTotal = 149 + gen::numControls + gen::numLbControls + 20;
+    inline constexpr float parkedZ = 60.0f;
+    inline std::array<ControlDef, numControlsTotal> controls {{   // (+ UnitControls.inc, + CUSTOM's slots)
         { ControlKind::button, -1.29f, buttonZ, pid::clarityMode, "MODE" },
         { ControlKind::knob,   -0.86f, knobZ,   pid::clarityNorm, "CLARITY", pid::clarityAdd, pid::clarityMode, enhUnit, nullptr, 1.0f, KnobStyle::smallRibbed },
         { ControlKind::knob,   -0.27f, knobZ,   pid::adaptSpeed,  "ADAPT", nullptr, nullptr, enhUnit, nullptr, 1.0f, KnobStyle::smallRibbed },
@@ -741,9 +866,10 @@ namespace pad::layout
         { ControlKind::toggle,    1.20f,  0.16f, pid::charGrit,   "GRIT",  nullptr, nullptr, characterUnit, "CHARACTER", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
 
         // FOOTSTEP RADAR (2U, CHARACTER's layout): SENSITIVITY, BOOST, SPACE in the box, IN and LISTEN, one meter
-        { ControlKind::knob,     -1.00f, -0.05f, pid::radarSens,  "SENSITIVITY", nullptr, nullptr, radarUnit, "RADAR", 1.25f, KnobStyle::fetSilver },
-        { ControlKind::knob,     -0.20f, -0.05f, pid::radarBoost, "BOOST", nullptr, nullptr, radarUnit, "RADAR", 1.25f, KnobStyle::fetSilver },
-        { ControlKind::knob,      0.60f, -0.05f, pid::radarSpace, "SPACE", nullptr, nullptr, radarUnit, "RADAR", 1.25f, KnobStyle::fetSilver },
+        { ControlKind::knob,     -1.12f, -0.05f, pid::radarSens,  "SENSITIVITY", nullptr, nullptr, radarUnit, "RADAR", 1.10f, KnobStyle::fetSilver },
+        { ControlKind::knob,     -0.52f, -0.05f, pid::radarBoost, "BOOST", nullptr, nullptr, radarUnit, "RADAR", 1.10f, KnobStyle::fetSilver },
+        { ControlKind::knob,      0.08f, -0.05f, pid::radarSpace, "SPACE", nullptr, nullptr, radarUnit, "RADAR", 1.10f, KnobStyle::fetSilver },
+        { ControlKind::knob,      0.68f, -0.05f, pid::radarReach, "REACH", nullptr, nullptr, radarUnit, "RADAR", 1.10f, KnobStyle::fetSilver },
         { ControlKind::toggle,    1.20f, -0.24f, pid::footstep,   "IN",    nullptr, nullptr, radarUnit, "RADAR", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
         // LUNCHBOX: CLASS-A EQ (double width: two staggered columns), DE-HARSH, CROSSFEED; OUTPUT is its meter
         { ControlKind::toggle,   lbEqX - 0.26f, -0.62f, pid::lbEqIn,   "IN",     nullptr, nullptr, lunchboxUnit, "EQ", 1.0f, KnobStyle::proXl, SwitchStyle::batToggle },
@@ -829,9 +955,60 @@ namespace pad::layout
         { ControlKind::knob, 1.0000f, 0.3100f, "scGain", "V/DIV", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
         { ControlKind::knob, 1.3900f, 0.3100f, "scTime", "TIME/DIV", nullptr, nullptr, scopeUnit, "PHOSPHOR", 0.857f, KnobStyle::daviesSmall },
         { ControlKind::toggle, 2.0600f, -0.1800f, "scPower", "POWER", nullptr, nullptr, scopeUnit, "PHOSPHOR", 1.0f, KnobStyle::proXl, SwitchStyle::batToggle },
+        { ControlKind::toggle, 1.8000f, -0.1800f, "scFit", "FIT", nullptr, nullptr, scopeUnit, "PHOSPHOR", 1.0f, KnobStyle::proXl, SwitchStyle::batToggle },
+        // the newer units (Tools/units/gen_units.py)
+#include "UnitControls.inc"
+        // the LUNCHBOX's 500-series modules (card-local positions; placeLunchbox moves them into their slots)
+#include "LbControls.inc"
+        // CUSTOM: 16 knob slots and 4 switch slots, parked until a design is loaded
+        { ControlKind::knob, 0.0f, parkedZ, "cuK1", "KNOB 1", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK2", "KNOB 2", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK3", "KNOB 3", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK4", "KNOB 4", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK5", "KNOB 5", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK6", "KNOB 6", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK7", "KNOB 7", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK8", "KNOB 8", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK9", "KNOB 9", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK10", "KNOB 10", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK11", "KNOB 11", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK12", "KNOB 12", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK13", "KNOB 13", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK14", "KNOB 14", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK15", "KNOB 15", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::knob, 0.0f, parkedZ, "cuK16", "KNOB 16", nullptr, nullptr, customUnit, "CUSTOM", 0.85f, KnobStyle::smallRibbed },
+        { ControlKind::toggle, 0.0f, parkedZ, "cuS1", "SWITCH 1", nullptr, nullptr, customUnit, "CUSTOM", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+        { ControlKind::toggle, 0.0f, parkedZ, "cuS2", "SWITCH 2", nullptr, nullptr, customUnit, "CUSTOM", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+        { ControlKind::toggle, 0.0f, parkedZ, "cuS3", "SWITCH 3", nullptr, nullptr, customUnit, "CUSTOM", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
+        { ControlKind::toggle, 0.0f, parkedZ, "cuS4", "SWITCH 4", nullptr, nullptr, customUnit, "CUSTOM", 1.0f, KnobStyle::proXl, SwitchStyle::rocker },
     }};
 
-    inline constexpr int numControls = (int) controls.size();
+    inline constexpr int numControls = numControlsTotal;
+    inline constexpr int firstCustomControl = numControlsTotal - 20;
+    inline bool isParked (const ControlDef& c) noexcept { return c.z > parkedZ * 0.5f; }
+
+    /** The LUNCHBOX's locker applied: arranges its modules and moves every module's controls into its slot
+        (a module in the locker has its controls parked out of sight). Message thread. */
+    inline void placeLunchbox (std::uint32_t stored)
+    {
+        static std::array<float, numControls> homeX {}, homeZ {};
+        static bool saved = false;
+        if (! saved)
+        {
+            saved = true;
+            for (int i = 0; i < numControls; ++i) { homeX[(size_t) i] = controls[(size_t) i].x; homeZ[(size_t) i] = controls[(size_t) i].z; }
+        }
+        lb::arrange (stored);
+        for (int i = 0; i < numControls; ++i)
+        {
+            auto& c = controls[(size_t) i];
+            if (c.unit != lunchboxUnit) continue;
+            const int m = lb::moduleOfGroup (c.group);
+            if (m < 0) continue;
+            if (lb::installed (m)) { c.x = homeX[(size_t) i] + lb::moduleX (m) - lb::designX (m); c.z = homeZ[(size_t) i]; }
+            else                   { c.x = homeX[(size_t) i]; c.z = parkedZ; }
+        }
+    }
 
     /** Momentary buttons (PRESET PREV / NEXT, loudness RESET) have no LED: there is no state to show. */
     inline bool hasLed (const ControlDef& c) noexcept

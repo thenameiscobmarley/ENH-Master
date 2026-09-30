@@ -11,9 +11,9 @@
 <meta name="description" content="Design your own rack unit in the ENH Master style - faceplate, finish, knobs, meters, switches, print - and share it with a code. Nothing is stored anywhere.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0a0908">
-<link rel="stylesheet" href="site.css?v=18c3a80216">
-<link rel="stylesheet" href="designer.css?v=e0e6f574d3">
-<script src="designer.js?v=007d480209" defer></script>
+<link rel="stylesheet" href="site.css?v=9a736356a1">
+<link rel="stylesheet" href="designer.css?v=1de4c4edc9">
+<script src="designer.js?v=d48a58519d" defer></script>
 <script src="designer-audio.js?v=64896bbfe8" defer></script>
 <script type="module" src="designer3d.js?v=f87e186a79"></script>
 </head>
@@ -61,6 +61,8 @@
   <aside class="d-panel d-left" aria-label="Tools">
     <section role="tabpanel" id="p-look" aria-labelledby="t-look">
       <h2>Look</h2>
+      <div class="d-ideas-head"><span class="muted small">Stuck? See six takes on it in other colours, finishes and knobs.</span><button type="button" id="ideas">Ideas</button></div>
+      <div class="d-templates d-ideas" id="ideas-grid"></div>
       <label>Height <select id="u-height"><option value="1">1U</option><option value="2">2U</option><option value="3">3U</option><option value="4">4U</option><option value="5">5U</option><option value="6">6U</option></select></label>
       <div class="d-field"><span>Finish</span><div id="u-finish"></div></div>
       <label>Shine <input type="range" id="u-shine" min="0" max="100" aria-describedby="shine-hint"></label>
@@ -108,6 +110,14 @@
       <h2>Add a part</h2>
       <div class="d-palette" id="palette" role="group" aria-label="Parts to add"></div>
       <p class="muted small">It lands in the middle of the panel; drag it where you want it.</p>
+      <h2>On the panel</h2>
+      <p class="muted small" id="layers-count" role="status"></p>
+      <ol class="d-layers" id="layers"></ol>
+      <h2>Check the design</h2>
+      <p class="muted small">Looks for parts off the panel, controls on top of each other, knobs too close for fingers and print too small to read.</p>
+      <div class="d-btns"><button type="button" id="check-run" class="primary">Check</button><button type="button" id="check-fix" disabled>Fix what it can</button></div>
+      <p class="muted small" id="check-msg" role="status"></p>
+      <ul class="d-issues" id="issues"></ul>
     </section>
     <section role="tabpanel" id="p-knobs" aria-labelledby="t-knobs" hidden>
       <h2>Knob maker</h2>
@@ -136,6 +146,8 @@
     </section>
     <section role="tabpanel" id="p-presets" aria-labelledby="t-presets" hidden>
       <h2>Start from a preset</h2>
+      <input type="search" id="tpl-search" class="d-search" placeholder="Search presets - compressor, tube, echo…" aria-label="Search presets" autocomplete="off">
+      <p class="muted small" id="tpl-count" role="status"></p>
       <div class="d-templates" id="templates"></div>
     </section>
     <section role="tabpanel" id="p-library" aria-labelledby="t-library" hidden>
@@ -167,13 +179,22 @@
         <p id="about-text"></p>
       </article>
     </div>
-    <p class="d-hint">Click a part to select it · drag on empty space to box-select · Shift adds · Alt-click picks one part of a group · arrows nudge (Shift: 10×) · Ctrl+C / X / V · Ctrl+A all · Ctrl+G group · Ctrl+D duplicate · Delete removes · P plays</p>
+    <p class="d-hint">Click a part to select it, drag on empty space to select several. <button type="button" id="keys-open" class="d-link">Keyboard shortcuts <kbd>?</kbd></button></p>
   </section>
 
   <aside class="d-panel d-right" aria-label="Selected part">
     <section id="props">
       <h2>Selected</h2>
-      <p class="muted small" id="props-empty">Nothing selected. Click a part on the faceplate, or add one from Parts.</p>
+      <div id="props-empty" class="d-start">
+        <p class="muted small">Nothing selected. Click a part on the faceplate to change it.</p>
+        <h3 class="d-sub">Quick start</h3>
+        <ol class="d-steps">
+          <li><span><b>Pick a starting point</b></span><button type="button" data-go="t-presets">Browse presets</button></li>
+          <li><span><b>Make it yours:</b> its look, parts and knobs</span><button type="button" data-go="t-parts">Add parts</button></li>
+          <li><span><b>Give it a sound</b>, then press Play to hear it</span><button type="button" data-go="t-sound">Sound</button></li>
+          <li><span><b>Load it in ENH Master:</b> paste its code in the CUSTOM unit</span><button type="button" data-do="share">Share / copy code</button></li>
+        </ol>
+      </div>
       <div id="props-body"></div>
     </section>
     <section id="align" hidden>
@@ -199,6 +220,8 @@
     <button type="button" id="copy-link" class="primary">Copy link</button>
     <button type="button" id="save-file">Save as a file</button>
   </div>
+  <p class="muted small"><b>In ENH Master:</b> copy the link or code, open the CUSTOM unit's glass panel in the plugin and click
+    PASTE A DESIGN CODE - your panel, knobs and sound load in the rack.</p>
   <p class="muted small">Paste the link in a chat: whoever clicks it opens your design. Or send the file: they open it here
     (Open a file, or drop it on the unit).</p>
   <details class="d-code"><summary>Show the code</summary>
@@ -223,6 +246,26 @@
   <p class="small" id="ai-msg" role="status"></p>
   <div class="d-btns"><button type="button" id="ai-apply" class="primary">Apply</button><button type="button" id="ai-close">Close</button></div>
 </dialog>
+<dialog id="keys-dialog" aria-labelledby="keys-title" class="d-keys">
+  <h2 id="keys-title">Keyboard shortcuts</h2>
+  <dl>
+    <div><dt><kbd>Click</kbd></dt><dd>Select a part</dd></div>
+    <div><dt><kbd>Shift</kbd> + <kbd>Click</kbd></dt><dd>Add to the selection</dd></div>
+    <div><dt><kbd>Alt</kbd> + <kbd>Click</kbd></dt><dd>Pick one part out of a group</dd></div>
+    <div><dt>Drag on empty space</dt><dd>Select everything in a box</dd></div>
+    <div><dt><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Nudge (with <kbd>Shift</kbd>: 10 times as far)</dd></div>
+    <div><dt><kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd></dt><dd>Copy, cut, paste</dd></div>
+    <div><dt><kbd>Ctrl</kbd> + <kbd>D</kbd></dt><dd>Duplicate</dd></div>
+    <div><dt><kbd>Ctrl</kbd> + <kbd>A</kbd></dt><dd>Select everything</dd></div>
+    <div><dt><kbd>Ctrl</kbd> + <kbd>G</kbd></dt><dd>Group</dd></div>
+    <div><dt><kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd></dt><dd>Undo, redo</dd></div>
+    <div><dt><kbd>Delete</kbd></dt><dd>Remove</dd></div>
+    <div><dt><kbd>P</kbd></dt><dd>Play: turn the knobs and hear it</dd></div>
+    <div><dt><kbd>?</kbd></dt><dd>This list</dd></div>
+  </dl>
+  <div class="d-btns"><button type="button" id="keys-close" class="primary">Close</button></div>
+</dialog>
+<div class="d-toast" id="toast" role="status" aria-live="polite"></div>
 <noscript><p class="d-noscript">The designer needs JavaScript. Everything runs in your browser; nothing is sent anywhere.</p></noscript>
 </body>
 </html>

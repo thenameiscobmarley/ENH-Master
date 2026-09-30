@@ -2166,6 +2166,8 @@ namespace
 #include "MasteringTests.h"
 #include "LunchboxTests.h"
 #include "DesignedUnitsTests.h"
+#include <functional>
+#include "NewUnitsTests.h"
 
 int main (int argc, char** argv)
 {
@@ -2248,6 +2250,13 @@ int main (int argc, char** argv)
         runLatencyTests (sr);
         runLunchboxTests (sr);
         runDesignedUnitsTests (sr);
+        runNewUnitsTests16 (sr);
+        runDeHarshTests (sr);
+        runLbModuleTests (sr);
+        runRayRoomTests (sr);
+        runSimTests (sr);
+        runSimTests2 (sr);
+        runCustomUnitTests (sr);
         std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
         return failures == 0 ? 0 : 1;
     }
@@ -2366,6 +2375,22 @@ int main (int argc, char** argv)
                          d.time, d.accepted ? "ACCEPT" : "reject", label (d.time).toRawUTF8(), d.probability, d.base, d.match, d.attackMs,
                          d.decayDb, d.excessDb, d.tonal, d.levelDb, d.distance);
         return 0;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--units16")
+    {
+        for (double rate : { 44100.0, 48000.0, 96000.0 })
+        {
+            runNewUnitsTests16 (rate);
+            runDeHarshTests (rate);
+            runLbModuleTests (rate);
+            runRayRoomTests (rate);
+            runSimTests (rate);
+            runSimTests2 (rate);
+            runCustomUnitTests (rate);
+        }
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
     }
 
     if (argc > 1 && juce::String (argv[1]) == "--designed")

@@ -597,6 +597,23 @@ footer .logo { color: var(--ink); }
 .pin .xp-view { height: 100%; grid-template-rows: minmax(0, 1fr) auto auto auto; align-content: stretch; }
 .pin .xp-stage { height: 100%; min-height: 180px; }
 @media (max-height: 980px) and (min-width: 901px) { .pin .xp-intro { display: none; } }
+/* the pinned column always fits the screen's height: on short, wide screens (ultrawide monitors, a
+   browser zoomed out) the list tightens, and never runs up under the nav */
+.pin .xp-copy { max-height: 100%; overflow-y: auto; scrollbar-width: none; padding-right: 4px; }
+.pin .xp-copy::-webkit-scrollbar { display: none; }
+@media (max-height: 1000px) and (min-width: 901px) {
+  .pin .xp-copy h2 { font-size: clamp(1.4rem, .8rem + 1.6vh, 2.1rem); }
+  .pin .xp-steps { margin: 10px 0 12px; }
+  .pin .xp-u { padding: 4px 10px; }
+}
+@media (max-height: 760px) and (min-width: 901px) { .pin .xp-copy .kicker, .pin .xp-steps { display: none !important; } }
+/* wide screens: the content sits in a centred column, so the dark fade over the 3D follows that column,
+   not the window's edge - the rest of the rack never shows through behind the unit list */
+@media (min-width: 1800px) {
+  .gl-layer::after { background: linear-gradient(90deg, rgba(10, 9, 8, .94) 0%, rgba(10, 9, 8, .9) calc(50% - 420px), rgba(10, 9, 8, 0) calc(50% - 180px)),
+                                  linear-gradient(0deg, rgba(10, 9, 8, .55), transparent 18%); }
+}
+.gl-layer { transition: opacity .25s linear; }
 @media (max-height: 760px) and (min-width: 901px) { .pin .xp-note { display: none; } .xp-u { padding: 4px 10px; } }
 
 @media (max-width: 900px) {
@@ -786,3 +803,26 @@ body[data-place] .gl-layer { opacity: .18; }
 .g-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .g-chip { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line2); background: var(--bg2); color: var(--ink); text-decoration: none; font-size: .92rem; }
 .g-chip:hover { border-color: rgba(224, 168, 74, .5); color: var(--accent); }
+
+/* ---------- 3.8: four download paths, what's new, the footer, place pages start higher ---------- */
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(14px, 2vw, 22px); }
+@media (max-width: 1180px) { .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .grid4 { grid-template-columns: minmax(0, 1fr); } }
+body[data-place] section[data-place] { padding-top: clamp(36px, 5vw, 76px); }
+.news { margin-top: clamp(28px, 4vw, 44px); padding: 22px clamp(18px, 3vw, 28px); border-radius: var(--r); border: 1px solid var(--line); background: var(--glass), var(--fill); }
+.news-h { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: .95rem; letter-spacing: .02em; }
+.news-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 1000px) { .news-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .news-list { grid-template-columns: minmax(0, 1fr); } }
+.news-list li { display: grid; gap: 4px; padding-left: 14px; border-left: 2px solid rgba(224, 168, 74, .55); }
+.news-list b { font-size: .98rem; color: var(--ink); }
+.news-list span { color: var(--muted); font-size: .88rem; line-height: 1.45; }
+footer { padding: 56px 0 28px; }
+footer .foot { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 28px 40px; align-items: start; }
+@media (max-width: 860px) { footer .foot { grid-template-columns: repeat(2, minmax(0, 1fr)); } footer .foot-brand { grid-column: 1 / -1; } }
+.foot-brand p { margin: 12px 0 0; max-width: 32rem; color: var(--dim); font-size: .88rem; line-height: 1.55; }
+.foot-col { display: grid; gap: 8px; }
+.foot-col h4 { margin: 0 0 4px; font-size: .74rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+.foot-col a { color: var(--dim); text-decoration: none; font-size: .9rem; }
+.foot-col a:hover { color: var(--ink); }
+footer .foot-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: .82rem; }

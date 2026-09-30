@@ -28,6 +28,7 @@ PluginProcessor::PluginProcessor()
     radarSens  = state.getRawParameterValue (id::radarSens);
     radarBoost = state.getRawParameterValue (id::radarBoost);
     radarSpace = state.getRawParameterValue (id::radarSpace);
+    radarReach = state.getRawParameterValue (id::radarReach);
     radarListen = state.getRawParameterValue (id::radarListen);
 
     heavenHold    = state.getRawParameterValue (id::heavenHold);
@@ -163,6 +164,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.radarSens      = radarSens->load();
     k.radarBoost     = radarBoost->load();
     k.radarSpace     = radarSpace->load();
+    k.radarReach     = radarReach->load();
     k.radarListen    = radarListen->load() > 0.5f;
     k.enhMultiply    = enhMultiply->load();
     k.enhStrength    = enhStrength->load();
@@ -207,6 +209,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     k.charActive     = charActive->load() > 0.5f;
     k.compare        = abCompare->load() > 0.5f;
     k.stored         = storedUnits.load (std::memory_order_relaxed);
+    k.lbStored       = storedModules.load (std::memory_order_relaxed);
     k.charGrit       = charGrit->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
     k.lumenResponse  = lumenResponse->load();
@@ -344,11 +347,19 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
             currentPreset = juce::jlimit (0, getNumPrograms() - 1, (int) state.state.getProperty ("preset", 0));
             // THE GEAR LOCKER (a session saved before it existed: the rack as it was, the designed units stored)
             // A unit added to the plugin after the session was saved starts in the locker, like a new one
-            unsigned stored = (unsigned) (int) state.state.getProperty ("lockerStored", (int) enh::dsp::rack::defaultStored);
+            auto stored = (enh::dsp::rack::Mask) (juce::int64) state.state.getProperty ("lockerStored", (juce::int64) enh::dsp::rack::defaultStored);
             const int knewUnits = (int) state.state.getProperty ("lockerUnits", enh::dsp::rack::takeback);   // (TAKEBACK came after the first locker)
             for (int u = std::max (0, knewUnits); u < enh::dsp::rack::numUnits; ++u)
-                stored |= enh::dsp::rack::defaultStored & (1u << u);
+                stored |= enh::dsp::rack::defaultStored & enh::dsp::rack::bit (u);
             storedUnits.store (stored, std::memory_order_relaxed);
+            // The LUNCHBOX's modules the same way (a module added later starts in its locker)
+            auto lbStored = (enh::dsp::rack::LbMask) (juce::int64) state.state.getProperty ("lunchboxStored", (juce::int64) enh::dsp::rack::defaultLbStored);
+            const int knewModules = (int) state.state.getProperty ("lunchboxModules", enh::dsp::rack::lbFirstGen);
+            for (int m = std::max (0, knewModules); m < enh::dsp::rack::lbModules; ++m)
+                lbStored |= enh::dsp::rack::defaultLbStored & enh::dsp::rack::lbBit (m);
+            storedModules.store (lbStored, std::memory_order_relaxed);
+            // CUSTOM: the design it had (its knobs are the session's own)
+            setCustomCode (state.state.getProperty ("customCode", juce::String()).toString(), false);
         }
 }
 

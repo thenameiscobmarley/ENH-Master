@@ -1,5 +1,6 @@
 #include "GeometryFactory.h"
 #include "DesignedLayout.h"
+#include "CustomLayout.h"
 #include <algorithm>
 
 namespace pad::geo
@@ -412,10 +413,32 @@ namespace pad::geo
         return arcPoint (-caseOverhang, 0.0f).y - caseBoardT - 0.05f;   // under the plinth's feet
     }
 
+    /** The shelf's front edge: a little in front of the case's feet. */
+    static float shelfFrontZ() { return arcPoint (-caseOverhang, 0.0f).z + 1.45f; }
+    static float wallZ() { return arcCentreZ - arcRadius - 2.2f; }
+
     MeshData caseFloor()
     {
-        const auto bottom = arcPoint (-caseOverhang, 0.0f);
-        return horizontalQuad ({ 0.0f, bottom.z - 6.0f, 26.0f, 26.0f }, floorHeight());
+        // The shelf's quartz top, from the wall to its front edge
+        const float zb = wallZ(), zf = shelfFrontZ();
+        return horizontalQuad ({ 0.0f, 0.5f * (zb + zf), 30.0f, 0.5f * (zf - zb) }, floorHeight());
+    }
+
+    MeshData shelfEdge()
+    {
+        // The slab's polished front edge (3 cm of quartz)
+        const float z = shelfFrontZ(), y1 = floorHeight(), y0 = y1 - 0.30f;
+        return quad ({ -30.0f, y0, z }, { 30.0f, y0, z }, { 30.0f, y1, z }, { -30.0f, y1, z });
+    }
+
+    MeshData shelfCabinet()
+    {
+        // The walnut cabinet under it, set back a little under the slab's overhang, down out of sight
+        const float z = shelfFrontZ() - 0.18f, y1 = floorHeight() - 0.30f, y0 = y1 - 16.0f;
+        MeshData mesh = quad ({ -30.0f, y0, z }, { 30.0f, y0, z }, { 30.0f, y1, z }, { -30.0f, y1, z });
+        // the slab's underside in the overhang
+        mesh.append (quad ({ -30.0f, y1, z }, { 30.0f, y1, z }, { 30.0f, y1, z + 0.18f }, { -30.0f, y1, z + 0.18f }));
+        return mesh;
     }
 
     MeshData backWall()
@@ -660,18 +683,19 @@ namespace pad::geo
     }
 
     //==============================================================================
-    // The LUNCHBOX: six slots in a black frame; the modules' plates stand proud of it
+    // The LUNCHBOX: ten slots in a black frame; the modules' plates stand proud of it (where its locker has
+    // put them: layout::lb), the empty slots open into the dark
     namespace
     {
         Rect modulePlateRect (int m)
         {
-            const auto& mod = lbModules[(size_t) m];
-            return { lbModuleX (m), 0.0f, 0.5f * lbSlotW * (float) mod.width - 0.010f, lbModuleHalfH - 0.010f };
+            return { lbModuleX (m), 0.0f, 0.5f * lbSlotW * (float) lb::widthOf (m) - 0.010f, lbModuleHalfH - 0.010f };
         }
     }
 
     MeshData lunchboxModulePlate (int m)
     {
+        if (! lb::installed (m)) return {};
         const auto r = modulePlateRect (m);
         std::vector<Rect> holes;
         if (m == 3)
@@ -681,6 +705,7 @@ namespace pad::geo
 
     MeshData lunchboxModuleEdges (int m)
     {
+        if (! lb::installed (m)) return {};
         const auto r = modulePlateRect (m);
         constexpr float rr = 0.012f;
         MeshData mesh;
@@ -691,6 +716,7 @@ namespace pad::geo
 
     MeshData lunchboxModuleScrews (int m)
     {
+        if (! lb::installed (m)) return {};
         const auto r = modulePlateRect (m);
         MeshData mesh;
         const auto head = lathe (0.026f, { { 0.0f, 0.0f }, { 0.0f, 0.010f }, { -0.006f, 0.016f }, { -0.026f, 0.018f } }, 16, true);
@@ -701,38 +727,54 @@ namespace pad::geo
 
     MeshData lunchboxSlotWell()
     {
-        const Rect hole { slotX (lbEmptySlot), 0.0f, 0.5f * lbSlotW - 0.012f, lbModuleHalfH - 0.012f };
-        MeshData mesh = wellWalls (hole, 0.0f, 0.55f);
-        mesh.append (horizontalQuad (hole, -0.55f));
+        MeshData mesh;
+        for (int k : lb::emptySlots())
+        {
+            const Rect hole { slotX (k), 0.0f, 0.5f * lbSlotW - 0.012f, lbModuleHalfH - 0.012f };
+            mesh.append (wellWalls (hole, 0.0f, 0.55f));
+            mesh.append (horizontalQuad (hole, -0.55f));
+        }
         return mesh;
     }
 
     MeshData lunchboxSlotRails()
     {
-        const float x = slotX (lbEmptySlot), hd = lbModuleHalfH - 0.012f;
         MeshData mesh;
-        for (float z : { -hd + 0.035f, hd - 0.035f })   // a guide top and bottom, a groove down the middle
+        const float hd = lbModuleHalfH - 0.012f;
+        for (int k : lb::emptySlots())
         {
-            mesh.append (box ({ x - 0.060f, -0.50f, z - 0.018f }, { x - 0.008f, -0.02f, z + 0.018f }));
-            mesh.append (box ({ x + 0.008f, -0.50f, z - 0.018f }, { x + 0.060f, -0.02f, z + 0.018f }));
+            const float x = slotX (k);
+            for (float z : { -hd + 0.035f, hd - 0.035f })   // a guide top and bottom, a groove down the middle
+            {
+                mesh.append (box ({ x - 0.060f, -0.50f, z - 0.018f }, { x - 0.008f, -0.02f, z + 0.018f }));
+                mesh.append (box ({ x + 0.008f, -0.50f, z - 0.018f }, { x + 0.060f, -0.02f, z + 0.018f }));
+            }
         }
         return mesh;
     }
 
     MeshData lunchboxConnector()
     {
-        const float x = slotX (lbEmptySlot);
-        return box ({ x - 0.050f, -0.548f, -0.30f }, { x + 0.050f, -0.46f, 0.30f });
+        MeshData mesh;
+        for (int k : lb::emptySlots())
+        {
+            const float x = slotX (k);
+            mesh.append (box ({ x - 0.050f, -0.548f, -0.30f }, { x + 0.050f, -0.46f, 0.30f }));
+        }
+        return mesh;
     }
 
     MeshData lunchboxConnectorPins()
     {
-        const float x = slotX (lbEmptySlot);
         MeshData mesh;
-        for (int i = 0; i < 15; ++i)   // 15 contacts, like the real edge connector
+        for (int k : lb::emptySlots())
         {
-            const float z = -0.26f + 0.52f * (float) i / 14.0f;
-            mesh.append (box ({ x - 0.012f, -0.462f, z - 0.010f }, { x + 0.012f, -0.455f, z + 0.010f }));
+            const float x = slotX (k);
+            for (int i = 0; i < 15; ++i)   // 15 contacts, like the real edge connector
+            {
+                const float z = -0.26f + 0.52f * (float) i / 14.0f;
+                mesh.append (box ({ x - 0.012f, -0.462f, z - 0.010f }, { x + 0.012f, -0.455f, z + 0.010f }));
+            }
         }
         return mesh;
     }
@@ -865,7 +907,8 @@ namespace pad::geo
             return u;
         }
 
-        constexpr float cableR = 0.042f;   // thick XLR cable
+        constexpr float cableR = 0.062f;
+        constexpr float jackCableR = 0.034f, jackPlugLength = 0.26f;   // thick XLR cable (a heavy-duty microphone cable, to read at a distance)
         constexpr float inch = 0.263f;     // the rack's 19 inches are 5.0 units
         constexpr float stripScale = 0.72f;   // the strip's outlets: packed on its 1U front
 
@@ -875,7 +918,8 @@ namespace pad::geo
             static constexpr std::array<std::pair<float, float>, 12> slots {{
                 { 0.00f, 0.0f }, { 0.09f, 0.0f }, { -0.09f, 0.0f }, { 0.045f, 0.075f }, { -0.045f, 0.075f }, { 0.18f, 0.0f },
                 { -0.18f, 0.0f }, { 0.135f, 0.075f }, { -0.135f, 0.075f }, { 0.0f, 0.15f }, { 0.27f, 0.0f }, { -0.27f, 0.0f } }};
-            return slots[(size_t) i % slots.size()];
+            const auto s = slots[(size_t) i % slots.size()];
+            return { 1.5f * s.first, 1.5f * s.second };   // (spread for the thicker cables)
         }
         float wander (int i, float t) { return 0.035f * std::sin (2.3f * (float) i + 7.0f * t) + 0.02f * std::sin (1.1f * (float) i + 13.0f * t); }
 
@@ -903,6 +947,35 @@ namespace pad::geo
                      { xc, inside.y, inside.z } };
         }
 
+        /** A cable sculpted between two plugs (HardwareKit's cable model: its own length, gravity, no kink
+            tighter than minBend, resting on the shelf, out of the boxes it must not pass through). */
+        MeshData sculpted (hwk::cable::End a, hwk::cable::End b, float r, float slack, float minBend, int sides,
+                           const std::vector<hwk::cable::Box>& obstacles = {}, float relief = 0.07f)
+        {
+            hwk::cable::Spec spec;
+            spec.radius = r; spec.slack = slack; spec.minBendRadius = minBend; spec.strainRelief = relief;
+            spec.floorY = floorHeight();
+            return hwk::cable::tube (hwk::cable::sculpt (a, b, spec, obstacles), r, sides);
+        }
+
+        /** Where a cable goes into the channel down a cheek's front (arc height s, side +1 right / -1 left):
+            its end inside the rubber lips, and the way out of them (the cable arrives along it). */
+        hwk::cable::End channelEnd (float s, float side)
+        {
+            const float xc = side * (caseSideX + channelDx);
+            const auto lip = arcPoint (s, caseFront + 0.004f), inside = arcPoint (s, caseFront - 0.06f);
+            const Vec3 in { xc, inside.y, inside.z }, at { xc, lip.y, lip.z };
+            return { in, normalise (at - in) };
+        }
+
+        /** The case as a box (cables go round it, never through). */
+        hwk::cable::Box caseBox()
+        {
+            const auto lo = arcPoint (-0.3f, -3.0f), hi = arcPoint (totalArcLength() + 0.3f, 0.0f);
+            return { { -caseSideX - caseCheekW, std::min (lo.y, hi.y), std::min (lo.z, hi.z) - 1.2f },
+                     { caseSideX + caseCheekW, std::max (lo.y, hi.y), std::max (lo.z, hi.z) - 0.02f } };
+        }
+
         /** The grommet in the right cheek's outer face, where the LUNCHBOX's cables leave the case. */
         Vec3 grommetAt()
         {
@@ -928,7 +1001,7 @@ namespace pad::geo
             if (isShown (lunchboxUnit))
             {
                 const auto lb = unitOrigin (lunchboxUnit);
-                const float xl = lb.x - lbHalfW + 0.30f + 0.11f * (float) i;   // each to its own input, left to right
+                const float xl = lb.x - lbHalfW + 0.30f + 0.17f * (float) i;   // each to its own input, left to right
                 const Vec3 end { xl, lb.y - lbHalfH + 0.12f, lb.z - 0.80f };
                 const Vec3 below { xl, lb.y - lbHalfH - 0.14f, lb.z - 0.86f };
                 pts.push_back ({ g1.x + 0.25f, g1.y - 0.10f + wander (i, 0.3f), g1.z + dz });
@@ -950,7 +1023,18 @@ namespace pad::geo
         const int n = numAudioCables();
         if (index < 0 || index >= n)
             return {};
-        return tubeAlong (floorRun (index, n, floorHeight()), cableR, 12);
+        // Sculpted: out of the grommet sideways, to the XLR under the LUNCHBOX's frame (its barrel points up
+        // into the frame: the cable leaves it downward), round the frame, resting where it touches the shelf
+        if (! isShown (lunchboxUnit))
+            return tubeAlong (floorRun (index, n, floorHeight()), cableR, 12);
+        const auto [dz, dy] = bundleSlot (index);
+        const auto g = grommetAt();
+        const auto lb = unitOrigin (lunchboxUnit);
+        const float xl = lb.x - lbHalfW + 0.30f + 0.17f * (float) index;
+        const hwk::cable::End a { { g.x + 0.02f, g.y + 0.6f * dy, g.z + 0.6f * dz }, { 1.0f, 0.0f, 0.0f } };
+        const hwk::cable::End b { { xl, lb.y - lbHalfH + 0.10f, lb.z - 0.80f }, { 0.0f, -1.0f, 0.0f } };
+        const hwk::cable::Box frame { { lb.x - lbHalfW, lb.y - lbHalfH + 0.02f, lb.z - 0.78f }, { lb.x + lbHalfW, lb.y + lbHalfH, lb.z + 0.05f } };
+        return sculpted (a, b, cableR, 1.18f + 0.02f * (float) (index % 4), 0.22f, 12, { caseBox(), frame }, 0.12f);
     }
 
     MeshData audioCables (std::vector<int>& colours)
@@ -965,19 +1049,37 @@ namespace pad::geo
         return mesh;
     }
 
+    /*  The XLR plugs on the audio cables' ends, under the LUNCHBOX's frame (female, pointing up into it): a
+        ribbed black rubber boot where the cable goes in, then the metal shell - a knurled grip band, a
+        chamfered nose - with its push latch on the side. xlrConnectors: the rubber; xlrLatches: the metal. */
+    namespace
+    {
+        Vec3 xlrAt (int i)
+        {
+            const auto lb = unitOrigin (lunchboxUnit);
+            return { lb.x - lbHalfW + 0.30f + 0.17f * (float) i, lb.y - lbHalfH + 0.10f, lb.z - 0.80f };
+        }
+        constexpr float xlrBootTop = 0.15f, xlrShellTop = 0.34f, xlrShellR = 0.078f;
+    }
+
     MeshData xlrConnectors()
     {
         MeshData m;
         if (! isShown (lunchboxUnit))
             return m;
-        const auto lb = unitOrigin (lunchboxUnit);
-        // A female XLR barrel on each cable's end, pointing up into the frame's back panel
-        const auto barrel = lathe (0.062f, { { -0.022f, 0.0f }, { 0.0f, 0.02f }, { 0.0f, 0.20f }, { -0.006f, 0.21f }, { -0.006f, 0.25f }, { -0.016f, 0.26f } }, 20, true);
-        for (int i = 0; i < numAudioCables(); ++i)
+        // The boot: from the cable's own width, ribbed, swelling to the shell's
+        std::vector<ProfilePoint> boot;
+        const int ribs = 7;
+        for (int k = 0; k <= ribs; ++k)
         {
-            const float xl = lb.x - lbHalfW + 0.30f + 0.11f * (float) i;
-            m.append (barrel, Mat4::translation ({ xl, lb.y - lbHalfH + 0.10f, lb.z - 0.80f }));
+            const float t = (float) k / (float) ribs, y = xlrBootTop * t;
+            const float base = (cableR + 0.006f) + (xlrShellR - 0.004f - cableR - 0.006f) * t * t;
+            boot.push_back ({ base - xlrShellR, y });
+            if (k < ribs) boot.push_back ({ base + 0.006f - xlrShellR, y + 0.5f * xlrBootTop / (float) ribs });
         }
+        const auto bootMesh = lathe (xlrShellR, boot, 24, false);
+        for (int i = 0; i < numAudioCables(); ++i)
+            m.append (bootMesh, Mat4::translation (xlrAt (i)));
         return m;
     }
 
@@ -986,14 +1088,17 @@ namespace pad::geo
         MeshData m;
         if (! isShown (lunchboxUnit))
             return m;
-        const auto lb = unitOrigin (lunchboxUnit);
-        const auto ring = lathe (0.064f, { { 0.0f, 0.16f }, { 0.0f, 0.18f } }, 20, false);
+        // The shell: a short collar, the knurled grip, the plain body, a chamfer into the frame's socket
+        Relief knurl; knurl.count = 36; knurl.depth = 0.05f; knurl.yFrom = xlrBootTop + 0.03f; knurl.yTo = xlrBootTop + 0.10f; knurl.sharpness = 0.9f;
+        const auto shell = lathe (xlrShellR, { { -0.010f, xlrBootTop }, { 0.0f, xlrBootTop + 0.012f }, { 0.0f, xlrShellTop - 0.03f },
+                                               { -0.012f, xlrShellTop - 0.004f }, { -0.020f, xlrShellTop } }, 32, true, knurl);
         for (int i = 0; i < numAudioCables(); ++i)
         {
-            const float xl = lb.x - lbHalfW + 0.30f + 0.11f * (float) i;
-            const Vec3 at { xl, lb.y - lbHalfH + 0.10f, lb.z - 0.80f };
-            m.append (ring, Mat4::translation (at));
-            m.append (box ({ -0.012f, 0.13f, 0.055f }, { 0.012f, 0.24f, 0.068f }), Mat4::translation (at));   // the latch tab
+            const Vec3 at = xlrAt (i);
+            m.append (shell, Mat4::translation (at));
+            // the push latch on its side (facing the room): a small raised button on a strip
+            m.append (box ({ -0.016f, xlrShellTop - 0.11f, xlrShellR - 0.004f }, { 0.016f, xlrShellTop - 0.02f, xlrShellR + 0.010f }), Mat4::translation (at));
+            m.append (box ({ -0.010f, xlrShellTop - 0.075f, xlrShellR + 0.010f }, { 0.010f, xlrShellTop - 0.045f, xlrShellR + 0.020f }), Mat4::translation (at));
         }
         return m;
     }
@@ -1006,7 +1111,7 @@ namespace pad::geo
         const auto strip = unitOrigin (powerUnit);
         const float xOut = caseSideX + caseCheekW;
         const float plugTip = (0.016f + 0.30f * inch + 0.12f + 0.08f) * stripScale;   // where the relief ends
-        constexpr float r = 0.030f;
+        constexpr float r = 0.046f;
         // Out of each plug on the strip's front, drooping to the floor in front of the plinth, along it to the
         // right and round the cheek to the back (the rack's units are fed from behind)
         // Out of each plug, a short turn down and across in front of the plugs (a loom, side by side) into the
@@ -1029,9 +1134,8 @@ namespace pad::geo
             const float sCh = sStrip - 0.45f - 0.035f * (float) k;
             const float xc = caseSideX + channelDx;
             const auto lip = arcPoint (sCh, caseFront + 0.004f), inside = arcPoint (sCh, caseFront - 0.05f);
-            mesh.append (tubeAlong ({ a, b, bc, c, { 0.5f * (c.x + xc), c.y - 0.03f, c.z },
-                                      { xc - 0.08f, 0.5f * (c.y + lip.y), std::max (c.z, lip.z + 0.06f) },
-                                      { xc, lip.y, lip.z }, { xc, inside.y, inside.z } }, r, 10));
+            juce::ignoreUnused (b, bc, c, xc, lip, inside);
+            mesh.append (sculpted ({ a, outward }, channelEnd (sCh, 1.0f), r, 1.10f + 0.02f * (float) k, 0.14f, 12, {}, 0.06f));
             ++k;
         }
         // The LUNCHBOX's mains: out of the grommet and across to its frame, beside the audio cables
@@ -1040,20 +1144,17 @@ namespace pad::geo
             const auto g = grommetAt();
             const auto lb = unitOrigin (lunchboxUnit);
             const Vec3 end { lb.x + lbHalfW - 0.30f, lb.y - 0.20f, lb.z - 0.82f };
-            mesh.append (tubeAlong ({ { g.x - 0.10f, g.y - 0.10f, g.z - 0.10f }, { g.x + 0.08f, g.y - 0.10f, g.z - 0.10f },
-                                      { 0.5f * (g.x + end.x), std::min (g.y, end.y) - 0.30f, 0.5f * (g.z + end.z) - 0.1f },
-                                      { end.x, end.y - 0.25f, end.z - 0.05f }, end }, r, 10));
+            const hwk::cable::Box frame { { lb.x - lbHalfW, lb.y - lbHalfH, lb.z - 0.78f }, { lb.x + lbHalfW, lb.y + lbHalfH, lb.z + 0.05f } };
+            mesh.append (sculpted ({ { g.x + 0.02f, g.y - 0.10f, g.z - 0.10f }, { 1.0f, 0.0f, 0.0f } }, { end, { 0.0f, 0.0f, -1.0f } }, r, 1.15f, 0.14f, 10, { caseBox(), frame }, 0.10f));
         }
         // The strip's own cord: from its plug in the wall socket, down the wall, across the floor behind the case
         {
             const float wallZ = arcCentreZ - arcRadius - 2.2f;
             // (out of the plug in the UPPER receptacle - wallPlug(): the plate's frame turns its -z up the wall)
             const float wx = -caseSideX - 1.10f, wy = floorY + 0.62f + 1.5f * inch;
-            mesh.append (tubeAlong ({ { wx, wy, wallZ + 0.036f + plugTip },
-                                      { wx, wy - 0.06f, wallZ + plugTip + 0.10f },
-                                      { wx + 0.04f, floorY + 0.034f, wallZ + 0.45f },
-                                      { -caseSideX - 0.40f, floorY + 0.034f, strip.z - 1.10f },
-                                      { -caseSideX + 0.30f, floorY + 0.034f, strip.z - 0.80f } }, 0.034f, 10));
+            // (out of the wall plug, down onto the shelf, along it to behind the case)
+            mesh.append (sculpted ({ { wx, wy, wallZ + 0.036f + plugTip }, { 0.0f, 0.0f, 1.0f } },
+                                   { { -caseSideX + 0.30f, floorY + 0.050f, strip.z - 0.80f }, { -1.0f, 0.0f, -0.2f } }, 0.050f, 1.20f, 0.20f, 12, {}, 0.10f));
         }
         return mesh;
     }
@@ -1285,6 +1386,8 @@ namespace pad::geo
             if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
             if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
             if (unit == scopeUnit) return { designed::scPrint.begin(), designed::scPrint.end() };
+            if (unit >= firstGenUnit && unit < firstGenUnit + gen::count) { const auto [p, n] = gen::printOf (unit - firstGenUnit); return { p, p + n }; }
+            if (unit == customUnit) return custom::get()->print;   // (its texts: see designedJackCables, which only reads positions)
             return {};
         }
     }
@@ -1298,6 +1401,47 @@ namespace pad::geo
         for (const auto& p : designedPrint (unit))
             if (p.kind == 'J')
                 mesh.append (barrel, Mat4::translation ({ p.x, 0.0f, p.z }) * Mat4::scale (p.w * 0.95f, 0.11f, p.w * 0.95f));
+        return mesh;
+    }
+
+    /*  The 1/4" plugs in the designed units' jacks: a metal collar at the panel, then a ribbed black boot the
+        cable leaves from, along the jack's axis. jackPlugs (metal: true) or their boots (false). */
+    MeshData jackPlugs (bool metal)
+    {
+        MeshData mesh;
+        std::vector<ProfilePoint> prof;
+        if (metal)
+            prof = { { -0.020f, 0.0f }, { 0.0f, 0.008f }, { 0.0f, 0.075f }, { -0.006f, 0.085f } };
+        else
+        {
+            for (int k = 0; k <= 6; ++k)
+            {
+                const float t = (float) k / 6.0f, y = 0.085f + (jackPlugLength - 0.085f) * t;
+                const float r = 0.046f + (jackCableR + 0.004f - 0.046f) * t;
+                prof.push_back ({ r - 0.05f, y });
+                if (k < 6) prof.push_back ({ r + 0.004f - 0.05f, y + 0.5f * (jackPlugLength - 0.085f) / 6.0f });
+            }
+        }
+        const auto part = lathe (0.05f, prof, 20, false);
+        for (int unit : designedUnits)
+        {
+            if (! isShown (unit)) continue;
+            const auto panel = panelToWorld (unit);
+            for (const auto& p : designedPrint (unit))
+            {
+                if (p.kind != 'J') continue;
+                const Vec3 a = panel.transformPoint ({ p.x, 0.10f, p.z });
+                const Vec3 y = normalise (panel.transformPoint ({ p.x, 1.10f, p.z }) - a);
+                const Vec3 x = normalise (cross (std::abs (y.y) < 0.9f ? Vec3 { 0.0f, 1.0f, 0.0f } : Vec3 { 1.0f, 0.0f, 0.0f }, y));
+                const Vec3 z = cross (x, y);
+                Mat4 m = Mat4::identity();
+                m.at (0, 0) = x.x; m.at (1, 0) = x.y; m.at (2, 0) = x.z;
+                m.at (0, 1) = y.x; m.at (1, 1) = y.y; m.at (2, 1) = y.z;
+                m.at (0, 2) = z.x; m.at (1, 2) = z.y; m.at (2, 2) = z.z;
+                m.at (0, 3) = a.x; m.at (1, 3) = a.y; m.at (2, 3) = a.z;
+                mesh.append (part, m);
+            }
+        }
         return mesh;
     }
 
@@ -1318,7 +1462,8 @@ namespace pad::geo
                 juce::ignoreUnused (out);
                 const Vec3 a = panel.transformPoint ({ p.x, 0.10f, p.z });
                 const Vec3 outward = normalise (panel.transformPoint ({ p.x, 1.10f, p.z }) - a);
-                mesh.append (tubeAlong (intoChannel (a, outward, s, p.x < 0.0f ? -1.0f : 1.0f, 0.012f * (float) (k % 3)), 0.022f, 10));
+                // (the cable leaves the jack plug's boot, not the panel)
+                mesh.append (sculpted ({ a + outward * jackPlugLength, outward }, channelEnd (s + 0.04f * (float) (k % 3), p.x < 0.0f ? -1.0f : 1.0f), jackCableR, 1.10f, 0.10f, 12, {}, 0.05f));
                 ++k;
             }
         }

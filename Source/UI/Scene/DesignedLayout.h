@@ -172,7 +172,7 @@ namespace pad::layout::designed
     }};
 
     /** PHOSPHOR (the scope, 2U): drawn here by hand, not from a designer code. Its 'D' is the CRT. */
-    inline constexpr std::array<Print, 16> scPrint {{
+    inline constexpr std::array<Print, 17> scPrint {{
         { 'B', -0.6200f, 0.0200f, 1.7400f, 1.0600f, 0.0400f, "", 0, 0, 0, 0, 0.0f, "" },
         { 'D', -0.6200f, 0.0200f, 1.5800f, 0.9600f, 0.0000f, "CRT", 0, 0, 0, 0, 0.0f, "#5dff8a" },
         { 'B', 0.9900f, 0.0300f, 1.2400f, 1.0200f, 0.0311f, "DISPLAY", 0, 0, 0, 0, 0.0f, "" },
@@ -183,6 +183,7 @@ namespace pad::layout::designed
         { 'K', 1.0000f, 0.3100f, 0.0900f, 0.0000f, 0.0000f, "V/DIV", 0, 10, 0, 0, 270.0f, "scGain" },
         { 'K', 1.3900f, 0.3100f, 0.0900f, 0.0000f, 0.0000f, "TIME/DIV", 0, 10, 0, 0, 270.0f, "scTime" },
         { 'T', 2.0600f, -0.1800f, 0.0000f, 0.0000f, 0.0000f, "POWER", 0, 0, 0, 0, 0.0f, "scPower" },
+        { 'T', 1.8000f, -0.1800f, 0.0000f, 0.0000f, 0.0000f, "FIT", 0, 0, 0, 0, 0.0f, "scFit" },
         { 'V', 2.0600f, 0.3000f, 0.2600f, 0.2000f, 0.0000f, "", 0, 6, 0, 0, 0.0f, "" },
         { 'J', -2.1300f, 0.3200f, 0.0600f, 0.0000f, 0.0000f, "CH 1 (L)", 1, 0, 0, 0, 0.0f, "" },
         { 'J', -1.8100f, 0.3200f, 0.0600f, 0.0000f, 0.0000f, "CH 2 (R)", 1, 0, 0, 0, 0.0f, "" },

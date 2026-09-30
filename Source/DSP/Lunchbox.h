@@ -113,7 +113,9 @@ namespace enh::dsp
             first = true;
         }
 
-        void process (float* const* ch, int numChannels, int numSamples, const Settings& s) noexcept
+        /** sections: 1 the CLASS-A EQ and DE-HARSH, 2 CROSSFEED and the output meter (the modules around
+            them run in between: see EnhEngine), 3 all. */
+        void process (float* const* ch, int numChannels, int numSamples, const Settings& s, int sections = 3) noexcept
         {
             const int nc = std::clamp (numChannels, 0, 2);
             if (nc == 0 || numSamples <= 0 || ch == nullptr)
@@ -133,9 +135,11 @@ namespace enh::dsp
             for (int start = 0; start < numSamples; start += controlEvery)
             {
                 const int n = std::min (controlEvery, numSamples - start);
-                if (nc == 2) processChunk<2> (ch, start, n, t);
-                else         processChunk<1> (ch, start, n, t);
+                if (nc == 2) processChunk<2> (ch, start, n, t, sections);
+                else         processChunk<1> (ch, start, n, t, sections);
             }
+            if ((sections & 2) == 0)
+                return;
 
             // The module meter: the output's peak, held and falling back over ~300 ms
             float pk = 0.0f;
@@ -279,17 +283,17 @@ namespace enh::dsp
 
         //==============================================================================
         template <int nc>
-        void processChunk (float* const* ch, int start, int n, const Target& t) noexcept
+        void processChunk (float* const* ch, int start, int n, const Target& t, int sections) noexcept
         {
             const float move = fadeStep * (float) n;
 
             // Which sections run in this chunk: one that is OUT and not fading does nothing at all
-            const bool eqRun = ! (eqW == 0.0f && t.eq == 0.0f);
-            const bool harshRun = ! (harshW == 0.0f && t.harsh == 0.0f);
-            const bool feedRun = nc == 2 && ! (feedW == 0.0f && t.feed == 0.0f);
+            const bool eqRun = (sections & 1) != 0 && ! (eqW == 0.0f && t.eq == 0.0f);
+            const bool harshRun = (sections & 1) != 0 && ! (harshW == 0.0f && t.harsh == 0.0f);
+            const bool feedRun = (sections & 2) != 0 && nc == 2 && ! (feedW == 0.0f && t.feed == 0.0f);
             if (! eqRun && ! harshRun && ! feedRun)
             {
-                harshCut = 0.0f;
+                if ((sections & 1) != 0) harshCut = 0.0f;
                 return;
             }
 
@@ -299,9 +303,8 @@ namespace enh::dsp
             if (feedRun && feedW == 0.0f)   { resetFeed(); snapFeed (t); }
 
             const float eqFrom = eqW;
-            eqW = approach (eqW, t.eq, move);
-            harshW = approach (harshW, t.harsh, move);
-            feedW = approach (feedW, t.feed, move);
+            if ((sections & 1) != 0) { eqW = approach (eqW, t.eq, move); harshW = approach (harshW, t.harsh, move); }
+            if ((sections & 2) != 0) feedW = approach (feedW, t.feed, move);
 
             // EQ: the knobs' glides, a switch's crossfade, IRON's own fade
             const float ironFrom = ironW, switchFrom = switchMix;
@@ -342,7 +345,7 @@ namespace enh::dsp
                 if (harshSlow < 1.0e-4f) harshSlow = 0.0f;
                 harshCut = std::max (harshFast, harshSlow);
             }
-            else
+            else if ((sections & 1) != 0)
                 harshCut = 0.0f;
             // The cut as a share of the band taken away (y = x - c * band): a dynamic bell whose depth is
             // linear in c, so a moving cut is perfectly smooth, and c = 0 is exactly the input
@@ -417,8 +420,8 @@ namespace enh::dsp
                 if (nc > 1)
                     ch[1][start + i] = v[1];
             }
-            shareFromEff = shareTo;
-            feedMixEff = feedMixTo;
+            if ((sections & 1) != 0) shareFromEff = shareTo;
+            if ((sections & 2) != 0) feedMixEff = feedMixTo;
             if (switching && switchMix >= 1.0f)
             {
                 cur = nextVoice;   // the new position has taken over

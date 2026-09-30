@@ -38,6 +38,8 @@ namespace pad::artwork
         RawTexture takebackDecal, takebackScreens;                    // TAKEBACK (designed): print, display
         std::array<RawTexture, 4> takebackVuFace;                     //   and its four meters' dials
         RawTexture scopeDecal, scopeScreens;                          // PHOSPHOR (the scope): print, and its CRT's graticule
+        std::vector<RawTexture> genDecal, genScreens;                 // the newer units (UnitPanels.h), in their order
+        RawTexture customDecal, customScreens;                        // CUSTOM: the design loaded (redrawn when it changes)
     };
 
     /** One piece of printed text, in panel-local coordinates of its unit (for the hover callouts). */

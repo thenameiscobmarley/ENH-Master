@@ -1,4 +1,5 @@
 #include "GlassPanel.h"
+#include "Holo/VectorBeam.h"
 #include "../PluginProcessor.h"
 #include "../Parameters/ParameterBridge.h"
 #include "../Parameters/KnobModifiers.h"
@@ -17,15 +18,36 @@ namespace pad
         return juce::Font (bold ? opts.withStyle ("Bold") : opts);
     }
 
-    /** How a method is printed: its code and name, or only the name when the code says nothing more
-        ("0.3" beside "-0.3 dBFS", "STD" beside "1.5 dB") */
-    static juce::String methodLabel (const m::Method& me)
+    /** "SMOOTHING" -> "Smoothing", "OFF" -> "Off"; words with digits or already mixed case are left alone. */
+    static juce::String plain (const juce::String& t)
     {
-        const auto code = str (me.shortName), name = str (me.fullName);
-        const bool numeric = code.containsOnly ("0123456789.");
-        if (numeric || code == "STD" || name.containsIgnoreCase (code))
-            return name;
-        return code + "   " + name;
+        if (t != t.toUpperCase())
+            return t;
+        juce::StringArray words;
+        words.addTokens (t, " ", {});
+        for (int i = 0; i < words.size(); ++i)
+        {
+            auto w = words[i];
+            if (w.containsAnyOf ("0123456789") || w.length() <= 1 || (i > 0 && w.length() <= 3 && ! w.containsAnyOf ("AEIOUY")))
+                continue;   // (numbers, and short acronyms such as M/S, HF, LF, dB stay)
+            words.set (i, i == 0 ? w.substring (0, 1) + w.substring (1).toLowerCase() : w.toLowerCase());
+        }
+        return words.joinIntoString (" ");
+    }
+
+    /** What a method is called in the panel: its full name, never its code. */
+    static juce::String methodLabel (const m::Method& me) { return plain (str (me.fullName)); }
+
+    /** A tab's name, from the registry's category. */
+    static juce::String tabName (const juce::String& category)
+    {
+        if (category == "PROCESSING") return "Sound";
+        if (category == "KNOBS")      return "Knobs";
+        if (category == "STEREO")     return "Stereo";
+        if (category == "OUTPUT")     return "Output";
+        if (category == "DISPLAY")    return "Display";
+        if (category == "DESIGN")     return "Design";
+        return plain (category);
     }
 
     static float ease (float current, float target, float rate, float dt) noexcept
@@ -33,6 +55,9 @@ namespace pad
         const float next = target + (current - target) * std::exp (-rate * dt);
         return std::abs (next - target) < 0.002f ? target : next;
     }
+
+    static const juce::Colour amber { 0xffe8b25a };   // (render() shadows it: HOLOGRAM has its own)
+    static const juce::String sep = juce::String::fromUTF8 ("   \xc2\xb7   ");   // (a middle dot between two facts)   // the one accent: a setting that is not at its default, the open tab
 
     int Entry::numChoices() const noexcept
     {
@@ -63,6 +88,7 @@ namespace pad
             unit = newUnit;
             hovered = {};
             scrollY = scrollTarget = 0.0f;
+            tab = 0; tabSlide = 0.0f;
             entries.clear();
             categories.clear();
             lockerNote = {};
@@ -78,13 +104,22 @@ namespace pad
                         categories.add (name);
                         Entry e;
                         e.kind = Entry::category;
-                        e.title = name;
+                        e.title = tabName (name);
                         e.categoryIndex = categories.size() - 1;
-                        e.open = e.openTarget = name == "KNOBS" ? 0.0f : 1.0f;   // the long knob list starts folded
                         entries.push_back (e);
                     }
                     return categories.indexOf (name);
                 };
+
+                if (unit == layout::customUnit)   // CUSTOM: its first tab loads a design from the clipboard, or empties the slot
+                {
+                    const int c = categoryOf ("DESIGN");
+                    for (int a = 0; a < 2; ++a)
+                    {
+                        Entry act; act.kind = Entry::designAction; act.rackUnit = a; act.categoryIndex = c;
+                        entries.push_back (act);
+                    }
+                }
 
                 // Unit-wide stages, by category (KNOBS' laws come with their knobs below)
                 for (const juce::String cat : { "PROCESSING", "STEREO", "OUTPUT", "DISPLAY" })
@@ -98,7 +133,7 @@ namespace pad
                             entries.push_back (e);
                         }
 
-                // KNOBS: every continuous knob on this unit, its law (if it has one), then its modifiers
+                // KNOBS: every continuous knob on this unit - a heading, its law (if it has one), then its modifiers
                 std::vector<int> knobsHere;
                 for (int c = 0; c < layout::numControls; ++c)
                 {
@@ -110,15 +145,18 @@ namespace pad
                             if (const int k = KnobModifiers::indexOf (pid); k >= 0 && std::find (knobsHere.begin(), knobsHere.end(), k) == knobsHere.end())
                                 knobsHere.push_back (k);
                 }
+                juce::StringArray titles;
                 for (int k : knobsHere)
                 {
                     const juce::String pid (enh::dsp::knobFields[(size_t) k].param);
                     const auto* spec = pad::params::findSpec (pid);
                     Entry h;
                     h.kind = Entry::knobHeader;
-                    h.title = spec != nullptr ? spec->shortLabel.toUpperCase() : pid;
+                    h.title = spec != nullptr ? (spec->name.isNotEmpty() ? spec->name : spec->shortLabel) : pid;
+                    if (titles.contains (h.title))   // two knobs with one name (a knob and its second function)
+                        h.title << " " << juce::String (titles.size() + 1);
+                    titles.add (h.title);
                     h.categoryIndex = categoryOf ("KNOBS");
-                    h.open = h.openTarget = 0.0f;   // each knob is its own dropdown, folded
                     const int header = (int) entries.size();
                     entries.push_back (h);
                     for (int i = 0; i < list.count; ++i)
@@ -148,17 +186,47 @@ namespace pad
                 r.categoryIndex = -1;
                 entries.push_back (r);
             }
+            pollValues();
         }
+        layoutEntries();
+    }
+
+    void GlassPanel::showTab (int t)
+    {
+        t = juce::jlimit (0, std::max (0, categories.size() - 1), t);
+        if (t == tab)
+            return;
+        tab = t;
+        scrollY = scrollTarget = 0.0f;
+        for (auto& e : entries)
+            e.open = e.openTarget = 0.0f;
+        lockerNote = {};
         layoutEntries();
     }
 
     //==============================================================================
     float GlassPanel::contentHeight() const noexcept
     {
-        return entries.empty() ? 0.0f : entries.back().y + entries.back().h;
+        float h = 0.0f;
+        for (auto& e : entries)
+            h = std::max (h, e.y + e.h);
+        return h;
     }
 
-    /** Every entry's height from its animation state, stacked; the panel sized to fit (up to its maximum). */
+    int GlassPanel::resetEntry() const noexcept
+    {
+        for (int i = 0; i < (int) entries.size(); ++i)
+            if (entries[(size_t) i].kind == Entry::reset)
+                return i;
+        return -1;
+    }
+
+    float GlassPanel::footerHeight() const noexcept
+    {
+        return helpH + (resetEntry() >= 0 ? resetH : 0.0f);
+    }
+
+    /** The open tab's entries stacked (the others take no room); the panel sized to fit (up to its maximum). */
     void GlassPanel::layoutEntries()
     {
         dirty = true;
@@ -167,33 +235,28 @@ namespace pad
             panel = {};
             return;
         }
-        auto categoryOpen = [this] (int index)
-        {
-            for (auto& e : entries)
-                if (e.kind == Entry::category && e.categoryIndex == index)
-                    return e.open;
-            return 1.0f;
-        };
-        float y = 0.0f;
+        float y = 6.0f;
         for (auto& e : entries)
         {
-            float fold = e.kind == Entry::category || e.kind == Entry::reset || e.kind == Entry::lockerUnit ? 1.0f : categoryOpen (e.categoryIndex);
-            if (e.knobGroup >= 0)
-                fold *= entries[(size_t) e.knobGroup].open;   // inside a knob's own dropdown
+            const bool here = e.categoryIndex == tab && e.kind != Entry::category && e.kind != Entry::reset;
             switch (e.kind)
             {
-                case Entry::category:   e.h = categoryH; break;
-                case Entry::knobHeader: e.h = knobH * fold; break;
-                case Entry::reset:      e.h = resetH; break;
-                case Entry::lockerUnit: e.h = rowH; break;
-                default:                e.h = (rowH + (optionH * (float) e.numChoices() + 6.0f) * e.open) * fold; break;
+                case Entry::knobHeader:   e.h = groupH; break;
+                case Entry::lockerUnit:   e.h = lockerRowH; break;
+                case Entry::designAction: e.h = actionH; break;
+                case Entry::stage:
+                case Entry::modifier:     e.h = rowH + (optionH * (float) e.numChoices() + 8.0f) * e.open; break;
+                default:                  e.h = 0.0f; break;
             }
+            if (! here || (e.kind == Entry::lockerUnit && ! matchesSearch (e)))
+                e.h = 0.0f;
             e.y = y;
             y += e.h;
         }
+        y += 6.0f;
 
         const float w = std::min (width, view.getWidth() - 2.0f * gutter);
-        const float h = std::min ({ headerH + y + detailsH, maxHeight, view.getHeight() - 2.0f * gutter });
+        const float h = std::min ({ headerH + tabsH + searchHeight() + y + footerHeight(), maxHeight, view.getHeight() - 2.0f * gutter });
         const float x = view.getRight() - w - gutter;
         const float top = juce::jlimit (view.getY() + gutter, std::max (view.getY() + gutter, view.getBottom() - gutter - h), anchorY - 0.5f * h);
         panel = { x, top, w, h };
@@ -203,15 +266,95 @@ namespace pad
         scrollY = juce::jlimit (0.0f, maxScroll, scrollY);
     }
 
+    /** THE GEAR LOCKER's search: a unit or module matches when every word typed is in its name or what it does. */
+    bool GlassPanel::matchesSearch (const Entry& e) const
+    {
+        if (search.isEmpty() || e.kind != Entry::lockerUnit)
+            return true;
+        juce::String hay;
+        if (e.lbModule >= 0)
+            hay << layout::lb::nameOf (e.lbModule) << " " << (e.lbModule >= 4 ? enh::dsp::lbmods::info[e.lbModule - 4].role : "") << " 500 lunchbox module";
+        else if (e.rackUnit >= 0)
+            hay << layout::unitInfo[(size_t) e.rackUnit].name << " " << layout::unitInfo[(size_t) e.rackUnit].role;
+        hay = hay.toLowerCase();
+        juce::StringArray words; words.addTokens (search.toLowerCase(), " ", {});
+        for (const auto& w : words)
+            if (w.isNotEmpty() && ! hay.contains (w))
+                return false;
+        return true;
+    }
+
+    float GlassPanel::searchHeight() const noexcept { return unit == lockerPage ? 44.0f : 0.0f; }
+
+    juce::Rectangle<float> GlassPanel::searchBox() const noexcept
+    {
+        return { panel.getX() + pad, panel.getY() + headerH + tabsH + 8.0f, panel.getWidth() - 2.0f * pad, 30.0f };
+    }
+
+    bool GlassPanel::keyPressed (const juce::KeyPress& k)
+    {
+        if (unit != lockerPage)
+            return false;
+        const auto before = search;
+        if (k == juce::KeyPress::escapeKey) search.clear();
+        else if (k == juce::KeyPress::backspaceKey) search = search.dropLastCharacters (1);
+        else
+        {
+            const auto c = k.getTextCharacter();
+            if (c < 32 || k.getModifiers().isCommandDown() || k.getModifiers().isCtrlDown()) return false;
+            if (search.length() < 40) search += juce::String::charToString (c);
+        }
+        if (search == before) return true;
+        scrollY = scrollTarget = 0.0f;
+        lockerNote = {};
+        layoutEntries();
+        return true;
+    }
+
     juce::Rectangle<float> GlassPanel::listArea() const noexcept
     {
-        return { panel.getX(), panel.getY() + headerH, panel.getWidth(), std::max (0.0f, panel.getHeight() - headerH - detailsH) };
+        const float top = panel.getY() + headerH + tabsH + searchHeight();
+        return { panel.getX(), top, panel.getWidth(), std::max (0.0f, panel.getBottom() - footerHeight() - top) };
+    }
+
+    juce::String GlassPanel::tabLabel (int t) const
+    {
+        juce::String label = tabName (categories[t]);
+        if (unit == lockerPage)
+        {
+            int count = 0;
+            for (auto& e : entries) count += e.kind == Entry::lockerUnit && e.categoryIndex == t && matchesSearch (e) ? 1 : 0;
+            label << "  " << count;
+        }
+        return label;
+    }
+
+    juce::Rectangle<float> GlassPanel::tabBox (int t) const noexcept
+    {
+        // Tabs share the width by the length of their names
+        const auto f = font (12.5f, true, 0.01f);
+        float total = 0.0f, before = 0.0f, mine = 0.0f;
+        for (int i = 0; i < categories.size(); ++i)
+        {
+            const float tw = juce::GlyphArrangement::getStringWidth (f, tabLabel (i)) + 20.0f;
+            if (i < t) before += tw;
+            if (i == t) mine = tw;
+            total += tw;
+        }
+        const float avail = panel.getWidth() - 2.0f * pad;
+        const float k = total > avail ? avail / total : 1.0f;
+        return { panel.getX() + pad + before * k, panel.getY() + headerH, mine * k, tabsH };
+    }
+
+    juce::Rectangle<float> GlassPanel::resetBox() const noexcept
+    {
+        return { panel.getX() + pad, panel.getBottom() - resetH + 8.0f, panel.getWidth() - 2.0f * pad, resetH - 20.0f };
     }
 
     juce::Rectangle<float> GlassPanel::entryBox (const Entry& e) const noexcept
     {
         const auto list = listArea();
-        return { list.getX() + 14.0f, list.getY() + e.y - scrollY, list.getWidth() - 28.0f, e.h };
+        return { list.getX() + pad, list.getY() + e.y - scrollY, list.getWidth() - 2.0f * pad, e.h };
     }
 
     juce::Rectangle<float> GlassPanel::optionBox (const Entry& e, int k) const noexcept
@@ -227,6 +370,23 @@ namespace pad
         if (unit < 0 || ! panel.contains (p))
             return hit;
         hit.inside = true;
+        if (categories.size() > 1)
+            for (int t = 0; t < categories.size(); ++t)
+                if (tabBox (t).contains (p))
+                {
+                    hit.tab = t;
+                    return hit;
+                }
+        if (unit == lockerPage && searchBox().contains (p))
+        {
+            hit.search = true;
+            return hit;
+        }
+        if (const int r = resetEntry(); r >= 0 && resetBox().contains (p))
+        {
+            hit.entry = r;
+            return hit;
+        }
         const auto list = listArea();
         if (! list.contains (p))
             return hit;
@@ -234,12 +394,12 @@ namespace pad
         {
             const auto& e = entries[(size_t) i];
             const auto box = entryBox (e);
-            if (e.h < 6.0f || ! box.contains (p))
+            if (e.h < 6.0f || e.kind == Entry::knobHeader || ! box.expanded (pad, 0.0f).contains (p))
                 continue;
             hit.entry = i;
             if ((e.kind == Entry::stage || e.kind == Entry::modifier) && e.open > 0.9f)
                 for (int k = 0; k < e.numChoices(); ++k)
-                    if (optionBox (e, k).contains (p))
+                    if (optionBox (e, k).expanded (pad, 0.0f).contains (p))
                         hit.option = k;
         }
         return hit;
@@ -248,7 +408,7 @@ namespace pad
     bool GlassPanel::hover (juce::Point<float> p)
     {
         const auto h = hitTest (p);
-        if (h.entry == hovered.entry && h.option == hovered.option && h.inside == hovered.inside)
+        if (h == hovered)
             return false;
         hovered = h;
         dirty = true;
@@ -257,7 +417,7 @@ namespace pad
 
     void GlassPanel::unhover()
     {
-        if (hovered.entry >= 0 || hovered.inside)
+        if (hovered.entry >= 0 || hovered.tab >= 0 || hovered.inside)
         {
             hovered = {};
             dirty = true;
@@ -267,24 +427,37 @@ namespace pad
     void GlassPanel::click (juce::Point<float> p)
     {
         const auto h = hitTest (p);
+        if (h.tab >= 0)
+        {
+            showTab (h.tab);
+            hovered = hitTest (p);
+            return;
+        }
         if (h.entry < 0)
             return;
         auto& e = entries[(size_t) h.entry];
         switch (e.kind)
         {
-            case Entry::category:
-                e.openTarget = e.openTarget > 0.5f ? 0.0f : 1.0f;
-                break;
             case Entry::reset:
                 resetUnit();
                 break;
+            case Entry::designAction:
+            {
+                if (e.rackUnit == 0)
+                {
+                    const auto why = processor.setCustomCode (juce::SystemClipboard::getTextFromClipboard().substring (0, 30000), true);
+                    lockerNote = why.isEmpty() ? "Loaded: " + pad::custom::decode (processor.getCustomCode()).name + ". Its knobs and switches are where the design put them."
+                                               : why + " Copy a code (or a share link) from the designer first.";
+                }
+                else { processor.setCustomCode ({}, false); lockerNote = "The slot is empty: it passes the sound untouched."; }
+                break;
+            }
             case Entry::lockerUnit:
-                toggleStored (e.rackUnit);
+                if (e.lbModule >= 0) toggleModule (e.lbModule);
+                else                 toggleStored (e.rackUnit);
                 break;
-            case Entry::knobHeader:
-                e.openTarget = e.openTarget > 0.5f ? 0.0f : 1.0f;
-                break;
-            default:
+            case Entry::stage:
+            case Entry::modifier:
                 if (h.option >= 0)
                 {
                     choose (e, h.option);
@@ -299,6 +472,8 @@ namespace pad
                     e.openTarget = opening ? 1.0f : 0.0f;
                 }
                 break;
+            default:
+                break;
         }
         dirty = true;
     }
@@ -306,7 +481,7 @@ namespace pad
     bool GlassPanel::scroll (float deltaPx)
     {
         const float before = scrollTarget;
-        const float maxScroll = std::max (0.0f, contentHeight() - listArea().getHeight());
+        const float maxScroll = std::max (0.0f, contentHeight() + 6.0f - listArea().getHeight());
         scrollTarget = juce::jlimit (0.0f, maxScroll, scrollTarget - deltaPx);
         return scrollTarget != before;
     }
@@ -320,37 +495,46 @@ namespace pad
         {
             auto& e = entries[(size_t) i];
             const float o = e.open, h = e.hover;
-            e.open = ease (e.open, e.openTarget, 16.0f, dt);
-            e.hover = ease (e.hover, hovered.entry == i && hovered.option < 0 ? 1.0f : 0.0f, 20.0f, dt);
+            e.open = ease (e.open, e.openTarget, 18.0f, dt);
+            e.hover = ease (e.hover, hovered.entry == i && hovered.option < 0 ? 1.0f : 0.0f, 22.0f, dt);
             moving = moving || e.open != o || e.hover != h;
         }
-        const float s = scrollY;
+        const float s = scrollY, ts = tabSlide;
         scrollY = ease (scrollY, scrollTarget, 18.0f, dt);
-        moving = moving || scrollY != s;
+        tabSlide = ease (tabSlide, (float) tab, 20.0f, dt);
+        moving = moving || scrollY != s || tabSlide != ts;
         if (moving)
             layoutEntries();
         return moving;
     }
 
-    void GlassPanel::setExpanded (int setting, int hoveredOption, bool unfoldAll)
+    void GlassPanel::setExpanded (int setting, int hoveredOption, bool)
     {
-        int n = 0;
+        int n = 0, found = -1;
         for (int i = 0; i < (int) entries.size(); ++i)
         {
             auto& e = entries[(size_t) i];
-            if (e.kind == Entry::category && unfoldAll)
-                e.open = e.openTarget = 1.0f;
             if (e.kind == Entry::stage || e.kind == Entry::modifier)
             {
                 const bool it = n++ == setting;
                 e.open = e.openTarget = it ? 1.0f : 0.0f;
-                if (it && e.knobGroup >= 0)   // the knob it belongs to opens too; the others stay folded
-                    entries[(size_t) e.knobGroup].open = entries[(size_t) e.knobGroup].openTarget = 1.0f;
-                if (it && hoveredOption >= 0)
-                    hovered = { i, hoveredOption, true };
+                if (it)
+                    found = i;
             }
         }
+        if (found >= 0)
+        {
+            tab = entries[(size_t) found].categoryIndex;
+            tabSlide = (float) tab;
+            if (hoveredOption >= 0)
+                hovered = { found, hoveredOption, -1, true };
+        }
         layoutEntries();
+        if (found >= 0)
+        {
+            scrollY = scrollTarget = std::max (0.0f, entries[(size_t) found].y - 40.0f);
+            layoutEntries();
+        }
     }
 
     //==============================================================================
@@ -419,7 +603,7 @@ namespace pad
     {
         if (e.kind == Entry::stage)
             return methodLabel (e.stageInfo->methods[k]);
-        return str (m::modifiers[(size_t) e.modifierKind].labels[(size_t) k]);
+        return plain (str (m::modifiers[(size_t) e.modifierKind].labels[(size_t) k]));
     }
 
     juce::String GlassPanel::valueText (const Entry& e, int k) const
@@ -433,12 +617,12 @@ namespace pad
     {
         entries.clear();
         categories.clear();
-        const unsigned stored = processor.getStoredUnits();
+        const auto stored = processor.getStoredUnits();
         for (int pass = 0; pass < 2; ++pass)
         {
             Entry c;
             c.kind = Entry::category;
-            c.title = pass == 0 ? "IN THE RACK" : "IN THE LOCKER";
+            c.title = pass == 0 ? "In the rack" : "Locker";
             c.categoryIndex = pass;
             c.open = c.openTarget = 1.0f;
             categories.add (c.title);
@@ -454,14 +638,55 @@ namespace pad
                 entries.push_back (e);
             }
         }
+        // The LUNCHBOX's modules (its meter always stays in), in the order they sit in the frame
+        Entry c;
+        c.kind = Entry::category;
+        c.title = "500 series";
+        c.categoryIndex = 2;
+        categories.add (c.title);
+        entries.push_back (c);
+        for (int m : layout::lb::signalOrder())
+        {
+            if (m == 3) continue;
+            Entry e;
+            e.kind = Entry::lockerUnit;
+            e.lbModule = m;
+            e.categoryIndex = 2;
+            entries.push_back (e);
+        }
+    }
+
+    void GlassPanel::toggleModule (int m)
+    {
+        auto mask = processor.getStoredModules();
+        const std::uint32_t bit = std::uint32_t { 1 } << m;
+        if ((mask & bit) != 0u)
+        {
+            const int need = layout::lb::slotsFor (mask & ~bit) - layout::lbSlots;
+            if (need > 0)
+            {
+                lockerNote = juce::String (layout::lb::nameOf (m)) + " needs " + juce::String (need) + (need == 1 ? " more slot" : " more slots")
+                           + " in the LUNCHBOX: take a module out first.";
+                dirty = true;
+                return;
+            }
+            mask &= ~bit;
+        }
+        else
+            mask |= bit;
+        processor.setStoredModules (mask);
+        lockerNote = {};
+        buildLocker();
+        layoutEntries();
+        pollValues();
     }
 
     void GlassPanel::toggleStored (int u)
     {
-        unsigned mask = processor.getStoredUnits();
+        auto mask = processor.getStoredUnits();
         if (((mask >> u) & 1u) != 0u)
         {
-            const int need = layout::usedU (mask & ~(1u << u)) - layout::rackCapacityU;
+            const int need = layout::usedU (mask & ~layout::unitBit (u)) - layout::rackCapacityU;
             if (need > 0)
             {
                 lockerNote = juce::String (layout::unitInfo[(size_t) u].name) + " needs " + juce::String (need)
@@ -469,15 +694,16 @@ namespace pad
                 dirty = true;
                 return;
             }
-            mask &= ~(1u << u);
+            mask &= ~layout::unitBit (u);
         }
         else
-            mask |= 1u << u;
+            mask |= layout::unitBit (u);
         processor.setStoredUnits (mask);
         layout::storedUnits = mask;
         lockerNote = {};
         buildLocker();
         layoutEntries();
+        pollValues();
     }
 
     //==============================================================================
@@ -494,64 +720,125 @@ namespace pad
             juce::Graphics g (img);
             g.addTransform (juce::AffineTransform::translation (-panel.getX(), -panel.getY()).scaled (s));
 
-            // White on frosted glass: full white for what matters, softer for the rest, hairlines
-            const auto white = juce::Colours::white, soft = white.withAlpha (0.64f), faint = white.withAlpha (0.16f);
+            // (HOLOGRAM: the same layout in the scope's green - bright for what matters, never dim to unreadable)
+            const auto white = holo ? juce::Colour (0xff8dffb2) : juce::Colours::white;
+            const auto soft = white.withAlpha (holo ? 0.78f : 0.62f), dim = white.withAlpha (holo ? 0.55f : 0.40f), line = white.withAlpha (holo ? 0.14f : 0.07f);
+            const auto amber = holo ? juce::Colour (0xffd8ff6a) : pad::amber;
             const float x0 = panel.getX(), y0 = panel.getY(), pw = panel.getWidth();
-
-            // A soft dark halo behind the letters keeps white text readable over bright parts of the rack
             auto text = [&] (const juce::String& t, juce::Rectangle<float> r, const juce::Font& f, juce::Colour c,
-                             juce::Justification j = juce::Justification::left)
+                             juce::Justification j = juce::Justification::centredLeft)
             {
+                if (holo)   // HOLOGRAM: drawn by the beam, in the scope's single-stroke letters
+                {
+                    holo::vec::text (g, t, r, f.getHeight() * 0.68f, c, j, 1.0f, t.hashCode() & 0xffff, 0.45f);
+                    return;
+                }
                 g.setFont (f);
-                g.setColour (juce::Colours::black.withAlpha (0.22f * c.getFloatAlpha()));
-                g.drawText (t, r.translated (0.0f, 1.0f), j, true);
                 g.setColour (c);
                 g.drawText (t, r, j, true);
             };
+            auto chevron = [&] (float cx, float cy, float turn, juce::Colour c)   // ">" turning to "v" as its list opens
+            {
+                juce::Path p;
+                p.startNewSubPath (-2.0f, -4.0f); p.lineTo (2.0f, 0.0f); p.lineTo (-2.0f, 4.0f);
+                p.applyTransform (juce::AffineTransform::rotation (turn * juce::MathConstants<float>::halfPi).translated (cx, cy));
+                g.setColour (c);
+                g.strokePath (p, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            };
+            auto settingName = [&] (const Entry& e)
+            {
+                return e.kind == Entry::stage ? plain (str (e.stageInfo->name)) : plain (str (m::modifiers[(size_t) e.modifierKind].fullName));
+            };
+            auto isChanged = [&] (const Entry& e) { return (e.kind == Entry::stage || e.kind == Entry::modifier) && currentChoice (e) != 0; };
 
-            // --- header -------------------------------------------------------------------
-            int settings = 0, changed = 0;
-            for (auto& e : entries)
-                if (e.kind == Entry::stage || e.kind == Entry::modifier)
-                {
-                    ++settings;
-                    changed += currentChoice (e) != 0 ? 1 : 0;
-                }
+            // --- header: the name, and one quiet line under it --------------------------------
             const bool locker = unit == lockerPage;
+            int changed = 0;
+            for (auto& e : entries)
+                changed += isChanged (e) ? 1 : 0;
+            juce::String name, sub;
             if (locker)
             {
-                const unsigned stored = processor.getStoredUnits();
-                int inLocker = 0;
-                for (int u : layout::rackOrder)
-                    inLocker += layout::isStorable (u) && ((stored >> u) & 1u) != 0u ? 1 : 0;
-                text ("GEAR LOCKER", { x0 + 14.0f, y0 + 13.0f, pw - 28.0f, 20.0f }, font (15.5f, true, 0.02f), white);
-                text ("RACK " + juce::String (layout::usedU (stored)) + " OF " + juce::String (layout::rackCapacityU) + " U   /   "
-                          + juce::String (inLocker) + " STORED",
-                      { x0 + 14.0f, y0 + 35.0f, pw - 28.0f, 13.0f }, font (9.0f, true, 0.16f), soft);
+                const auto stored = processor.getStoredUnits();
+                name = "Gear locker";
+                sub = tab == 2 ? "LUNCHBOX " + juce::String (layout::lb::slotsFor (processor.getStoredModules())) + " of " + juce::String (layout::lbSlots) + " slots in use"
+                               : "Rack " + juce::String (layout::usedU (stored)) + " of " + juce::String (layout::rackCapacityU) + "U in use";
             }
-            const auto& info = layout::unitInfo[(size_t) (locker ? 0 : unit)];
-            if (! locker)
-            text (juce::String (info.name), { x0 + 14.0f, y0 + 13.0f, pw - 28.0f, 20.0f }, font (15.5f, true, 0.02f), white);
-            // What this unit delays the sound by (look-ahead, oversampling): gamers want to know
-            juce::String delay;
+            else
             {
-                // EnhEngine::getLatencyBreakdown order: enhancer, radar, tone & space, character, ear guard, limiter
+                name = juce::String (layout::unitInfo[(size_t) unit].name);
+                // What this unit delays the sound by (look-ahead, oversampling): gamers want to know
+                // (EnhEngine::getLatencyBreakdown order: enhancer, radar, tone & space, character, ear guard, limiter)
                 const int stage = unit == layout::enhUnit ? 0 : unit == layout::radarUnit ? 1 : unit == layout::tubeUnit ? 2
                                 : unit == layout::characterUnit ? 3 : -1;
                 if (unit == layout::monitorUnit)
-                    delay = "RACK DELAY " + juce::String (processor.getRackLatencyMs(), 1) + " MS";   // the whole rack, as it leaves
+                    sub = "Whole rack delays the sound " + juce::String (processor.getRackLatencyMs(), 1) + " ms";
                 else if (stage >= 0)
-                    delay = "DELAY " + juce::String (processor.getStageLatencyMs (stage), 1) + " MS";
+                    sub = "Delays the sound " + juce::String (processor.getStageLatencyMs (stage), 1) + " ms";
                 else
-                    delay = "NO DELAY";
+                    sub = "No delay";
+                if (changed > 0)
+                    sub << sep << changed << (changed == 1 ? " setting changed" : " settings changed");
             }
-            if (! locker)
-            text (juce::String (settings) + " SETTINGS   /   " + delay + (changed > 0 ? "   /   " + juce::String (changed) + " CHANGED" : juce::String()),
-                  { x0 + 14.0f, y0 + 35.0f, pw - 28.0f, 13.0f }, font (9.0f, true, 0.16f), soft);
-            g.setColour (faint);
-            g.fillRect (x0 + 14.0f, y0 + headerH - 1.0f, pw - 28.0f, 1.0f);
+            text (name, { x0 + pad, y0 + 14.0f, pw - 2.0f * pad, 22.0f }, font (17.0f, true, 0.01f), white);
+            text (sub, { x0 + pad, y0 + 35.0f, pw - 2.0f * pad, 14.0f }, font (11.0f, false), soft);
 
-            // --- the list ----------------------------------------------------------------
+            // --- tabs ---------------------------------------------------------------------------
+            const float tabsY = y0 + headerH;
+            g.setColour (line);
+            g.fillRect (x0 + pad, tabsY + tabsH - 1.0f, pw - 2.0f * pad, 1.0f);
+            if (categories.size() > 0)
+            {
+                for (int t = 0; t < categories.size(); ++t)
+                {
+                    const auto b = tabBox (t);
+                    int n = 0;
+                    for (auto& e : entries)
+                        n += e.categoryIndex == t && isChanged (e) ? 1 : 0;
+                    const bool on = t == tab, over = hovered.tab == t;
+                    const juce::String label = tabLabel (t);
+                    text (label, b.withTrimmedBottom (2.0f), font (12.5f, on, 0.01f), on ? white : over ? white.withAlpha (0.85f) : dim, juce::Justification::centred);
+                    if (n > 0)
+                    {
+                        g.setColour (amber);
+                        g.fillEllipse (b.getRight() - 7.0f, b.getY() + 10.0f, 4.0f, 4.0f);
+                    }
+                }
+                // The underline slides to the open tab
+                const int t0 = juce::jlimit (0, categories.size() - 1, (int) std::floor (tabSlide));
+                const int t1 = juce::jmin (categories.size() - 1, t0 + 1);
+                const float f = juce::jlimit (0.0f, 1.0f, tabSlide - (float) t0);
+                const auto a = tabBox (t0), b = tabBox (t1);
+                const float ux = a.getX() + (b.getX() - a.getX()) * f, uw = a.getWidth() + (b.getWidth() - a.getWidth()) * f;
+                g.setColour (amber);
+                g.fillRoundedRectangle (ux + 6.0f, tabsY + tabsH - 2.0f, uw - 12.0f, 2.0f, 1.0f);
+            }
+
+            // --- THE GEAR LOCKER's search --------------------------------------------------------
+            if (locker)
+            {
+                const auto sb = searchBox();
+                g.setColour (white.withAlpha (search.isEmpty() ? 0.05f : 0.09f));
+                g.fillRoundedRectangle (sb, 7.0f);
+                g.setColour (search.isEmpty() ? line : amber.withAlpha (0.6f));
+                g.drawRoundedRectangle (sb, 7.0f, 1.0f);
+                // the magnifier
+                const float mx = sb.getX() + 16.0f, my = sb.getCentreY();
+                g.setColour (soft);
+                g.drawEllipse (mx - 6.0f, my - 6.0f, 10.0f, 10.0f, 1.5f);
+                g.drawLine (mx + 2.5f, my + 2.5f, mx + 6.5f, my + 6.5f, 1.8f);
+                const auto tb = sb.withTrimmedLeft (32.0f).withTrimmedRight (10.0f);
+                if (search.isEmpty())
+                    text ("Type to search units and modules", tb, font (12.0f, false), dim);
+                else
+                    text (search + "_", tb, font (12.5f, true), white);
+                bool any = false;
+                for (auto& e : entries) any = any || (e.kind == Entry::lockerUnit && e.categoryIndex == tab && matchesSearch (e));
+                if (! any && search.isNotEmpty())
+                    text ("Nothing here matches \"" + search + "\" - try another tab, or Esc to clear.", listArea().withHeight (40.0f).reduced (pad, 8.0f), font (11.5f, false), soft);
+            }
+
+            // --- the list ---------------------------------------------------------------------
             const auto list = listArea();
             const Entry* detailEntry = nullptr;
             int detailChoice = 0;
@@ -565,116 +852,73 @@ namespace pad
                     if (e.h < 0.5f || box.getBottom() < list.getY() || box.getY() > list.getBottom())
                         continue;
                     juce::Graphics::ScopedSaveState clipEntry (g);
-                    g.reduceClipRegion (box.expanded (8.0f, 0.0f).toNearestInt());
+                    g.reduceClipRegion (box.expanded (pad, 0.0f).toNearestInt());
+                    const auto hoverFill = [&] (juce::Rectangle<float> r, float amount)
+                    {
+                        if (amount > 0.01f)
+                        {
+                            g.setColour (white.withAlpha (0.05f * amount));
+                            g.fillRoundedRectangle (r.expanded (8.0f, -2.0f), 5.0f);
+                        }
+                    };
 
-                    if (e.kind == Entry::category)
+                    if (e.kind == Entry::knobHeader)
                     {
-                        int catChanged = 0;
-                        for (auto& o : entries)
-                            if (o.categoryIndex == e.categoryIndex && (o.kind == Entry::stage || o.kind == Entry::modifier))
-                                catChanged += currentChoice (o) != 0 ? 1 : 0;
-                        if (e.hover > 0.01f)
-                        {
-                            g.setColour (white.withAlpha (0.07f * e.hover));
-                            g.fillRect (box.expanded (8.0f, 0.0f));
-                        }
-                        // A hard triangle that turns as the category folds out
-                        juce::Path tri;
-                        tri.addTriangle (-3.0f, -4.0f, -3.0f, 4.0f, 4.0f, 0.0f);
-                        tri.applyTransform (juce::AffineTransform::rotation (e.open * juce::MathConstants<float>::halfPi)
-                                                .translated (box.getX() + 4.0f, box.getCentreY()));
-                        g.setColour (white);
-                        g.fillPath (tri);
-                        text (e.title + (catChanged > 0 ? "   " + juce::String (catChanged) + " CHANGED" : juce::String()),
-                              box.withTrimmedLeft (16.0f), font (10.0f, true, 0.18f), white);
-                        g.setColour (faint);
-                        g.fillRect (box.getX(), box.getBottom() - 1.0f, box.getWidth(), 1.0f);
-                    }
-                    else if (e.kind == Entry::knobHeader)
-                    {
-                        // A knob's own dropdown: its name, and under it what is set (or that it is as it always was)
-                        juce::StringArray set;
-                        for (auto& o : entries)
-                            if (o.knobGroup == i && (o.kind == Entry::stage || o.kind == Entry::modifier))
-                                if (const int c = currentChoice (o); c != 0)
-                                    set.add ((o.kind == Entry::stage ? str (o.stageInfo->name) : str (m::modifiers[(size_t) o.modifierKind].fullName)).toUpperCase()
-                                             + " " + (o.kind == Entry::stage ? str (o.stageInfo->methods[c].shortName) : str (m::modifiers[(size_t) o.modifierKind].labels[(size_t) c])));
-                        if (e.hover > 0.01f)
-                        {
-                            g.setColour (white.withAlpha (0.07f * e.hover));
-                            g.fillRect (box.withHeight (knobH).expanded (8.0f, 0.0f));
-                        }
-                        juce::Path tri;
-                        tri.addTriangle (-2.5f, -3.5f, -2.5f, 3.5f, 3.5f, 0.0f);
-                        tri.applyTransform (juce::AffineTransform::rotation (e.open * juce::MathConstants<float>::halfPi)
-                                                .translated (box.getX() + 4.0f, box.getY() + 14.5f));
-                        g.setColour (white.withAlpha (0.8f));
-                        g.fillPath (tri);
-                        text (e.title, { box.getX() + 14.0f, box.getY() + 8.0f, box.getWidth() - 14.0f, 13.0f }, font (10.5f, true, 0.12f), white);
-                        text (set.isEmpty() ? juce::String ("as it is") : set.joinIntoString ("  /  "),
-                              { box.getX() + 14.0f, box.getY() + 22.0f, box.getWidth() - 14.0f, 12.0f }, font (9.5f, false, 0.02f),
-                              set.isEmpty() ? soft.withMultipliedAlpha (0.8f) : white.withAlpha (0.9f));
-                        g.setColour (faint);
-                        g.fillRect (box.getX(), box.getY() + knobH - 1.0f, box.getWidth(), 1.0f);
+                        text (e.title.toUpperCase(), { box.getX(), box.getY() + 12.0f, box.getWidth(), 14.0f }, font (10.0f, true, 0.14f), dim);
                     }
                     else if (e.kind == Entry::lockerUnit)
                     {
-                        const unsigned stored = processor.getStoredUnits();
-                        const bool isStored = ((stored >> e.rackUnit) & 1u) != 0u;
-                        const int need = isStored ? layout::usedU (stored & ~(1u << e.rackUnit)) - layout::rackCapacityU : 0;
-                        if (e.hover > 0.01f)
+                        bool isStored; int need; juce::String name, size;
+                        if (e.lbModule >= 0)
                         {
-                            g.setColour (white.withAlpha (0.07f * e.hover));
-                            g.fillRect (box.expanded (8.0f, 0.0f));
+                            const auto stored = processor.getStoredModules();
+                            const std::uint32_t bit = std::uint32_t { 1 } << e.lbModule;
+                            isStored = (stored & bit) != 0u;
+                            need = isStored ? layout::lb::slotsFor (stored & ~bit) - layout::lbSlots : 0;
+                            name = layout::lb::nameOf (e.lbModule);
+                            const int w = layout::lb::widthOf (e.lbModule);
+                            size = juce::String (w) + (w == 1 ? " slot" : " slots") + (isStored && need > 0 ? sep + "needs " + juce::String (need) + " more" : juce::String());
                         }
-                        text (layout::unitInfo[(size_t) e.rackUnit].name, { box.getX(), box.getY() + 7.0f, box.getWidth() - 64.0f, 14.0f },
-                              font (11.5f, true, 0.04f), white);
-                        text (juce::String (layout::unitU (e.rackUnit)) + "U   /   "
-                                  + (isStored ? (need > 0 ? "NEEDS " + juce::String (need) + "U MORE ROOM" : juce::String ("FITS")) : juce::String ("IN THE RACK")),
-                              { box.getX(), box.getY() + 23.0f, box.getWidth() - 64.0f, 12.0f }, font (9.0f, true, 0.12f), soft);
-                        // The action, on a hard-edged button at the right
-                        const juce::Rectangle<float> b (box.getRight() - 58.0f, box.getY() + 9.0f, 58.0f, 22.0f);
+                        else
+                        {
+                            const auto stored = processor.getStoredUnits();
+                            isStored = ((stored >> e.rackUnit) & 1u) != 0u;
+                            need = isStored ? layout::usedU (stored & ~layout::unitBit (e.rackUnit)) - layout::rackCapacityU : 0;
+                            name = layout::unitInfo[(size_t) e.rackUnit].name;
+                            size = juce::String (layout::unitU (e.rackUnit)) + "U" + (isStored && need > 0 ? sep + "needs " + juce::String (need) + "U more room" : juce::String());
+                        }
                         const bool can = ! isStored || need <= 0;
-                        g.setColour (white.withAlpha ((0.06f + 0.10f * e.hover) * (can ? 1.0f : 0.4f)));
-                        g.fillRect (b);
-                        g.setColour (white.withAlpha (can ? 0.7f : 0.25f));
-                        g.drawRect (b, 1.0f);
-                        text (isStored ? "INSTALL" : "STORE", b, font (9.0f, true, 0.14f), white.withAlpha (can ? 1.0f : 0.4f), juce::Justification::centred);
-                        g.setColour (faint);
+                        hoverFill (box, e.hover);
+                        text (name, { box.getX(), box.getY() + 7.0f, box.getWidth() - 80.0f, 17.0f }, font (13.0f, true), white);
+                        text (size, { box.getX(), box.getY() + 24.0f, box.getWidth() - 80.0f, 14.0f }, font (11.0f, false), soft);
+                        const juce::Rectangle<float> b (box.getRight() - 70.0f, box.getCentreY() - 12.0f, 70.0f, 24.0f);
+                        g.setColour (white.withAlpha ((0.06f + 0.08f * e.hover) * (can ? 1.0f : 0.4f)));
+                        g.fillRoundedRectangle (b, 5.0f);
+                        text (isStored ? "Install" : "Store", b, font (11.5f, true), (isStored ? amber : white).withAlpha (can ? 1.0f : 0.35f), juce::Justification::centred);
+                        g.setColour (line);
                         g.fillRect (box.getX(), box.getBottom() - 1.0f, box.getWidth(), 1.0f);
                     }
-                    else if (e.kind == Entry::reset)
+                    else if (e.kind == Entry::designAction)
                     {
-                        const auto button = box.reduced (0.0f, 9.0f);
-                        g.setColour (white.withAlpha (0.06f + 0.10f * e.hover));
-                        g.fillRect (button);
-                        g.setColour (white.withAlpha (changed > 0 ? 0.70f : 0.30f));
-                        g.drawRect (button, 1.0f);
-                        text ("RESET TO DEFAULTS", button, font (10.0f, true, 0.16f), white.withAlpha (changed > 0 ? 1.0f : 0.45f),
-                              juce::Justification::centred);
+                        const auto b = box.reduced (0.0f, 8.0f);
+                        g.setColour (white.withAlpha (0.06f + 0.08f * e.hover));
+                        g.fillRoundedRectangle (b, 6.0f);
+                        text (e.rackUnit == 0 ? "Paste a design code" : "Empty the slot", b, font (12.5f, true), e.rackUnit == 0 ? amber : white, juce::Justification::centred);
                     }
-                    else
+                    else if (e.kind == Entry::stage || e.kind == Entry::modifier)
                     {
                         const int current = currentChoice (e);
-                        const bool isChanged = current != 0;
-                        if (e.hover > 0.01f && e.numChoices() > 1)
-                        {
-                            g.setColour (white.withAlpha (0.07f * e.hover));
-                            g.fillRect (box.withHeight (rowH).expanded (8.0f, 0.0f));
-                        }
-                        const juce::String title = e.kind == Entry::stage ? str (e.stageInfo->name)
-                                                                          : str (m::modifiers[(size_t) e.modifierKind].fullName).toUpperCase();
-                        // Title over its value, stacked; a hard square marks a setting that is not at its default
-                        const float indent = e.knobGroup >= 0 ? 14.0f : 0.0f;   // a knob's settings sit under its name
-                        text (title, { box.getX() + indent, box.getY() + 7.0f, box.getWidth() - indent, 13.0f }, font (9.5f, true, 0.14f), soft);
-                        float vx = box.getX() + indent;
-                        if (isChanged)
-                        {
-                            g.setColour (white);
-                            g.fillRect (vx, box.getY() + 26.0f, 5.0f, 5.0f);
-                            vx += 11.0f;
-                        }
-                        text (valueText (e, current), { vx, box.getY() + 20.0f, box.getRight() - vx, 17.0f }, font (12.5f, true, 0.02f), white);
+                        const bool changedHere = current != 0, many = e.numChoices() > 1;
+                        const auto row = box.withHeight (rowH);
+                        if (many)
+                            hoverFill (row, std::max (e.hover, e.open));
+                        // Name ........ Value >
+                        const float valueW = row.getWidth() * 0.56f;
+                        text (settingName (e), row.withWidth (row.getWidth() - valueW - 6.0f), font (12.5f, false), white.withAlpha (0.78f));
+                        auto valueArea = row.withTrimmedLeft (row.getWidth() - valueW).withTrimmedRight (many ? 16.0f : 0.0f);
+                        text (valueText (e, current), valueArea, font (12.5f, true), changedHere ? amber : white, juce::Justification::centredRight);
+                        if (many)
+                            chevron (row.getRight() - 5.0f, row.getCentreY(), e.open, white.withAlpha (0.45f + 0.4f * e.hover));
 
                         // Its choices, fading in as the list opens
                         if (e.open > 0.01f)
@@ -685,15 +929,19 @@ namespace pad
                                 const float a = e.open;
                                 if (oh)
                                 {
-                                    g.setColour (white.withAlpha (0.10f * a));
-                                    g.fillRect (o.expanded (8.0f, 0.0f));
+                                    g.setColour (white.withAlpha (0.07f * a));
+                                    g.fillRoundedRectangle (o.expanded (4.0f, -1.0f), 4.0f);
                                 }
-                                const juce::Rectangle<float> mark (o.getX() + 2.0f + indent, o.getCentreY() - 4.0f, 8.0f, 8.0f);
-                                g.setColour (white.withAlpha ((on ? 1.0f : 0.55f) * a));
-                                if (on) g.fillRect (mark);
-                                else    g.drawRect (mark, 1.0f);
-                                text (choiceText (e, k) + (k == 0 ? "   (default)" : ""), o.withTrimmedLeft (18.0f + indent),
-                                      font (11.5f, on, 0.02f), (on || oh ? white : soft).withMultipliedAlpha (a));
+                                if (on)   // a check mark
+                                {
+                                    juce::Path tick;
+                                    tick.startNewSubPath (o.getX() + 4.0f, o.getCentreY()); tick.lineTo (o.getX() + 7.5f, o.getCentreY() + 3.5f); tick.lineTo (o.getX() + 13.0f, o.getCentreY() - 4.0f);
+                                    g.setColour (amber.withMultipliedAlpha (a));
+                                    g.strokePath (tick, juce::PathStrokeType (1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+                                }
+                                text (choiceText (e, k), o.withTrimmedLeft (22.0f).withTrimmedRight (60.0f), font (12.0f, on), (on || oh ? white : soft).withMultipliedAlpha (a));
+                                if (k == 0)
+                                    text ("default", o.withTrimmedRight (2.0f), font (10.5f, false), dim.withMultipliedAlpha (a), juce::Justification::centredRight);
                             }
 
                         if (hovered.entry == i)
@@ -701,87 +949,107 @@ namespace pad
                             detailEntry = &e;
                             detailChoice = hovered.option >= 0 ? hovered.option : current;
                         }
-                        g.setColour (faint);
+                        g.setColour (line);
                         g.fillRect (box.getX(), box.getBottom() - 1.0f, box.getWidth(), 1.0f);
                     }
                 }
             }
 
-            // A hard white sliver of a scroll bar, when the list is longer than its area
-            const float content = contentHeight();
+            // A thin rounded scroll bar, when the list is longer than its area
+            const float content = contentHeight() + 6.0f;
             if (content > list.getHeight() + 0.5f && list.getHeight() > 10.0f)
             {
-                const float barH = std::max (18.0f, list.getHeight() * list.getHeight() / content);
+                const float barH = std::max (24.0f, list.getHeight() * list.getHeight() / content);
                 const float barY = list.getY() + (list.getHeight() - barH) * (scrollY / std::max (1.0f, content - list.getHeight()));
-                g.setColour (white.withAlpha (0.45f));
-                g.fillRect (panel.getRight() - 5.0f, barY, 2.0f, barH);
+                g.setColour (white.withAlpha (0.25f));
+                g.fillRoundedRectangle (panel.getRight() - 7.0f, barY, 3.0f, barH, 1.5f);
             }
 
-            // --- details: the registry's text for whatever is under the pointer ---------------
-            const juce::Rectangle<float> d (x0 + 14.0f, list.getBottom(), pw - 28.0f, detailsH - 12.0f);
-            g.setColour (faint);
-            g.fillRect (d.getX(), d.getY(), d.getWidth(), 1.0f);
-            auto line = d.withTrimmedTop (9.0f);
+            // --- footer: help for whatever is under the pointer, then RESET --------------------
+            const float footY = list.getBottom();
+            g.setColour (line);
+            g.fillRect (x0 + pad, footY, pw - 2.0f * pad, 1.0f);
+            auto area = juce::Rectangle<float> (x0 + pad, footY + 10.0f, pw - 2.0f * pad, helpH - 16.0f);
             auto para = [&] (const juce::String& body, int maxLines, juce::Colour c)
             {
-                const int lines = juce::jmin (maxLines, (int) (line.getHeight() / 12.0f));
+                const int lines = juce::jmin (maxLines, (int) (area.getHeight() / 14.0f));
                 if (lines <= 0)
                     return;
+                if (holo)
+                {
+                    const float used = holo::vec::paragraph (g, body, area.withHeight (14.0f * (float) lines), 8.0f, 6.0f, c, 1.0f, body.hashCode() & 0xffff, 0.4f, lines);
+                    area.removeFromTop (used + 3.0f);
+                    return;
+                }
                 g.setColour (c);
-                g.setFont (font (10.0f, false, 0.0f));
-                g.drawFittedText (body, line.withHeight (12.0f * (float) lines).toNearestInt(), juce::Justification::topLeft, lines, 1.0f);
-                line.removeFromTop (12.0f * (float) lines + 3.0f);
+                g.setFont (font (11.0f, false));
+                g.drawFittedText (body, area.withHeight (14.0f * (float) lines).toNearestInt(), juce::Justification::topLeft, lines, 1.0f);
+                area.removeFromTop (14.0f * (float) lines + 3.0f);
             };
             auto heading = [&] (const juce::String& t)
             {
-                text (t, line.withHeight (15.0f), font (11.5f, true, 0.02f), white);
-                line.removeFromTop (17.0f);
+                text (t, area.withHeight (16.0f), font (12.0f, true), white);
+                area.removeFromTop (18.0f);
             };
             const auto* hoveredEntry = juce::isPositiveAndBelow (hovered.entry, (int) entries.size()) ? &entries[(size_t) hovered.entry] : nullptr;
             if (detailEntry != nullptr && detailEntry->kind == Entry::stage)
             {
                 const auto& me = detailEntry->stageInfo->methods[detailChoice];
                 heading (methodLabel (me));
-                para (str (me.sound), 6, white.withAlpha (0.9f));
-                para (str (me.cost), 2, soft);
+                para (str (me.sound), 3, soft);
             }
             else if (detailEntry != nullptr && detailEntry->kind == Entry::modifier)
             {
                 const auto& mo = m::modifiers[(size_t) detailEntry->modifierKind];
-                heading (str (mo.fullName) + "   " + str (mo.labels[(size_t) detailChoice]));
-                para (str (mo.does), 4, white.withAlpha (0.9f));
-                para (str (mo.cost), 2, soft);
+                heading (plain (str (mo.fullName)) + ": " + plain (str (mo.labels[(size_t) detailChoice])));
+                para (str (mo.does), 3, soft);
             }
             else if (lockerNote.isNotEmpty())
-                para (lockerNote, 6, white.withAlpha (0.9f));
+                para (lockerNote, 4, white.withAlpha (0.9f));
+            else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::designAction)
+                para (hoveredEntry->rackUnit == 0 ? "Copy a unit's share code (or its link) in the Rack Unit Designer, then click: its panel, knobs and sound load here. Saved with the session."
+                                                  : "Unloads the design: the slot passes the sound untouched.", 4, soft);
+            else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::lockerUnit && hoveredEntry->lbModule >= 0)
+            {
+                const int m = hoveredEntry->lbModule;
+                const bool isStored = ((processor.getStoredModules() >> m) & 1u) != 0u;
+                static constexpr const char* firstRoles[3] { "The classic British console channel EQ, with its transformers.", "A split-band de-esser for harsh presence.", "Headphone crossfeed: speakers' natural blend, on headphones." };
+                heading (juce::String (layout::lb::nameOf (m)));
+                para (m < 3 ? juce::String (firstRoles[m]) : juce::String (enh::dsp::lbmods::info[m - 4].role).toLowerCase().replaceSection (0, 1, juce::String (enh::dsp::lbmods::info[m - 4].role).substring (0, 1)) + ".", 2, white.withAlpha (0.9f));
+                para (isStored ? "Install: it goes into the LUNCHBOX at its place in the signal chain."
+                               : "Store: it leaves the frame and stops processing. Its settings are kept.", 2, soft);
+            }
             else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::lockerUnit)
             {
                 const int u = hoveredEntry->rackUnit;
                 const bool isStored = ((processor.getStoredUnits() >> u) & 1u) != 0u;
-                heading (layout::unitInfo[(size_t) u].name);
-                para (juce::String (layout::unitInfo[(size_t) u].role), 2, white.withAlpha (0.9f));
-                para (isStored ? "Install it: it goes into the rack at its place in the signal chain, as you left it."
-                               : "Put it away: it leaves the rack and stops processing (no CPU). Its settings are kept for when it comes back.",
-                      4, soft);
+                heading (juce::String (layout::unitInfo[(size_t) u].name));
+                para (isStored ? "Install: it goes into the rack at its place in the signal chain, as you left it."
+                               : "Store: it leaves the rack and stops processing (no CPU). Its settings are kept.", 3, soft);
             }
-            else if (unit == lockerPage)
-                para ("The rack holds " + juce::String (layout::rackCapacityU) + "U. Swap units in and out: what is in the locker takes no room "
-                      "and no CPU. Saved with the session.", 6, soft);
+            else if (locker && tab == 2)
+                para ("The LUNCHBOX holds " + juce::String (layout::lbSlots) + " slots; its OUTPUT meter always stays in. A module in the locker takes no slot and no CPU. Saved with the session.", 4, soft);
+            else if (locker)
+                para ("The rack holds " + juce::String (layout::rackCapacityU) + "U. What is in the locker takes no room and no CPU. Type to search; Esc clears it.", 4, soft);
             else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::reset)
-                para ("Puts every setting of this unit back to its default: exactly how it sounded before these settings "
-                      "existed. Knobs keep their positions.", 6, soft);
-            else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::knobHeader)
-                para ("This knob's own settings: how its travel maps (where it has a law), and SMOOTHING, CURVE and "
-                      "RANGE between the knob and the processing. Click to open or close it.", 6, soft);
-            else if (hoveredEntry != nullptr && hoveredEntry->kind == Entry::category)
-                para (hoveredEntry->title == "KNOBS" ? "Per knob: how its travel maps, and what sits between the knob and the "
-                                                       "processing. The host always sees the knob's raw value."
-                      : hoveredEntry->title == "DISPLAY" ? "How the displays draw. Changes nothing in the sound."
-                      : hoveredEntry->title == "OUTPUT" ? "What leaves the rack."
-                                                        : "How the unit measures, calculates and moves.", 6, soft);
+                para ("Puts every setting of this unit back to its default: exactly how it sounded before these settings existed. Knobs keep their positions.", 4, soft);
+            else if (hovered.tab >= 0)
+                para (categories[hovered.tab] == "KNOBS" ? "Per knob: how its travel maps, and what sits between the knob and the processing."
+                      : categories[hovered.tab] == "DISPLAY" ? "How the displays draw. Changes nothing in the sound."
+                      : categories[hovered.tab] == "OUTPUT" ? "What leaves the rack."
+                      : categories[hovered.tab] == "DESIGN" ? "Load a design from the Rack Unit Designer into this slot."
+                                                            : "How the unit measures, calculates and moves.", 4, soft);
             else
-                para ("Hover a setting to see how it changes the sound. Choices are saved with the session; presets "
-                      "leave them alone.", 6, soft);
+                para ("Hover a setting to hear what it does. Choices are saved with the session; presets leave them alone.", 4, dim);
+
+            if (const int r = resetEntry(); r >= 0)
+            {
+                const auto b = resetBox();
+                const float hv = entries[(size_t) r].hover;
+                g.setColour (white.withAlpha ((changed > 0 ? 0.08f : 0.035f) + 0.06f * hv));
+                g.fillRoundedRectangle (b, 6.0f);
+                text ("Reset to defaults", b, font (12.0f, true), white.withAlpha (changed > 0 ? 0.95f : 0.35f), juce::Justification::centred);
+            }
         }
 
         // Straight RGBA (un-premultiplied) for GL blending, straight from the image's pixels

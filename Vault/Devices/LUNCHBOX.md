@@ -2,11 +2,14 @@
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-A small side rack of three plug-in modules, in the style of a 500-series "lunchbox", on a walnut stand
-to the right of the rack (full rack view; Simple view puts it away). It comes after CHARACTER and before
-the OUTPUT MONITOR, so EAR GUARD and the limiter still look after everything it does. Signal runs
-left to right: **CLASS-A EQ → DE-HARSH → CROSSFEED**, then an **OUTPUT** meter; the sixth slot is empty.
-Everything starts OUT: old sessions and presets sound the same. Each has its own **IN** switch. When a module is
+A ten-slot 500-series "lunchbox" on a walnut stand to the right of the rack (full rack view; Simple view
+puts it away). It comes after CHARACTER and before the OUTPUT MONITOR, so EAR GUARD and the limiter still
+look after everything it does. Which modules are in it is up to you: the **500 series** tab of the
+[Gear locker](../UI/Gear%20locker.md) installs and stores them. Signal runs left to right, in this order:
+the modules before the EQ (PREAMP, FILTER, 550 EQ, TUBE EQ, TILT EQ, AIR BAND, LOUDNESS), **CLASS-A EQ →
+DE-HARSH**, the ones after (DE-ESSER, TRANSIENT, GATE, BUS COMP, SATURATOR, M/S WIDTH, PEAK LIMITER), then
+**CROSSFEED** and the **OUTPUT** meter (always in). It starts with CLASS-A EQ, TUBE EQ, DE-HARSH, BUS COMP
+and CROSSFEED (the ten slots full). Everything starts OUT: old sessions and presets sound the same. Each has its own **IN** switch. When a module is
 off it doesn't touch the sound at all. Switching fades over 20 ms, so it never clicks.
 
 ## CLASS-A EQ
@@ -71,3 +74,27 @@ Sound in the centre (voices, most music) comes through exactly as it was, at the
 the same tone. Only the sides are blended. Leave it off on speakers.
 
 Code: `Lunchbox.h`.
+
+## The 500-series modules
+
+Each has an **IN** switch and a lamp that shows how hard it is working. They're all zero latency, and
+none of them does anything you didn't ask for.
+
+- **PREAMP**: **GAIN** (-12 to +24 dB), **DRIVE** (clean at 0, warmer as you turn it; the colour is the same at any volume), **LOW CUT** (off, 30, 60, 120 Hz), **OUTPUT**, **PHASE**.
+- **FILTER**: **HIGH-PASS** (off at 20 Hz, up to 1 kHz) and **LOW-PASS** (off at 20 kHz, down to 1 kHz), **SLOPE** 12 or 24 dB/oct.
+- **550 EQ** (2 slots): three bands, **LOW / MID / HIGH** ±12 dB, each with stepped frequencies. The more a band moves, the narrower it gets (proportional Q). **SHELF** turns LOW and HIGH into shelves.
+- **TUBE EQ** (3 slots): the classic passive program EQ. **LOW BOOST** and **LOW ATTEN** at the same **CPS**. Both at once give a deep, tight low end with a dip above it. **HIGH BOOST** at **KCS** with **BANDWIDTH**, **HIGH ATTEN** at **ATTEN SEL**. A touch of valve after the network.
+- **TILT EQ**: **TILT** ±6 dB leans the whole sound about **PIVOT**, brighter one way and warmer the other. The level at the pivot never moves.
+- **AIR BAND**: **AIR** up to +12 dB as a shelf so wide it has no edge (2.5 to 40 kHz). Sheen without hiss.
+- **LOUDNESS**: quiet listening loses the bass, a little of the top too (ISO 226). Set **LISTEN dB** to how loud you listen and it puts back what the ear loses. **AUTO** follows the programme instead.
+- **DE-ESSER**: **FREQ** 2 to 12 kHz, **THRESH**, **RANGE** up to 16 dB. **WIDE** turns the whole sound down instead of just the band. **LISTEN** plays what it hears.
+- **TRANSIENT**: **ATTACK** and **SUSTAIN** ±100 %. It shapes a quiet hit as much as a loud one. **OUTPUT**.
+- **GATE**: **THRESH**, **RANGE**, **RATIO** 1:2, 1:4 or GATE, **RELEASE**. Clean, no chatter.
+- **BUS COMP** (2 slots): a clean VCA glue compressor. **THRESH**, **RATIO** 1.5 to 10, stepped **ATTACK** and **RELEASE** (with AUTO), **MAKE-UP**, **MIX**. Its detector ignores the kick (high-passed at 60 Hz).
+- **SATURATOR**: **DRIVE**, **TYPE** (TAPE, TUBE, CONSOLE), **TONE**, **MIX**. The loudness it adds is taken back, so only the colour stays.
+- **M/S WIDTH**: **WIDTH** 0 to 200 %, **BASS MONO** (off, 80, 120, 200 Hz), **MID** level.
+- **PEAK LIMITER**: **CEILING**, **DRIVE**, **RELEASE**. No look-ahead: zero latency. Sample peaks never pass the ceiling.
+
+Tests: `EnhDspTests --units16` (every module off is bit-for-bit, is click-free and does what it says; the
+limiter never passes its ceiling, a flat 550 EQ is exact, the compressor compresses, the de-esser leaves
+the body alone). Code: `DSP/units/Lb500.h`, list: `Tools/units/gen_units.py` (LB_MODULES).

@@ -193,15 +193,17 @@ namespace pad::audit
                 if (unit == lunchboxUnit)
                 {
                     // Each module's plate ends at its seam: print may not cross into the next module
-                    for (int m = 0; m < (int) lbModules.size(); ++m)
+                    for (int m = 0; m < lb::numModules; ++m)
                     {
-                        const float hw = 0.5f * lbSlotW * (float) lbModules[(size_t) m].width;
+                        if (! lb::installed (m)) continue;
+                        const float hw = 0.5f * lbSlotW * (float) lb::widthOf (m);
                         for (float sx : { -1.0f, 1.0f })
-                            obs.push_back ({ Obstacle::rect, lbModuleX (m) + sx * hw, 0.0f, 0.012f, lbModuleHalfH, juce::String (lbModules[(size_t) m].name) + " seam" });
+                            obs.push_back ({ Obstacle::rect, lbModuleX (m) + sx * hw, 0.0f, 0.012f, lbModuleHalfH, juce::String (lb::nameOf (m)) + " seam" });
                         for (float sz : { -1.0f, 1.0f })   // and its two screws
-                            obs.push_back ({ Obstacle::circle, lbModuleX (m), sz * (lbModuleHalfH - 0.055f), 0.028f, 0.0f, juce::String (lbModules[(size_t) m].name) + " screw" });
+                            obs.push_back ({ Obstacle::circle, lbModuleX (m), sz * (lbModuleHalfH - 0.055f), 0.028f, 0.0f, juce::String (lb::nameOf (m)) + " screw" });
                     }
-                    obs.push_back ({ Obstacle::circle, lbModuleX (1) + lbCutLedDx, lbCutLedZ, ledRadius * 1.1f, 0.0f, "CUT LED" });
+                    if (lb::installed (1))
+                        obs.push_back ({ Obstacle::circle, lbModuleX (1) + lbCutLedDx, lbCutLedZ, ledRadius * 1.1f, 0.0f, "CUT LED" });
                 }
                 else
                     addBorder (obs, oneUSectionBox (unit), "control section");

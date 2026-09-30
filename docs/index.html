@@ -8,17 +8,17 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <title>ENH Master</title>
-<meta name="description" content="Eleven adaptive audio processors in one plugin, drawn as real 3D hardware in a walnut case. VST3 for Windows and Linux, and an app for gamers. Open source, tested on every build.">
+<meta name="description" content="A studio rack in one plugin: eleven adaptive processors, 23 more units and a ten-slot 500-series lunchbox, drawn as real 3D hardware. VST3 for Windows and Linux, an app for gamers, and a light 2D version. Open source, tested on every build.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0a0908">
-<link rel="stylesheet" href="site.css?v=18c3a80216">
+<link rel="stylesheet" href="site.css?v=9a736356a1">
 <script src="site.js?v=1b156fc3eb"></script>
 <script src="gallery.js?v=420607d677" defer></script>
 <script src="hub.js?v=5394594a1f" defer></script>
 <script src="units.js?v=bc73fe1919" defer></script>
 <script src="search.js?v=4d58c80820" defer></script>
 <link rel="modulepreload" href="vendor/three/three.module.min.js?v=2e08e4d017">
-<script type="module" src="rack3d.js?v=e6d136eb9f"></script>
+<script type="module" src="rack3d.js?v=b003986bef"></script>
 <script src="dsp.js?v=c1af232a89" defer></script>
 <script src="demos.js?v=287b14ea3d" defer></script>
 </head>
@@ -64,14 +64,14 @@
 
   <section class="hero" id="top" aria-labelledby="hero-h" data-home>
     <div class="hero-stage" id="hero-stage">
-      <div class="hero-still"><picture><source type="image/webp" srcset="img/rack-800.webp 800w, img/rack.webp 1366w" sizes="(min-width: 1240px) 1140px, 100vw"><img src="img/rack-800.jpg" srcset="img/rack-800.jpg 800w, img/rack.jpg 1366w" sizes="(min-width: 1240px) 1140px, 100vw" width="1366" height="643" fetchpriority="high" alt="The whole ENH Master rack: eleven units stacked in a walnut case"></picture></div>
+      <div class="hero-still"><picture><source type="image/webp" srcset="img/rack-800.webp 800w, img/rack.webp 1366w" sizes="(min-width: 1240px) 1140px, 100vw"><img src="img/rack-800.jpg" srcset="img/rack-800.jpg 800w, img/rack.jpg 1366w" sizes="(min-width: 1240px) 1140px, 100vw" width="1366" height="643" fetchpriority="high" alt="The ENH Master rack on a quartz shelf by a window, the LUNCHBOX beside it"></picture></div>
       <div class="gl-loader" aria-hidden="true"><i></i></div>
     </div>
     <div class="wrap hero-in">
       <div class="hero-copy">
         <p class="eyebrow rv"><b>FREE</b>VST3 for Windows &amp; Linux · Gamer app for Windows</p>
         <h1 class="rv" id="hero-h">A studio rack for<br><span class="grad sweep">everything you hear.</span></h1>
-        <p class="lede rv">Eleven adaptive processors in one plugin, drawn as real 3D hardware in a walnut case.</p>
+        <p class="lede rv">Eleven adaptive processors, 23 more units and a ten-slot 500-series lunchbox, drawn as real 3D hardware.</p>
         <p class="lede2 rv">Footsteps and detail come forward, loud bangs stop ducking everything else, and nothing ever leaves it too loud for your ears.</p>
         <div class="cta rv">
           <a class="btn primary" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>Download the latest release</a>
@@ -80,7 +80,7 @@
         <p class="cta-links rv"><a href="https://github.com/thenameiscobmarley/ENH-Master"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Source on GitHub</a><a href="#verify"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Check your download</a></p>
       </div>
       <div class="facts rv">
-      <div><b class="grad" data-num>11</b><span>adaptive units, one plugin</span></div>
+      <div><b class="grad" data-num>48</b><span>rack units, one plugin</span></div>
       <div><b class="grad">0 dBFS</b><span>never over, true peak</span></div>
       <div><b class="grad" data-num>182</b><span>AudioLab test runs, every preset</span></div>
       <div><b class="grad">0</b><span>trackers, cookies or ads here</span></div>
@@ -95,7 +95,7 @@
         <div class="wrap xp-grid">
           <div class="xp-copy">
             <p class="kicker">Inside the rack</p>
-            <h2 id="inside-h">Eleven units, <span class="grad sweep">bottom to top, in signal order.</span></h2>
+            <h2 id="inside-h">The eleven at its heart, <span class="grad sweep">bottom to top, in signal order.</span></h2>
             <p class="xp-intro">Each one does one job, and they're built to work together: nobody undoes what the unit before it did.<span class="js-only"> Scroll to pull one out and take it apart; pick any unit, drag to turn it, and point at a part to see what it does.</span></p>
             <ol class="xp-steps" aria-hidden="true"><li class="on">The rack</li><li>Pull it out</li><li>Take it apart</li><li>Look inside</li></ol>
             <p class="xp-pick-l" id="xp-pick-l">Pick a unit</p>
@@ -139,6 +139,15 @@
         <a class="hub-tile rv" href="#/gallery" data-go="gallery" data-delay="120"><span class="hub-no">03</span><b>Designs</b><span>The units built into the plugin, and every designer preset.</span><i aria-hidden="true">→</i></a>
         <a class="hub-tile rv" href="designer.html" data-delay="180"><span class="hub-no">04</span><b>Unit Designer</b><span>Design your own rack unit, hear it, and share it with a code.</span><i aria-hidden="true">→</i></a>
       </nav>
+      <div class="news rv" aria-labelledby="news-h">
+        <h3 id="news-h" class="news-h"><span class="knum">3.8</span> New in this version</h3>
+        <ul class="news-list">
+          <li><b>33 new rack units</b><span>Reverbs, tape, vari-mu, the 882i, and 15 live simulations - a record deck, a tape echo, a pendulum, a Tesla coil, a lava lamp - each on its own screen.</span></li>
+          <li><b>A 10-slot LUNCHBOX</b><span>Its own gear locker and 14 new 500-series modules, as clean as its EQ.</span></li>
+          <li><b>A room with a view</b><span>The rack on a quartz shelf by a window, and a hologram welcome screen.</span></li>
+          <li><b>ENH Master 2D</b><span>The same plugin, drawn flat, for older graphics.</span></li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -412,9 +421,9 @@
     <div class="wrap">
       <header class="sec-head center">
         <p class="kicker rv">Get it</p>
-        <h2 class="rv">Three ways <span class="grad sweep">to use it.</span></h2>
+        <h2 class="rv">Four ways <span class="grad sweep">to use it.</span></h2>
       </header>
-      <div class="grid3">
+      <div class="grid4">
         <div class="card path rv tilt">
           <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10a4 4 0 0 1 4 4v2.5a2.5 2.5 0 0 1-4.6 1.4L15 14H9l-1.4 1.9A2.5 2.5 0 0 1 3 14.5V12a4 4 0 0 1 4-4z"/><path d="M8 11v2M7 12h2M15.5 11.5h.01M17.5 12.5h.01"/></svg></div>
           <h3>Gamers (Windows)</h3>
@@ -432,6 +441,12 @@
           <h3>Build it yourself</h3>
           <p>Open source (Apache 2.0). One script checks your tools, fetches what it needs and builds.</p>
           <pre><code>./build.sh</code></pre>
+        </div>
+        <div class="card path rv tilt" data-delay="300">
+          <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="4" rx="1"/><rect x="4" y="10" width="16" height="4" rx="1"/><rect x="4" y="17" width="16" height="4" rx="1"/></svg></div>
+          <h3>Older graphics</h3>
+          <p>ENH Master 2D: the same plugin and sound with a flat rack - every faceplate, one under another. No OpenGL. Installs alongside.</p>
+          <a class="go" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">ENH-Master-2D zips →</a>
         </div>
       </div>
       <div class="get-cta rv">
@@ -483,11 +498,25 @@
 </main>
 
 <footer>
-  <div class="wrap">
-    <a class="logo" href="#top" aria-label="ENH Master, back to top"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#gAur)" stroke-width="3" stroke-dasharray="61 82" stroke-linecap="round" transform="rotate(135 16 16)"/><circle cx="16" cy="16" r="7" fill="#0c0e13" stroke="url(#gRim)" stroke-width="1.5"/><line x1="16" y1="16" x2="21" y2="11" stroke="#efe8dc" stroke-width="2" stroke-linecap="round"/></svg>ENH MASTER</a>
-    <span>ENH Master is open source (Apache 2.0). Screenshots and graphs are the real app and its real tests.</span>
-    <span><a href="https://github.com/thenameiscobmarley/ENH-Master">GitHub</a> · <a href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">Latest release</a> · <a href="#top">Back to top ↑</a></span>
+  <div class="wrap foot">
+    <div class="foot-brand">
+      <a class="logo" href="#top" aria-label="ENH Master, back to top"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="url(#gAur)" stroke-width="3" stroke-dasharray="61 82" stroke-linecap="round" transform="rotate(135 16 16)"/><circle cx="16" cy="16" r="7" fill="#0c0e13" stroke="url(#gRim)" stroke-width="1.5"/><line x1="16" y1="16" x2="21" y2="11" stroke="#efe8dc" stroke-width="2" stroke-linecap="round"/></svg>ENH MASTER</a>
+      <p>A studio rack for everything you hear. Open source (Apache 2.0). Screenshots and graphs are the real app and its real tests.</p>
+    </div>
+    <nav class="foot-col" aria-label="Places">
+      <h4>Product</h4>
+      <a href="#/rack" data-go="rack">The rack</a><a href="#/download" data-go="download">Download</a><a href="#/gallery" data-go="gallery">Designs</a><a href="designer.html">Unit Designer</a>
+    </nav>
+    <nav class="foot-col" aria-label="Help">
+      <h4>Help</h4>
+      <a href="https://github.com/thenameiscobmarley/ENH-Master/tree/main/Vault">Documentation</a><a href="https://github.com/thenameiscobmarley/ENH-Master/blob/main/CHANGELOG.md">What changed</a><a href="#verify">Check your download</a>
+    </nav>
+    <nav class="foot-col" aria-label="Source">
+      <h4>Source</h4>
+      <a href="https://github.com/thenameiscobmarley/ENH-Master">GitHub</a><a href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">Latest release</a><a href="#top">Back to top ↑</a>
+    </nav>
   </div>
+  <div class="wrap foot-base"><span>No trackers, no cookies, nothing loaded from anywhere else.</span><span>© ENH Master contributors</span></div>
 </footer>
 
 <dialog class="lb" id="lb" aria-label="Test graph, full size">

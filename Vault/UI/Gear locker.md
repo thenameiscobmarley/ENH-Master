@@ -16,3 +16,14 @@ Simple view is different: it only hides units, and they keep working.
 
 Code: `UI/GlassPanel.cpp` (the locker page), `UI/Scene/DeviceLayout.h` (`storedUnits`, `rackCapacityU`),
 `DSP/ParameterMapping.h` (`withLocker`).
+
+## Search
+
+The search field at the top finds units and modules by name, model or what they do, on every tab. Each
+tab's count shows how many match. Esc clears it.
+
+## 500 series
+
+The third tab is the LUNCHBOX's own locker: its 500-series modules, in signal order. The frame has 10
+slots (most modules take 1; the CLASS-A EQ, 550 EQ and BUS COMP take 2, the TUBE EQ 3) and its OUTPUT meter always stays
+in. A module in the locker takes no slot and no CPU. See [LUNCHBOX](../Devices/LUNCHBOX.md).

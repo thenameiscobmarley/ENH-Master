@@ -1,3 +1,5 @@
+#include <string>
+#include <cstdlib>
 #pragma once
 
 /*  FOOTSTEP RADAR tests (EnhDspTests --radar [table]): footsteps of every kind, near and far, alone and
@@ -493,8 +495,65 @@ namespace radartests
         }
     }
 
+    /** REACH: how much louder the steps come out, how little the sound between them moves, and how little
+        a scene with no steps changes (speech, gunfire, rain, music alone). The detector's own lift is off
+        (BOOST 0) to hear REACH by itself. */
+    inline void runReachTests (double sr)
+    {
+        std::printf ("\n== FOOTSTEP RADAR: REACH (quiet impacts lifted, whatever the game) ==\n");
+        const int lat = std::max (1, (int) std::lround (0.0025 * sr));
+        auto energyDb = [] (const std::vector<float>& x, size_t from, size_t to)
+        { double e = 0; for (size_t i = from; i < std::min (to, x.size()); ++i) e += (double) x[i] * x[i]; return 10.0 * std::log10 (e / (double) std::max<size_t> (1, to - from) + 1.0e-20); };
+        auto measure = [&] (const Audio& a, float reach, double& stepLift, double& gapChange, double& peakChange)
+        {
+            FootstepRadar::Settings s; s.active = true; s.boostDb = 0.0f; s.space = 0.0f; s.reach = reach;
+            std::vector<float> out;
+            runRadar (a, s, &out);
+            double sl = 0, gc = 0; int n = 0;
+            for (double t : a.steps)
+            {
+                const size_t i0 = (size_t) (t * sr), i1 = i0 + (size_t) (0.06 * sr), g0 = i0 + (size_t) (0.22 * sr), g1 = i0 + (size_t) (0.40 * sr);
+                if (g1 + (size_t) lat >= out.size()) continue;
+                sl += energyDb (out, i0 + (size_t) lat, i1 + (size_t) lat) - energyDb (a.l, i0, i1);
+                gc += std::abs (energyDb (out, g0 + (size_t) lat, g1 + (size_t) lat) - energyDb (a.l, g0, g1));
+                ++n;
+            }
+            stepLift = n > 0 ? sl / n : 0.0; gapChange = n > 0 ? gc / n : 0.0;
+            float pin = 0, pout = 0; for (float v : a.l) pin = std::max (pin, std::abs (v)); for (float v : out) pout = std::max (pout, std::abs (v));
+            peakChange = 20.0 * std::log10 ((pout + 1e-9) / (pin + 1e-9));
+            if (a.steps.empty()) gapChange = std::abs (energyDb (out, (size_t) lat, out.size()) - energyDb (a.l, 0, a.l.size() - (size_t) lat));
+        };
+        struct Case { const char* name; int kind; };
+        const Case cases[] { { "far steps, quiet scene", 0 }, { "buried steps", 1 }, { "steps under music", 2 }, { "speech alone", 3 }, { "gunfire alone", 4 }, { "rain alone", 5 }, { "music alone", 6 } };
+        bool okSteps = true, okQuiet = true;
+        for (const auto& c : cases)
+        {
+            Rng rng (900 + c.kind);
+            auto a = blank (sr, 8.0);
+            if (c.kind == 0) { addAmbience (a, rng, -64.0f); addWalk (a, rng, { 2, 0.8f, 0.4f, false, 0.5, -50.0f }, 0.6, 7.6); }
+            if (c.kind == 1) { addAmbience (a, rng, -64.0f); addWalk (a, rng, { 0, 0.8f, -0.3f, false, 0.5, -58.0f }, 0.6, 7.6); }
+            if (c.kind == 2) { addMusic (a, rng, 0.0, 8.0, -20.0f); addWalk (a, rng, { 1, 0.6f, 0.2f, false, 0.5, -36.0f }, 0.6, 7.6); }
+            if (c.kind == 3) { addAmbience (a, rng, -64.0f); addSpeech (a, rng, 0.3, 7.7, -24.0f, 0.1f); }
+            if (c.kind == 4) { addAmbience (a, rng, -64.0f); for (double t = 0.5; t < 7.5; t += 0.9) addShot (a, rng, t, -10.0f, 0.3f); }
+            if (c.kind == 5) { addRain (a, rng, -34.0f, 0.0, 8.0); }
+            if (c.kind == 6) { addMusic (a, rng, 0.0, 8.0, -20.0f); }
+            double lift5, gap5, pk5, lift10, gap10, pk10;
+            measure (a, 5.0f, lift5, gap5, pk5);
+            measure (a, 10.0f, lift10, gap10, pk10);
+            if (! a.steps.empty())
+                std::printf ("  %-24s steps lifted %+5.1f dB (REACH 5) %+5.1f dB (REACH 10); between them %4.1f / %4.1f dB\n", c.name, lift5, lift10, gap5, gap10);
+            else
+                std::printf ("  %-24s level moved %4.1f / %4.1f dB, peak %+4.1f / %+4.1f dB (REACH 5 / 10)\n", c.name, gap5, gap10, pk5, pk10);
+            if (c.kind == 0) okSteps = okSteps && lift10 >= 10.0 && gap10 <= 1.0;
+            if (c.kind >= 3) okQuiet = okQuiet && gap10 <= 3.0 && pk5 <= 6.0 && pk10 <= 16.0;
+        }
+        check (okSteps, "REACH: far steps come out 10 dB and more louder at REACH 10, the sound between them stays");
+        check (okQuiet, "REACH: speech, gunfire, rain and music alone barely move (level within 3 dB; a rare false step's peak capped)");
+    }
+
     inline void runRadarTests (double sr, bool table, bool compareOld)
     {
+        runReachTests (sr);
         std::printf ("\n== FOOTSTEP RADAR: every surface, near to very far, under game audio, against look-alikes ==\n");
         // A real recording (the radar's SAVE THE LAST 30 SECONDS): RADAR_FILE=<wav>, optionally
         // RADAR_STEPS="t1,t2,..." where you hear steps (s). Every event the radar weighed, and what it took.

@@ -2,25 +2,28 @@
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
-Click a unit and a frosted glass panel opens on the right, joined to the unit by a thin white line.
+Click a unit and a dark smoked-glass panel opens on the right, joined to the unit by a thin white line.
 
 ![The glass panel](../../docs/screenshot-panel.png)
 
 ## What's in it
 
-Under the unit's name: how many settings it has, and how much it **delays the sound** (look-ahead or
-oversampling; most units add none). The OUTPUT MONITOR shows the whole rack's delay.
+Under the unit's name: how much it **delays the sound** (look-ahead or oversampling; most units add
+none), and how many settings you've changed. The OUTPUT MONITOR shows the whole rack's delay.
 
-Settings listed one under another (scroll with the wheel), in folding groups:
+Tabs across the top, one at a time:
 
-- **PROCESSING** — how the unit works. Each setting has two or three named choices.
-- **KNOBS** — a dropdown per knob with **SMOOTHING**, **CURVE** and **RANGE**.
-- **STEREO** — L/R, only the middle, or only the sides (on six units).
-- **OUTPUT / DISPLAY** — on the OUTPUT MONITOR.
-- **RESET TO DEFAULTS** — puts the whole unit back.
+- **Sound** — how the unit works. Each setting has two or more named choices.
+- **Knobs** — for each knob: **Smoothing**, **Curve** and **Range** (and its own law, where it has one).
+- **Stereo** — L/R, only the middle, or only the sides (on six units).
+- **Output / Display** — on the OUTPUT MONITOR.
+- **Design** — on CUSTOM: paste a design code, or empty the slot.
 
-Hover any setting and the bottom of the panel explains what it does to the sound and what it costs.
-A small white square marks settings you've changed. The full list: [Methods](../Reference/Methods.md).
+Each setting is one row: its name on the left, its value on the right. Click the row to see the choices
+(a tick marks the one in use). A changed value is amber, and its tab gets an amber dot.
+
+At the bottom: what the setting under the pointer does to the sound, and **Reset to defaults** (puts
+the whole unit back). The full list: [Methods](../Reference/Methods.md).
 
 ## Good to know
 
@@ -34,11 +37,13 @@ A small white square marks settings you've changed. The full list: [Methods](../
 |---|---|
 | a unit's front | opens its panel (again = close, another = switch) |
 | off the rack | closes it |
+| a tab | shows that tab |
 | the wheel over the panel | scrolls it |
 
 ## How it's drawn
 
-The glass is the rack behind it, blurred at a quarter size, only while the panel is open. White text,
-square corners, a soft shadow, no tint. It costs nothing measurable on a small laptop GPU.
+Smoked frosted glass: the rack shows through it, blurred (at a quarter size, only while the panel is open)
+and dimmed so the text always reads. A soft sheen falls across it from the top left, its top edge catches
+the light, soft corners, a soft shadow, amber for what you changed.
 
 Code: `GlassPanel.h/.cpp`, `MethodRegistry.h`.

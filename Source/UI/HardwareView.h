@@ -8,6 +8,7 @@
 #include "../DSP/EngineMeters.h"
 #include "HardwareKit.h"
 #include "GlassPanel.h"
+#include "Holo/HoloWelcome.h"
 
 class PluginProcessor;
 
@@ -37,12 +38,20 @@ namespace pad
         void mouseUp (const juce::MouseEvent&) override;
         void mouseDoubleClick (const juce::MouseEvent&) override;
         void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+        bool keyPressed (const juce::KeyPress&) override;   // (THE GEAR LOCKER's search)
 
         /** Which unit's faceplate is under a point, or -1 for the rack case / the room. */
         int unitUnderPointer (juce::Point<float>) const;
         void setFocus (int unit, float amount);
 
     private:
+        void applyCustomDesign();   // CUSTOM: the design loaded, onto the slot (its controls, print, screens)
+        int seenCustomVersion = -1;
+        std::uint32_t seenStoredModules = 0;   // the LUNCHBOX locker the rack shows
+        holo::Welcome welcome;                  // the hologram welcome screen (its card, its choices)
+        void showWelcome (bool show);
+        void publishWelcome();
+        bool welcomeClick (juce::Point<float>);  // true: the click was the welcome screen's
         void timerCallback() override;
 
         // Spectrum analyser: the FFT runs here, on the editor thread, and the curve it

@@ -76,6 +76,14 @@ namespace pad
                                                   // glass is never drawn at one size with the print of another
         juce::uint32          panelVersion = 0;   // guarded by panelLock
         std::atomic<float>    panelPixelScale { 2.0f };
+        std::atomic<bool>     panelHolo { false };  // the panel in its HOLOGRAM style (phosphor green, scanlines)
+
+        // The welcome screen (holo/HoloWelcome.h): shown while welcomeOpen; its card's print (RGBA) as the
+        // message thread last drew it, guarded by welcomeLock. Its place is worked out from the view's size.
+        std::atomic<bool>     welcomeOpen { false };
+        juce::SpinLock        welcomeLock;
+        artwork::RawTexture   welcomePending;
+        juce::uint32          welcomeVersion = 0;
 
         // Hover outlines: the unit under the pointer when no control is (render thread writes)
         std::atomic<int>      hoveredUnit { -1 };

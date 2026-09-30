@@ -1,3 +1,4 @@
+#include <tuple>
 #include "FootstepRadar.h"
 
 #include <cmath>
@@ -39,6 +40,7 @@ namespace enh::dsp
         (void) maxBlock;
         sr = sampleRate > 0.0 ? sampleRate : 48000.0;
         lookahead = std::max (1, (int) std::lround (0.0025 * sr));
+        reach.prepare (sr);
         tickInterval = std::max (8, (int) std::lround (sr / 1000.0));
         tickDt = (float) tickInterval / (float) sr;
         pitchDecim = std::max (1, (int) std::lround (sr / 4000.0));
@@ -69,6 +71,8 @@ namespace enh::dsp
 
     void FootstepRadar::reset()
     {
+        reach.reset();
+        reachDbNow = 0.0f;
         for (auto& ch : analysis) for (auto& f : ch) f = {};
         for (auto& ch : liftFilters) for (auto& f : ch) f = {};
         fast.fill (0.0f); med.fill (0.0f); shortEnv.fill (0.0f); tickPeak.fill (0.0f); tickShort.fill (0.0f);
@@ -196,7 +200,7 @@ namespace enh::dsp
             if (s.active)
             {
                 // --- analysis of what is arriving (2.5 ms ahead of what is heard) --------------------
-                const float al = key != nullptr ? key[0][i] : xl, ar = key != nullptr ? key[nc > 1 ? 1 : 0][i] : xr;
+                float al = key != nullptr ? key[0][i] : xl, ar = key != nullptr ? key[nc > 1 ? 1 : 0][i] : xr;
                 for (int b = 0; b < numBands; ++b)
                 {
                     const auto& c = bandCoeffs[(size_t) b];
@@ -305,10 +309,22 @@ namespace enh::dsp
             float roomL = 0.0f, roomR = 0.0f;
             roomProcess (0.5f * (stepL + stepR) * send, roomL, roomR);
 
+            // REACH: every quiet impact lifted, recognised as a step or not (RadarReach)
+            float reachL = 0.0f, reachR = 0.0f;
+            if (s.active && s.reach > 0.0f)
+            {
+                float hl = heardL, hr = nc > 1 ? heardR : heardL;
+                // (the detector's word: a step being lifted now, or a followed walker's step due now)
+                const float likely = std::clamp (std::max (activity * 1.5f, expectedNow (clock) * 0.8f), 0.0f, 1.0f);
+                reachDbNow = std::max (reachDbNow * 0.9995f, reach.process (hl, hr, s.reach, std::max (periodicity, musicality), likely));
+                reachL = hl - heardL; reachR = hr - (nc > 1 ? heardR : heardL);
+            }
+            else reachDbNow *= 0.9995f;
+
             const bool soloing = s.active && s.solo;
-            ch[0][i] = (soloing ? 0.0f : heardL) + stepL + roomL;
+            ch[0][i] = (soloing ? 0.0f : heardL) + stepL + roomL + reachL;
             if (nc > 1)
-                ch[1][i] = (soloing ? 0.0f : heardR) + stepR + roomR;
+                ch[1][i] = (soloing ? 0.0f : heardR) + stepR + roomR + reachR;
         }
     }
 
@@ -1062,7 +1078,7 @@ namespace enh::dsp
         const float fRing = 1.0f - 0.6f * ramp (0.8f, 1.0f, std::max (tonal, ring)) * (hasBody ? 0.25f : 1.0f);
         // A blip in a single band, with no weight behind it: a raindrop cluster, a flicker of hiss
         const float fNarrow = ! hasBody && spread <= 1 && most < 12.0f ? 0.45f : 1.0f;
-        const float base = bestImpact * fRing * fBang * fRapid * fShape * fBody * fNarrow * fGrid * (1.0f - 0.15f * musicality);
+        const float base = std::min (1.0f, bestImpact * fRing * fBang * fRapid * fShape * fBody * fNarrow * fGrid * (1.0f - 0.15f * musicality));
         e.eventBestBand = bestBand;
 
         // A walker's step is trusted on its match, but never a bang or a tone: those stay what they are

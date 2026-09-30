@@ -73,7 +73,7 @@ namespace pad
 
             // Ease between the two so the move feels like walking up to the rack, not a jump cut
             const float e = t * t * (3.0f - 2.0f * t);
-            const float distance = wideDist + (nearDist - wideDist) * e;
+            float distance = wideDist + (nearDist - wideDist) * e;
             const float centreY = wideCentre + (nearCentre - wideCentre) * e;
             // Beside the rack, the LUNCHBOX: `side` glides the close framing across to it and back
             const float side = std::isnan (focus.side) ? (focus.unit == layout::lunchboxUnit ? 1.0f : 0.0f) : focus.side;
@@ -88,10 +88,20 @@ namespace pad
             // (the LUNCHBOX stands upright at eye level: seen straight on, its rack partner from a little above)
             const float pitch = basePitch * (1.0f - (0.7f + 0.3f * side) * e) + parallaxY * 1.2f * deg;
 
-            const gfx::Vec3 target { centreX, centreY, centreZ };
+            gfx::Vec3 target { centreX, centreY, centreZ };
             const gfx::Vec3 dir { std::sin (yaw) * std::cos (pitch), std::sin (pitch), std::cos (yaw) * std::cos (pitch) };
 
             c.eye = target + dir * distance;
+            // Dev only: PAD_UI_TEST_CAMERA="unit,tx,ty,tz,ex,ey,ez" looks at a point near a unit (its origin plus t)
+            // from e further on - for inspecting parts out of the usual views (the LUNCHBOX's plugs underneath)
+            static const auto testCam = juce::StringArray::fromTokens (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_CAMERA", {}), ",", {});
+            if (testCam.size() == 7)
+            {
+                const auto o = layout::unitOrigin (testCam[0].getIntValue());
+                target = { o.x + testCam[1].getFloatValue(), o.y + testCam[2].getFloatValue(), o.z + testCam[3].getFloatValue() };
+                c.eye = { target.x + testCam[4].getFloatValue(), target.y + testCam[5].getFloatValue(), target.z + testCam[6].getFloatValue() };
+                distance = gfx::length (target - c.eye);
+            }
             c.forward = gfx::normalise (target - c.eye);
             c.right = gfx::normalise (gfx::cross (c.forward, { 0, 1, 0 }));
             c.up = gfx::cross (c.right, c.forward);

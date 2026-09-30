@@ -63,24 +63,35 @@ namespace pad::studioroom
                 const float phi = 2.0f * pi * (((float) i + 0.5f) / (float) texW - 0.5f);
                 const float x = s * std::sin (phi), z = s * std::cos (phi);   // u = 0.5 looks at +z (the room); the seam is behind the rack
 
-                // The room: dim walnut walls, a darker ceiling, a wooden floor catching the window
-                float r = 0.125f, g = 0.085f, b = 0.058f;
+                // The room: a house in the daytime - warm plaster walls lit by the day, a paler ceiling, a
+                // wooden floor catching the window
+                float r = 0.36f, g = 0.33f, b = 0.29f;
                 const float up = smooth (0.2f, 1.0f, y);
                 r *= 1.0f - 0.45f * up; g *= 1.0f - 0.45f * up; b *= 1.0f - 0.40f * up;
                 if (y < 0.0f)
                 {
                     const float plank = 0.85f + 0.15f * std::sin (x / std::max (-y, 0.05f) * 9.0f);
                     const float sunOnFloor = std::exp (-std::pow ((x / std::max (-y, 0.05f) + 0.8f) * 0.6f, 2.0f)) * smooth (0.0f, -0.4f, y);
-                    r = (0.090f + 0.20f * sunOnFloor) * plank;
-                    g = (0.052f + 0.14f * sunOnFloor) * plank;
-                    b = (0.028f + 0.08f * sunOnFloor) * plank;
+                    r = (0.20f + 0.34f * sunOnFloor) * plank;
+                    g = (0.13f + 0.25f * sunOnFloor) * plank;
+                    b = (0.08f + 0.15f * sunOnFloor) * plank;
                 }
 
-                // Behind the rack (the reflection of what it stands against): the slat wall in its lamp's pool
+                // Behind the rack: the plaster wall and the tall window in it - the day outside, bright: sky
+                // above, the trees and the river's light below the horizon (what lights the rack's top and
+                // edges from behind, and what its glossy parts show when seen from above)
                 if (z < 0.0f)
                 {
-                    const float pool = std::exp (-(x * x * 3.0f + (y - 0.05f) * (y - 0.05f) * 6.0f)) * smooth (0.0f, -0.6f, z);
-                    r += 0.30f * pool; g += 0.17f * pool; b += 0.07f * pool;
+                    const float across = x / std::max (-z, 0.05f), up = y / std::max (-z, 0.05f);
+                    const float glass = smooth (1.05f, 0.95f, std::abs (across)) * smooth (-0.35f, -0.25f, up) * smooth (1.55f, 1.40f, up) * smooth (0.0f, -0.3f, z);
+                    const float bars = std::min (smooth (0.0f, 0.025f, std::abs (across - 0.33f)), smooth (0.0f, 0.025f, std::abs (across + 0.33f)));
+                    const float sky = smooth (0.05f, 0.5f, up);
+                    const float pane = glass * bars;
+                    r = r * (1.0f - pane) + pane * (0.55f + 1.10f * sky);
+                    g = g * (1.0f - pane) + pane * (0.95f + 1.05f * sky);
+                    b = b * (1.0f - pane) + pane * (0.60f + 1.75f * sky);
+                    const float spill = std::exp (-std::max (0.0f, std::abs (across) - 1.0f) * 3.0f) * smooth (0.0f, -0.5f, z) * (1.0f - pane);
+                    r += 0.25f * spill; g += 0.26f * spill; b += 0.27f * spill;
                 }
 
                 // The window: a bright pane with glazing bars and a soft edge, the sky warm near the bottom

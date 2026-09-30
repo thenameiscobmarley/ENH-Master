@@ -886,7 +886,7 @@ function start() {
       veil.visible = out > 0.002;
       if (veil.parent !== act.o.slide) act.o.slide.add(veil);
       veil.position.z = -(0.03 + CH_D + e * 2.3 * (phone ? 1.15 : 1) + 0.3);
-      veil.material.opacity = 0.8 * sm(0.05, 0.9, out);
+      veil.material.opacity = 0.94 * sm(0.05, 0.9, out);
     }
     // the POWER lamps come on during the intro
     const lampOn = motion ? sm(0.28, 0.4, cur.intro) : 1;
@@ -1225,7 +1225,17 @@ function start() {
     measure();
   }
 
-  const onScroll = () => { if (visible) { kick(); if (hold === null) syncLazy(); } };
+  // Leaving: as the end of "Inside the rack" comes up the screen, the 3D fades out rather than being cut off by
+  // what follows (the hub)
+  let leaveWas = -1;
+  function leaving() {
+    if (!motion) return;
+    if (doc.body.hasAttribute("data-place")) { if (leaveWas !== 1) { leaveWas = 1; layer.style.opacity = ""; } return; }   // (a place: the site's CSS dims it)
+    const b = section.getBoundingClientRect().bottom, v = clamp((innerHeight - b) / (0.4 * innerHeight) + 0.35, 0, 1);
+    const o = v <= 0 ? 1 : 1 - sm(0, 1, v);
+    if (Math.abs(o - leaveWas) > 0.004) { leaveWas = o; layer.style.opacity = o >= 0.999 ? "" : o.toFixed(3); }
+  }
+  const onScroll = () => { leaving(); if (visible) { kick(); if (hold === null) syncLazy(); } };
   let tl = 0;
   function syncLazy() { if (!tl) tl = setTimeout(() => { tl = 0; syncToggle(); }, 150); }
   addEventListener("scroll", onScroll, { passive: true });

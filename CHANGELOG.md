@@ -5,6 +5,72 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.8.0.0 — thirty-three new units, 14 new 500-series modules, and your designs in the rack
+
+- **Nineteen new units** (all in the gear locker - install what you want):
+  [SHIMMER](Vault/Devices/SHIMMER.md) (8-line reverb with octave shimmer), [PLATE 140](Vault/Devices/PLATE%20140.md) (Dattorro plate),
+  [SPRING TANK](Vault/Devices/SPRING%20TANK.md) (dispersive springs), [GRAIN CLOUD](Vault/Devices/GRAIN%20CLOUD.md) (granular delay),
+  [ATR TAPE](Vault/Devices/ATR%20TAPE.md) (hysteresis tape, wow and flutter), [T4 OPTO](Vault/Devices/T4%20OPTO.md) (photocell leveler),
+  [VARI-MU](Vault/Devices/VARI-MU.md) (valve compressor, gain-riding ratio), [DYNAMIC EQ 4](Vault/Devices/DYNAMIC%20EQ%204.md),
+  [SHUFFLER](Vault/Devices/SHUFFLER.md) (Blumlein width), [PHASE ROTATOR](Vault/Devices/PHASE%20ROTATOR.md) (peaks down, no compression),
+  [BODE SHIFTER](Vault/Devices/BODE%20SHIFTER.md) (frequency shifter), [HARMONIZER](Vault/Devices/HARMONIZER.md) (two voices),
+  [BBD ENSEMBLE](Vault/Devices/BBD%20ENSEMBLE.md) (bucket-brigade chorus), [ROBOVOX](Vault/Devices/ROBOVOX.md) (16-band vocoder),
+  [SUBMAXX](Vault/Devices/SUBMAXX.md) (psychoacoustic bass) [OVERCLIP](Vault/Devices/OVERCLIP.md) (4x oversampled clipper) and
+  [DE-HARSH](Vault/Devices/DE-HARSH.md) (evens out the flicker that adaptive units cause, and tames harsh moments).
+  Each fades in and out with POWER, is bit-for-bit out when off, and never passes +6 dBFS.
+- **CUSTOM: your designs in the rack.** Make a unit in the Rack Unit Designer (its panel and, in the Sound tab, its sound), copy its
+  share code, and paste it in CUSTOM's glass panel: its panel, knobs and sound load in the rack. See [CUSTOM](Vault/Devices/CUSTOM.md).
+- The gear locker now holds up to 64 units (it was 32).
+- **A welcome screen, as a hologram** in the PHOSPHOR scope's green, drawn as a scope draws: every letter a
+  jittering beam stroke, the raster tearing now and then: where to start, what's new, a live
+  trace. And a **hologram style** for the settings panel (right-click the rack). See
+  [Welcome and hologram](Vault/UI/Welcome%20and%20hologram.md).
+- **ENH Master 2D**, a separate download: the same plugin with a flat rack (every unit's faceplate, one under
+  another; the wheel or a drag slides it) instead of the 3D one. No OpenGL, for older graphics. It installs
+  alongside ENH Master. See [2D version](Vault/UI/2D%20version.md).
+- **Cables that hang like cables.** A new cable model sculpts every cable from its plugs: its own length,
+  gravity, no kinks, no twists, resting on the shelf and round things instead of through them.
+- **A new room.** The rack now stands on a polished quartz shelf in a house, in the daytime, with a tall
+  window behind it and a view of woods, a river and bridges (painted in code, a little out of focus). The
+  daylight lights the rack from behind, reflects in its glossy parts and in the quartz, and falls through the
+  window onto the shelf; linen curtains, a deep sill, a framed print. Costs nothing measurable: it is all
+  baked once.
+- **A new glass panel.** Tabs across the top (Sound, Knobs, ...), one clean row per setting ("Detection ... Standard"),
+  no more codes, choices with a tick, changes in amber, on smoked frosted glass. See [Glass panel](Vault/UI/Glass%20panel.md).
+- **PHOSPHOR: FIT.** A new switch sizes the trace to fill the whole screen, whatever the level, so quiet
+  detail isn't lost in the middle. See [PHOSPHOR SCOPE](Vault/Devices/PHOSPHOR%20SCOPE.md).
+- **The website on wide screens.** On ultrawide monitors (or zoomed out) the rack no longer shows through
+  behind the unit list, the "Inside the rack" column fits the screen's height, and the 3D fades out
+  before the hub instead of being cut off.
+- **Search the gear locker.** Type to find a unit or a 500-series module by name, model or what it does.
+  Esc clears it.
+- **Unit Designer:** a list of every part on the panel (select one that's buried, lock it, move it forward
+  or back); **Check the design** finds parts off the panel, controls on top of each other, knobs too close
+  for fingers and print too small to read, and fixes what it can; **Ideas** shows six takes on your unit in
+  other colours, finishes and knobs.
+- **The LUNCHBOX grows to 10 slots, with its own gear locker** and 14 new 500-series modules: PREAMP,
+  FILTER, 550 EQ, TUBE EQ, TILT EQ, AIR BAND, LOUDNESS (puts back the bass you lose listening quietly),
+  DE-ESSER, TRANSIENT, GATE, BUS COMP, SATURATOR, M/S WIDTH and PEAK LIMITER. Install them from the
+  gear locker's new **500 series** tab. See [LUNCHBOX](Vault/Devices/LUNCHBOX.md).
+- **RAY ROOM**, a new 3U unit: a room around the sound (SPACE, DAMP, MIX) and CRACKLE and POPPING: dots
+  thrown into the room that play back a grainy, tape-worn moment of the track where they hit a wall. Its
+  screen shows the room, the rays bouncing off the walls and the dots, white on black.
+  See [RAY ROOM](Vault/Devices/RAY%20ROOM.md).
+- **Four more simulations**, 3U each, with live white-on-black screens like RAY ROOM's:
+  [VINYL DECK](Vault/Devices/VINYL%20DECK.md) (dust that ticks once a turn, wow, a worn stylus),
+  [ROTARY CAB](Vault/Devices/ROTARY%20CAB.md) (a spinning horn and drum, SLOW and FAST),
+  [CASSETTE DECK](Vault/Devices/CASSETTE%20DECK.md) (tape types, dropouts, a tape stop) and
+  [TAPE ECHO](Vault/Devices/TAPE%20ECHO.md) (a tape loop past three heads).
+- **Ten more simulations**, 3U each, each with its own live screen: [VALVE AMP](Vault/Devices/VALVE%20AMP.md), [SPEAKER CAB](Vault/Devices/SPEAKER%20CAB.md), [RADIO](Vault/Devices/RADIO.md), [PENDULUM](Vault/Devices/PENDULUM.md), [BOUNCE DELAY](Vault/Devices/BOUNCE%20DELAY.md), [SYMPATHY](Vault/Devices/SYMPATHY.md), [FLYBY](Vault/Devices/FLYBY.md), [TESLA COIL](Vault/Devices/TESLA%20COIL.md), [TALK BOX](Vault/Devices/TALK%20BOX.md), [LAVA LAMP](Vault/Devices/LAVA%20LAMP.md).
+  A valve amp whose supply sags, a speaker and its mic, a radio tuned on or off the station, a pendulum
+  that swings for real (and moves the sound), echoes like a bouncing ball, sympathetic strings, a sound
+  flying past you (Doppler), a singing Tesla coil, a talk box and a lava lamp.
+- **882i**, a new 1U unit: a phase-aligning exciter and sonic maximizer (LO CONTOUR, PROCESS, OUTPUT).
+  See [882i](Vault/Devices/882i.md).
+- **FOOTSTEP RADAR: REACH.** A new knob to hear steps from much further away: once a step is found (or
+  due from a walker it follows), its quiet sharp start is lifted up to +12 dB (REACH 5) or +24 dB (10).
+  Speech, music, gunfire and rain barely move. See [FOOTSTEP RADAR](Vault/Devices/FOOTSTEP%20RADAR.md).
+
 ## 3.7.13.18 — PHOSPHOR, a green CRT scope
 
 - **A new unit: PHOSPHOR SCOPE** (2U, in the gear locker) - a vintage green-phosphor CRT oscilloscope and

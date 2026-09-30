@@ -24,6 +24,9 @@ namespace pad
         obj->setProperty ("reduceMotion", reduceMotion);
         obj->setProperty ("simpleView", simpleView);
         obj->setProperty ("wetCoat", wetCoat);
+        obj->setProperty ("showWelcome", showWelcome);
+        obj->setProperty ("welcomeSeen", welcomeSeen);
+        obj->setProperty ("holoPanel", holoPanel);
         return juce::var (obj);
     }
 
@@ -39,7 +42,7 @@ namespace pad
         }
 
         const auto known = juce::StringArray { "schemaVersion", "frameRate", "idleFrameRate", "msaaSamples",
-                                               "anisotropy", "maxDetail", "panelTextureWidth", "renderScale", "parallaxAmount", "reduceMotion", "simpleView", "wetCoat" };
+                                               "anisotropy", "maxDetail", "panelTextureWidth", "renderScale", "parallaxAmount", "reduceMotion", "simpleView", "wetCoat", "showWelcome", "welcomeSeen", "holoPanel" };
 
         for (auto& prop : obj->getProperties())
             if (! known.contains (prop.name.toString()))
@@ -119,6 +122,9 @@ namespace pad
                 c.warnings.add ("wetCoat must be a number from 0 to 1");
         }
 
+        if (auto v = obj->getProperty ("showWelcome"); v.isBool()) c.showWelcome = (bool) v;
+        if (auto v = obj->getProperty ("welcomeSeen"); v.isString()) c.welcomeSeen = v.toString().substring (0, 32);
+        if (auto v = obj->getProperty ("holoPanel"); v.isBool()) c.holoPanel = (bool) v;
         auto simple = obj->getProperty ("simpleView");
         if (! simple.isVoid())
         {
@@ -129,6 +135,16 @@ namespace pad
         }
 
         return c;
+    }
+
+    void UIConfig::saveKey (const juce::String& key, const juce::var& value, const juce::File& file)
+    {
+        juce::var parsed;
+        if (! file.existsAsFile() || juce::JSON::parse (file.loadFileAsString(), parsed).failed() || parsed.getDynamicObject() == nullptr)
+            parsed = UIConfig().toVar();
+        parsed.getDynamicObject()->setProperty (key, value);
+        if (file.getParentDirectory().createDirectory().wasOk())
+            file.replaceWithText (juce::JSON::toString (parsed));
     }
 
     void UIConfig::saveSimpleView (bool simple, const juce::File& file)

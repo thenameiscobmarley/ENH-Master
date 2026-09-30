@@ -94,7 +94,9 @@ dialog h2 { font-size: 1.25rem; line-height: 1.3; letter-spacing: 0; }
 /* Preset cards: a picture of each design over its name */
 .d-templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
 .designer button.d-tpl { display: grid; gap: 5px; justify-items: center; padding: 6px; font-size: .75rem; line-height: 1.2; text-align: center; }
-.d-tpl svg { width: 100%; height: auto; border-radius: 4px; }
+.d-tpl svg, .d-tpl img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.d-tpl-pic { display: block; width: 100%; min-height: 28px; border-radius: 4px; background: rgba(255, 240, 220, .03); }
+.d-templates .d-tpl { content-visibility: auto; contain-intrinsic-size: auto 90px; }
 
 
 /* The top bar's grouped buttons */
@@ -168,3 +170,41 @@ dialog { max-height: 92vh; overflow: auto; }
 .snd-head button { padding: 2px 7px; min-width: 0; }
 .snd-param { display: grid; grid-template-columns: 1fr 1.2fr auto; align-items: center; gap: 6px; font-size: .8rem; margin: 2px 0; }
 .snd-param output { min-width: 64px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---- UX: preset search, quick start, shortcuts, toasts ---- */
+.d-search { width: 100%; margin: 0 0 6px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line2); background: rgba(0, 0, 0, .35); color: var(--ink); font: inherit; font-size: .88rem; }
+.d-search::placeholder { color: var(--dim); }
+.d-tpl[hidden] { display: none !important; }
+.d-start .d-steps { list-style: none; counter-reset: st; margin: 6px 0 0; padding: 0; display: grid; gap: 10px; }
+.d-start .d-steps li { counter-increment: st; position: relative; padding: 10px 10px 10px 40px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 240, 220, .025); font-size: .86rem; color: var(--muted); display: grid; gap: 8px; }
+.d-start .d-steps li::before { content: counter(st); position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; font-weight: 800; color: #0b0a08; background: var(--pearl); }
+.d-start .d-steps b { color: var(--ink); }
+.d-start .d-steps button { justify-self: start; }
+.designer button.d-link { background: none; border: 0; padding: 0 2px; color: var(--accent); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line2); border-bottom-width: 2px; background: rgba(255, 255, 255, .05); font: 600 .78em/1.5 var(--mono); color: var(--ink); text-align: center; }
+.d-keys dl { display: grid; gap: 6px; margin: 0 0 14px; }
+.d-keys dl div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.d-keys dt { color: var(--muted); font-size: .86rem; }
+.d-keys dd { margin: 0; font-size: .9rem; }
+.d-toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); padding: 9px 16px; border-radius: 999px; background: var(--pearl); color: #0b0a08; font-weight: 700; font-size: .86rem;
+  box-shadow: 0 14px 40px -12px #000; opacity: 0; pointer-events: none; transition: opacity .2s, transform .25s; z-index: 100; }
+.d-toast.on { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .d-toast { transition: none; } }
+
+/* Parts tab: the parts on the panel, and the design check */
+.d-layers { list-style: none; margin: 6px 0 12px; padding: 0; display: grid; gap: 3px; max-height: 260px; overflow: auto; }
+.d-layers li { display: flex; gap: 4px; align-items: center; }
+.d-layers li.on .d-layer-name { border-color: var(--accent, #e0a84a); color: var(--text, #fff); }
+.designer .d-layers button { padding: 3px 7px; font-size: .75rem; }
+.designer .d-layers .d-layer-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-layers button[aria-pressed="true"] { color: var(--accent, #e0a84a); }
+.d-issues { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.designer .d-issue button { width: 100%; text-align: left; font-size: .78rem; padding: 5px 8px; border-left: 3px solid var(--line); }
+.designer .d-issue.bad button { border-left-color: #e0412e; }
+.designer .d-issue.warn button { border-left-color: #e0a84a; }
+.designer .d-issue.info button { border-left-color: #6b7a8c; }
+/* Look tab: ideas */
+.d-ideas-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.designer .d-ideas-head button { white-space: nowrap; flex: none; }
+.d-ideas:empty { display: none; }
+.d-ideas { margin-bottom: 12px; }

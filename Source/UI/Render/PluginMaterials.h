@@ -11,7 +11,7 @@ namespace pad::shaders
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
         paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
         waveScreen, balancerDisplay, present, wood,
-        glassPanel, blurPass, outlineFrame, outlineHull, studioWall, designedScreen,
+        glassPanel, blurPass, outlineFrame, outlineHull, studioWall, designedScreen, quartzShelf, holoCard,
         numMaterials
     };
 
@@ -358,10 +358,11 @@ namespace pad::shaders
                 + texture (uTex, uv + vec2 (-t.x, t.y)).rgb + texture (uTex, uv + vec2 (t.x, t.y)).rgb);
 )GLSL", "", false };
 
-    /*  The glass panel (GlassPanel.h), one quad over the panel plus a margin for its shadow. Frosted
-        glass and nothing else: the scene behind it blurred and lifted a little toward white, a hard-
-        cornered edge that catches the light (brightest along the top), a soft shadow falling under it,
-        and the panel's white print on top. No tint. Everything is in screen pixels about its centre.
+    /*  The glass panel (GlassPanel.h), one quad over the panel plus a margin for its shadow. Smoked frosted
+        glass: the rack behind it, blurred, shows through a dark smoky tint (dimmed and held under a ceiling,
+        so the print always reads); a soft sheen falls across it from the top left, the top edge catches the
+        light and the sides a little; softly rounded corners; a soft shadow under it; the print on top.
+        Everything is in screen pixels about its centre.
         vLocal.xz  -1..1 over the quad; uParams  = (panel half width px, half height px, px per logical px, opacity)
         uParams2   = (quad half width px, quad half height px, have blur 0/1, _)
         uTex = blurred scene (screen uv); uTex2 = the print (panel uv); uEmissive = (1 / screen w, 1 / screen h, _) */
@@ -369,34 +370,91 @@ namespace pad::shaders
     vec2 p = vLocal.xz * uParams2.xy;                 // px from the panel's centre, y down
     vec2 half_ = uParams.xy;
     float s = uParams.z;
-    vec2 q = abs (p) - half_;
-    float d = max (q.x, q.y);                          // hard rectangle: square corners
+    float r = 8.0 * s;                                 // corner radius
+    vec2 q = abs (p) - half_ + r;
+    float d = length (max (q, 0.0)) + min (max (q.x, q.y), 0.0) - r;
     float inside = 1.0 - smoothstep (-0.5, 0.5, d);
 
-    // Frost: the blurred scene, a little brighter and lifted toward white
+    // Frosted and smoked: the blurred rack, dimmed and kept under a ceiling, through a dark tint
     vec2 screenUv = gl_FragCoord.xy * uEmissive.xy;
     vec3 behind = uParams2.z > 0.5 ? texture (uTex, screenUv).rgb : vec3 (0.10);
-    float t = clamp ((p.y + half_.y) / (2.0 * half_.y), 0.0, 1.0);   // 0 top .. 1 bottom
-    vec3 glassCol = mix (behind * 1.08, vec3 (1.0), mix (0.16, 0.10, t));   // a touch more light at the top
+    behind = min (behind * 0.62, vec3 (0.24)) + 0.012;
+    vec2 uv = (p + half_) / (2.0 * half_);             // 0..1, top left
+    vec3 smoke = mix (vec3 (0.060, 0.062, 0.070), vec3 (0.035, 0.036, 0.042), uv.y);
+    vec3 glassCol = mix (smoke, behind, 0.50);
+    if (uParams2.w > 0.5)   // HOLOGRAM: a dark green light box, scanlines, the rack faint behind
+    {
+        glassCol = mix (vec3 (0.010, 0.040, 0.022), behind * vec3 (0.25, 0.60, 0.35), 0.35);
+        glassCol *= 0.92 + 0.08 * sin (gl_FragCoord.y * 3.14159 / max (s, 1.0));
+    }
 
-    // The edge: a crisp 1 px line of light just inside, brightest along the top
-    float fromEdge = -d;                                                // px inside
-    float edgeLine = (1.0 - smoothstep (0.0, 1.2 * s, fromEdge)) * inside;
-    float topLight = 1.0 - smoothstep (0.0, 1.5 * s, p.y + half_.y);  // the top edge
-    glassCol = mix (glassCol, vec3 (1.0), edgeLine * mix (0.30, 0.65, topLight));
+    // A faint frost grain (fixed to the glass, so it doesn't crawl)
+    float grain = fract (sin (dot (floor (p / s), vec2 (12.9898, 78.233))) * 43758.5453);
+    glassCol += (grain - 0.5) * 0.010;
+
+    // The sheen: a soft band of light across from the top left, fading down the panel
+    float band = exp (-pow ((uv.x * 0.55 + uv.y - 0.18) / 0.22, 2.0));
+    glassCol += vec3 (1.0, 0.97, 0.92) * band * 0.045 * (1.0 - uv.y);
+    glassCol += vec3 (1.0) * 0.035 * (1.0 - smoothstep (0.0, 0.22, uv.y));   // the top lit a little from above
+
+    // The edge: a thin line of light just inside - bright along the top, softer down the sides
+    float fromEdge = -d;
+    float edgeLine = (1.0 - smoothstep (0.0, 1.3 * s, fromEdge)) * inside;
+    float topLight = 1.0 - smoothstep (0.0, 4.0 * s, p.y + half_.y);
+    float sideLight = 0.5 + 0.5 * (1.0 - uv.y);
+    glassCol = mix (glassCol, uParams2.w > 0.5 ? vec3 (0.49, 1.0, 0.65) : vec3 (1.0), edgeLine * mix (0.16 * sideLight, 0.55, topLight));
+    // an inner bevel: a second, fainter line a few pixels in, as thick glass shows
+    float bevel = (1.0 - smoothstep (0.0, 1.0 * s, abs (fromEdge - 3.0 * s))) * inside;
+    glassCol += vec3 (1.0) * bevel * 0.035 * sideLight;
 
     // The print
-    vec2 puv = (p + half_) / (2.0 * half_);
-    vec4 ink = texture (uTex2, puv);
+    vec4 ink;
+    if (uParams2.w > 0.5)   // HOLOGRAM: the print as a CRT shows it - raster lines tearing now and then, the glow of the beam
+    {
+        float band = floor (gl_FragCoord.y / (3.0 * s)), tick = floor (uTime * 14.0);
+        float r1 = fract (sin (band * 91.3 + tick * 17.1) * 43758.5);
+        vec2 juv = uv + vec2 (step (0.94, fract (sin (band * 3.7 + tick * 0.61) * 918.3)) * (r1 - 0.5) * 0.012 + (r1 - 0.5) * 0.0012, 0.0);
+        ink = texture (uTex2, juv);
+        vec4 halo = texture (uTex2, juv, 2.0);
+        ink.rgb = ink.rgb + halo.rgb * 0.5 * halo.a;
+        ink.a = max (ink.a, halo.a * 0.5);
+        ink.rgb *= 0.9 + 0.2 * fract (sin (dot (gl_FragCoord.xy + tick, vec2 (12.9898, 78.233))) * 43758.5453);
+    }
+    else
+        ink = texture (uTex2, uv);
     glassCol = mix (glassCol, ink.rgb, ink.a);
 
     // Soft shadow under it, offset down, outside the glass only
-    vec2 sq = abs (p - vec2 (0.0, 7.0 * s)) - half_;
+    vec2 sq = abs (p - vec2 (0.0, 9.0 * s)) - half_;
     float sd = length (max (sq, 0.0)) + min (max (sq.x, sq.y), 0.0);
-    float shadow = exp (-max (sd, 0.0) / (14.0 * s)) * 0.45 * (1.0 - inside);
+    float shadow = exp (-max (sd, 0.0) / (18.0 * s)) * 0.55 * (1.0 - inside);
 
     col = inside > 0.001 ? glassCol : vec3 (0.0);
     alpha = max (inside, shadow) * uParams.w;
+)GLSL", "", false };
+
+    /*  The welcome screen's card (HoloWelcome.h), as an oscilloscope would put it up: its beam-drawn print
+        (four jitter frames stacked in the texture, flipped between a dozen times a second), and over that
+        what a CRT does to it - lines of the raster that tear sideways for a moment, a slow sway, the glow
+        round every stroke (the texture's own blurred mips), faint scanlines, grain and flicker.
+        uTex = the frames (straight RGBA, top-left origin); uParams = (opacity, time, px per logical px, frame 0..3) */
+    inline const hwk::shaders::Material holoCardMaterial { "holoCard", R"GLSL(
+    vec2 uv = vLocal.xz * 0.5 + 0.5;
+    float t = uParams.y, px = max (uParams.z, 1.0);
+    // the raster: bands a few pixels tall, now and then one tears sideways; the whole picture sways a little
+    float band = floor (gl_FragCoord.y / (3.0 * px));
+    float tick = floor (t * 14.0);
+    float r1 = fract (sin (band * 91.3 + tick * 17.1) * 43758.5);
+    float tear = step (0.93, fract (sin (band * 3.7 + tick * 0.61) * 918.3)) * (r1 - 0.5) * 0.010;
+    uv.x += tear + sin (uv.y * 90.0 + t * 5.3) * 0.0007 + (r1 - 0.5) * 0.0009;
+    vec2 fuv = vec2 (clamp (uv.x, 0.0, 1.0), (clamp (uv.y, 0.001, 0.999) + uParams.w) * 0.25);
+    vec4 c = texture (uTex, fuv);
+    vec4 glow = texture (uTex, fuv, 2.2);
+    float scan = 0.90 + 0.10 * sin (gl_FragCoord.y * 3.14159 / px);
+    float grain = fract (sin (dot (gl_FragCoord.xy + vec2 (tick * 13.0, tick * 7.0), vec2 (12.9898, 78.233))) * 43758.5453);
+    float flick = 0.94 + 0.06 * sin (t * 57.0) * sin (t * 23.0);
+    col = (c.rgb + glow.rgb * 0.55) * scan * flick * (0.92 + 0.16 * grain);
+    alpha = clamp (max (c.a, glow.a * 0.6), 0.0, 1.0) * uParams.x;
 )GLSL", "", false };
 
     /*  One pass of the panel's blur, at a quarter of the screen's resolution: a 9-tap Gaussian along
@@ -437,12 +495,58 @@ namespace pad::shaders
     alpha = uParams.w;
 )GLSL", "", false };
 
-    /*  The studio wall behind the rack (walnut slats, a lamp's pool, the window's shafts): baked once into
-        uTex by StudioWall.h, read back here - one fetch, antialiased by its mip chain.
-        uParams = (left x, floor y, width, height) of the baked area, in world metres */
+    /*  The wall behind the rack (plaster, the window and the view through it): baked once into uTex by
+        StudioWall.h, read back here - one fetch, antialiased by its mip chain.
+        uParams = (left x, floor y, width, height) of the baked area, in world metres; uParams2 = (dim, range) */
     inline const hwk::shaders::Material studioWallMaterial { "studioWall", R"GLSL(
     vec3 c = texture (uTex, vec2 ((vWorld.x - uParams.x) / uParams.z, (vWorld.y - uParams.y) / uParams.w)).rgb;
-    col = c * c * 0.6 * uParams2.x;   // uParams2.x: dimmer as you walk up to a unit (the room falls away)
+    col = c * c * uParams2.y * uParams2.x;   // uParams2.x: dimmer as you walk up to a unit (the room falls away)
+)GLSL" };
+
+    /*  The shelf the rack stands on: polished white quartz with soft grey veins, and in it the window behind
+        the rack - the view ray off the shelf followed to the wall's plane and read from the wall's baked
+        texture (blurred a little by its mip chain: polished, not a mirror), by Fresnel. Where the ray never
+        reaches the wall (the slab's front edge), the room map instead. One fetch for the veins' noise-free
+        sines, one for the reflection.
+        uTex = the wall's texture; uParams = (wall left x, floor y, width, height); uParams2 = (wall z, range, dim, _) */
+    inline const hwk::shaders::Material quartzShelfMaterial { "quartzShelf", R"GLSL(
+    vec2 p = vWorld.xz * 0.55;
+    // (veins run on a slant, wandering: a direction plus two layers of warp - streaks, never rings)
+    float s = p.x * 0.85 + p.y * 0.55;
+    float w1 = sin (s * 2.3 + 1.7 * sin (p.y * 0.9 - p.x * 0.35) + 0.8 * sin (p.x * 2.6 + p.y * 1.7));
+    float w2 = sin (s * 4.1 + 2.3 * sin (p.x * 0.6 + p.y * 1.4) + 1.1);
+    float vein = (1.0 - smoothstep (0.0, 0.06, abs (w1))) * 0.55 + (1.0 - smoothstep (0.0, 0.03, abs (w2))) * 0.25;
+    float fleck = 0.5 + 0.5 * sin (p.x * 61.0 + sin (p.y * 47.0) * 3.0) * sin (p.y * 53.0);
+    vec3 albedo = mix (vec3 (0.86, 0.85, 0.83), vec3 (0.52, 0.53, 0.56), vein) * (0.97 + 0.03 * fleck);
+    col = albedo * (amb * 0.62 + ndl * lightCol * 0.55 + fill);
+
+    // The day through the window, fallen on the shelf in front of the wall: three panes of light with the
+    // bars' soft shadows between them, fading as it reaches forward (the sun is high)
+    if (N.y > 0.5)
+    {
+        float fromWall = vWorld.z - uParams2.x;
+        float across = vWorld.x / 7.6;                       // the window: x -7.6 .. 7.6
+        float bars = smoothstep (0.02, 0.06, abs (abs (across) - 0.333)) * smoothstep (0.94, 0.90, abs (across));
+        float reach = exp (-max (fromWall, 0.0) / 2.6) * smoothstep (-0.2, 0.4, fromWall);
+        col += albedo * vec3 (1.05, 1.0, 0.92) * 0.85 * bars * reach * uParams2.z;
+    }
+
+    // The window behind the rack, mirrored in the polish
+    vec3 refl = envColor (R) * 0.35;
+    if (R.z < -0.02 && N.y > 0.5)
+    {
+        float t = (uParams2.x - vWorld.z) / R.z;
+        vec3 hit = vWorld + R * t;
+        vec2 uv = vec2 ((hit.x - uParams.x) / uParams.z, (hit.y - uParams.y) / uParams.w);
+        if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0)
+        {
+            vec3 c = texture (uTex, uv, 1.5).rgb;
+            refl = c * c * uParams2.y * uParams2.z;
+        }
+    }
+    float fres = 0.05 + 0.95 * pow (facing, 5.0);
+    col += refl * mix (0.08, 1.0, fres);
+    col += lightCol * pow (ndh, 90.0) * 0.35;   // the key light's sharp highlight on the polish
 )GLSL" };
 
     /*  A designed unit's display (the PRO X4's, the VELVETIZER's): its screen glowing in its own colour, what
@@ -516,6 +620,8 @@ namespace pad::shaders
             case lens:          return lib::magnifierLens;
             case sunlight:      return lib::windowLight;
             case studioWall:    return studioWallMaterial;
+            case quartzShelf:   return quartzShelfMaterial;
+            case holoCard:      return holoCardMaterial;
             case designedScreen: return designedScreenMaterial;
             default:            return lib::plastic;
         }

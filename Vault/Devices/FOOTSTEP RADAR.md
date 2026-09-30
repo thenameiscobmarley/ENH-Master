@@ -14,6 +14,11 @@ footsteps (any surface, any game, near or far) and makes each one easier to hear
   right next to you gets little, since you can already hear it.
 - **SPACE** — how much room it adds to far steps, so you can tell *far* from *near*. The further the
   step, the more room it gets and the later that room arrives. Near steps get none, so they stay dry and close.
+- **REACH** — hear steps from much further away (0–10, default 5). Once the radar has found a step, or
+  expects one from a walker it follows, REACH lifts the step's quiet sharp start across 24 bands: up to
+  +12 dB at 5 and +24 dB at 10. Speech, music, gunfire and rain are held back, so they barely move
+  (tested: speech 0 dB, music within 1 dB on average). At 10 a rare false step can jump up to about 10 dB,
+  so start at 5.
 - **IN** — on/off (the red switch). The COMPETITIVE FOOTSTEPS preset turns it on.
 - **LISTEN** — (the switch under it) hear only what the radar adds. Good for checking what it's catching.
 

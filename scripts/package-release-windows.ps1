@@ -109,3 +109,34 @@ $zip = Join-Path $Dist "$name.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path $stage -DestinationPath $zip
 Write-Host "Packaged $zip"
+
+# ENH Master 2D: the same plugin with the flat, no-OpenGL editor (for older graphics), its own zip
+$bundle2d = Join-Path $Build "EnhMaster2D_artefacts/Release/VST3/ENH Master 2D.vst3"
+$standalone2d = Join-Path $Build "EnhMaster2D_artefacts/Release/Standalone/ENH Master 2D.exe"
+if (Test-Path $bundle2d) {
+    $name2 = "ENH-Master-2D-$Version-windows-x64"
+    $stage2 = Join-Path $Dist $name2
+    if (Test-Path $stage2) { Remove-Item -Recurse -Force $stage2 }
+    New-Item -ItemType Directory -Force -Path $stage2 | Out-Null
+    Copy-Item -Recurse $bundle2d $stage2
+    if (Test-Path $standalone2d) { Copy-Item $standalone2d $stage2 }
+    foreach ($f in "README.md", "LICENSE", "NOTICE", "scripts/HOW-TO-CHECK.txt") {
+        $p = Join-Path $Source $f
+        if (Test-Path $p) { Copy-Item $p $stage2 }
+    }
+@"
+ENH Master 2D $Version (Windows)
+
+The same plugin as ENH Master - the same sound, presets and settings - with a flat 2D rack instead of the
+3D one: every unit's faceplate, one under another (the wheel or a drag slides the rack up and down).
+No OpenGL: for older or weaker graphics. It installs alongside ENH Master (its own plugin).
+
+VST3: copy "ENH Master 2D.vst3" into C:\Program Files\Common Files\VST3, then rescan in your host.
+App: "ENH Master 2D.exe" is the gamers' app with the 2D rack.
+"@ | Set-Content -Encoding UTF8 (Join-Path $stage2 "INSTALL.txt")
+    Write-Checksums $stage2
+    $zip2 = Join-Path $Dist "$name2.zip"
+    if (Test-Path $zip2) { Remove-Item -Force $zip2 }
+    Compress-Archive -Path $stage2 -DestinationPath $zip2
+    Write-Host "Packaged $zip2"
+}

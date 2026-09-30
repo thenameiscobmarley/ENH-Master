@@ -29,7 +29,9 @@ namespace pad::geo
     MeshData caseFrontRails();  // the front mounting rails the units' ears are screwed to
     MeshData caseRailHoles();   // the square rack holes punched down those rails
     MeshData caseEdges();       // bright chamfer along the front edges of the cheeks
-    MeshData caseFloor();       // the surface the case is standing on
+    MeshData caseFloor();       // the surface the case is standing on: the quartz top of a shelf
+    MeshData shelfEdge();       // the slab's front edge
+    MeshData shelfCabinet();    // the walnut cabinet under it
     MeshData backWall();        // the studio wall behind it (walnut slats, see studioWall)
     float floorHeight();        // where caseFloor lies
 
@@ -57,6 +59,7 @@ namespace pad::geo
     MeshData cheekGrommetHole();
     MeshData designedJackPlugs (int unit);       // a designed unit's jacks' plugs (panel-local)
     MeshData designedJackCables();               // and their cables, into the channels (world)
+    MeshData jackPlugs (bool metal);             // the 1/4" plugs in those jacks: collars (metal) or boots
     MeshData xlrConnectors();                    // the XLR barrels where the audio cables plug into the LUNCHBOX
     MeshData xlrLatches();                       // their metal latches and rings
     // US mains parts (NEMA 5-15). Receptacle: its face (y up out of the panel) and its dark slots and ground

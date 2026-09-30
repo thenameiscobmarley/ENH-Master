@@ -6,6 +6,7 @@
 #include "../Render/PluginMaterials.h"
 #include "../../Parameters/ParameterBridge.h"
 #include "../SharedUIState.h"
+#include "../Holo/HoloWelcome.h"
 #include "../../Config/UIConfig.h"
 #include "DeviceLayout.h"
 #include "PanelArtwork.h"
@@ -14,6 +15,7 @@
 #include "../../DSP/SpectrumScope.h"
 #include "../../DSP/MixBalancer.h"
 #include "../DisplayHistory.h"
+#include "RoomScreen.h"
 
 namespace pad
 {
@@ -35,6 +37,23 @@ namespace pad
         void renderOpenGL() override;
         void openGLContextClosing() override;
 
+        /** CUSTOM: a newly loaded design's print and screens (message thread); uploaded on the next frame,
+            with its screws, jacks and screens rebuilt and the light maps baked again. */
+        void setCustomTextures (artwork::RawTexture decal, artwork::RawTexture screens)
+        {
+            std::lock_guard<std::mutex> l (customMutex);
+            pendingCustomDecal = std::move (decal); pendingCustomScreens = std::move (screens);
+            customDirty = true;
+        }
+        /** The LUNCHBOX's locker changed (layout::placeLunchbox has run): its print, its modules' plates and
+            the empty slots are rebuilt on the next frame. Message thread. */
+        void setLunchboxDecal (artwork::RawTexture decal)
+        {
+            std::lock_guard<std::mutex> l (customMutex);
+            pendingLunchboxDecal = std::move (decal);
+            lunchboxDirty = true;
+        }
+
 
     private:
         struct Meshes
@@ -49,16 +68,16 @@ namespace pad
                          enhBody, tubeBody, tubeVents, tubeVentWalls, tubeVentFloors, bodyScrews,
                          caseCheeks, caseRails, caseFrontRails, caseRailHoles, caseEdges,
                          caseBoards, caseFeet, caseBrass,
-                         lbSlotWell, lbSlotRails, lbConnector, lbPins, lbStand, lbHardware, lbRailHoles,
+                         shelfEdge, shelfCabinet, lbSlotWell, lbSlotRails, lbConnector, lbPins, lbStand, lbHardware, lbRailHoles,
                          powerCables, wallOutlet, xlrBarrels, xlrRings, stripFaces, stripHoles, stripPlugs,
                          loosePlug, loosePins, wallPlate, wallFaces, wallHoles, wallPlug;
-            std::array<gfx::GpuMesh, 4> lbPlates, lbPlateEdges, lbScrews;   // the LUNCHBOX's modules
+            std::array<gfx::GpuMesh, layout::lb::numModules> lbPlates, lbPlateEdges, lbScrews;   // the LUNCHBOX's modules (empty: in its locker)
             std::array<gfx::GpuMesh, layout::numRackUnits> audioCables;      // one per unit, each its own colour
             int numAudioCables = 0;
 
             template <typename Fn> void forEach (Fn&& fn)
             {
-                for (auto* m : { &lbSlotWell, &lbSlotRails, &lbConnector, &lbPins, &lbStand, &lbHardware, &lbRailHoles,
+                for (auto* m : { &shelfEdge, &shelfCabinet, &lbSlotWell, &lbSlotRails, &lbConnector, &lbPins, &lbStand, &lbHardware, &lbRailHoles,
                                  &powerCables, &wallOutlet, &xlrBarrels, &xlrRings, &stripFaces, &stripHoles, &stripPlugs,
                                  &loosePlug, &loosePins, &wallPlate, &wallFaces, &wallHoles, &wallPlug })
                     fn (*m);
@@ -185,7 +204,7 @@ namespace pad
         // standing in for its controls (bakeOcclusion), one atlas; which unit each program is set up for now
         static constexpr int occW = 256, occH = 64, occUnit = 5;
         gfx::Texture2D occTex;
-        unsigned occBakedHidden = ~0u;
+        layout::UnitMask occBakedHidden = ~layout::UnitMask { 0 };
         std::array<gfx::Mat4, layout::numUnits> unitToPanel {};   // world -> each panel (this frame)
         void bakeOcclusion();
         std::array<int, shaders::numMaterials> programOccUnit {};
@@ -206,11 +225,16 @@ namespace pad
         // The designed units (PRO X4, VELVETIZER): print, meter dial, what glows in the displays; and what is
         // modelled flat on the panel from the design - its screws, jack sockets and display screens
         gfx::Texture2D x4DecalTex, x4VuFaceTex, x4ScreenTex, velvetDecalTex, velvetVuFaceTex, velvetScreenTex, takebackDecalTex, takebackScreenTex, scopeDecalTex, scopeScreenTex;
+        std::vector<gfx::Texture2D> genDecalTex, genScreenTex;   // the newer units (UnitPanels.h)
+        gfx::Texture2D customDecalTex, customScreenTex;           // CUSTOM
+        std::mutex customMutex; artwork::RawTexture pendingCustomDecal, pendingCustomScreens; std::atomic<bool> customDirty { false };
+        artwork::RawTexture pendingLunchboxDecal; std::atomic<bool> lunchboxDirty { false };
+        void buildLunchboxMeshes();
         std::array<gfx::Texture2D, 4> takebackVuFaceTex;
         std::array<gfx::GpuMesh, layout::numDesigned> designedScrews, designedJackRings, designedJackHoles, designedScreens, designedJackPlugs, designedVentWalls;
         // Cable management (with the case: it follows the rack's size): the channels down the cheeks, the
         // grommet, and the designed units' jack cables running into the channels
-        gfx::GpuMesh cableSlots, cableLips, grommet, grommetHole, designedJackCables;
+        gfx::GpuMesh cableSlots, cableLips, grommet, grommetHole, designedJackCables, jackPlugMetal, jackPlugBoot;
         void buildDesignedMeshes();
         void drawDesigned (int unit, const gfx::Mat4& panel);
         gfx::Texture2D powerDecalTex, lunchboxDecalTex, lunchboxVuFaceTex, blankTex;   // POWER, LUNCHBOX; blankTex: no print
@@ -224,7 +248,7 @@ namespace pad
         float coatScale = 1.0f;
         gfx::Texture2D wallTex;                          // the studio wall, baked (StudioWall.h)
         void buildCase();
-        unsigned builtHidden = 0u;
+        layout::UnitMask builtHidden = 0u;
         static float wallRackCentreY() noexcept
         {
             return 0.5f * (layout::unitOrigin (layout::bottomUnit()).y + layout::unitOrigin (layout::topUnit()).y);
@@ -315,6 +339,11 @@ namespace pad
         bool blurBehindPanel (int screenW, int screenH);
         void drawPanelConnector (const CameraRig&, int screenW, int screenH);
         void drawGlassPanel (int screenW, int screenH, bool blurred);
+        void drawWelcome (int screenW, int screenH, float dt);
+        gfx::Texture2D welcomeTex;
+        juce::uint32 uploadedWelcomeVersion = 0;
+        float welcomeAlpha = 0.0f;
+        std::vector<juce::Point<float>> welcomePts;
         void drawOutlines (const CameraRig&, int viewportW);
         /** The hovered control's model and matrices, captured while the controls are drawn (inverted hull). */
         const GpuModel* hullModel = nullptr;
@@ -351,7 +380,7 @@ namespace pad
         std::array<float, 18> seraphColumns {};    // per column x channel, 0..1 (LEVEL: -1..1)
         float tubePower = 0.0f, tubeWarmth = 0.0f;
         int seraphModeParam = -1;
-        std::array<int, layout::numDesigned> designedPowerParam { -1, -1, -1, -1 };   // the designed units' power (their screens light with it)
+        std::array<int, layout::numDesigned> designedPowerParam = [] { std::array<int, layout::numDesigned> a {}; a.fill (-1); return a; }();   // the designed units' power (their screens light with it)
         std::array<float, 36> takebackLeds {};   // TAKEBACK's LED ladders as lit now (they ease like real LEDs)
         /** A designed unit's display, drawn live: its area of the unit's screen texture (pixels), the baked
             title under it, and what it has shown lately (a scrolling history). */
@@ -366,12 +395,16 @@ namespace pad
             std::vector<float> phosphor;   // PHOSPHOR's CRT: the glow the beam has left, fading
             unsigned readAt = 0;           //   and how far through the scope ring it has drawn
             float beamX = -1.0f, beamY = -1.0f;   // (-1: no beam yet)
+            float fitX = 0.0f, fitY = 0.0f;         // FIT: the trace's recent peak across and up (what fills the screen)
         };
         std::vector<LiveScreen> liveScreens;
         std::array<double, layout::numDesigned> liveScreenClock {};
         void setUpLiveScreens();
         void updateLiveScreens (int unit, bool on);
         void drawScopeTrace (LiveScreen&, float dt);
+        using ScreenInkRef = void*;                         // (the .cpp's ScreenInk)
+        void drawRoomScreen (ScreenInkRef, float w, float h);
+        void stampScreen (ScreenInkRef, const std::vector<roomscreen::Line>&, const std::vector<roomscreen::Blob>&);
         double demoScopeTime = 0.0;
         int footstepControl = -1, modeControl = -1, heldButton = -1;
         float modeBlend = -1.0f, swapPulse = 0.0f;   // 0 = NORM scale, 1 = ADD scale

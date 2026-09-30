@@ -2,6 +2,8 @@
 
 #include <array>
 #include <string_view>
+#include "units/UnitList.h"
+#include "units/LbList.h"
 
 /*  The units made in the Rack Unit Designer and built into the rack: LATINSPHIEL PRO X4 (ProX4.h),
     VELVETIZER (Velvetizer.h) and TAKEBACK (Takeback.h). Their parameters, in one table that everything reads - the plugin's
@@ -18,7 +20,9 @@ namespace enh::dsp::designed
         std::string_view texts;   // toggle: "off|on" (optional); choice: the choices, '|' between
     };
 
-    inline constexpr int numParams = 61;
+    inline constexpr int numParams = 62 + units::numParams + 21 + lbmods::numParams;   // (then the newer units': units/UnitList.h; the CUSTOM slot's 21; the LUNCHBOX modules': units/LbList.h)
+    inline constexpr int firstCustomParam = 62 + units::numParams, numCustomKnobs = 16, numCustomSwitches = 4;
+    inline constexpr int firstLbParam = firstCustomParam + 21;   // (the LUNCHBOX's 500-series modules)
     inline constexpr int numX4 = 35;        // the first 35 are PRO X4's, then VELVETIZER's (11), then TAKEBACK's (8)
     inline constexpr int numVelvet = 11, numTakeback = 8;   // (then PHOSPHOR, the scope: its 7 settings)
 
@@ -85,6 +89,24 @@ namespace enh::dsp::designed
         { "scPersist", "Scope Persistence", "PERSIST", "", 0, 0.0f, 10.0f, 5.0f, 1, "" },
         { "scGain", "Scope Gain", "V/DIV", "", 0, 0.0f, 10.0f, 5.0f, 1, "" },
         { "scTime", "Scope Timebase", "TIME/DIV", "", 0, 0.0f, 10.0f, 4.0f, 1, "" },
+        { "scFit", "Scope Fit", "FIT", "", 1, 0.0f, 1.0f, 0.0f, 0, "Off|Fit" },   // (sizes the trace to fill the screen)
+        // The newer units (Tools/units/gen_units.py), each starting with its POWER
+#include "units/UnitParams.inc"
+        // CUSTOM: a unit made in the Rack Unit Designer, loaded from its share code - its POWER, then 16 knob
+        // slots and 4 switch slots (what each does comes from the design: see Custom/DesignCode.h)
+        { "cuPower", "Custom Power", "POWER", "", 1, 0.0f, 1.0f, 0.0f, 0, "Off|On" },
+        { "cuK1", "Custom Knob 1", "KNOB 1", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK2", "Custom Knob 2", "KNOB 2", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK3", "Custom Knob 3", "KNOB 3", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK4", "Custom Knob 4", "KNOB 4", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK5", "Custom Knob 5", "KNOB 5", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK6", "Custom Knob 6", "KNOB 6", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK7", "Custom Knob 7", "KNOB 7", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK8", "Custom Knob 8", "KNOB 8", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK9", "Custom Knob 9", "KNOB 9", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK10", "Custom Knob 10", "KNOB 10", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK11", "Custom Knob 11", "KNOB 11", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK12", "Custom Knob 12", "KNOB 12", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK13", "Custom Knob 13", "KNOB 13", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK14", "Custom Knob 14", "KNOB 14", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuK15", "Custom Knob 15", "KNOB 15", "", 0, 0.0f, 100.0f, 50.0f, 0, "" }, { "cuK16", "Custom Knob 16", "KNOB 16", "", 0, 0.0f, 100.0f, 50.0f, 0, "" },
+        { "cuS1", "Custom Switch 1", "SWITCH 1", "", 1, 0.0f, 1.0f, 1.0f, 0, "" }, { "cuS2", "Custom Switch 2", "SWITCH 2", "", 1, 0.0f, 1.0f, 1.0f, 0, "" },
+        { "cuS3", "Custom Switch 3", "SWITCH 3", "", 1, 0.0f, 1.0f, 1.0f, 0, "" }, { "cuS4", "Custom Switch 4", "SWITCH 4", "", 1, 0.0f, 1.0f, 1.0f, 0, "" },
+        // The LUNCHBOX's 500-series modules (Tools/units/gen_units.py), each starting with its IN
+#include "units/LbParams.inc"
     }};
 
     /** Where an ID sits in the table (-1: not one of these). */
@@ -111,7 +133,8 @@ namespace enh::dsp::designed
         x4Bands,                                  // x4Bands + side * 12 + band * 3 + (0 drive, 1 tone, 2 mix)
         velPower = numX4, velBypass, velMode, velLow, velMid, velHigh, velGrain, velCrisp, velColorA, velBalance, velColorB,
         tbPower = numX4 + numVelvet, tbAuto, tbBlur, tbSharpen, tbColor, tbRaw, tbShine, tbMix,
-        scPower = numX4 + numVelvet + numTakeback, scMode, scIntensity, scFocus, scPersist, scGain, scTime
+        scPower = numX4 + numVelvet + numTakeback, scMode, scIntensity, scFocus, scPersist, scGain, scTime, scFit
     };
-    static_assert (scTime == numParams - 1, "the index list matches the table");
+    static_assert (scFit == units::firstParam - 1, "the index list matches the table");
+    static_assert (lbmods::count == 0 || lbmods::info[0].firstParam == firstLbParam, "the LUNCHBOX modules follow the CUSTOM slot");
 }

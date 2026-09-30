@@ -27,6 +27,9 @@
 #include "ProX4.h"
 #include "Velvetizer.h"
 #include "Takeback.h"
+#include "units/Units.h"
+#include "units/CustomUnit.h"
+#include "units/Lb500.h"
 #include "LoudnessMeter.h"
 #include "MixBalancer.h"
 #include "EngineMeters.h"
@@ -75,6 +78,9 @@ namespace enh::dsp
             ProX4::Settings x4 {};                              // LATINSPHIEL PRO X4 (designed unit; PWR off by default)
             Velvetizer::Settings velvet {};                     // VELVETIZER (designed unit; POWER off by default)
             Takeback::Settings takeback {};                     // TAKEBACK (designed unit; POWER off by default)
+            std::array<float, units::numParams> unitParams {};   // the newer units' parameters, raw (units/UnitList.h; each POWER off by default)
+            std::array<float, lbmods::numParams> lbParams {};     // the LUNCHBOX modules' parameters, raw (units/LbList.h; each IN off by default)
+            std::array<float, 21> customParams {};                 // the CUSTOM slot: POWER, 16 knobs, 4 switches
             Lunchbox::Settings lunchbox {};                     // LUNCHBOX: CLASS-A EQ, DE-HARSH, CROSSFEED (all out by default)
             bool compare = false;                               // COMPARE: hear the input instead, at the output's loudness
         };
@@ -106,6 +112,8 @@ namespace enh::dsp
         const ScopeFifo& getBalancerOutputScope() const noexcept { return scopeBalOut; }
         const FinalLimiter& getOutputLimiter() const noexcept { return output; }
         const EngineMeters& getMeters() const noexcept { return meters; }
+        /** CUSTOM: the loaded design's chain (message thread; the caller keeps every config alive). */
+        void setCustomConfig (const units::CustomConfig* c) noexcept { custom->setConfig (c); }
 
         /** For tests: footsteps the radar has found since reset, and how much it is lifting now (0..1). */
         int getFootstepEventCount() const noexcept { return radar.getStepsTotal(); }
@@ -183,6 +191,11 @@ namespace enh::dsp
         ProX4 x4;                // LATINSPHIEL PRO X4 (after CHARACTER)
         Velvetizer velvet;       // VELVETIZER (after the PRO X4)
         Takeback takeback;       // TAKEBACK (after the VELVETIZER)
+        std::vector<std::unique_ptr<units::RackUnit>> newer;   // the newer units, in rack order (on the heap)
+        std::vector<std::unique_ptr<units::RackUnit>> lbNewer; // the LUNCHBOX's 500-series modules (units/LbList.h)
+        std::array<float, 192> displayScratch {};              // (a unit's picture state, on its way to the meters)
+        void runLbModules (float* const* chunk, int chans, int n, const Parameters& p, bool pre) noexcept;
+        std::unique_ptr<units::CustomUnit> custom = std::make_unique<units::CustomUnit>();   // CUSTOM (a design's chain)
         SessionCare sessionCare; // LONG SESSIONS: a forward balance eased over tens of seconds
         HeadphoneRoom room;      // HEADPHONE ROOM: early reflections, out of the head
         HeadphoneEQ headphones;  // HEADPHONES: the listener's headphones corrected (after COMPARE: A and B alike)

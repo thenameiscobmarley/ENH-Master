@@ -9,8 +9,21 @@ It's built to run on a cheap mini PC (Intel J4105 with UHD 600 graphics).
 - OpenGL 3.2, one simple shader per material, low-poly shapes uploaded once.
 - Soft shadows are calculated, not rendered from shadow maps.
 - Its own anti-aliasing, so it looks the same in every host.
-- Things that never change are worked out once into textures: the studio wall, and the room every
-  metal, chrome and glass surface reflects (a window up to the left, a warm floor lamp, walnut walls).
+- Things that never change are worked out once into textures: the wall behind the rack (a room in a house
+  in the daytime: plaster, a tall window, and the view through it, painted in code - sky, clouds, hills,
+  woods, a river with a stone arch bridge and a suspension bridge far off - a little out of focus), and the
+  room every metal, chrome and glass surface reflects (the daylight window behind the rack, plaster walls, a
+  wooden floor, a warm lamp).
+- The room is finished like a real one: linen curtains in soft folds either side of the window (the day
+  glowing through them), a rail, a deep sill with its shadow, the frame's bars bevelled, a framed print on
+  the wall, a quartz upstand where the wall meets the shelf, warm mottled plaster. All baked, all free.
+- The cables find their own shape: HardwareKit's cable model (`geo/Cable.h`) lets each one hang from its
+  plugs as a real cable would - its own length, gravity, never bent tighter than its minimum radius (no
+  kinks), resting on the shelf, round the case and the LUNCHBOX rather than through them, leaving each plug
+  straight - and sweeps it with frames that never twist. Worked out once when the scene is built.
+- The rack stands on a shelf: polished white quartz on a walnut cabinet. The quartz mirrors the wall behind
+  it (the view ray off the shelf, followed to the wall, read from the wall's texture: one fetch) and the day
+  falls through the window onto it in three panes of light. Measured: no cost against a plain floor.
   One texture read each, instead of maths per pixel.
 - The clear coat (the wet look): a second, sharp reflection of that room on top of each material, weighted
   by Fresnel (strong at grazing angles), plus a tight glint of the key light. How wet each surface is:

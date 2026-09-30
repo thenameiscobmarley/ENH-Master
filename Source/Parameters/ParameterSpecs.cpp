@@ -17,6 +17,7 @@ namespace pad::params
             { id::radarSens,  "Footstep Sensitivity", "SENSITIVITY", "", Kind::continuous, 0.0f, 10.0f, 6.0f, 1 },
             { id::radarBoost, "Footstep Boost",  "BOOST",   " dB", Kind::continuous, 0.0f, 34.0f, 6.0f, 1 },
             { id::radarSpace, "Footstep Space",  "SPACE",   "",   Kind::continuous, 0.0f, 10.0f, 4.0f, 1 },
+            { id::radarReach, "Footstep Reach",  "REACH",   "",   Kind::continuous, 0.0f, 10.0f, 5.0f, 1 },
             { id::radarListen, "Footstep Listen", "LISTEN", "",   Kind::toggle,     0.0f, 1.0f,  0.0f, 0 },
             { id::enhMultiply, "Enhancer Multiply", "MULTIPLY", "x", Kind::continuous, 0.0f, 3.0f,   1.0f,  2 },
             { id::enhStrength, "Enhancer Strength", "STRENGTH", "",  Kind::continuous, 0.0f, 5.0f,   1.0f,  2 },

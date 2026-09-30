@@ -33,6 +33,15 @@ namespace enh::dsp
         x4.prepare (sr);
         velvet.prepare (sr);
         takeback.prepare (sr);
+        if (newer.empty())
+            for (int k = 0; k < units::count; ++k)
+                newer.push_back (units::make (k));
+        for (auto& u : newer) u->prepare (sr, maxBlock);
+        if (lbNewer.empty())
+            for (int k = 0; k < lbmods::count; ++k)
+                lbNewer.push_back (units::lb::make (k));
+        for (auto& u : lbNewer) u->prepare (sr, maxBlock);
+        custom->prepare (sr, maxBlock);
         sessionCare.prepare (sr);
         room.prepare (sr);
         radar.prepare (sr, maxBlock);
@@ -86,6 +95,9 @@ namespace enh::dsp
         x4.reset();
         velvet.reset();
         takeback.reset();
+        for (auto& u : newer) u->resetAll();
+        for (auto& u : lbNewer) u->resetAll();
+        custom->resetAll();
         sessionCare.reset();
         room.reset();
         radar.reset();
@@ -543,6 +555,18 @@ namespace enh::dsp
         x4.process (chunk, chans, n, p.x4);
         velvet.process (chunk, chans, n, p.velvet);
         takeback.process (chunk, chans, n, p.takeback);
+        // The newer units (each bit-for-bit out until its POWER is on)
+        for (int k = 0; k < (int) newer.size(); ++k)
+        {
+            newer[(size_t) k]->process (chunk, chans, n, p.unitParams.data() + (units::info[k].firstParam - units::firstParam));
+            meters.unitMeter[(size_t) k].store (newer[(size_t) k]->meter(), std::memory_order_relaxed);
+            if (const int nd = newer[(size_t) k]->displayState (displayScratch.data(), (int) displayScratch.size()); nd > 0)
+                if (k < EngineMeters::displayUnits)
+                    for (int i = 0; i < std::min (nd, EngineMeters::displayFloats); ++i)
+                        meters.unitDisplay[(size_t) k][(size_t) i].store (displayScratch[(size_t) i], std::memory_order_relaxed);
+        }
+        custom->process (chunk, chans, n, p.customParams.data());   // CUSTOM (bit-for-bit out until powered and loaded)
+        meters.unitMeter[(size_t) units::count].store (custom->meter(), std::memory_order_relaxed);
         meters.x4DensityDb.store (x4.getReadout().densityDb, std::memory_order_relaxed);
         meters.velvetDb.store (velvet.getVelvetDb(), std::memory_order_relaxed);
         {
@@ -565,7 +589,12 @@ namespace enh::dsp
         }
 
         // LUNCHBOX: the side rack's modules (each bit-for-bit out until switched in; no latency)
-        lunchbox.process (chunk, chans, n, p.lunchbox);
+        // (its modules in signal order: those before the CLASS-A EQ, the EQ and DE-HARSH, the ones after, then
+        // CROSSFEED and the output meter; a module in the locker has its IN held off - see withLocker)
+        runLbModules (chunk, chans, n, p, true);
+        lunchbox.process (chunk, chans, n, p.lunchbox, 1);
+        runLbModules (chunk, chans, n, p, false);
+        lunchbox.process (chunk, chans, n, p.lunchbox, 2);
         meters.lunchboxHarshDb.store (lunchbox.getHarshReductionDb(), std::memory_order_relaxed);
         meters.lunchboxPeak.store (lunchbox.getOutputPeak(), std::memory_order_relaxed);
 
@@ -606,5 +635,15 @@ namespace enh::dsp
             meters.scopeWrite.store (w, std::memory_order_release);
             meters.scopeRate.store ((float) sampleRate, std::memory_order_relaxed);
         }
+    }
+
+    void EnhEngine::runLbModules (float* const* chunk, int chans, int n, const Parameters& p, bool pre) noexcept
+    {
+        for (int k = 0; k < (int) lbNewer.size(); ++k)
+            if (lbmods::info[k].pre == pre)
+            {
+                lbNewer[(size_t) k]->process (chunk, chans, n, p.lbParams.data() + (lbmods::info[k].firstParam - lbmods::info[0].firstParam));
+                meters.lbMeter[(size_t) k].store (lbNewer[(size_t) k]->meter(), std::memory_order_relaxed);
+            }
     }
 }

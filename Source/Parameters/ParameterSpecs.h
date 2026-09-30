@@ -20,6 +20,7 @@ namespace pad::params
         inline constexpr const char* footstep   = "footstep";    // FOOTSTEP RADAR: IN (was the enhancer's footstep priority)
         inline constexpr const char* radarSens  = "radarSens";   // FOOTSTEP RADAR: SENSITIVITY (0-10)
         inline constexpr const char* radarBoost = "radarBoost";  // FOOTSTEP RADAR: BOOST (0-34 dB, a far quiet step)
+        inline constexpr const char* radarReach = "radarReach";  // FOOTSTEP RADAR: REACH (0-10, far impacts lifted, whatever the game)
         inline constexpr const char* radarSpace = "radarSpace";  // FOOTSTEP RADAR: SPACE (0-10, room for far steps)
         inline constexpr const char* radarListen = "radarListen"; // FOOTSTEP RADAR: LISTEN (hear only what it adds)
         inline constexpr const char* enhMultiply = "enhMultiply"; // multiplies every ENH Master knob (0-3x)

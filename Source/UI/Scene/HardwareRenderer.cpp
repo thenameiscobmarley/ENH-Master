@@ -5,7 +5,11 @@
 #include "Picking.h"
 #include "LimiterDemo.h"
 #include "DesignedLayout.h"
+#include "../../DSP/DesignedUnits.h"
+#include "CustomLayout.h"
 #include "../GlassPanel.h"
+#include "RoomScreen.h"
+#include "SimScreens.h"
 
 using namespace juce::gl;
 
@@ -38,6 +42,8 @@ namespace pad
         if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
         if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
         if (unit == scopeUnit) return { designed::scPrint.begin(), designed::scPrint.end() };
+        if (unit >= firstGenUnit && unit < firstGenUnit + gen::count) { const auto [p, n] = gen::printOf (unit - firstGenUnit); return { p, p + n }; }
+        if (unit == customUnit) return custom::get()->print;
         return {};
     }
 
@@ -83,7 +89,14 @@ namespace pad
         : bridge (b), shared (s), meters (m), scope (sc), balancerScope (bsc), history (dh), config (c), textureData (std::move (textures))
     {
         seraphModeParam = bridge.indexOf (params::id::seraphMode);
-        designedPowerParam = { bridge.indexOf ("x4Pwr"), bridge.indexOf ("velPower"), bridge.indexOf ("tbPower"), bridge.indexOf ("scPower") };
+        designedPowerParam[0] = bridge.indexOf ("x4Pwr"); designedPowerParam[1] = bridge.indexOf ("velPower");
+        designedPowerParam[2] = bridge.indexOf ("tbPower"); designedPowerParam[3] = bridge.indexOf ("scPower");
+        for (int k = 0; k < gen::count; ++k)   // the newer units' POWER: their first row
+        {
+            const auto id = enh::dsp::designed::params[(size_t) enh::dsp::units::info[k].firstParam].id;
+            designedPowerParam[(size_t) (4 + k)] = bridge.indexOf (juce::String (id.data(), id.size()));
+        }
+        designedPowerParam[(size_t) customDesigned] = bridge.indexOf ("cuPower");
 
         // Which knobs an auto mode turns (AUTO heaven: REVERB .. SUB; MATCH: OUTPUT), resolved once
         {
@@ -336,16 +349,7 @@ namespace pad
         x4Vu.upload (hwk::models::vuMeter (x4VuHalfW, x4VuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
         velvetVu.upload (hwk::models::vuMeter (velvetVuHalfW, vuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
         takebackVu.upload (hwk::models::vuMeter (tbVuHalfW, tbVuHalfH, vuDepth, { 0.075f, 0.075f, 0.08f }, true));
-        for (int m = 0; m < 4; ++m)
-        {
-            meshes.lbPlates[(size_t) m].upload (geo::lunchboxModulePlate (m));
-            meshes.lbPlateEdges[(size_t) m].upload (geo::lunchboxModuleEdges (m));
-            meshes.lbScrews[(size_t) m].upload (geo::lunchboxModuleScrews (m));
-        }
-        meshes.lbSlotWell.upload (geo::lunchboxSlotWell());
-        meshes.lbSlotRails.upload (geo::lunchboxSlotRails());
-        meshes.lbConnector.upload (geo::lunchboxConnector());
-        meshes.lbPins.upload (geo::lunchboxConnectorPins());
+        buildLunchboxMeshes();
         meshes.lbHardware.upload (geo::lunchboxFrameHardware());
         meshes.lbRailHoles.upload (geo::lunchboxRailHoles());
 
@@ -449,6 +453,12 @@ namespace pad
         upload (takebackScreenTex, textureData.takebackScreens);
         upload (scopeDecalTex, textureData.scopeDecal);
         upload (scopeScreenTex, textureData.scopeScreens);
+        genDecalTex.resize ((size_t) gen::count); genScreenTex.resize ((size_t) gen::count);
+        for (size_t k = 0; k < textureData.genDecal.size() && k < genDecalTex.size(); ++k)
+        {
+            upload (genDecalTex[k], textureData.genDecal[k]);
+            upload (genScreenTex[k], textureData.genScreens[k]);
+        }
         setUpLiveScreens();
         for (size_t m = 0; m < takebackVuFaceTex.size(); ++m)
             upload (takebackVuFaceTex[m], textureData.takebackVuFace[m]);
@@ -516,12 +526,15 @@ namespace pad
         x4Vu.release();
         velvetVu.release();
         takebackVu.release();
+        for (auto& t : genDecalTex) t.release();
+        customDecalTex.release(); customScreenTex.release();
+        for (auto& t : genScreenTex) t.release();
         for (auto& t : takebackVuFaceTex)
             t.release();
         for (auto* list : { &designedScrews, &designedJackRings, &designedJackHoles, &designedScreens, &designedJackPlugs, &designedVentWalls })
             for (auto& m : *list)
                 m.release();
-        for (auto* m : { &cableSlots, &cableLips, &grommet, &grommetHole, &designedJackCables })
+        for (auto* m : { &cableSlots, &cableLips, &grommet, &grommetHole, &designedJackCables, &jackPlugMetal, &jackPlugBoot })
             m->release();
         levelVu.release();
         monitorVu.release();
@@ -1185,6 +1198,75 @@ namespace pad
         glEnable (GL_DEPTH_TEST);
     }
 
+    /** The welcome screen: the room dimmed behind it, the card, and a live trace in its scope window. */
+    void HardwareRenderer::drawWelcome (int w, int h, float dt)
+    {
+        const bool want = shared.welcomeOpen.load();
+        welcomeAlpha = want ? std::min (1.0f, welcomeAlpha + dt / 0.25f) : std::max (0.0f, welcomeAlpha - dt / 0.18f);
+        {
+            const juce::SpinLock::ScopedTryLockType lock (shared.welcomeLock);
+            if (lock.isLocked() && shared.welcomeVersion != uploadedWelcomeVersion && ! shared.welcomePending.pixels.empty())
+            {
+                const auto& t = shared.welcomePending;
+                welcomeTex.upload (t.pixels.data(), t.width, t.height, 4, true, 1);
+                uploadedWelcomeVersion = shared.welcomeVersion;
+            }
+        }
+        if (welcomeAlpha <= 0.001f || ! welcomeTex.isValid())
+            return;
+        const float lw = (float) juce::jmax (1, shared.viewWidth.load()), lh = (float) juce::jmax (1, shared.viewHeight.load());
+        const float px = (float) w / lw;
+        const auto rect = holo::Welcome::placeIn (lw, lh);
+        const float a = welcomeAlpha * welcomeAlpha * (3.0f - 2.0f * welcomeAlpha);
+
+        glDisable (GL_DEPTH_TEST);
+        glDepthMask (GL_FALSE);
+        glEnable (GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // the room falls back
+        auto& o = use (shaders::callout);
+        o.set ("uViewProj", Mat4::identity());
+        o.set ("uParams", 0.0f, 0.55f * a, 0.0f, 0.0f);
+        draw (meshes.quad, gfx::screenQuad (w, h, 0.5f * (float) w, 0.5f * (float) h, 0.5f * (float) w, 0.0f, 0.0f, 0.5f * (float) h), Vec3 { 0.0f, 0.01f, 0.005f });
+        // the card
+        welcomeTex.bind (0);
+        auto& card = use (shaders::holoCard);
+        card.set ("uViewProj", Mat4::identity());
+        // (the beam's jitter: another of the card's frames a dozen times a second, in no fixed order)
+        const int tick = (int) (timeSeconds * 12.0);
+        card.set ("uParams", a, (float) timeSeconds, px, (float) ((tick * 7 + (tick >> 2)) & 3));
+        const float cx = rect.getCentreX() * px, cy = (lh - rect.getCentreY()) * px;
+        draw (meshes.quad, gfx::screenQuad (w, h, cx, cy, 0.5f * rect.getWidth() * px, 0.0f, 0.0f, -0.5f * rect.getHeight() * px), Vec3 { 1.0f, 1.0f, 1.0f });
+        // the trace: a glow, then the line, added like light
+        const float s = rect.getWidth() / holo::Welcome::cardW;
+        const auto sc = holo::Welcome().scope();
+        const float scx = rect.getX() + sc.getCentreX() * s, scy = rect.getY() + sc.getCentreY() * s;
+        const float shw = 0.45f * sc.getWidth() * s, shh = 0.45f * sc.getHeight() * s;
+        holo::Welcome::lissajous (timeSeconds, welcomePts);
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE);
+        auto& t = use (shaders::callout);
+        t.set ("uViewProj", Mat4::identity());
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            t.set ("uParams", 0.0f, (pass == 0 ? 0.16f : 0.85f) * a, 0.0f, 0.0f);
+            const float thick = (pass == 0 ? 5.0f : 1.6f) * px;
+            for (size_t i = 1; i < welcomePts.size(); ++i)
+            {
+                const juce::Point<float> p0 ((scx + welcomePts[i - 1].x * shw) * px, (lh - (scy - welcomePts[i - 1].y * shh)) * px);
+                const juce::Point<float> p1 ((scx + welcomePts[i].x * shw) * px, (lh - (scy - welcomePts[i].y * shh)) * px);
+                const auto d = p1 - p0; const float len = d.getDistanceFromOrigin();
+                if (len < 0.2f) continue;
+                const auto c = (p0 + p1) * 0.5f; const float ux = d.x / len, uy = d.y / len;
+                draw (meshes.quad, gfx::screenQuad (w, h, c.x, c.y, 0.5f * len * ux + 0.5f * thick * ux, 0.5f * len * uy + 0.5f * thick * uy, -0.5f * thick * uy, 0.5f * thick * ux),
+                      Vec3 { 0.49f, 1.0f, 0.65f });
+            }
+        }
+        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable (GL_BLEND);
+        glDepthMask (GL_TRUE);
+        glEnable (GL_DEPTH_TEST);
+    }
+
     void HardwareRenderer::drawGlassPanel (int w, int h, bool blurred)
     {
         if (panelShown < 0 || panelOpen < 0.01f || panelRect.isEmpty())
@@ -1209,7 +1291,7 @@ namespace pad
         g.set ("uViewProj", Mat4::identity());
         g.set ("uTex2", 1);
         g.set ("uParams", hw, hh, px, panelOpen);
-        g.set ("uParams2", hw + margin, hh + margin, blurred ? 1.0f : 0.0f, 0.0f);
+        g.set ("uParams2", hw + margin, hh + margin, blurred ? 1.0f : 0.0f, shared.panelHolo.load() ? 1.0f : 0.0f);
         draw (meshes.quad, gfx::screenQuad (w, h, cx, cy, hw + margin, 0.0f, 0.0f, -(hh + margin)), panelColour,
               { 1.0f / (float) w, 1.0f / (float) h, 0.0f });
         glActiveTexture (GL_TEXTURE0);
@@ -1852,6 +1934,8 @@ namespace pad
     {
         builtHidden = hiddenUnits.load() | storedUnits.load();   // (SIMPLE view and THE GEAR LOCKER both take units out)
         meshes.table.upload (geo::caseFloor());
+        meshes.shelfEdge.upload (geo::shelfEdge());
+        meshes.shelfCabinet.upload (geo::shelfCabinet());
         meshes.wall.upload (geo::backWall());
         {
             const auto baked = studiowall::bake (arcCentreZ - arcRadius - 2.2f, geo::floorHeight(), wallRackCentreY());
@@ -1876,6 +1960,8 @@ namespace pad
         grommet.upload (geo::cheekGrommet());
         grommetHole.upload (geo::cheekGrommetHole());
         designedJackCables.upload (geo::designedJackCables());
+        jackPlugMetal.upload (geo::jackPlugs (true));
+        jackPlugBoot.upload (geo::jackPlugs (false));
         meshes.wallOutlet.upload (geo::wallOutlet());
         meshes.xlrBarrels.upload (geo::xlrConnectors());
         meshes.xlrRings.upload (geo::xlrLatches());
@@ -1892,6 +1978,30 @@ namespace pad
 
     void HardwareRenderer::renderOpenGL()
     {
+        // CUSTOM: a design was loaded - its textures, its flat parts, its live screens, its light map
+        if (ready && customDirty.load())
+        {
+            std::lock_guard<std::mutex> l (customMutex);
+            customDirty = false;
+            customDecalTex.upload (pendingCustomDecal.pixels.data(), pendingCustomDecal.width, pendingCustomDecal.height, pendingCustomDecal.channels, true, config.anisotropy);
+            customScreenTex.upload (pendingCustomScreens.pixels.data(), pendingCustomScreens.width, pendingCustomScreens.height, pendingCustomScreens.channels, true, config.anisotropy);
+            textureData.customScreens = pendingCustomScreens;
+            buildDesignedMeshes();
+            setUpLiveScreens();
+            builtHidden = ~layout::UnitMask { 0 };      // (the case and its cables again)
+            occBakedHidden = ~layout::UnitMask { 0 };   // (the light maps again)
+        }
+        // The LUNCHBOX's locker changed: its print, its modules and its empty slots again, and the light maps
+        if (ready && lunchboxDirty.load())
+        {
+            std::lock_guard<std::mutex> l (customMutex);
+            lunchboxDirty = false;
+            textureData.lunchboxDecal = pendingLunchboxDecal;
+            lunchboxDecalTex.upload (pendingLunchboxDecal.pixels.data(), pendingLunchboxDecal.width, pendingLunchboxDecal.height, pendingLunchboxDecal.channels, true, config.anisotropy);
+            buildLunchboxMeshes();
+            builtHidden = ~layout::UnitMask { 0 };
+            occBakedHidden = ~layout::UnitMask { 0 };
+        }
         if (ready && (hiddenUnits.load() | storedUnits.load()) != builtHidden)
             buildCase();
 
@@ -1981,6 +2091,7 @@ namespace pad
                 drawGlassPanel (w, h, blurBehindPanel (w, h));
         }
         drawLoupe (w, h);
+        drawWelcome (w, h, dt);
 
         if (statsEnabled)
             recordStats (now, juce::Time::getMillisecondCounterHiRes() - now);
@@ -2357,10 +2468,16 @@ namespace pad
             return;
         const int k = designedIndex (unit);
         // The designs' colours (#464749 dark grey, #04581d green, #264787 blue; PHOSPHOR: laboratory blue-grey), in linear light
-        static constexpr std::array<Vec3, numDesigned> plate { Vec3 { 0.061f, 0.064f, 0.068f }, Vec3 { 0.0012f, 0.098f, 0.012f }, Vec3 { 0.0194f, 0.063f, 0.242f },
+        static constexpr std::array<Vec3, 4> plate { Vec3 { 0.061f, 0.064f, 0.068f }, Vec3 { 0.0012f, 0.098f, 0.012f }, Vec3 { 0.0194f, 0.063f, 0.242f },
                                                                Vec3 { 0.028f, 0.036f, 0.048f } };
-        const gfx::Texture2D& decal = k == 0 ? x4DecalTex : k == 1 ? velvetDecalTex : k == 2 ? takebackDecalTex : scopeDecalTex;
-        if (k == 3)
+        const bool isCustom = k == customDesigned;
+        const auto customLook = isCustom ? custom::get() : nullptr;
+        const gfx::Texture2D& decal = k == 0 ? x4DecalTex : k == 1 ? velvetDecalTex : k == 2 ? takebackDecalTex : k == 3 ? scopeDecalTex : isCustom ? customDecalTex : genDecalTex[(size_t) (k - 4)];
+        const Vec3 plateColour = k < 4 ? plate[(size_t) k] : isCustom ? Vec3 { customLook->plate[0], customLook->plate[1], customLook->plate[2] }
+                                       : Vec3 { gen::looks[k - 4].plate[0], gen::looks[k - 4].plate[1], gen::looks[k - 4].plate[2] };
+        if (k >= 4)   // (a light plate gets dark print, as CHARACTER's off-white does)
+            drawOneU (unit, panel, plateColour, decal, {}, plateColour.x + plateColour.y + plateColour.z > 1.05f ? Finish::paintLight : Finish::paint);
+        else if (k == 3)
             drawOneU (unit, panel, plate[3], decal, {}, Finish::hammertone);
         else if (k == 2)
             drawOneU (unit, panel, plate[2], decal, { &takebackVuFaceTex[0], &takebackVuFaceTex[1], &takebackVuFaceTex[2], &takebackVuFaceTex[3] }, Finish::paint);
@@ -2372,24 +2489,38 @@ namespace pad
         draw (designedJackRings[(size_t) k], panel, { 0.70f, 0.70f, 0.73f });
         use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
         draw (designedJackHoles[(size_t) k], panel, { 0.010f, 0.010f, 0.012f });
-        draw (designedVentWalls[(size_t) k], panel, plate[(size_t) k] * 0.35f);   // (the slots' far walls: the plate's colour, in shadow)
+        draw (designedVentWalls[(size_t) k], panel, plateColour * 0.35f);   // (the slots' far walls: the plate's colour, in shadow)
         // Every jack has its cable plugged in: a satin-chrome XLR barrel on each
         use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
         draw (designedJackPlugs[(size_t) k], panel, { 0.62f, 0.62f, 0.65f });
 
         // Displays: dark glass, glowing in the design's colour where it has something to show
-        (k == 0 ? x4ScreenTex : k == 1 ? velvetScreenTex : k == 2 ? takebackScreenTex : scopeScreenTex).bind (0);
+        (k == 0 ? x4ScreenTex : k == 1 ? velvetScreenTex : k == 2 ? takebackScreenTex : k == 3 ? scopeScreenTex : isCustom ? customScreenTex : genScreenTex[(size_t) (k - 4)]).bind (0);
         auto& screen = use (shaders::designedScreen);
         screen.set ("uParams", -unitHalfW (unit), -unitHalfH (unit), 2.0f * unitHalfW (unit), 2.0f * unitHalfH (unit));
         const bool on = bridge.getNormalised (designedPowerParam[(size_t) k]) > 0.5f;
         updateLiveScreens (unit, on);
-        static constexpr std::array<Vec3, numDesigned> glow { Vec3 { 0.40f, 0.80f, 1.0f }, Vec3 { 0.97f, 1.0f, 0.70f }, Vec3 { 0.64f, 0.90f, 1.0f },
+        static constexpr std::array<Vec3, 4> glow { Vec3 { 0.40f, 0.80f, 1.0f }, Vec3 { 0.97f, 1.0f, 0.70f }, Vec3 { 0.64f, 0.90f, 1.0f },
                                                               Vec3 { 0.30f, 1.0f, 0.42f } };   // (P31 phosphor green)
-        const Vec3 glowColour = glow[(size_t) k];
-        const float lit = on ? (k == 3 ? 1.15f : 0.55f) : 0.04f;   // (a CRT's phosphor glows far brighter than a panel display)
+        const Vec3 glowColour = k < 4 ? glow[(size_t) k] : isCustom ? Vec3 { 0.55f, 0.85f, 1.0f } : Vec3 { gen::looks[k - 4].glow[0], gen::looks[k - 4].glow[1], gen::looks[k - 4].glow[2] };
+        const bool crt = k == 3 || (k >= 4 && ! isCustom && (std::string_view (enh::dsp::units::info[k - 4].key) == "rayroom"
+                                                           || pad::simscreen::kindOf (enh::dsp::units::info[k - 4].key) != pad::simscreen::Kind::none));   // PHOSPHOR, RAY ROOM, the simulations
+        const float lit = on ? (crt ? 1.15f : 0.55f) : 0.04f;   // (a CRT's phosphor glows far brighter than a panel display)
         current->set ("uEmissive", glowColour * lit);
-        draw (designedScreens[(size_t) k], panel, k == 3 ? Vec3 { 0.004f, 0.012f, 0.006f } : Vec3 { 0.006f, 0.007f, 0.009f }, glowColour * lit);
+        draw (designedScreens[(size_t) k], panel, k == 3 ? Vec3 { 0.004f, 0.012f, 0.006f } : crt ? Vec3 { 0.0f, 0.0f, 0.0f } : Vec3 { 0.006f, 0.007f, 0.009f }, glowColour * lit);
 
+        // The newer units' LED ladder: lit from the bottom by how hard the unit is working
+        if (k >= 4)
+        {
+            const auto customPrint = isCustom ? customLook->print : std::vector<designed::Print> {};
+            const auto [pr, np] = isCustom ? std::pair<const designed::Print*, int> { customPrint.data(), (int) customPrint.size() } : gen::printOf (k - 4);
+            int count = 0; for (int i = 0; i < np; ++i) count += pr[i].kind == 'E' ? 1 : 0;
+            const float level = on ? (demoMeters ? 0.5f + 0.4f * std::sin ((float) timeSeconds * (1.0f + 0.13f * (float) k)) : meters.unitMeter[(size_t) (k - 4)].load (std::memory_order_relaxed)) : 0.0f;
+            int i = 0;
+            for (int e = 0; e < np; ++e)
+                if (pr[e].kind == 'E')
+                    drawLed (panel, pr[e].x, pr[e].z, ledColour (pr[e].param), std::clamp (level * (float) count - (float) i++, 0.0f, 1.0f));
+        }
         // TAKEBACK's LED ladders: under each knob, lit from the bottom by how hard its section works
         if (k == 2)
         {
@@ -2408,7 +2539,8 @@ namespace pad
         for (int unit : designedUnits)
         {
             const auto& raw = unit == x4Unit ? textureData.x4Screens : unit == velvetUnit ? textureData.velvetScreens
-                            : unit == takebackUnit ? textureData.takebackScreens : textureData.scopeScreens;
+                            : unit == takebackUnit ? textureData.takebackScreens : unit == scopeUnit ? textureData.scopeScreens
+                            : unit == customUnit ? textureData.customScreens : textureData.genScreens[(size_t) (unit - firstGenUnit)];
             if (raw.width <= 0 || raw.channels != 1)
                 continue;
             const float halfH = unitHalfH (unit), sx = (float) raw.width / (2.0f * faceHalfW), sz = (float) raw.height / (2.0f * halfH);
@@ -2462,6 +2594,92 @@ namespace pad
         };
     }
 
+    /** RAY ROOM's screen (RoomScreen.h): the room, the rays, the dots - its state from the meters (or, with
+        PAD_UI_TEST_DEMO, a made-up one). Lines are stamped as a row of small discs along their length: a
+        cost by length, never by the box round a long diagonal. */
+    /** RAY ROOM's place among the newer units. */
+    static int roomUnitIndex() noexcept
+    {
+        for (int k = 0; k < enh::dsp::units::count; ++k)
+            if (std::string_view (enh::dsp::units::info[k].key) == "rayroom") return k;
+        return 0;
+    }
+
+    void HardwareRenderer::drawRoomScreen (ScreenInkRef inkRef, float W, float H)
+    {
+        auto& g = *static_cast<ScreenInk*> (inkRef);
+        namespace R = enh::dsp::units::room;
+        R::State s;
+        if (demoMeters)
+        {
+            const float t = (float) timeSeconds;
+            const int sp = bridge.indexOf ("rrSpace");
+            const float space = sp >= 0 ? 10.0f * bridge.getNormalised (sp) : 5.0f;
+            s.W = R::halfWidth (space); s.D = R::halfDepth (space);
+            s.levelL = 0.5f + 0.3f * std::sin (t * 2.1f); s.levelR = 0.5f + 0.3f * std::sin (t * 1.7f + 1.0f);
+            s.width = 0.55f + 0.3f * std::sin (t * 0.4f); s.balance = 0.25f * std::sin (t * 0.3f);
+            for (int b = 0; b < R::bands; ++b) { s.bandL[(size_t) b] = 0.35f + 0.3f * std::sin (t * (1.1f + 0.3f * (float) b) + (float) b); s.bandR[(size_t) b] = 0.35f + 0.3f * std::sin (t * (0.9f + 0.37f * (float) b) + 2.0f * (float) b); }
+            s.dots = 14;
+            for (int d = 0; d < s.dots; ++d)
+            {
+                const float ph = std::fmod (t * (0.35f + 0.05f * (float) d) + 0.13f * (float) d, 1.0f);
+                const auto from = R::speaker (d & 1, s.W, s.D);
+                const float a = 1.5708f + ((float) ((d * 37) % 19) / 18.0f - 0.5f) * 4.6f + 0.4f * std::sin (ph * 5.0f + (float) d);
+                s.dot[(size_t) (d * 4)] = std::clamp (from.x + std::cos (a) * ph * s.W * 1.2f, -s.W, s.W);
+                s.dot[(size_t) (d * 4 + 1)] = std::clamp (from.y + std::sin (a) * ph * s.D * 1.6f, -s.D, s.D);
+                s.dot[(size_t) (d * 4 + 2)] = d % 4 == 0 ? 1.0f : 0.0f;
+                s.dot[(size_t) (d * 4 + 3)] = ph;
+            }
+        }
+        else
+        {
+            std::array<float, R::State::size> raw {};
+            for (int i = 0; i < R::State::size; ++i) raw[(size_t) i] = meters.unitDisplay[(size_t) roomUnitIndex()][(size_t) i].load (std::memory_order_relaxed);
+            s.read (raw.data());
+            if (s.W < 1.0f) { s.W = R::halfWidth (4.0f); s.D = R::halfDepth (4.0f); }   // (nothing published yet)
+        }
+        static thread_local std::vector<roomscreen::Line> lines;
+        static thread_local std::vector<roomscreen::Blob> blobs;
+        roomscreen::build (s, (float) timeSeconds, W, H, lines, blobs);
+        stampScreen (&g, lines, blobs);
+    }
+
+    /** A white-on-black screen's lines and blobs, stamped into its glow (lines as rows of small discs). */
+    void HardwareRenderer::stampScreen (ScreenInkRef inkRef, const std::vector<roomscreen::Line>& lines, const std::vector<roomscreen::Blob>& blobs)
+    {
+        auto& g = *static_cast<ScreenInk*> (inkRef);
+        auto disc = [&] (float x, float y, float r, float v)
+        {
+            const int x0 = (int) std::floor (x - r - 1.0f), x1 = (int) std::ceil (x + r + 1.0f), y0 = (int) std::floor (y - r - 1.0f), y1 = (int) std::ceil (y + r + 1.0f);
+            for (int yy = y0; yy <= y1; ++yy)
+                for (int xx = x0; xx <= x1; ++xx)
+                {
+                    const float d = std::sqrt (((float) xx - x) * ((float) xx - x) + ((float) yy - y) * ((float) yy - y));
+                    g.dot (xx, yy, v * std::clamp (r + 0.5f - d, 0.0f, 1.0f));
+                }
+        };
+        for (const auto& l : lines)
+        {
+            const float len = std::hypot (l.x1 - l.x0, l.y1 - l.y0);
+            const int steps = std::max (1, (int) (len / 0.7f));
+            for (int k = 0; k <= steps; ++k)
+            {
+                const float t = (float) k / (float) steps;
+                disc (l.x0 + (l.x1 - l.x0) * t, l.y0 + (l.y1 - l.y0) * t, 0.5f * l.thick, l.bright);
+            }
+        }
+        for (const auto& b : blobs)
+        {
+            if (! b.ring) { disc (b.x, b.y, b.r, b.bright); continue; }
+            const int steps = std::max (12, (int) (b.r * 6.3f / 0.7f));
+            for (int k = 0; k < steps; ++k)
+            {
+                const float a = 6.2832f * (float) k / (float) steps;
+                disc (b.x + std::cos (a) * b.r, b.y + std::sin (a) * b.r, 0.75f, b.bright);
+            }
+        }
+    }
+
     /** The designed units' displays, live (about 30 times a second, only while the unit is powered):
           PRO X4 - each band's harmonic density (a bar) and the PID's target for it (a line; dim with PID off);
           VELVETIZER - PROCESS: how far it has been smoothing, scrolling; VELVET dB+: how far now, a bar;
@@ -2471,7 +2689,8 @@ namespace pad
         const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
         auto& clock = liveScreenClock[(size_t) std::max (0, designedIndex (unit))];
         const bool tick = now - clock > 1.0 / 30.0;
-        auto& tex = unit == x4Unit ? x4ScreenTex : unit == velvetUnit ? velvetScreenTex : unit == takebackUnit ? takebackScreenTex : scopeScreenTex;
+        auto& tex = unit == x4Unit ? x4ScreenTex : unit == velvetUnit ? velvetScreenTex : unit == takebackUnit ? takebackScreenTex
+                  : unit == scopeUnit ? scopeScreenTex : unit == customUnit ? customScreenTex : genScreenTex[(size_t) (unit - firstGenUnit)];
         for (auto& ls : liveScreens)
         {
             if (ls.unit != unit || (! on && ! ls.shownOn) || (on && ! tick))
@@ -2499,6 +2718,37 @@ namespace pad
                         g.rect (cx - bw, yOf (pv), cx + bw, bottom, 0.85f);
                         g.line (cx - bw * 1.5f, yOf (sp), cx + bw * 1.5f, yOf (sp), 1.6f, pid ? 1.0f : 0.35f);
                     }
+                }
+                else if (unit >= firstGenUnit && unit < firstGenUnit + gen::count && std::string_view (enh::dsp::units::info[unit - firstGenUnit].key) == "rayroom")
+                    drawRoomScreen (&g, W, H);
+                else if (unit >= firstGenUnit && unit < firstGenUnit + gen::count
+                         && pad::simscreen::kindOf (enh::dsp::units::info[unit - firstGenUnit].key) != pad::simscreen::Kind::none)
+                {
+                    // the simulations (SimScreens.h): their state from the meters (made up with PAD_UI_TEST_DEMO,
+                    // or until the engine has published one)
+                    const int gk = unit - firstGenUnit;
+                    const auto kind = pad::simscreen::kindOf (enh::dsp::units::info[gk].key);
+                    std::array<float, 192> st {};
+                    bool any = false;
+                    if (! demoMeters && gk < enh::dsp::EngineMeters::displayUnits)
+                        for (size_t i = 0; i < st.size(); ++i) { st[i] = meters.unitDisplay[(size_t) gk][i].load (std::memory_order_relaxed); any = any || st[i] != 0.0f; }
+                    if (! any) pad::simscreen::demo (kind, (float) timeSeconds, st.data());
+                    static thread_local std::vector<roomscreen::Line> sl;
+                    static thread_local std::vector<roomscreen::Blob> sb;
+                    pad::simscreen::build (kind, st.data(), W, H, (float) timeSeconds, sl, sb);
+                    stampScreen (&g, sl, sb);
+                }
+                else if (unit >= firstGenUnit)   // the newer units: how hard they work, scrolling, beside their name
+                {
+                    const int gk = unit - firstGenUnit;
+                    scroll (demoMeters ? 0.5f + 0.4f * std::sin ((float) timeSeconds * (1.1f + 0.2f * (float) gk)) * std::sin ((float) timeSeconds * 0.3f)
+                                       : std::clamp (meters.unitMeter[(size_t) gk].load (std::memory_order_relaxed), 0.0f, 1.0f));
+                    const float x0 = W * 0.55f, x1 = W - 3.0f * mmx, y0 = 2.0f * mm, y1 = H - 2.0f * mm;
+                    const int n = (int) ls.history.size();
+                    for (int i = 1; i < n; ++i)
+                        g.line (x0 + (x1 - x0) * (float) (i - 1) / (float) (n - 1), y1 - (y1 - y0) * historyAt (i - 1),
+                                x0 + (x1 - x0) * (float) i / (float) (n - 1), y1 - (y1 - y0) * historyAt (i), 1.4f, 1.0f);
+                    g.line (x0, y1, x1, y1, 1.0f, 0.35f);
                 }
                 else if (unit == velvetUnit && ls.index == 0)   // PROCESS: its smoothing, scrolling
                 {
@@ -2574,6 +2824,7 @@ namespace pad
         const float tau = 0.02f * std::pow (2.0f, 0.8f * real ("scPersist", 5.0f));        // 20 ms .. ~5 s
         const float scale = 0.25f * std::pow (16.0f, real ("scGain", 5.0f) / 10.0f);       // x0.25 .. x4
         const float divTime = 0.0002f * std::pow (10.0f, 0.3f * real ("scTime", 4.0f));   // 0.2 ms .. 200 ms a division
+        const bool fit = real ("scFit", 0.0f) > 0.5f;   // FIT: the trace sized to fill the screen, whatever its level
 
         // The glow fades
         const float fade = std::exp (-dt / std::max (0.005f, tau));
@@ -2640,6 +2891,27 @@ namespace pad
             ls.readAt = w;
         }
 
+        // FIT: follow the trace's peak across and up (at once when it grows, over ~1 s as it shrinks) and size
+        // it so that peak reaches the screen's edges, each way - quiet detail drawn as large as loud. Below -60 dBFS it
+        // stops growing (silence is not blown up into hiss).
+        float kx = scale * 4.0f * dy, ky = scale * 4.0f * dy;
+        if (fit)
+        {
+            float px = 0.0f, py = 0.0f;
+            for (const auto& [l, r] : lr)
+            {
+                const float ax = mode == 1 ? (l - r) * 0.7071f : mode == 2 ? 0.0f : l;
+                const float ay = mode == 1 ? (l + r) * 0.7071f : mode == 2 ? 0.5f * (l + r) : r;
+                px = std::max (px, std::abs (ax)); py = std::max (py, std::abs (ay));
+            }
+            const float rel = std::exp (-std::max (0.004f, dt) / 1.0f);
+            ls.fitX = std::max (px, ls.fitX * rel); ls.fitY = std::max (py, ls.fitY * rel);
+            // each way to its own edge: the figure fills the whole screen (a stretched figure keeps its detail)
+            // (neither way is magnified more than 20x past the other: a near-mono sound's sides stay small)
+            kx = 0.47f * (float) W / std::max ({ 0.001f, ls.fitX, 0.05f * ls.fitY });
+            ky = 0.45f * (float) H / std::max ({ 0.001f, ls.fitY, 0.05f * ls.fitX });
+        }
+
         if (mode == 2)
         {
             // Y-T: the last screenful, from a rising zero crossing (with a little hysteresis) so it stands still
@@ -2656,7 +2928,7 @@ namespace pad
             for (int i = start; i < std::min (n, start + span); i += stride)
             {
                 const float m = 0.5f * (lr[(size_t) i].first + lr[(size_t) i].second);
-                const float x = cx - 5.0f * dx + 10.0f * dx * (float) (i - start) / (float) span, y = cy - m * scale * 4.0f * dy;
+                const float x = cx - 5.0f * dx + 10.0f * dx * (float) (i - start) / (float) span, y = cy - m * ky;
                 if (px >= 0.0f) segment (px, py, x, std::clamp (y, 0.0f, (float) H - 1.0f)); else splat (x, y, gainK);
                 px = x; py = std::clamp (y, 0.0f, (float) H - 1.0f);
             }
@@ -2667,7 +2939,7 @@ namespace pad
             for (const auto& [l, r] : lr)
             {
                 const float ax = mode == 1 ? (l - r) * 0.7071f : l, ay = mode == 1 ? (l + r) * 0.7071f : r;
-                const float x = std::clamp (cx + ax * scale * 4.0f * dy, 0.0f, (float) W - 1.0f), y = std::clamp (cy - ay * scale * 4.0f * dy, 0.0f, (float) H - 1.0f);
+                const float x = std::clamp (cx + ax * kx, 0.0f, (float) W - 1.0f), y = std::clamp (cy - ay * ky, 0.0f, (float) H - 1.0f);
                 if (px >= 0.0f) segment (px, py, x, y); else splat (x, y, gainK);
                 px = x; py = y;
             }
@@ -2733,6 +3005,21 @@ namespace pad
 
     }
 
+    /** The LUNCHBOX's modules where its locker has put them, and its empty slots. */
+    void HardwareRenderer::buildLunchboxMeshes()
+    {
+        for (int m = 0; m < layout::lb::numModules; ++m)
+        {
+            meshes.lbPlates[(size_t) m].upload (geo::lunchboxModulePlate (m));
+            meshes.lbPlateEdges[(size_t) m].upload (geo::lunchboxModuleEdges (m));
+            meshes.lbScrews[(size_t) m].upload (geo::lunchboxModuleScrews (m));
+        }
+        meshes.lbSlotWell.upload (geo::lunchboxSlotWell());
+        meshes.lbSlotRails.upload (geo::lunchboxSlotRails());
+        meshes.lbConnector.upload (geo::lunchboxConnector());
+        meshes.lbPins.upload (geo::lunchboxConnectorPins());
+    }
+
     /** The LUNCHBOX: its black frame (drawOneU: the meter, the frame with its holes, the body), the
         modules' plates standing proud of it with their print, the empty slot's rails and connector. */
     void HardwareRenderer::drawLunchbox (const Mat4& panel)
@@ -2747,11 +3034,13 @@ namespace pad
         lunchboxDecalTex.bind (0);
         auto& plate = use (shaders::faceplate);
         plate.set ("uParams", -lbHalfW, -lbHalfH, 2.0f * lbHalfW, 2.0f * lbHalfH);
-        for (int m = 0; m < 4; ++m)
+        for (int m = 0; m < layout::lb::numModules; ++m)
         {
+            if (! layout::lb::installed (m)) continue;
             plate.set ("uParams2", 1.0f, 0.0f, 0.0f, (float) (20 + m));
             plate.setArray ("uWear", hwk::shaders::wearUniforms ((float) (27 + m)).data(), 15);
-            draw (meshes.lbPlates[(size_t) m], panel, finish[(size_t) m]);
+            const auto* pc = m >= 4 ? enh::dsp::lbmods::info[m - 4].plate : nullptr;
+            draw (meshes.lbPlates[(size_t) m], panel, m < 4 ? finish[(size_t) m] : Vec3 { pc[0], pc[1], pc[2] });
             use (shaders::chrome).set ("uParams", 0.35f, 1.0f, 0.0f, 0.0f);   // the machined edge catches the light
             draw (meshes.lbPlateEdges[(size_t) m], panel, { 0.30f, 0.30f, 0.32f });
             lunchboxDecalTex.bind (0);
@@ -2781,7 +3070,17 @@ namespace pad
 
         // DE-HARSH's CUT lamp: lit by how much it is taking out
         use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        drawLed (panel, lbModuleX (1) + lbCutLedDx, lbCutLedZ, colours::ledYellow, std::clamp (meters.lunchboxHarshDb.load (std::memory_order_relaxed) / 6.0f, 0.0f, 1.0f));
+        if (layout::lb::installed (1))
+            drawLed (panel, lbModuleX (1) + lbCutLedDx, lbCutLedZ, colours::ledYellow, std::clamp (meters.lunchboxHarshDb.load (std::memory_order_relaxed) / 6.0f, 0.0f, 1.0f));
+        // The 500-series modules: a lamp beside IN, lit by how hard each is working
+        for (int k = 0; k < enh::dsp::lbmods::count; ++k)
+            if (layout::lb::installed (4 + k))
+            {
+                const int wslots = enh::dsp::lbmods::info[k].width;
+                const float dx = wslots >= 2 ? 0.5f * lbSlotW * (float) wslots - 0.10f : lbCutLedDx;
+                const float v = demoMeters ? 0.5f + 0.4f * std::sin ((float) timeSeconds * (1.3f + 0.17f * (float) k)) : meters.lbMeter[(size_t) k].load (std::memory_order_relaxed);
+                drawLed (panel, lbModuleX (4 + k) + dx, lbCutLedZ, colours::ledGreen, std::clamp (v, 0.0f, 1.0f));
+            }
     }
 
     /** The cover glass over a unit's meters, drawn with everything else transparent. */
@@ -2836,12 +3135,16 @@ namespace pad
         const Mat4 velvetPanel = panelToWorld (velvetUnit);
         const Mat4 takebackPanel = panelToWorld (takebackUnit);
         const Mat4 scopePanel = panelToWorld (scopeUnit);
+        std::array<Mat4, gen::count> genPanels;   // the newer units
+        for (int k = 0; k < gen::count; ++k) genPanels[(size_t) k] = panelToWorld (firstGenUnit + k);
+        const Mat4 customPanel = panelToWorld (customUnit);
         const auto panelFor = [&] (int unit) -> const Mat4&
         {
             return unit == tubeUnit ? tubePanel : unit == tideUnit ? tidePanel : unit == lumenUnit ? lumenPanel
                  : unit == limiterUnit ? limiterPanel : unit == deepUnit ? deepPanel : unit == characterUnit ? characterPanel : unit == levelUnit ? levelPanel : unit == balancerUnit ? balancerPanel
                  : unit == radarUnit ? radarPanel : unit == powerUnit ? powerPanel : unit == lunchboxUnit ? lunchboxPanel
                  : unit == x4Unit ? x4Panel : unit == velvetUnit ? velvetPanel : unit == takebackUnit ? takebackPanel : unit == scopeUnit ? scopePanel
+                 : unit >= firstGenUnit && unit < firstGenUnit + gen::count ? genPanels[(size_t) (unit - firstGenUnit)] : unit == customUnit ? customPanel
                  : unit == monitorUnit ? monitorPanel : panel;
         };
 
@@ -2996,6 +3299,8 @@ namespace pad
         drawDesigned (velvetUnit, velvetPanel);
         drawDesigned (takebackUnit, takebackPanel);
         drawDesigned (scopeUnit, scopePanel);
+        for (int k = 0; k < gen::count; ++k) drawDesigned (firstGenUnit + k, genPanels[(size_t) k]);
+        drawDesigned (customUnit, customPanel);
 
         // --- LEVEL & LOUDNESS in natural aluminium; the MIX BALANCER in dark graphite, around its display
         drawOneU (levelUnit, levelPanel, Vec3 { 0.045f, 0.045f, 0.05f }, levelDecalTex, { &levelFaceTex }, Finish::anodised);   // black, like a monitor controller
@@ -3162,6 +3467,7 @@ namespace pad
                 draw (meshes.audioCables[(size_t) i], I, { 0.020f, 0.020f, 0.022f });
             draw (meshes.powerCables, I, { 0.030f, 0.030f, 0.032f });
             draw (designedJackCables, I, { 0.022f, 0.022f, 0.024f });
+            draw (jackPlugBoot, I, { 0.026f, 0.026f, 0.028f });
             draw (cableLips, I, { 0.018f, 0.018f, 0.020f });   // rubber brush lips down each cheek
             draw (grommet, I, { 0.020f, 0.020f, 0.022f });
             draw (meshes.xlrBarrels, I, { 0.035f, 0.035f, 0.038f });
@@ -3175,20 +3481,29 @@ namespace pad
             rubber.set ("uCoatLod", coat.lod);
 
             use (shaders::chrome).set ("uParams", 0.7f, 0.0f, 0.0f, 0.0f);
-            draw (meshes.xlrRings, I, { 0.62f, 0.62f, 0.64f });                 // nickel latch and ring
+            draw (meshes.xlrRings, I, { 0.62f, 0.62f, 0.64f });                 // the XLR shells: satin nickel, knurled, their latches
+            draw (jackPlugMetal, I, { 0.66f, 0.66f, 0.68f });                  // the jack plugs' collars
             draw (meshes.loosePins, I, { 0.86f, 0.70f, 0.40f });                // brass blades and ground pin
             use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
             draw (meshes.wallHoles, I, { 0.006f, 0.006f, 0.007f });
         }
 
-        use (shaders::table);
+        // The shelf: its quartz top (the window mirrored in it) and front edge, the walnut cabinet under it
+        wallTex.bind (0);
+        static const bool plainShelf = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PLAINSHELF", {}).isNotEmpty();   // (dev: A/B the quartz's cost)
+        auto& quartz = use (plainShelf ? shaders::table : shaders::quartzShelf);
+        quartz.set ("uParams", studiowall::x0, geo::floorHeight(), studiowall::width, studiowall::height);
+        quartz.set ("uParams2", arcCentreZ - arcRadius - 2.2f, studiowall::range, 1.0f - 0.30f * closeness, 0.0f);
         draw (meshes.table, I, zero);
+        draw (meshes.shelfEdge, I, zero);
+        use (shaders::wood);
+        draw (meshes.shelfCabinet, I, { 0.30f, 0.17f, 0.10f });
 
         // The wall behind, last of the opaque surfaces: only the pixels the rack and the floor leave are shaded
         wallTex.bind (0);
         auto& wall = use (shaders::studioWall);
         wall.set ("uParams", studiowall::x0, geo::floorHeight(), studiowall::width, studiowall::height);
-        wall.set ("uParams2", 1.0f - 0.30f * closeness, 0.0f, 0.0f, 0.0f);
+        wall.set ("uParams2", 1.0f - 0.30f * closeness, studiowall::range, 0.0f, 0.0f);
         draw (meshes.wall, I, zero);
 
         // =============================================================================

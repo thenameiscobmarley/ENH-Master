@@ -83,6 +83,12 @@ namespace enh::dsp
         std::atomic<float> takebackLost { 0.0f }, takebackDull { 0.0f };   // TAKEBACK: what AUTO measured (0 .. 1)
         /** PHOSPHOR (the scope): the rack's output, every sample, in a ring the UI reads behind the write
             position (one writer, the audio thread; a torn read is one wrong dot, never a crash). */
+        std::array<std::atomic<float>, 48> unitMeter {};   // the newer units: how hard each is working (0 .. 1)
+        std::array<std::atomic<float>, 24> lbMeter {};     // the LUNCHBOX modules (units/LbList.h), the same
+        /** The simulated units' pictures (RAY ROOM, VINYL DECK, ...): each newer unit's display state, by its
+            place in units/UnitList.h, written each block (RackUnit::displayState; RoomScene.h, Sims.h). */
+        static constexpr int displayFloats = 192, displayUnits = 40;
+        std::array<std::array<std::atomic<float>, displayFloats>, displayUnits> unitDisplay {};
         static constexpr int scopeRing = 16384;
         std::vector<float> scopeL = std::vector<float> ((size_t) scopeRing), scopeR = std::vector<float> ((size_t) scopeRing);   // (on the heap: the engine lives on callers' stacks)
         std::atomic<unsigned> scopeWrite { 0 };

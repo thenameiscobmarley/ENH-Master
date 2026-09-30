@@ -1,7 +1,11 @@
 #pragma once
 
+#include <string_view>
+
+#include <cstdint>
 #include "EnhEngine.h"
 #include "DesignedUnits.h"
+#include "units/UnitList.h"
 
 namespace enh::dsp
 {
@@ -9,9 +13,33 @@ namespace enh::dsp
     namespace rack
     {
         enum : int { enhancer = 0, toneSpace = 1, compressor = 2, leveler = 3, limiter = 4, level = 5, balancer = 6, monitor = 7,
-                     deepSub = 8, character = 9, radar = 10, power = 11, lunchbox = 12, x4 = 13, velvet = 14, takeback = 15, scope = 16, numUnits = 17 };
+                     deepSub = 8, character = 9, radar = 10, power = 11, lunchbox = 12, x4 = 13, velvet = 14, takeback = 15, scope = 16, custom = 17 + units::count, numUnits = 18 + units::count };   // (then the newer units, from units::firstUnit; then CUSTOM)
         /** What the plugin starts with in the locker: the designed units (installed from the GEAR LOCKER). */
-        inline constexpr unsigned defaultStored = (1u << x4) | (1u << velvet) | (1u << takeback) | (1u << scope);
+        /** A bit per unit (64: room for the rack to grow past 32 units). */
+        using Mask = std::uint64_t;
+        inline constexpr Mask bit (int u) noexcept { return Mask { 1 } << u; }
+        inline constexpr Mask newerUnits() noexcept { Mask m = 0; for (int k = 0; k < units::count; ++k) m |= bit (units::firstUnit + k); return m; }
+        inline constexpr Mask defaultStored = bit (x4) | bit (velvet) | bit (takeback) | bit (scope) | newerUnits() | bit (custom);
+        static_assert (numUnits <= 64, "a unit mask holds 64");
+
+        /** The LUNCHBOX's modules, for its own locker: 0 CLASS-A EQ, 1 DE-HARSH, 2 CROSSFEED, 3 OUTPUT (the
+            meter: always in), then the 500-series modules of units/LbList.h. A bit per module in the locker. */
+        using LbMask = std::uint32_t;
+        inline constexpr int lbEq = 0, lbHarsh = 1, lbFeed = 2, lbOutput = 3, lbFirstGen = 4, lbModules = 4 + lbmods::count;
+        inline constexpr LbMask lbBit (int m) noexcept { return LbMask { 1 } << m; }
+        /** What starts in the LUNCHBOX: its first four, the TUBE EQ and BUS COMP (all switched OUT). */
+        inline constexpr LbMask defaultLbStored = []
+        {
+            LbMask m = 0;
+            for (int k = 0; k < lbmods::count; ++k)
+            {
+                const std::string_view key (lbmods::info[k].key);
+                if (key != "tubeeq" && key != "comp")   // (with the first four: the ten slots, full)
+                    m |= lbBit (lbFirstGen + k);
+            }
+            return m;
+        }();
+        static_assert (lbModules <= 32, "a LUNCHBOX mask holds 32");
     }
 
     /** Raw knob values exactly as the host / panel holds them (their own units), plus each device's
@@ -23,7 +51,7 @@ namespace enh::dsp
         bool clarityAddMode = false;
         float adaptPercent = 40.0f, subPercent = 0.0f;
         bool subBoost = false, footstep = false, radarListen = false;
-        float radarSens = 6.0f, radarBoost = 6.0f, radarSpace = 4.0f;
+        float radarSens = 6.0f, radarBoost = 6.0f, radarSpace = 4.0f, radarReach = 5.0f;
         float enhMultiply = 1.0f, enhStrength = 1.0f;
 
         // SERAPH
@@ -63,7 +91,8 @@ namespace enh::dsp
 
         // THE GEAR LOCKER: a bit per unit in the locker (rack::): out of the rack, so out of the sound. (0 here:
         // everything installed - the tests and EnhAudioLab run every unit; the plugin passes its own.)
-        unsigned stored = 0u;
+        rack::Mask stored = 0u;
+        rack::LbMask lbStored = 0u;   // the LUNCHBOX's own locker (rack::lbBit)
         float lumenTargetDb = -18.0f, lumenResponse = 5.0f;
         bool lumenActive = true;
 
@@ -80,7 +109,7 @@ namespace enh::dsp
     /** Every continuous knob, by parameter ID, and where its value goes: the knob modifiers
         (Parameters/KnobModifiers.h) work on these, before the mapping below. */
     struct KnobField { const char* param; float KnobValues::* field; };
-    inline constexpr std::array<KnobField, 45> knobFields {{
+    inline constexpr std::array<KnobField, 46> knobFields {{
         { "clarityNorm", &KnobValues::clarityNorm },       { "clarityAdd", &KnobValues::clarityAdd },
         { "adaptSpeed", &KnobValues::adaptPercent },       { "sub", &KnobValues::subPercent },
         { "enhMultiply", &KnobValues::enhMultiply },       { "enhStrength", &KnobValues::enhStrength },
@@ -106,7 +135,7 @@ namespace enh::dsp
         { "charBlend", &KnobValues::charBlend },           { "charDrive", &KnobValues::charDrive },
         { "charColour", &KnobValues::charColour },
         { "radarSens", &KnobValues::radarSens },           { "radarBoost", &KnobValues::radarBoost },
-        { "radarSpace", &KnobValues::radarSpace },
+        { "radarSpace", &KnobValues::radarSpace },           { "radarReach", &KnobValues::radarReach },
     }};
 
     inline constexpr float maxMultiply = 3.0f, maxStrength = 5.0f;
@@ -118,7 +147,7 @@ namespace enh::dsp
     /** A unit in the locker is out of the rack: switched out, whatever its knobs say (its settings are kept). */
     inline KnobValues withLocker (KnobValues k) noexcept
     {
-        auto out = [&] (int u) { return ((k.stored >> u) & 1u) != 0u; };
+        auto out = [&] (int u) { return ((k.stored >> u) & 1u) != 0u; };   // (64-bit mask)
         if (out (rack::enhancer))   { k.enhStrength = 0.0f; k.subPercent = 0.0f; }
         if (out (rack::toneSpace))  k.seraphMode = 0;
         if (out (rack::compressor)) k.tideActive = false;
@@ -132,12 +161,22 @@ namespace enh::dsp
         if (out (rack::x4))         k.designed[(size_t) designed::x4Pwr] = 0.0f;
         if (out (rack::velvet))     k.designed[(size_t) designed::velPower] = 0.0f;
         if (out (rack::takeback))   k.designed[(size_t) designed::tbPower] = 0.0f;
+        for (int u = 0; u < units::count; ++u)   // the newer units: their POWER (their first row)
+            if (out (units::firstUnit + u)) k.designed[(size_t) units::info[u].firstParam] = 0.0f;
+        if (out (rack::custom)) k.designed[(size_t) designed::firstCustomParam] = 0.0f;
+        // The LUNCHBOX: the whole frame put away takes every module with it
+        auto lbOut = [&] (int m) { return out (rack::lunchbox) || ((k.lbStored >> m) & 1u) != 0u; };
+        if (lbOut (rack::lbEq))    k.lbEqIn = false;
+        if (lbOut (rack::lbHarsh)) k.lbHarshIn = false;
+        if (lbOut (rack::lbFeed))  k.lbFeedIn = false;
+        for (int m = 0; m < lbmods::count; ++m)
+            if (lbOut (rack::lbFirstGen + m)) k.designed[(size_t) lbmods::info[m].firstParam] = 0.0f;
         return k;
     }
 
     inline EnhEngine::Parameters mapKnobs (const KnobValues& raw) noexcept
     {
-        const KnobValues k = raw.stored != 0u ? withLocker (raw) : raw;
+        const KnobValues k = raw.stored != 0u || raw.lbStored != 0u ? withLocker (raw) : raw;
         EnhEngine::Parameters p;
 
         const float m = std::clamp (k.enhMultiply, 0.0f, maxMultiply);
@@ -159,6 +198,7 @@ namespace enh::dsp
         p.radar.sensitivity = std::clamp (k.radarSens, 0.0f, 10.0f);
         p.radar.boostDb = std::clamp (k.radarBoost, 0.0f, 34.0f);
         p.radar.space = std::clamp (k.radarSpace, 0.0f, 10.0f);
+        p.radar.reach = std::clamp (k.radarReach, 0.0f, 10.0f);
         p.radar.solo = k.radarListen;
         p.radar.detection = k.methods[(size_t) methods::radarDetection];
         p.radar.room = k.methods[(size_t) methods::radarRoom];
@@ -295,6 +335,9 @@ namespace enh::dsp
             tb.power = on (du::tbPower); tb.autoOn = on (du::tbAuto);
             tb.blur = v (du::tbBlur); tb.sharpen = v (du::tbSharpen); tb.colour = v (du::tbColor);
             tb.raw = v (du::tbRaw); tb.shine = v (du::tbShine); tb.mix = v (du::tbMix);
+            for (int i = units::firstParam; i < du::firstCustomParam; ++i) p.unitParams[(size_t) (i - units::firstParam)] = v (i);   // (the newer units, raw)
+            for (int i = 0; i < 21; ++i) p.customParams[(size_t) i] = v (du::firstCustomParam + i);   // (the CUSTOM slot)
+            for (int i = 0; i < lbmods::numParams; ++i) p.lbParams[(size_t) i] = v (du::firstLbParam + i);   // (the LUNCHBOX's modules)
         }
         p.tide.active   = k.tideActive;
         p.lumen.targetDb = std::clamp (k.lumenTargetDb, -60.0f, 0.0f);
