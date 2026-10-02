@@ -2229,6 +2229,7 @@ namespace
 
 int main (int argc, char** argv)
 {
+    std::setvbuf (stdout, nullptr, _IONBF, 0);   // (unbuffered: a crash on CI shows exactly where it was)
     const double sr = 48000.0;
     const int block = 128;
 
