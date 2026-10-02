@@ -10,6 +10,8 @@ namespace pad
     inline int pickControl (const CameraRig& cam, float ndcX, float ndcY) noexcept
     {
         using namespace layout;
+        if (cam.turn > 0.05f)   // turned round: the controls face away
+            return -1;
 
         for (int i = 0; i < numControls; ++i)
         {

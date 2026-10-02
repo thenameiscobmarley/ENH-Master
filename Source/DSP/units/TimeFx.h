@@ -77,6 +77,7 @@ namespace enh::dsp::units
         voice 2 right. */
     class Harmonizer final : public RackUnit
     {
+        float delayNow = -1.0f;   // (DELAY slewed: it never moves faster than 0.4 sample a sample - a bend, never a click)
         std::array<PitchShifter, 2> v; std::array<DelayLine, 2> pre; std::array<float, 2> fb {};
         void prepareUnit (double s, int) override { for (auto& x : v) x.setup (s, 45.0); for (auto& d : pre) d.setMax ((int) (s * 0.12)); }
         void resetUnit() override { for (auto& x : v) x.clear(); for (auto& d : pre) d.clear(); fb = {}; }
@@ -85,12 +86,15 @@ namespace enh::dsp::units
             const float det = std::clamp (p[3], 0.0f, 50.0f) / 100.0f;
             const float r1 = std::pow (2.0f, (std::round (std::clamp (p[1], -12.0f, 12.0f)) - 0.5f * det) / 12.0f);
             const float r2 = std::pow (2.0f, (std::round (std::clamp (p[2], -12.0f, 12.0f)) + 0.5f * det) / 12.0f);
-            const float delay = std::max (1.0f, std::clamp (p[4], 0.0f, 100.0f) * 0.001f * (float) sr);
+            const float delayTarget = std::max (1.0f, std::clamp (p[4], 0.0f, 100.0f) * 0.001f * (float) sr);
+            if (delayNow < 0.0f) delayNow = delayTarget;
             const float feedback = std::clamp (p[5], 0.0f, 80.0f) / 100.0f, mix = std::clamp (p[6], 0.0f, 100.0f) / 100.0f;
             float act = 0.0f;
             for (int s = 0; s < n; ++s)
             {
                 const float in = 0.5f * (io[0][s] + io[1][s]);
+                delayNow += std::clamp (delayTarget - delayNow, -0.4f, 0.4f);
+                const float delay = delayNow;
                 pre[0].push (in + feedback * fb[0]); pre[1].push (in + feedback * fb[1]);
                 const float a = v[0].process (pre[0].tap (delay), r1), b = v[1].process (pre[1].tap (delay), r2);
                 fb = { a, b };

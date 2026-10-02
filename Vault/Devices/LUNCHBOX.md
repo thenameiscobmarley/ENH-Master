@@ -1,6 +1,8 @@
-# LUNCHBOX
+# 500-SERIES RACK
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called LUNCHBOX.
 
 A ten-slot 500-series "lunchbox" on a walnut stand to the right of the rack (full rack view; Simple view
 puts it away). It comes after CHARACTER and before the OUTPUT MONITOR, so EAR GUARD and the limiter still

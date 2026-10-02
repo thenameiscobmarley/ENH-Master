@@ -80,7 +80,7 @@ namespace pad::geo
     MeshData wallPlug();                         // the strip's own plug in the upper socket
     MeshData wallOutlet();                       // where the POWER strip is plugged in
     /** A tube of radius r along a smooth curve through the points (a cable), `sides` round. */
-    MeshData tubeAlong (const std::vector<hwk::gfx::Vec3>& points, float r, int sides = 8);
+    MeshData tubeAlong (const std::vector<hwk::gfx::Vec3>& points, float r, int sides = 8, float step = 0.06f);
 
     // --- panel-local ---------------------------------------------------------------
     MeshData faceplateEdges();

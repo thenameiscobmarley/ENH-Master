@@ -547,7 +547,10 @@ function start() {
     });
   }
   const imgCache = {};
-  const img = (id, k) => imgCache[id + k] || (imgCache[id + k] = loadImg("img/units/" + id + "-" + k + ".svg"));
+  // (a page opened as a file: the art built into rack3d.bundle.js, as data: - file:// pictures would taint the canvas)
+  const artOf = (id, k) => location.protocol === "file:" && typeof ENH_ART !== "undefined" && ENH_ART[id + "-" + k]
+    ? "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ENH_ART[id + "-" + k]) : "img/units/" + id + "-" + k + ".svg";
+  const img = (id, k) => imgCache[id + k] || (imgCache[id + k] = loadImg(artOf(id, k)));
   async function artTexture(id, hpx, layers, width) {
     const c = canvas(width, Math.round(width * hpx / 1000)), g = c.getContext("2d");
     for (const k of layers) g.drawImage(await img(id, k), 0, 0, c.width, c.height);

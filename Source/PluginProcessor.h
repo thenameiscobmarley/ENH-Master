@@ -6,6 +6,7 @@
 #include "DSP/ParameterMapping.h"
 #include "Parameters/KnobModifiers.h"
 #include "Custom/DesignCode.h"
+#include "DSP/PatchBay.h"
 
 /*  ENH Master processor: owns the parameters and the DSP engine (Source/DSP). */
 class PluginProcessor final : public juce::AudioProcessor
@@ -78,6 +79,8 @@ public:
         return {};
     }
     juce::String getCustomCode() const { return customCode; }
+    /** RACK TUNER: match the rack's level (a tune starts: newReference; A/B or UNDO: match again). */
+    void requestTunerMatch (bool newReference) noexcept { engine.requestTunerMatch (newReference); }
     int getCustomVersion() const noexcept { return customVersion.load(); }
 
     /** THE GEAR LOCKER: the units out of the rack (a bit per unit, the layout's numbering). Saved with the
@@ -86,7 +89,8 @@ public:
     void setStoredUnits (enh::dsp::rack::Mask mask)
     {
         storedUnits.store (mask, std::memory_order_relaxed);
-        state.state.setProperty ("lockerStored", (juce::int64) mask, nullptr);
+        state.state.setProperty ("lockerStored", (juce::int64) mask.lo, nullptr);
+        state.state.setProperty ("lockerStoredHi", (juce::int64) mask.hi, nullptr);   // (units 64 and on, since 3.8.0.1)
         state.state.setProperty ("lockerUnits", enh::dsp::rack::numUnits, nullptr);   // (units added later start stored)
     }
     /** The LUNCHBOX's own locker: its modules out of the frame (rack::lbBit). Saved with the session. */
@@ -98,6 +102,26 @@ public:
         state.state.setProperty ("lunchboxStored", (juce::int64) mask, nullptr);
         state.state.setProperty ("lunchboxModules", enh::dsp::rack::lbModules, nullptr);
     }
+
+    /** THE PATCH BAY (DSP/PatchBay.h): its cords, saved with the session (message thread). No cords: the rack
+        straight through in its own order, as it is until it is first re-patched. A cord out of the chain mutes
+        the rack (faded); a unit left out of it is passed by; the newer units run in the order they are patched. */
+    const enh::patch::State& getPatch() const noexcept { return patch; }
+    void setPatch (const enh::patch::State& s)
+    {
+        patch = s;
+        state.state.setProperty ("patchCords", juce::String (enh::patch::toString (patch)), nullptr);
+        applyPatch();
+        patchVersion.fetch_add (1, std::memory_order_relaxed);
+    }
+    int getPatchVersion() const noexcept { return patchVersion.load (std::memory_order_relaxed); }
+    bool isPatchMuted() const noexcept { return patchMuted || engine.getMeters().patchRunaway.load (std::memory_order_relaxed); }
+    bool isPatchLoop() const noexcept { return patchLoop; }
+    bool isPatchRunaway() const noexcept { return engine.getMeters().patchRunaway.load (std::memory_order_relaxed); }
+    /** A plug half in (the UI's insertion): a quiet crackle and hum, 0..1 (message thread). */
+    void setPatchNoise (float noise) noexcept { patchNoise = noise; engine.setPatch (patchMuted, patchNoise); }
+    /** A plug going home in its jack, or pulled: its click, quietly, on the output (any thread). */
+    void patchClick() noexcept { engine.patchClick(); }
 
     /** The loudness meter's RESET button (any thread). */
     void resetLoudness() noexcept { engine.resetLoudness(); }
@@ -146,7 +170,13 @@ private:
                         *lbMidGain = nullptr, *lbMidHiQ = nullptr, *lbHighGain = nullptr, *lbIron = nullptr, *lbHarshIn = nullptr,
                         *lbHarshAmount = nullptr, *lbHarshFreq = nullptr, *lbHarshSpeed = nullptr, *lbFeedIn = nullptr, *lbFeedAmount = nullptr;
     std::array<std::atomic<float>*, enh::dsp::designed::numParams> designedParams {};   // PRO X4, VELVETIZER
-    std::atomic<enh::dsp::rack::Mask> storedUnits { enh::dsp::rack::defaultStored };
+    enh::dsp::AtomicUnitMask storedUnits { enh::dsp::rack::defaultStored };
+    enh::patch::State patch;                              // THE PATCH BAY's cords (message thread)
+    enh::dsp::AtomicUnitMask patchBypass { 0u };          //   the units its cords leave out (run as if put away)
+    bool patchMuted = false, patchLoop = false;
+    float patchNoise = 0.0f;
+    std::atomic<int> patchVersion { 0 };
+    void applyPatch();
     std::atomic<enh::dsp::rack::LbMask> storedModules { enh::dsp::rack::defaultLbStored };
     juce::String customCode;                                                              // CUSTOM: the design loaded (its share code)
     std::vector<std::unique_ptr<enh::dsp::units::CustomConfig>> customConfigs;             //   every chain handed to the engine (kept alive)

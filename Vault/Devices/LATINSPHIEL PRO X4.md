@@ -1,6 +1,8 @@
-# LATINSPHIEL PRO X4
+# SMART TUBE ENHANCER EQ
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called LATINSPHIEL PRO X4.
 
 A smart four-band valve enhancer with a PID controller (4U). Designed by the owner in the
 [Rack Unit Designer](https://thenameiscobmarley.github.io/ENH-Master/designer.html); the sound was built to

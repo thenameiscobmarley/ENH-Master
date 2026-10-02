@@ -1,9 +1,12 @@
 #pragma once
 
 #include <juce_graphics/juce_graphics.h>
+#include <map>
+#include <set>
 #include "../DSP/MethodRegistry.h"
 #include "Scene/DeviceLayout.h"
 #include "Scene/PanelArtwork.h"
+#include "RackTuner.h"
 
 class PluginProcessor;
 
@@ -20,6 +23,7 @@ namespace pad
           Display    display settings
           Knobs      per knob (a small heading each): its own law (where it has one), SMOOTHING, CURVE, RANGE
           Design     CUSTOM only: paste a design code, empty the slot
+          Tune       RACK TUNER only: type what you want (or click words), TUNE, UNDO, A/B (RackTuner.h)
 
         Clicking a row opens its choices under it (one list open at a time); a setting not at its default
         has an amber dot. The footer explains whatever is under the pointer, and holds RESET TO DEFAULTS.
@@ -46,12 +50,12 @@ namespace pad
         /** One line of the list. */
         struct Entry
         {
-            enum Kind { category, knobHeader, stage, modifier, reset, lockerUnit, designAction } kind = stage;   // (designAction: CUSTOM's paste / clear; rackUnit = which)
+            enum Kind { category, knobHeader, stage, modifier, reset, lockerUnit, designAction, lockerGroup, lockerSub, tunerAction, tunerChips } kind = stage;   // (tunerAction: RACK TUNER's TUNE / UNDO / A-B, rackUnit = which; tunerChips: its words to click)   // (designAction: CUSTOM's paste / clear; rackUnit = which; lockerGroup / lockerSub: the locker's categories, which fold out, and their sections)
             int rackUnit = -1;                                    // lockerUnit: which unit
             int lbModule = -1;                                    // lockerUnit on the "500 series" tab: which LUNCHBOX module
             juce::String title;                                   // category / knob name
             int categoryIndex = 0;                                // the category it belongs to
-            int knobGroup = -1;                                   // a knob's setting: its knob header's entry index
+            int knobGroup = -1;                                   // a knob's setting: its knob header's entry index; a locker unit or section: its group's
             const enh::dsp::methods::Stage* stageInfo = nullptr;  // stage
             int knob = -1, modifierKind = -1;                     // modifier: knob (knobFields index) and kind
 
@@ -87,9 +91,11 @@ namespace pad
         void unhover();
         void click (juce::Point<float>);
         bool scroll (float deltaPx);              // the wheel over the panel
-        /** Typing: in THE GEAR LOCKER, into its search (true: the key was the panel's). */
+        /** Typing: in THE GEAR LOCKER, into its search; on RACK TUNER, its words (true: the key was the panel's). */
         bool keyPressed (const juce::KeyPress&);
-        bool wantsKeys() const noexcept           { return unit == glass::lockerPage; }
+        bool wantsKeys() const noexcept           { return unit == glass::lockerPage || unit == layout::tunerUnit; }
+        /** RACK TUNER, 30 times a second whether the panel is open or not (its glide, its faceplate's buttons). */
+        void tickTuner (float dt)                 { tuner.tick (dt); if (unit == layout::tunerUnit && tuner.lastReport() != lockerNote) { lockerNote = tuner.lastReport(); dirty = true; } }
 
         /** Advances the animations; true while anything is still moving (the print needs redrawing). */
         bool tick (float dt);
@@ -99,6 +105,13 @@ namespace pad
 
         bool needsRedraw() const noexcept         { return dirty; }
         void selectTab (int t)                    { showTab (t); dirty = true; }
+        /** Dev-only (screenshots): hovers the nth unit shown in the open tab. */
+        void testHoverUnit (int nth)
+        {
+            layoutEntries();
+            for (int i = 0, k = 0; i < (int) entries.size(); ++i)
+                if (entries[(size_t) i].kind == glass::Entry::lockerUnit && entries[(size_t) i].h > 1.0f && k++ == nth) { hovered = { i, -1, -1, true }; dirty = true; return; }
+        }
         /** HOLOGRAM style: the print in the scope's phosphor green (the renderer draws the glass to match). */
         void setHolo (bool h)                     { holo = h; dirty = true; }
         artwork::RawTexture render (float pixelScale);
@@ -117,7 +130,16 @@ namespace pad
         bool matchesSearch (const glass::Entry&) const;
         float searchHeight() const noexcept;
         juce::Rectangle<float> searchBox() const noexcept;
-        juce::String lockerNote;                  // why a unit could not go in, while it stands
+        juce::String lockerNote;                  // why a unit could not go in, while it stands (RACK TUNER: what the last tune did)
+        RackTuner tuner;
+        std::vector<juce::Rectangle<float>> chipBoxes (const glass::Entry&) const;   // RACK TUNER's words, on screen
+        bool tunerShowsBefore() const;           // its A/B switch: the rack before the last tune
+        std::set<juce::String> openGroups;        // the locker's categories folded out (kept while it is rebuilt)
+        std::map<int, juce::Image> thumbs;        // each unit's faceplate, painted once (UnitFace.h), for its preview
+        bool thumbsPending = false;
+        bool groupHasMatch (int groupEntry, int subEntry = -1) const;
+        float unitRowHeight (const glass::Entry&) const;
+        const juce::Image* thumbFor (int rackUnit, float pixelWidth, int& budget);
         void layoutEntries();
         float contentHeight() const noexcept;
         juce::Rectangle<float> listArea() const noexcept;

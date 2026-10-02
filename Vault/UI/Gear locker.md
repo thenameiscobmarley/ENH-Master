@@ -17,9 +17,19 @@ Simple view is different: it only hides units, and they keep working.
 Code: `UI/GlassPanel.cpp` (the locker page), `UI/Scene/DeviceLayout.h` (`storedUnits`, `rackCapacityU`),
 `DSP/ParameterMapping.h` (`withLocker`).
 
+## Categories and previews
+
+The **Locker** tab is sorted into categories that fold out: click one to open it. Each has sections,
+for example **Low end**: Sub bass, Simulated sub bass, Bass control. There are also Dynamics, EQ and tone,
+Filters, Saturation and colour, Space, Modulation and movement, Stereo and phase, Simulated, Mastering,
+Lo-fi and character, Meters and tools, and Designed units. A unit can be in more than one category.
+The number on a category is how many units are in it. The **In the rack** tab stays in signal order.
+
+Every unit shows a picture of its faceplate under its name. Point at it and it grows to the panel's width.
+
 ## Search
 
-The search field at the top finds units and modules by name, model or what they do, on every tab. Each
+The search field at the top finds units and modules by name, model, what they do or the category they are in, on every tab. Searching opens every category with a match. Each
 tab's count shows how many match. Esc clears it.
 
 ## 500 series

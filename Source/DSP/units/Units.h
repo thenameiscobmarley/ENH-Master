@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UnitList.h"
+#include "../DesignedUnits.h"
 #include "Reverbs.h"
 #include "TimeFx.h"
 #include "Dynamics.h"
@@ -10,12 +11,16 @@
 #include "RayRoom.h"
 #include "Sims.h"
 #include "Sims2.h"
+#include "Sims3.h"
+#include "Sims4.h"
+#include "Sims5.h"
+#include "Sims6.h"
 
 /*  The newer units, made by their place in UnitList.h (Tools/units/gen_units.py writes that list: keep the
     order of this switch the same as its). */
 namespace enh::dsp::units
 {
-    inline std::unique_ptr<RackUnit> make (int k)
+    inline std::unique_ptr<RackUnit> makeUnit (int k)
     {
         switch (k)
         {
@@ -52,8 +57,73 @@ namespace enh::dsp::units
             case 30: return std::make_unique<TeslaCoil>();
             case 31: return std::make_unique<TalkBox>();
             case 32: return std::make_unique<LavaLamp>();
+            case 33: return std::make_unique<ClarityLens>();
+            case 34: return std::make_unique<SubDriver>();
+            case 35: return std::make_unique<VinylCutter>();
+            case 36: return std::make_unique<CarTest>();
+            case 37: return std::make_unique<PhoneCheck>();
+            case 38: return std::make_unique<ClubSystem>();
+            case 39: return std::make_unique<Pressure>();
+            case 40: return std::make_unique<Balance>();
+            case 41: return std::make_unique<StereoField>();
+            case 42: return std::make_unique<Sonar>();
+            case 43: return std::make_unique<Seismograph>();
+            case 44: return std::make_unique<Prism>();
+            case 45: return std::make_unique<Furnace>();
+            case 46: return std::make_unique<Dither>();
+            case 47: return std::make_unique<Rider>();
+            case 48: return std::make_unique<Compass>();
+            case 49: return std::make_unique<Suspension>();
+            case 50: return std::make_unique<Skyline>();
+            case 51: return std::make_unique<Hourglass>();
+            case 52: return std::make_unique<Aurora>();
+            case 53: return std::make_unique<ChromaSpace>();
+            case 54: return std::make_unique<Hypercube>();
+            case 55: return std::make_unique<RackTunerUnit>();
+            case 56: return std::make_unique<DetailEnhancer>();
             default: return nullptr;
         }
     }
-    static_assert (count == 33, "Units.h: one case per unit in UnitList.h");
+    /** Unit k, its knob count set (so its knobs glide: RackUnit), and its MULTIPLY and STRENGTH if it has them. */
+    inline std::unique_ptr<RackUnit> make (int k)
+    {
+        auto u = makeUnit (k);
+        if (u == nullptr) return u;
+        u->setParamCount (info[k].numParams);
+        int mul = -1, str = -1;
+        std::vector<unsigned char> scaled ((size_t) info[k].numParams, 0);
+        std::vector<float> lo ((size_t) info[k].numParams, 0.0f), hi ((size_t) info[k].numParams, 0.0f);
+        for (int i = 0; i < info[k].numParams; ++i)
+        {
+            const auto& row = designed::params[(size_t) (info[k].firstParam + i)];
+            lo[(size_t) i] = row.minValue; hi[(size_t) i] = row.maxValue;
+            if (row.label == "MULTIPLY") { mul = i; continue; }
+            if (row.label == "STRENGTH") { str = i; continue; }
+            // (its amounts: knobs, but not its mix, output, gain, a threshold or ceiling, a frequency or a time)
+            const bool amount = row.kind == 0 && i > 0 && row.label.find ("MIX") == std::string_view::npos && row.label.find ("OUTPUT") == std::string_view::npos
+                             && row.label.find ("GAIN") == std::string_view::npos && row.label.find ("THRESH") == std::string_view::npos
+                             && row.label.find ("CEILING") == std::string_view::npos && row.label.find ("VOLUME") == std::string_view::npos
+                             && row.label.find ("TARGET") == std::string_view::npos
+                             && row.unit.find ("Hz") == std::string_view::npos && row.unit.find ("ms") == std::string_view::npos
+                             && row.unit != " s" && row.unit.find ("st") == std::string_view::npos && row.unit.find ("ct") == std::string_view::npos;
+            scaled[(size_t) i] = amount ? 1 : 0;
+        }
+        if (mul >= 0 && str >= 0)
+            u->setModifiers (mul, str, std::move (scaled), std::move (lo), std::move (hi));
+        return u;
+    }
+    /** RACK TUNER's place among the newer units (the engine trims the rack's level for it). */
+    inline constexpr int indexOfKey (const char* key) noexcept
+    {
+        for (int k = 0; k < count; ++k)
+        {
+            const char* a = info[k].key; const char* b = key;
+            while (*a != 0 && *a == *b) { ++a; ++b; }
+            if (*a == 0 && *b == 0) return k;
+        }
+        return -1;
+    }
+    inline constexpr int tunerIndex = indexOfKey ("tuner");
+    static_assert (tunerIndex >= 0, "Units.h: RACK TUNER is in UnitList.h");
+    static_assert (count == 57, "Units.h: one case per unit in UnitList.h");
 }

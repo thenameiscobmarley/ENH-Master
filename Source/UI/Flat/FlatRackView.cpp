@@ -1,117 +1,31 @@
 #include "FlatRackView.h"
+#include "../UnitFace.h"
 #include "../../PluginProcessor.h"
 #include "../../Parameters/ParameterBridge.h"
 #include "../Scene/CustomLayout.h"
 #include "../Scene/RoomScreen.h"
 #include "../Scene/SimScreens.h"
+#include "../Scene/BackPanels.h"
+#include "../Scene/PatchCables.h"
 
 namespace pad
 {
     using namespace layout;
-    namespace
-    {
-        /** The renderer's plate colours are linear light; the 2D view paints in sRGB. */
-        juce::Colour fromLinear (float r, float g, float b)
-        {
-            auto enc = [] (float v) { v = std::clamp (v, 0.0f, 1.0f); return (juce::uint8) std::lround (255.0f * (v <= 0.0031308f ? 12.92f * v : 1.055f * std::pow (v, 1.0f / 2.4f) - 0.055f)); };
-            return juce::Colour (enc (r), enc (g), enc (b));
-        }
-
-        struct Plate { float r, g, b; };
-        Plate plateOf (int unit)
-        {
-            switch (unit)
-            {
-                case enhUnit:       return { 0.050f, 0.052f, 0.058f };
-                case tubeUnit:      return { 0.16f, 0.30f, 0.40f };
-                case tideUnit:      return { 0.035f, 0.035f, 0.04f };
-                case lumenUnit:     return { 0.70f, 0.70f, 0.71f };
-                case limiterUnit:   return { 0.80f, 0.76f, 0.62f };
-                case deepUnit:      return { 0.030f, 0.030f, 0.034f };
-                case characterUnit: return { 0.90f, 0.90f, 0.88f };
-                case radarUnit:     return { 0.055f, 0.070f, 0.15f };
-                case levelUnit:     return { 0.045f, 0.045f, 0.05f };
-                case balancerUnit:  return { 0.13f, 0.15f, 0.27f };
-                case monitorUnit:   return { 0.16f, 0.165f, 0.175f };
-                case powerUnit:     return { 0.035f, 0.035f, 0.04f };
-                case lunchboxUnit:  return { 0.045f, 0.045f, 0.05f };
-                case x4Unit:        return { 0.061f, 0.064f, 0.068f };
-                case velvetUnit:    return { 0.0012f, 0.098f, 0.012f };
-                case takebackUnit:  return { 0.0194f, 0.063f, 0.242f };
-                case scopeUnit:     return { 0.028f, 0.036f, 0.048f };
-                default: break;
-            }
-            if (unit == customUnit) { const auto l = layout::custom::get(); return { l->plate[0], l->plate[1], l->plate[2] }; }
-            if (unit >= firstGenUnit && unit < firstGenUnit + gen::count) { const auto& l = gen::looks[unit - firstGenUnit]; return { l.plate[0], l.plate[1], l.plate[2] }; }
-            return { 0.05f, 0.05f, 0.055f };
-        }
-
-        juce::Colour knobColour (KnobStyle s)
-        {
-            switch (s)
-            {
-                case KnobStyle::apiRed:        return juce::Colour (0xff9a2a22);
-                case KnobStyle::apiBlue:       return juce::Colour (0xff2c4c86);
-                case KnobStyle::apiWhite:      return juce::Colour (0xffd8d6cf);
-                case KnobStyle::neveMaroon:    return juce::Colour (0xff6a1c1a);
-                case KnobStyle::neveGrey:      return juce::Colour (0xff76787c);
-                case KnobStyle::neveSmallGrey: return juce::Colour (0xff8a8c90);
-                case KnobStyle::consoleWhite:  return juce::Colour (0xffe6e4de);
-                default:                       return juce::Colour (0xff1c1d20);
-            }
-        }
-
-        /** A texture from the artwork as a JUCE image: one channel (print) becomes `ink` with that alpha,
-            three or four channels are copied (straight alpha). */
-        /** A meter's face: the cream card, its print (channel 0) and its red zone (channel 1). */
-        juce::Image meterFace (const artwork::RawTexture& t)
-        {
-            if (t.width <= 0 || t.height <= 0 || t.channels < 2) return {};
-            juce::Image img (juce::Image::ARGB, t.width, t.height, false);
-            juce::Image::BitmapData d (img, juce::Image::BitmapData::writeOnly);
-            const juce::Colour cream (0xfff0e6cb), ink (0xff1c1712), red (0xffc0392b);
-            for (int y = 0; y < t.height; ++y)
-            {
-                const auto card = cream.interpolatedWith (juce::Colour (0xffd8caa4), (float) y / (float) t.height);
-                for (int x = 0; x < t.width; ++x)
-                {
-                    const auto* p = t.pixels.data() + ((size_t) y * (size_t) t.width + (size_t) x) * (size_t) t.channels;
-                    d.setPixelColour (x, y, card.interpolatedWith (red, p[1] / 255.0f).interpolatedWith (ink, p[0] / 255.0f));
-                }
-            }
-            return img;
-        }
-
-        juce::Image toImage (const artwork::RawTexture& t, juce::Colour ink)
-        {
-            if (t.width <= 0 || t.height <= 0 || t.pixels.empty()) return {};
-            // (print drawn faint for the 3D rack's engraving is brought up to full strength)
-            int most = 1;
-            if (t.channels <= 2)
-                for (size_t i = 0; i < t.pixels.size(); i += (size_t) t.channels) most = std::max (most, (int) t.pixels[i]);
-            const float lift = 255.0f / (float) most;
-            juce::Image img (juce::Image::ARGB, t.width, t.height, true);
-            juce::Image::BitmapData d (img, juce::Image::BitmapData::writeOnly);
-            for (int y = 0; y < t.height; ++y)
-                for (int x = 0; x < t.width; ++x)
-                {
-                    const auto* p = t.pixels.data() + ((size_t) y * (size_t) t.width + (size_t) x) * (size_t) t.channels;
-                    // (print: its coverage lifted a little - the 3D rack's lit paint makes thin print read stronger)
-                    const auto a = (juce::uint8) std::lround (255.0f * std::min (1.0f, 1.6f * std::sqrt (std::min (1.0f, p[0] * lift / 255.0f))));
-                    juce::Colour c = t.channels == 1 ? ink.withAlpha (a)
-                                   : t.channels == 3 ? juce::Colour (p[0], p[1], p[2])
-                                   : t.channels == 2 ? ink.withAlpha (a)
-                                                     : juce::Colour (p[0], p[1], p[2], p[3]);
-                    d.setPixelColour (x, y, c);
-                }
-            return img;
-        }
-    }
+    using namespace face;   // (the faceplate painter: UI/UnitFace.h)
 
     //==============================================================================
     FlatRackView::FlatRackView (PluginProcessor& p) : processor (p), bridge (p.getBridge())
     {
         setOpaque (true);
+        patchOpen = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PATCHVIEW", {}).isNotEmpty();   // (dev: open on the patch bay)
+        // Dev-only (screenshots, as the 3D view's): PAD_UI_TEST_STORED=<lo[:hi]> sets THE GEAR LOCKER (signed
+        // 64-bit halves), PAD_UI_TEST_PARAMS="id=normalised;..." sets parameters
+        if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STORED", {}); t.isNotEmpty())
+            processor.setStoredUnits (layout::UnitMask { (std::uint64_t) t.upToFirstOccurrenceOf (":", false, false).getLargeIntValue(),
+                                                         (std::uint64_t) t.fromFirstOccurrenceOf (":", false, false).getLargeIntValue() });
+        for (auto& token : juce::StringArray::fromTokens (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PARAMS", {}), ";", {}))
+            if (const int i = bridge.indexOf (token.upToFirstOccurrenceOf ("=", false, false).trim()); i >= 0)
+                bridge.setValueWithSource (i, token.fromFirstOccurrenceOf ("=", false, false).getFloatValue(), ControlSource::hostAutomation);
         storedUnits = processor.getStoredUnits();
         placeLunchbox (processor.getStoredModules());
         glassPanel = std::make_unique<GlassPanel> (bridge, processor);
@@ -159,106 +73,13 @@ namespace pad
             y += rows.back().height + (u == lunchboxUnit ? 12.0f : 2.0f);
         }
         contentH = y + 12.0f;
+        if (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_SCROLL", {}) == "end") scrollY = maxScroll();   // (screenshots: the rack's last units)
         scrollTarget = scrollY = std::clamp (scrollY, 0.0f, maxScroll());
         repaint();
     }
 
-    /** One faceplate, drawn once: its paint, its print, its windows and meters' faces, its ears' screws. */
-    juce::Image FlatRackView::renderFace (int unit, float scale) const
-    {
-        const float hw = unitHalfW (unit), hh = unitHalfH (unit);
-        const int w = std::max (1, juce::roundToInt (2.0f * hw * scale)), h = std::max (1, juce::roundToInt (2.0f * hh * scale));
-        juce::Image img (juce::Image::ARGB, w, h, true);
-        juce::Graphics g (img);
-        auto X = [&] (float x) { return (x + hw) * scale; };
-        auto Z = [&] (float z) { return (z + hh) * scale; };
-        const auto pl = plateOf (unit);
-        const bool light = pl.r + pl.g + pl.b > 1.05f;
-        // (as the 3D rack's light leaves it: the paint a little darker than its linear colour reads flat)
-        const float k = light ? 0.85f : 0.55f;
-        const auto plate = fromLinear (pl.r * k, pl.g * k, pl.b * k);
-
-        // The plate: its paint with a soft light from above, a bevel, the ears' slots and screws
-        g.setGradientFill (juce::ColourGradient (plate.brighter (0.10f), 0.0f, 0.0f, plate.darker (0.18f), 0.0f, (float) h, false));
-        g.fillRoundedRectangle (0.5f, 0.5f, (float) w - 1.0f, (float) h - 1.0f, 2.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.10f));
-        g.drawRoundedRectangle (1.0f, 1.0f, (float) w - 2.0f, (float) h - 2.0f, 2.0f, 1.0f);
-        if (unit == lunchboxUnit)
-        {
-            // The LUNCHBOX: each installed module's own plate on the black frame, the empty slots dark
-            for (int m = 0; m < lb::numModules; ++m)
-            {
-                if (! lb::installed (m)) continue;
-                static constexpr Plate first[4] { { 0.21f, 0.30f, 0.43f }, { 0.07f, 0.072f, 0.078f }, { 0.10f, 0.105f, 0.115f }, { 0.07f, 0.24f, 0.52f } };
-                const auto c = m < 4 ? first[m] : Plate { enh::dsp::lbmods::info[m - 4].plate[0], enh::dsp::lbmods::info[m - 4].plate[1], enh::dsp::lbmods::info[m - 4].plate[2] };
-                const float cx = lbModuleX (m), mhw = 0.5f * lbSlotW * (float) lb::widthOf (m) - 0.012f;
-                const auto mc = fromLinear (c.r * 0.55f, c.g * 0.55f, c.b * 0.55f);
-                g.setGradientFill (juce::ColourGradient (mc.brighter (0.08f), 0.0f, Z (-lbModuleHalfH), mc.darker (0.15f), 0.0f, Z (lbModuleHalfH), false));
-                g.fillRoundedRectangle (X (cx - mhw), Z (-lbModuleHalfH), 2.0f * mhw * scale, 2.0f * lbModuleHalfH * scale, 2.0f);
-            }
-            for (int k : lb::emptySlots())
-            {
-                g.setColour (juce::Colour (0xff050506));
-                g.fillRect (X (slotX (k) - 0.5f * lbSlotW + 0.02f), Z (-lbModuleHalfH), (lbSlotW - 0.04f) * scale, 2.0f * lbModuleHalfH * scale);
-            }
-        }
-        else
-            for (float sx : { -1.0f, 1.0f })
-                for (float sz : { -1.0f, 1.0f })
-                {
-                    if (hh < 0.4f && sz > 0.0f) continue;   // (a 1U: one screw each side)
-                    const float cx = X (sx * (hw - 0.11f)), cz = hh < 0.4f ? Z (0.0f) : Z (sz * (hh - 0.12f));
-                    g.setColour (juce::Colour (0xffb8b9bd)); g.fillEllipse (cx - 4.0f, cz - 4.0f, 8.0f, 8.0f);
-                    g.setColour (juce::Colour (0xff3a3b3f)); g.drawLine (cx - 2.5f, cz, cx + 2.5f, cz, 1.2f);
-                }
-
-        // Its windows: the displays as dark glass (the 2D rack draws no live screens)
-        std::vector<Rect> windows;
-        if (unit == enhUnit) windows.push_back (displayRect);
-        if (unit == tubeUnit) windows.push_back (seraphDisplayRect);
-        if (unit == monitorUnit) windows.push_back (monitorDisplayRect);
-        if (unit == balancerUnit) windows.push_back (balancerDisplayRect);
-        for (const auto& r : windows)
-        {
-            g.setColour (juce::Colour (0xff0b0d10));
-            g.fillRoundedRectangle (X (r.cx - r.hw), Z (r.cz - r.hd), 2.0f * r.hw * scale, 2.0f * r.hd * scale, 3.0f);
-            g.setColour (juce::Colours::white.withAlpha (0.06f));
-            g.drawRoundedRectangle (X (r.cx - r.hw), Z (r.cz - r.hd), 2.0f * r.hw * scale, 2.0f * r.hd * scale, 3.0f, 1.0f);
-        }
-
-        // The print
-        const int tw = juce::jlimit (512, 2048, juce::nextPowerOfTwo (w));
-        artwork::RawTexture decal;
-        if (unit == enhUnit) decal = artwork::renderFaceplateDecal (tw);
-        else if (unit == tubeUnit) decal = artwork::renderTubeDecal (tw);
-        else if (unit == lunchboxUnit) decal = artwork::renderLunchboxDecal (tw);
-        else if (unit == x4Unit || unit == velvetUnit || unit == takebackUnit || unit == scopeUnit || unit == customUnit || (unit >= firstGenUnit && unit < firstGenUnit + gen::count))
-            decal = artwork::renderDesignedDecal (unit, tw);
-        else
-            decal = artwork::renderOneUDecal (unit, tw);
-        const auto ink = toImage (decal, light ? juce::Colour (0xff1a1a1c) : juce::Colour (0xfff2efe8));
-        if (ink.isValid())
-            g.drawImage (ink, juce::Rectangle<float> (0.0f, 0.0f, (float) w, (float) h), juce::RectanglePlacement::stretchToFit);
-
-        // The meters' faces (their needles are drawn live)
-        for (int i = 0; i < numVus (unit); ++i)
-        {
-            const float cx = vuX (unit, i), cz = vuZ (unit, i), vw = vuHalfW (unit), vh = vuHalfHFor (unit);
-            const auto faceTex = artwork::renderVuFace (unit, 256, nullptr, i);
-            // (a meter's print is ink on the cream card the 3D rack's shader paints under it)
-            const auto face = faceTex.channels >= 2 ? meterFace (faceTex) : toImage (faceTex, juce::Colour (0xff1c1712));
-            const juce::Rectangle<float> r (X (cx - vw), Z (cz - vh), 2.0f * vw * scale, 2.0f * vh * scale);
-            g.setColour (juce::Colour (0xff0d0d0f)); g.fillRoundedRectangle (r.expanded (2.0f), 3.0f);
-            if (faceTex.channels < 2)
-            {
-                g.setGradientFill (juce::ColourGradient (juce::Colour (0xfff1e7cc), r.getCentreX(), r.getY(), juce::Colour (0xffd9cba5), r.getCentreX(), r.getBottom(), false));
-                g.fillRoundedRectangle (r, 2.0f);
-            }
-            if (face.isValid()) g.drawImage (face, r, juce::RectanglePlacement::stretchToFit);
-        }
-        return img;
-    }
-
+    /** One faceplate, drawn once (UI/UnitFace.h). */
+    juce::Image FlatRackView::renderFace (int unit, float scale) const { return face::render (unit, scale); }
     //==============================================================================
     void FlatRackView::resized()
     {
@@ -384,7 +205,7 @@ namespace pad
         if (r.unit < firstGenUnit || r.unit >= firstGenUnit + gen::count)
             return {};
         const std::string_view key = enh::dsp::units::info[r.unit - firstGenUnit].key;
-        if (key != "rayroom" && simscreen::kindOf (key) == simscreen::Kind::none)
+        if (key != "rayroom" && simscreen::kindOf (key) == simscreen::Kind::none && colourscreen::kindOf (key) == colourscreen::Kind::none)
             return {};
         const auto [pr, np] = gen::printOf (r.unit - firstGenUnit);
         for (int i = 0; i < np; ++i)
@@ -398,6 +219,8 @@ namespace pad
     {
         const auto box = roomScreenRect (r);
         if (box.isEmpty()) return;
+        if (const auto ck = colourscreen::kindOf (enh::dsp::units::info[r.unit - firstGenUnit].key); ck != colourscreen::Kind::none)
+        { drawColourScreen (g, r, box, ck); return; }
         const auto kind = simscreen::kindOf (enh::dsp::units::info[r.unit - firstGenUnit].key);
         const int power = bridge.indexOf (kind == simscreen::Kind::none ? "rrPower" : simscreen::powerId (kind));
         if (power < 0 || bridge.getNormalised (power) < 0.5f) return;
@@ -419,7 +242,7 @@ namespace pad
             if (s.W < 1.0f) { s.W = R::halfWidth (4.0f); s.D = R::halfDepth (4.0f); }
             roomscreen::build (s, (float) demoTime, box.getWidth(), box.getHeight(), lines, blobs);
         }
-        g.setColour (juce::Colours::black);
+        g.setColour (juce::Colour (0xff06070a));   // (not pure black: see drawColourScreen)
         g.fillRoundedRectangle (box, 3.0f);
         juce::Graphics::ScopedSaveState keep (g);
         g.reduceClipRegion (box.toNearestInt());
@@ -434,6 +257,46 @@ namespace pad
             const juce::Rectangle<float> c (box.getX() + b.x - b.r, box.getY() + b.y - b.r, 2.0f * b.r, 2.0f * b.r);
             if (b.ring) g.drawEllipse (c, 1.2f); else g.fillEllipse (c);
         }
+    }
+
+    /** CHROMA SPACE's and HYPERCUBE's screens, in colour (ColourScreens.h): the same light as the 3D rack's. */
+    void FlatRackView::drawColourScreen (juce::Graphics& g, const Row& r, juce::Rectangle<float> box, colourscreen::Kind kind) const
+    {
+        namespace C = colourscreen;
+        const int power = bridge.indexOf (C::powerId (kind)), gk = r.unit - firstGenUnit;
+        auto& slot = colourSlots[r.unit];
+        // (never pure black: on some Linux desktops the 2D window's pure black shows through as transparent)
+        g.setColour (juce::Colour (0xff06070a));
+        g.fillRoundedRectangle (box, 3.0f);
+        if (power < 0 || bridge.getNormalised (power) < 0.5f) { slot.clock = -1.0; slot.cv.fade (0.0f); return; }
+        const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        if (slot.img.isNull() || slot.clock < 0.0 || now - slot.clock >= 1.0 / 30.0)
+        {
+            const float dt = slot.clock < 0.0 ? 1.0f / 30.0f : (float) std::clamp (now - slot.clock, 0.0, 0.25);
+            slot.clock = now;
+            const int w = std::clamp ((int) std::lround (box.getWidth()), 64, 448), h = std::clamp ((int) std::lround (box.getHeight()), 36, 258);
+            slot.cv.resize (w, h);
+            std::array<float, 192> st {};
+            bool any = false;
+            if (gk >= 0 && gk < enh::dsp::EngineMeters::displayUnits)
+                for (size_t i = 0; i < st.size(); ++i) { st[i] = processor.getMeters().unitDisplay[(size_t) gk][i].load (std::memory_order_relaxed); any = any || st[i] != 0.0f; }
+            if (! any) C::demo (kind, (float) demoTime, st.data());
+            if (kind == C::Kind::chroma) C::chroma (slot.cv, st.data(), (float) demoTime);
+            else if (kind == C::Kind::tuner) C::tunerCloud (slot.cv, (float) demoTime);
+            else C::hypercube (slot.cv, slot.cube, st.data(), (float) demoTime, dt);
+            slot.cv.toRgba();
+            if (slot.img.getWidth() != w || slot.img.getHeight() != h) slot.img = juce::Image (juce::Image::RGB, w, h, false, juce::SoftwareImageType());
+            juce::Image::BitmapData px (slot.img, juce::Image::BitmapData::writeOnly);
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                {
+                    const auto* c = slot.cv.rgba.data() + (size_t) ((y * w + x) * 4);
+                    px.setPixelColour (x, y, juce::Colour (std::max (c[0], (std::uint8_t) 6), std::max (c[1], (std::uint8_t) 7), std::max (c[2], (std::uint8_t) 10)));
+                }
+        }
+        juce::Graphics::ScopedSaveState keep (g);
+        g.reduceClipRegion (box.toNearestInt());
+        g.drawImage (slot.img, box, juce::RectanglePlacement::stretchToFit);
     }
 
     void FlatRackView::drawNeedles (juce::Graphics& g, const Row& r) const
@@ -455,6 +318,11 @@ namespace pad
     //==============================================================================
     void FlatRackView::paint (juce::Graphics& g)
     {
+        if (patchOpen)
+        {
+            paintPatch (g);
+            return;
+        }
         // Behind the rack: a dark room, a warm light from above
         g.setGradientFill (juce::ColourGradient (juce::Colour (0xff1b1712), 0.0f, 0.0f, juce::Colour (0xff0b0a09), 0.0f, (float) getHeight(), false));
         g.fillAll();
@@ -514,6 +382,8 @@ namespace pad
     //==============================================================================
     void FlatRackView::timerCallback()
     {
+        tickPatch();
+        glassPanel->tickTuner (1.0f / 30.0f);   // RACK TUNER: its glide and its faceplate's buttons, open or not
         if (storedUnits.load() != processor.getStoredUnits()) storedUnits = processor.getStoredUnits();
         if (const auto lbs = processor.getStoredModules(); lbs != builtModules) placeLunchbox (lbs);
         if (storedUnits.load() != builtFor || processor.getStoredModules() != builtModules) rebuildRows();
@@ -597,6 +467,7 @@ namespace pad
         m.addItem (4, "Welcome screen...");
         m.addItem (5, "Hologram settings panel", true, config.holoPanel);
         m.addSeparator();
+        m.addItem (6, "Patch bay - the rack's back, its cords", true, patchOpen);
         m.addItem (3, "Back to the top", true, false);
         m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(), [safe = juce::Component::SafePointer<FlatRackView> (this), unit] (int chosen)
         {
@@ -604,6 +475,7 @@ namespace pad
             if (chosen == 1) safe->openPanel (unit);
             if (chosen == 2) safe->openPanel (glass::lockerPage);
             if (chosen == 3) safe->scrollTarget = 0.0f;
+            if (chosen == 6) { safe->patchOpen = ! safe->patchOpen; safe->heldCord = -1; safe->repaint(); }
             if (chosen == 4) { safe->welcomeOpen = true; safe->renderWelcome(); safe->repaint(); }
             if (chosen == 5)
             {
@@ -616,6 +488,11 @@ namespace pad
     void FlatRackView::mouseDown (const juce::MouseEvent& e)
     {
         const auto p = e.position;
+        if (patchOpen && ! welcomeOpen && ! glassPanel->isOpen())
+        {
+            patchMouseDown (e);
+            return;
+        }
         if (welcomeOpen)
         {
             const auto r = holo::Welcome::placeIn ((float) getWidth(), (float) getHeight());
@@ -717,6 +594,8 @@ namespace pad
 
     void FlatRackView::mouseMove (const juce::MouseEvent& e)
     {
+        mousePos = e.position;
+        if (patchOpen) { if (heldCord >= 0) repaint(); return; }
         if (glassPanel->isOpen() && glassPanel->hover (e.position)) return;
         const int h = controlAt (e.position);
         if (h != hoverControl)
@@ -756,5 +635,255 @@ namespace pad
             return true;
         }
         return false;
+    }
+
+    //==============================================================================
+    // THE PATCH BAY
+    enh::patch::State FlatRackView::currentPatch() const
+    {
+        auto s = processor.getPatch();
+        if (s.cords.empty())
+            s = enh::patch::straightThrough (backs::bay::unitsInOrder());
+        return s;
+    }
+
+    juce::Rectangle<float> FlatRackView::bayRect() const
+    {
+        const float w = (float) getWidth() - 32.0f, h = w * bayHalfH / backs::bay::halfW();
+        return { 16.0f, (float) getHeight() * 0.30f, w, h };
+    }
+
+    juce::Point<float> FlatRackView::jackPos (int col, int row) const
+    {
+        const auto r = bayRect();
+        const float k = r.getWidth() / (2.0f * backs::bay::halfW());
+        return { r.getX() + (backs::bay::halfW() - backs::bay::jackX (col)) * k, r.getY() + (backs::bay::rowZ (row) + bayHalfH) * k };
+    }
+
+    bool FlatRackView::jackAtPoint (juce::Point<float> p, int& col, int& row) const
+    {
+        const float pitch = jackPos (1, 0).x - jackPos (0, 0).x;
+        for (row = 0; row < 2; ++row)
+            for (col = 0; col < backs::bay::columns; ++col)
+                if (p.getDistanceFrom (jackPos (col, row)) < 0.5f * pitch)
+                    return true;
+        return false;
+    }
+
+    juce::Rectangle<float> FlatRackView::masterRect() const { return { (float) getWidth() - 300.0f, 16.0f, 284.0f, 54.0f }; }
+    juce::Rectangle<float> FlatRackView::patchCloseRect() const { return { 16.0f, 16.0f, 180.0f, 34.0f }; }
+
+    void FlatRackView::paintPatch (juce::Graphics& g)
+    {
+        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff1b1712), 0.0f, 0.0f, juce::Colour (0xff0b0a09), 0.0f, (float) getHeight(), false));
+        g.fillAll();
+        const auto r = bayRect();
+        const auto chain = backs::bay::unitsInOrder();
+        if (bayImageWidth != (int) r.getWidth() || chain != bayImageChain)
+        {
+            bayImage = backs::bay::renderFaceImage (juce::jmax (256, (int) r.getWidth() * 2));
+            bayImageWidth = (int) r.getWidth();
+            bayImageChain = chain;
+        }
+        // the shelf it sits over, the bay
+        g.setColour (juce::Colour (0xffcfccc6));
+        g.fillRect (0.0f, r.getBottom() + r.getHeight() * 1.6f, (float) getWidth(), (float) getHeight());
+        g.drawImage (bayImage, r);
+
+        // the lamp: red - the chain is open (silent); amber - a loop
+        {
+            const auto lp = juce::Point<float> (r.getX() + (backs::bay::halfW() - backs::bay::lampX) * r.getWidth() / (2.0f * backs::bay::halfW()),
+                                                r.getY() + (backs::bay::lampZ + bayHalfH) * r.getWidth() / (2.0f * backs::bay::halfW()));
+            const bool red = processor.isPatchMuted(), amber = ! red && processor.isPatchLoop();
+            const float lr = r.getHeight() * 0.045f;
+            g.setColour (red ? juce::Colour (0xffff3020) : amber ? juce::Colour (0xffffb020) : juce::Colour (0xff3a1210));
+            g.fillEllipse (lp.x - lr, lp.y - lr, 2 * lr, 2 * lr);
+        }
+
+        // the cords: from jack to jack, hanging under the bay (a loose end lies below its jack, the one in the hand
+        // follows the pointer)
+        const auto s = currentPatch();
+        const float pitch = jackPos (1, 0).x - jackPos (0, 0).x;
+        const float t = (float) juce::Time::getMillisecondCounterHiRes() * 0.001f;
+        for (int k = 0; k < (int) s.cords.size(); ++k)
+        {
+            const auto& c = s.cords[(size_t) k];
+            juce::Point<float> ends[2];
+            bool inJack[2] {};
+            float depth[2] { 1.0f, 1.0f };
+            for (int e = 0; e < 2; ++e)
+            {
+                int col = 0, row = 0;
+                if (k == heldCord && e == heldEnd)
+                {
+                    if (plugMove.cord == k)
+                    {
+                        ends[e] = jackPos (plugMove.col, plugMove.row);
+                        const float u = juce::jlimit (0.0f, 1.0f, (float) ((juce::Time::getMillisecondCounterHiRes() - plugMove.start) / (1000.0 * plugMove.seconds)));
+                        depth[e] = plugMove.inserting ? u : 1.0f - u;
+                        inJack[e] = true;
+                    }
+                    else
+                        ends[e] = mousePos;
+                }
+                else if (backs::bay::jackOf (chain, e == 0 ? c.a : c.b, col, row))
+                {
+                    ends[e] = jackPos (col, row);
+                    inJack[e] = true;
+                }
+                else
+                    ends[e] = { -1.0f, -1.0f };
+            }
+            for (int e = 0; e < 2; ++e)   // a loose end, not in the hand: on the shelf below the other end
+                if (ends[e].x < 0.0f)
+                    ends[e] = ends[1 - e].translated (pitch * 0.6f, r.getHeight() * 1.9f);
+            const auto lin = geo::patch::cordColour (k / 2);
+            const auto col = juce::Colour::fromFloatRGBA (std::sqrt (lin.x) * 1.15f, std::sqrt (lin.y) * 1.15f, std::sqrt (lin.z) * 1.15f, 1.0f);
+            const float span = ends[0].getDistanceFrom (ends[1]);
+            const float sag = r.getHeight() * 0.55f + span * 0.22f;
+            const float sway = (k == heldCord ? 6.0f * std::sin (t * 5.0f) : 0.0f);
+            juce::Path cord;
+            cord.startNewSubPath (ends[0]);
+            cord.cubicTo (ends[0].translated (sway, sag * 0.8f), ends[1].translated (sway, sag * 0.8f), ends[1]);
+            g.setColour (juce::Colours::black.withAlpha (0.35f));
+            g.strokePath (cord, juce::PathStrokeType (pitch * 0.32f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded), juce::AffineTransform::translation (2.0f, 4.0f));
+            g.setColour (col.darker (0.4f));
+            g.strokePath (cord, juce::PathStrokeType (pitch * 0.30f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.setColour (col);
+            g.strokePath (cord, juce::PathStrokeType (pitch * 0.16f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded),
+                          juce::AffineTransform::translation (-pitch * 0.04f, -pitch * 0.04f));
+            for (int e = 0; e < 2; ++e)   // the plug: a nickel ferrule in the jack, the black body (smaller as it goes in)
+            {
+                const float scale = inJack[e] ? 1.0f + 0.35f * (1.0f - depth[e]) : 1.3f;
+                const float pw = pitch * 0.42f * scale;
+                g.setColour (juce::Colour (0xff111113));
+                g.fillRoundedRectangle (juce::Rectangle<float> (pw, pw * 1.6f).withCentre (ends[e].translated (0.0f, pw * 0.5f)), pw * 0.3f);
+                g.setColour (juce::Colour (0xffc8c9cc));
+                g.fillEllipse (juce::Rectangle<float> (pw * 0.6f, pw * 0.6f).withCentre (ends[e]));
+            }
+        }
+
+        // where the plug in the hand may go: an outline round each jack
+        if (heldCord >= 0 && plugMove.cord < 0)
+        {
+            g.setColour (juce::Colour (0xff8ce8ff));
+            for (int row = 0; row < 2; ++row)
+                for (int col = 0; col < backs::bay::columns; ++col)
+                    if (backs::bay::canGoInto (s, chain, heldCord, heldEnd, col, row))
+                        g.drawEllipse (juce::Rectangle<float> (pitch * 0.62f, pitch * 0.62f).withCentre (jackPos (col, row)), 1.6f);
+        }
+
+        // the MASTER switch, and the way back
+        {
+            const auto m = masterRect();
+            g.setColour (juce::Colour (0xff121316));
+            g.fillRoundedRectangle (m, 4.0f);
+            g.setColour (juce::Colour (0xffeceae4));
+            g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+            g.drawText ("MASTER: ANYTHING INTO ANYTHING", m.withTrimmedLeft (54.0f).withTrimmedBottom (22.0f), juce::Justification::centredLeft);
+            g.setColour (juce::Colour (0xff8f9196));
+            g.setFont (juce::FontOptions (11.0f));
+            g.drawText (s.anything ? "ON - any plug into any jack, loops feed back" : "OFF - outputs into inputs", m.withTrimmedLeft (54.0f).withTrimmedTop (28.0f),
+                        juce::Justification::centredLeft);
+            const auto lever = juce::Rectangle<float> (14.0f, 30.0f).withCentre ({ m.getX() + 28.0f, m.getCentreY() });
+            g.setColour (juce::Colour (0xff3a3b40));
+            g.fillEllipse (lever.withSizeKeepingCentre (26.0f, 26.0f));
+            g.setColour (juce::Colour (0xffd0d0d4));
+            g.fillRoundedRectangle (lever.withHeight (16.0f).withY (s.anything ? lever.getY() : lever.getBottom() - 16.0f), 6.0f);
+            const auto b = patchCloseRect();
+            g.setColour (juce::Colour (0xff2a2b2f));
+            g.fillRoundedRectangle (b, 4.0f);
+            g.setColour (juce::Colours::white);
+            g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+            g.drawText ("< BACK TO THE FRONT", b, juce::Justification::centred);
+            g.setColour (juce::Colour (0xff3a3b3e));
+            g.setFont (juce::FontOptions (12.0f));
+            g.drawText ("Click a plug to take it out, then a jack to put it in. Click empty space to put it down.",
+                        juce::Rectangle<float> (16.0f, (float) getHeight() - 30.0f, (float) getWidth() - 32.0f, 20.0f), juce::Justification::centredLeft);
+        }
+    }
+
+    void FlatRackView::patchMouseDown (const juce::MouseEvent& e)
+    {
+        const auto p = e.position;
+        mousePos = p;
+        if (e.mods.isPopupMenu()) { showMenu (-1); return; }
+        if (patchCloseRect().contains (p)) { patchOpen = false; heldCord = -1; repaint(); return; }
+        if (plugMove.cord >= 0) return;
+        auto s = currentPatch();
+        if (masterRect().contains (p))
+        {
+            s.anything = ! s.anything;
+            processor.setPatch (s);
+            processor.patchClick();
+            repaint();
+            return;
+        }
+        const auto chain = backs::bay::unitsInOrder();
+        int col = 0, row = 0;
+        const bool onJack = jackAtPoint (p, col, row);
+        auto start = [&] (int cord, int end, bool inserting)
+        {
+            plugMove = { cord, end, col, row, inserting, juce::Time::getMillisecondCounterHiRes(),
+                         inserting ? 0.38f + 0.3f * plugRandom.nextFloat() : 0.22f };
+            heldCord = cord;
+            heldEnd = end;
+            if (! inserting) processor.patchClick();
+        };
+        if (heldCord < 0)
+        {
+            if (! onJack) return;
+            const auto port = backs::bay::portAt (chain, col, row);
+            for (int k = 0; k < (int) s.cords.size(); ++k)
+                for (int en = 0; en < 2; ++en)
+                    if (const auto& end = en == 0 ? s.cords[(size_t) k].a : s.cords[(size_t) k].b; end.plugged() && end == port)
+                    {
+                        start (k, en, false);
+                        return;
+                    }
+            for (int k = 0; k < (int) s.cords.size(); ++k)   // an empty jack: a loose plug goes in
+                for (int en = 0; en < 2; ++en)
+                    if (! (en == 0 ? s.cords[(size_t) k].a : s.cords[(size_t) k].b).plugged() && backs::bay::canGoInto (s, chain, k, en, col, row))
+                    {
+                        start (k, en, true);
+                        return;
+                    }
+            return;
+        }
+        if (onJack)
+        {
+            if (backs::bay::canGoInto (s, chain, heldCord, heldEnd, col, row))
+                start (heldCord, heldEnd, true);
+            return;
+        }
+        heldCord = -1;   // put down: it lies below
+        repaint();
+    }
+
+    void FlatRackView::tickPatch()
+    {
+        if (! patchOpen)
+            return;
+        // a unit put in or taken out: the cords follow
+        if (heldCord < 0)
+            if (auto s = processor.getPatch(); ! s.cords.empty() && enh::patch::reconcile (s, backs::bay::unitsInOrder()))
+                processor.setPatch (s);
+        repaint();
+        if (plugMove.cord < 0)
+            return;
+        const float u = (float) juce::jlimit (0.0, 1.0, (juce::Time::getMillisecondCounterHiRes() - plugMove.start) / (1000.0 * plugMove.seconds));
+        processor.setPatchNoise (u < 0.95f ? 0.9f * std::sin (juce::MathConstants<float>::pi * u) : 0.0f);   // (half in: a crackle)
+        if (u < 1.0f)
+            return;
+        auto s = currentPatch();
+        if (plugMove.cord < (int) s.cords.size())
+        {
+            auto& c = s.cords[(size_t) plugMove.cord];
+            (plugMove.end == 0 ? c.a : c.b) = plugMove.inserting ? backs::bay::portAt (backs::bay::unitsInOrder(), plugMove.col, plugMove.row) : enh::patch::End {};
+            processor.setPatch (s);
+            if (plugMove.inserting) { heldCord = -1; processor.patchClick(); }
+        }
+        processor.setPatchNoise (0.0f);
+        plugMove.cord = -1;
     }
 }

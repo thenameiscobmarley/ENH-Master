@@ -1,13 +1,16 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <map>
 #include <memory>
 #include <vector>
 #include "../Scene/DeviceLayout.h"
 #include "../Scene/PanelArtwork.h"
+#include "../Scene/ColourScreens.h"
 #include "../GlassPanel.h"
 #include "../Holo/HoloWelcome.h"
 #include "../../Config/UIConfig.h"
+#include "../../DSP/PatchBay.h"
 
 class PluginProcessor;
 
@@ -63,6 +66,10 @@ namespace pad
         void drawNeedles (juce::Graphics&, const Row&) const;
         juce::Rectangle<float> roomScreenRect (const Row&) const;
         void drawRoomScreen (juce::Graphics&, const Row&) const;
+        void drawColourScreen (juce::Graphics&, const Row&, juce::Rectangle<float> box, pad::colourscreen::Kind) const;
+        /** CHROMA SPACE's and HYPERCUBE's screens: each one's light buffer (it fades, not clears), redrawn at 30 fps. */
+        struct ColourSlot { pad::colourscreen::Canvas cv; pad::colourscreen::CubeState cube; double clock = -1.0; juce::Image img; };
+        mutable std::map<int, ColourSlot> colourSlots;
         float needleReading (int needle) const;
         void showMenu (int unit);
         void openPanel (int unit);
@@ -96,6 +103,27 @@ namespace pad
         void renderWelcome() { for (int f = 0; f < holo::Welcome::frames; ++f) welcomeFrames[(size_t) f] = welcome.render (1.5f, f * 101); welcomeImage = welcomeFrames[0]; }
         std::vector<juce::Point<float>> welcomePts;
         double demoTime = 0.0;
+
+        // THE PATCH BAY (right-click: Patch bay): the rack's back as the 2D rack shows it - the bay flat, its cords
+        // hanging below it; click a plug to take it out, click a jack to put it in (the same cords as the 3D rack's)
+        bool patchOpen = false;
+        int heldCord = -1, heldEnd = 0;
+        struct PlugMove { int cord = -1, end = 0, col = -1, row = 0; bool inserting = false; double start = 0.0; float seconds = 0.3f; };
+        PlugMove plugMove;
+        juce::Point<float> mousePos;
+        juce::Image bayImage;
+        std::vector<int> bayImageChain;
+        int bayImageWidth = -1;
+        juce::Random plugRandom;
+        juce::Rectangle<float> bayRect() const;
+        juce::Point<float> jackPos (int col, int row) const;
+        bool jackAtPoint (juce::Point<float>, int& col, int& row) const;
+        juce::Rectangle<float> masterRect() const;
+        juce::Rectangle<float> patchCloseRect() const;
+        enh::patch::State currentPatch() const;
+        void paintPatch (juce::Graphics&);
+        void patchMouseDown (const juce::MouseEvent&);
+        void tickPatch();
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FlatRackView)
     };

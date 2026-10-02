@@ -1,6 +1,8 @@
-# BOUNCE DELAY
+# BOUNCING DELAY
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called BOUNCE DELAY.
 
 Echoes like a dropped ball bouncing (3U, model BD-1). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

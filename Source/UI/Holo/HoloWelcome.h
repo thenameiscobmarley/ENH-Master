@@ -83,7 +83,7 @@ namespace pad::holo
                 { "CLICK A UNIT", "ITS SETTINGS OPEN ON THE GLASS PANEL." },
                 { "RIGHT-CLICK THE RACK", "SIMPLE OR FULL RACK, AND THE GEAR LOCKER." },
                 { "PRESETS", "PREV AND NEXT ON THE ADAPTIVE ENHANCER." },
-                { "NEW IN 3.8", "33 NEW UNITS, A 10-SLOT LUNCHBOX, A ROOM." },
+                { "NEW IN 3.8", "53 NEW UNITS, 35 OF THEM SIMULATIONS." },
             };
             float y = 106.0f;
             int k = 10;
@@ -108,7 +108,7 @@ namespace pad::holo
                 juce::Path box; box.addRoundedRectangle (sc, 6.0f);
                 V::beam (g, box, phosphor.withMultipliedAlpha (0.55f), px, seed + 41, jit);
             }
-            V::text (g, "PHOSPHOR", sc.withY (sc.getBottom() + 6.0f).withHeight (11.0f), 9.0f, phosphorDim, juce::Justification::centred, px, seed + 42, jit);
+            V::text (g, "OSCILLOSCOPE", sc.withY (sc.getBottom() + 6.0f).withHeight (11.0f), 9.0f, phosphorDim, juce::Justification::centred, px, seed + 42, jit);
 
             // The switches, and the way in
             auto check = [&] (juce::Rectangle<float> r, bool on, const char* label, int sd)

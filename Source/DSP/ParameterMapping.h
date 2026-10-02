@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include "EnhEngine.h"
+#include "UnitMask.h"
 #include "DesignedUnits.h"
 #include "units/UnitList.h"
 
@@ -15,12 +16,12 @@ namespace enh::dsp
         enum : int { enhancer = 0, toneSpace = 1, compressor = 2, leveler = 3, limiter = 4, level = 5, balancer = 6, monitor = 7,
                      deepSub = 8, character = 9, radar = 10, power = 11, lunchbox = 12, x4 = 13, velvet = 14, takeback = 15, scope = 16, custom = 17 + units::count, numUnits = 18 + units::count };   // (then the newer units, from units::firstUnit; then CUSTOM)
         /** What the plugin starts with in the locker: the designed units (installed from the GEAR LOCKER). */
-        /** A bit per unit (64: room for the rack to grow past 32 units). */
-        using Mask = std::uint64_t;
-        inline constexpr Mask bit (int u) noexcept { return Mask { 1 } << u; }
+        /** A bit per unit (128: UnitMask.h). */
+        using Mask = UnitMask;
+        inline constexpr Mask bit (int u) noexcept { return Mask::bit (u); }
         inline constexpr Mask newerUnits() noexcept { Mask m = 0; for (int k = 0; k < units::count; ++k) m |= bit (units::firstUnit + k); return m; }
         inline constexpr Mask defaultStored = bit (x4) | bit (velvet) | bit (takeback) | bit (scope) | newerUnits() | bit (custom);
-        static_assert (numUnits <= 64, "a unit mask holds 64");
+        static_assert (numUnits <= 128, "a unit mask holds 128");
 
         /** The LUNCHBOX's modules, for its own locker: 0 CLASS-A EQ, 1 DE-HARSH, 2 CROSSFEED, 3 OUTPUT (the
             meter: always in), then the 500-series modules of units/LbList.h. A bit per module in the locker. */

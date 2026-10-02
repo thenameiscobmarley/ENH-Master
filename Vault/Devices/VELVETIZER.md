@@ -1,6 +1,8 @@
-# VELVETIZER
+# SMOOTHING SATURATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called VELVETIZER.
 
 Smooths sound the way good analog gear does, then colours it (2U). Designed by the owner in the
 [Rack Unit Designer](https://thenameiscobmarley.github.io/ENH-Master/designer.html). It starts in the

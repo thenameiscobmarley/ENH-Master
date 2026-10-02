@@ -81,9 +81,12 @@ static void runNewUnitsTests16 (double sr)
                 if (trial == 0) changed += std::abs ((double) x[c][i] - ref[c][i]);
             }
         }
-        const bool ok = finite && peak <= 2.0f && changed > 1.0e-3;
+        // (a visualiser - HYPERCUBE - must leave the sound exactly as it was, even on)
+        const bool visualiser = std::string (in.key) == "hypercube" || std::string (in.key) == "tuner";   // (RACK TUNER too: its level match is the engine's)
+        const bool ok = finite && peak <= 2.0f && (visualiser ? changed == 0.0 : changed > 1.0e-3);
         if (! ok) ++bad;
-        std::printf ("  [%s] %-14s finite %s, peak %.2f, changes the sound %s\n", ok ? "PASS" : "FAIL", in.name, finite ? "yes" : "NO", peak, changed > 1.0e-3 ? "yes" : "NO");
+        std::printf ("  [%s] %-14s finite %s, peak %.2f, %s\n", ok ? "PASS" : "FAIL", in.name, finite ? "yes" : "NO", peak,
+                     visualiser ? (changed == 0.0 ? "the sound untouched (a visualiser)" : "CHANGES THE SOUND (a visualiser must not)") : changed > 1.0e-3 ? "changes the sound yes" : "changes the sound NO");
         // POWER on at 0.5 s and off at 1 s: no click (the high end of the difference stays small)
         { auto x = music (sr, 1.5), ref = x; auto u = U::make (k); u->prepare (sr, 512); auto q = defaults (k);
           run (*u, x, 256, [&] (int pos) { q[0] = pos >= (int) (0.5 * sr) && pos < (int) sr ? 1.0f : 0.0f; return q.data(); });
@@ -99,7 +102,7 @@ static void runRayRoomTests (double sr)
 {
     using namespace newunitstest;
     namespace U = enh::dsp::units;
-    int k = -1; for (int i = 0; i < U::count; ++i) if (std::string (U::info[i].name) == "RAY ROOM") k = i;
+    int k = -1; for (int i = 0; i < U::count; ++i) if (std::string (U::info[i].key) == "rayroom") k = i;
     std::printf ("\n== RAY ROOM at %.1f kHz ==\n", sr / 1000.0);
     if (k < 0) { check (false, "RAY ROOM is in the unit list"); return; }
     auto runWith = [&] (float space, float mix, float crackle, float pop, std::array<Buf, 2> x, std::vector<float>* state = nullptr)
@@ -305,6 +308,257 @@ static void runSimTests2 (double sr)
     }
 }
 
+// The twenty mastering simulations (units/Sims3.h): each one's own job
+static void runSimTests3 (double sr)
+{
+    using namespace newunitstest;
+    namespace U = enh::dsp::units;
+    auto find = [] (const char* key) { for (int i = 0; i < U::count; ++i) if (std::string (U::info[i].key) == key) return i; return -1; };
+    auto rms = [] (const Buf& b, size_t from, size_t to) { double e = 0; to = std::min (to, b.size()); for (size_t i = from; i < to; ++i) e += (double) b[i] * b[i]; return std::sqrt (e / (double) std::max<size_t> (1, to - from)); };
+    auto db = [] (double a, double b) { return 20.0 * std::log10 (std::max (1.0e-12, a) / std::max (1.0e-12, b)); };
+    auto sine = [&] (double hz, double secs, float a) { std::array<Buf, 2> x { Buf ((size_t) (secs * sr)), Buf ((size_t) (secs * sr)) }; for (size_t i = 0; i < x[0].size(); ++i) x[0][i] = x[1][i] = a * (float) std::sin (6.283185307 * hz * (double) i / sr); return x; };
+    auto with = [&] (int k, std::initializer_list<std::pair<int, float>> set) { auto q = defaults (k); q[0] = 1.0f; for (auto [i, v] : set) q[(size_t) i] = v; return q; };
+    auto process = [&] (int k, std::vector<float> q, std::array<Buf, 2> x) { auto u = U::make (k); u->prepare (sr, 512); run (*u, x, 256, [&] (int) { return q.data(); }); return x; };
+    auto peakOf = [] (const std::array<Buf, 2>& x, size_t from = 0) { float p = 0.0f; for (auto& c : x) for (size_t i = from; i < c.size(); ++i) p = std::max (p, std::abs (c[i])); return p; };
+    auto state = [&] (int k, std::vector<float> q, std::array<Buf, 2> x) { auto u = U::make (k); u->prepare (sr, 512); run (*u, x, 256, [&] (int) { return q.data(); }); std::vector<float> st (192); u->displayState (st.data(), 192); return st; };
+    std::printf ("\n== THE MASTERING SIMULATIONS at %.1f kHz ==\n", sr / 1000.0);
+    const size_t s1 = (size_t) (0.5 * sr);
+
+    if (const int k = find ("clarity"); k >= 0)
+    {
+        auto in = sine (200.0, 1.0, 0.3f); const auto pres = sine (3000.0, 1.0, 0.01f); for (int c = 0; c < 2; ++c) for (size_t i = 0; i < in[c].size(); ++i) in[c][i] += pres[c][i];
+        const auto y = process (k, with (k, { { 1, 10.0f }, { 3, 0.0f } }), in);
+        // the presence lifted: the difference at 3 kHz (correlate with the 3 kHz tone)
+        double a = 0, b = 0; for (size_t i = s1; i < y[0].size(); ++i) { const double ref = std::sin (6.283185307 * 3000.0 * (double) i / sr); a += y[0][i] * ref; b += in[0][i] * ref; }
+        std::printf ("  CLARITY LENS: a buried 3 kHz detail comes up %+.1f dB\n", db (std::abs (a), std::abs (b)));
+        check (db (std::abs (a), std::abs (b)) > 3.0, "CLARITY LENS: a detail the mix buries is brought forward");
+    }
+    // MULTIPLY and STRENGTH, on every unit that has them (each powered, at its defaults, on music)
+    {
+        int tested = 0, ok0 = 0, okUp = 0, okMul = 0;
+        for (int k = 0; k < U::count; ++k)
+        {
+            int mul = -1, str = -1;
+            for (int i = 0; i < U::info[k].numParams; ++i)
+            {
+                const auto label = enh::dsp::designed::params[(size_t) (U::info[k].firstParam + i)].label;
+                if (label == "MULTIPLY") mul = i;
+                if (label == "STRENGTH") str = i;
+            }
+            if (mul < 0 || str < 0) continue;
+            ++tested;
+            const auto x = music (sr, 3.0, 11u);
+            auto change = [&] (float m, float st)
+            {
+                auto q = with (k, { { mul, m }, { str, st } });
+                const auto y = process (k, q, x);
+                double e = 0; for (size_t i = s1; i < y[0].size(); ++i) e += (double) (y[0][i] - x[0][i]) * (y[0][i] - x[0][i]);
+                return std::sqrt (e);
+            };
+            const double base = change (1.0f, 100.0f), none = change (1.0f, 0.0f), more = change (1.0f, 200.0f), less = change (0.25f, 100.0f);
+            if (none < 1.0e-6) ++ok0;
+            if (base < 1.0e-9 || more > base * 1.3) ++okUp;
+            if (base < 1.0e-9 || less <= base * 1.05) ++okMul;
+            else std::printf ("  (%s: MULTIPLY 0.25 changed it %.3g against %.3g)\n", U::info[k].name, less, base);
+        }
+        std::printf ("  MULTIPLY / STRENGTH on %d units: STRENGTH 0 dry %d, 200 more %d, MULTIPLY 0.25 less %d\n", tested, ok0, okUp, okMul);
+        check (tested >= 22, "MULTIPLY and STRENGTH: on all of this release's new sound units");
+        check (ok0 == tested, "STRENGTH at 0: the sound as it came in, on every unit");
+        check (okUp == tested, "STRENGTH at 200 %: more of the unit's change, on every unit");
+        check (okMul == tested, "MULTIPLY under 1: less of the unit's change (its amounts scaled down), on every unit");
+    }
+    if (const int k = find ("detail"); k >= 0)
+    {
+        // a loud 1 kHz note and, just above it, a quiet 1.4 kHz one the ear can't hear under it (40 dB down)
+        auto in = sine (1000.0, 3.0, 0.3f); const auto hidden = sine (1400.0, 3.0, 0.003f);
+        for (int c = 0; c < 2; ++c) for (size_t i = 0; i < in[c].size(); ++i) in[c][i] += hidden[c][i];
+        const auto y = process (k, with (k, { { 1, 10.0f } }), in);
+        const size_t from = (size_t) (2.0 * sr);
+        double a = 0, b = 0;
+        for (size_t i = from; i < y[0].size(); ++i) { const double ref = std::sin (6.283185307 * 1400.0 * (double) i / sr); a += y[0][i] * ref; b += in[0][i] * ref; }
+        const double up = db (std::abs (a), std::abs (b)), level = db (rms (y[0], from, y[0].size()), rms (in[0], from, in[0].size()));
+        std::printf ("  SPECTRAL DETAIL ENHANCER: the masked 1.4 kHz note comes up %+.1f dB; the level %+.2f dB\n", up, level);
+        check (up > 4.0, "SPECTRAL DETAIL ENHANCER: what the mix masks is brought out");
+        check (std::abs (level) < 1.5, "SPECTRAL DETAIL ENHANCER: at the same level (it brings out, it doesn't make louder)");
+        const auto z = process (k, with (k, { { 1, 0.0f }, { 3, 0.0f }, { 4, 0.0f } }), in);
+        double dmax = 0; for (size_t i = from; i < z[0].size(); ++i) dmax = std::max (dmax, (double) std::abs (z[0][i] - in[0][i]));
+        check (dmax < 1.0e-3, "SPECTRAL DETAIL ENHANCER: DETAIL, CLARITY and AIR at 0 leave the sound as it was");
+        const auto n = process (k, with (k, { { 1, 10.0f }, { 3, 10.0f }, { 4, 10.0f } }), sine (60.0, 2.0, 0.9f));
+        check (peakOf (n, (size_t) sr) < 1.2f, "SPECTRAL DETAIL ENHANCER: all the way up on a loud low note, no runaway");
+    }
+    if (const int k = find ("subdriver"); k >= 0)
+    {
+        const auto in50 = sine (55.0, 1.0, 0.2f), in20 = sine (20.0, 1.0, 0.2f);
+        const double g50 = db (rms (process (k, with (k, { { 1, 10.0f } }), in50)[0], s1, in50[0].size()), rms (in50[0], s1, in50[0].size()));
+        const double g20 = db (rms (process (k, with (k, { { 1, 10.0f } }), in20)[0], s1, in20[0].size()), rms (in20[0], s1, in20[0].size()));
+        std::printf ("  SUB DRIVER: 55 Hz %+.1f dB, 20 Hz (under its tuning) %+.1f dB\n", g50, g20);
+        check (g50 > 2.0 && g20 < g50 - 2.0, "SUB DRIVER: the sub lifted, and rolled away under the cone's tuning");
+    }
+    if (const int k = find ("lathe"); k >= 0)
+    {
+        auto in = sine (60.0, 1.0, 0.3f); for (auto& v : in[1]) v = -v;   // (all side, all bass)
+        const auto y = process (k, with (k, {}), in);
+        double side = 0, sIn = 0; for (size_t i = s1; i < y[0].size(); ++i) { side += std::pow (0.5 * (y[0][i] - y[1][i]), 2.0); sIn += std::pow (0.5 * (in[0][i] - in[1][i]), 2.0); }
+        std::printf ("  VINYL CUTTER: side-to-side bass at 60 Hz %+.1f dB\n", 10.0 * std::log10 (side / sIn));
+        check (10.0 * std::log10 (side / sIn) < -12.0, "VINYL CUTTER: the bass cut mono");
+    }
+    if (const int k = find ("cartest"); k >= 0)
+    {
+        const auto st = state (k, with (k, { { 1, 10.0f } }), sine (60.0, 1.0, 0.3f));
+        std::printf ("  CAR TEST: the cabin's boom at 60 Hz %.2f\n", st[2]);
+        check (st[2] > 0.3f, "CAR TEST: the cabin booms with the bass");
+    }
+    if (const int k = find ("phonecheck"); k >= 0)
+    {
+        const auto in = sine (100.0, 1.0, 0.2f);
+        const double g = db (rms (process (k, with (k, { { 2, 0.0f } }), in)[0], s1, in[0].size()), rms (in[0], s1, in[0].size()));
+        std::printf ("  PHONE CHECK: 100 Hz on the phone %+.1f dB\n", g);
+        check (g < -20.0, "PHONE CHECK: a phone has no bass");
+    }
+    if (const int k = find ("club"); k >= 0)
+    {
+        auto click = sine (1000.0, 1.0, 0.0f); for (size_t i = 0; i < 200; ++i) click[0][i + 100] = click[1][i + 100] = 0.5f * (float) std::sin (0.3 * (double) i);
+        const auto y = process (k, with (k, {}), click);
+        const double tail = rms (y[0], (size_t) (0.15 * sr), (size_t) (0.4 * sr));
+        std::printf ("  CLUB SYSTEM: the room after a click %.3g\n", tail);
+        check (tail > 1.0e-4, "CLUB SYSTEM: the room rings on after the sound");
+    }
+    for (const char* key : { "pressure", "hourglass" })
+        if (const int k = find (key); k >= 0)
+        {
+            auto in = music (sr, 1.5); for (auto& c : in) for (auto& v : c) v *= 3.0f;
+            const bool pv = std::string (key) == "pressure";
+            const float ceil = std::pow (10.0f, (pv ? -1.0f : -0.3f) / 20.0f);
+            const float pk = peakOf (process (k, with (k, pv ? std::initializer_list<std::pair<int, float>> { { 1, 24.0f }, { 2, -1.0f } } : std::initializer_list<std::pair<int, float>> { { 1, -0.3f }, { 2, 12.0f } }), in), (size_t) (0.1 * sr));   // (after POWER's fade-in, when dry and wet are blended)
+            std::printf ("  %s: driven hard, peaks %.4f (ceiling %.4f)\n", pv ? "PRESSURE" : "HOURGLASS", pk, ceil);
+            check (pk <= ceil * 1.0001f, pv ? "PRESSURE: nothing passes the valve" : "HOURGLASS: nothing passes the ceiling");
+        }
+    if (const int k = find ("balance"); k >= 0)
+    {
+        const auto st = state (k, with (k, { { 2, 10.0f }, { 3, 10.0f } }), sine (120.0, 4.0, 0.3f));   // (all bottom, no top)
+        std::printf ("  BALANCE: a bass-only sound tips it %.2f, corrected %+.2f (of 6 dB)\n", st[0], st[1]);
+        check (st[0] < -0.5f && st[1] > 0.3f, "BALANCE: too much low end is levelled by lifting the top");
+    }
+    if (const int k = find ("field"); k >= 0)
+    {
+        auto in = music (sr, 1.0);
+        const auto y = process (k, with (k, { { 1, 0.0f } }), in);
+        double d = 0; for (size_t i = s1; i < y[0].size(); ++i) d += std::abs (y[0][i] - y[1][i]);
+        std::printf ("  STEREO FIELD: WIDTH 0 leaves %.3g between left and right\n", d);
+        check (d < 1.0e-3, "STEREO FIELD: WIDTH 0 is mono");
+    }
+    if (const int k = find ("sonar"); k >= 0)
+    {
+        auto in = sine (1.0, 2.0, 0.0f); for (int hit = 0; hit < 8; ++hit) for (size_t i = 0; i < (size_t) (0.2 * sr); ++i) { const size_t at = (size_t) (0.1 * sr) + (size_t) hit * (size_t) (0.24 * sr) + i; if (at < in[0].size()) in[0][at] = in[1][at] = 0.3f * (float) std::exp (-(double) i / (0.05 * sr)) * (float) std::sin (0.2 * (double) i); }
+        // each hit's first 8 ms against its 60 - 150 ms (hits 2 on, after POWER's fade-in)
+        auto front = [&] (const std::array<Buf, 2>& x) { double a = 0, b = 0; for (int hit = 2; hit < 8; ++hit) { const size_t at = (size_t) (0.1 * sr) + (size_t) hit * (size_t) (0.24 * sr);
+                                                          a += rms (x[0], at, at + (size_t) (0.008 * sr)); b += rms (x[0], at + (size_t) (0.06 * sr), at + (size_t) (0.15 * sr)); } return db (a, b); };
+        const double up = front (process (k, with (k, { { 1, 10.0f }, { 2, 0.0f } }), in)), down = front (process (k, with (k, { { 1, -10.0f }, { 2, 0.0f } }), in)), dry = front (in);
+        std::printf ("  SONAR: each hit's start over its tail: dry %.1f dB, ATTACK +10 %.1f dB, -10 %.1f dB\n", dry, up, down);
+        check (up > dry + 2.0 && down < dry - 2.0, "SONAR: ATTACK sharpens or softens the hits");
+    }
+    if (const int k = find ("seismo"); k >= 0)
+    {
+        const auto lo = sine (60.0, 1.0, 0.5f), hi = sine (2000.0, 1.0, 0.5f);
+        const double gl = db (rms (process (k, with (k, { { 1, -30.0f }, { 2, 10.0f } }), lo)[0], s1, lo[0].size()), rms (lo[0], s1, lo[0].size()));
+        const double gh = db (rms (process (k, with (k, { { 1, -30.0f }, { 2, 10.0f } }), hi)[0], s1, hi[0].size()), rms (hi[0], s1, hi[0].size()));
+        std::printf ("  SEISMOGRAPH: a loud 60 Hz %+.1f dB, 2 kHz %+.1f dB\n", gl, gh);
+        check (gl < -6.0 && std::abs (gh) < 1.0, "SEISMOGRAPH: the bass quake damped, the rest untouched");
+    }
+    if (const int k = find ("furnace"); k >= 0)
+    {
+        const auto st = state (k, with (k, { { 1, 10.0f }, { 2, 0.0f } }), sine (200.0, 3.0, 0.5f));
+        std::printf ("  FURNACE: after 3 s of a loud tone it runs at %.2f\n", st[0]);
+        check (st[0] > 0.2f, "FURNACE: it heats up as it is played");
+    }
+    if (const int k = find ("dither"); k >= 0)
+    {
+        const auto y = process (k, with (k, { { 1, 0.0f }, { 2, 1.0f } }), music (sr, 0.5));
+        bool onSteps = true; for (auto& c : y) for (size_t i = (size_t) (0.1 * sr); i < c.size(); ++i) { const float v = c[i]; const double q = (double) v * 32768.0; onSteps = onSteps && std::abs (q - std::round (q)) < 1.0e-3; }
+        std::printf ("  DITHER: 16 bits, every sample on a step %s\n", onSteps ? "yes" : "NO");
+        check (onSteps, "DITHER: its output is 16-bit");
+    }
+    if (const int k = find ("rider"); k >= 0)
+    {
+        const auto st = state (k, with (k, { { 1, -14.0f }, { 2, 10.0f }, { 3, 6.0f } }), sine (500.0, 5.0, 0.02f));   // (about -37 LUFS)
+        std::printf ("  RIDER: a quiet track, fader at %+.2f of its range\n", st[0]);
+        check (st[0] > 0.95f, "RIDER: it rides a quiet track up, as far as RANGE allows");
+    }
+    if (const int k = find ("compass"); k >= 0)
+    {
+        auto in = sine (120.0, 3.0, 0.3f); const int lag = (int) (0.0006 * sr);
+        for (size_t i = in[1].size() - 1; i >= (size_t) lag; --i) in[1][i] = in[0][i - (size_t) lag];   // (R late by 0.6 ms)
+        auto corr = [&] (const std::array<Buf, 2>& x) { double lr = 0, ll = 0, rr = 0; for (size_t i = (size_t) (2.0 * sr); i < x[0].size(); ++i) { lr += x[0][i] * x[1][i]; ll += x[0][i] * x[0][i]; rr += x[1][i] * x[1][i]; } return lr / std::sqrt (ll * rr + 1e-12); };
+        const double before = corr (in), after = corr (process (k, with (k, { { 1, 10.0f }, { 2, 1.0f }, { 3, 0.0f } }), in));
+        std::printf ("  COMPASS: left against right before %.4f, after %.4f\n", before, after);
+        check (after > before && after > 0.999, "COMPASS: a late channel brought back into line");
+    }
+    if (const int k = find ("suspension"); k >= 0)
+    {
+        auto in = sine (300.0, 2.0, 0.05f); for (size_t i = (size_t) sr; i < in[0].size(); ++i) { in[0][i] *= 8.0f; in[1][i] *= 8.0f; }   // (a bump: +18 dB)
+        const auto y = process (k, with (k, {}), in);
+        const double jump = db (rms (y[0], (size_t) sr, (size_t) (1.05 * sr)), rms (y[0], (size_t) (0.9 * sr), (size_t) sr));
+        std::printf ("  SUSPENSION: an 18 dB bump comes through as %+.1f dB\n", jump);
+        check (jump < 16.0, "SUSPENSION: a bump in level is soaked up");
+    }
+    if (const int k = find ("skyline"); k >= 0)
+    {
+        auto in = music (sr, 2.0); const auto tone = sine (1000.0, 2.0, 0.3f); for (int c = 0; c < 2; ++c) for (size_t i = 0; i < in[c].size(); ++i) in[c][i] += tone[c][i];
+        const auto y = process (k, with (k, { { 1, 10.0f } }), in);
+        double a = 0, b = 0; for (size_t i = (size_t) sr; i < y[0].size(); ++i) { const double ref = std::sin (6.283185307 * 1000.0 * (double) i / sr); a += y[0][i] * ref; b += in[0][i] * ref; }
+        std::printf ("  SKYLINE: a ringing 1 kHz tower trimmed %+.1f dB\n", db (std::abs (a), std::abs (b)));
+        check (db (std::abs (a), std::abs (b)) < -2.0, "SKYLINE: a resonance standing over its neighbours is trimmed");
+    }
+    if (const int k = find ("aurora"); k >= 0)
+    {
+        const auto in = sine (4000.0, 1.0, 0.2f);
+        const auto y = process (k, with (k, { { 1, 10.0f }, { 3, 0.0f } }), in);
+        double hf = 0; std::array<float, 2> h {}; const float kk = 1.0f - (float) std::exp (-6.283185307 * 10000.0 / sr);
+        for (size_t i = s1; i < y[0].size(); ++i) { h[0] += kk * (y[0][i] - in[0][i] - h[0]); const double v = (y[0][i] - in[0][i]) - h[0]; hf += v * v; }
+        std::printf ("  AURORA: air added above 10 kHz %.3g\n", std::sqrt (hf / (double) (y[0].size() - s1)));
+        check (hf > 1.0e-6 * (double) (y[0].size() - s1), "AURORA: it adds air over the top");
+    }
+}
+
+// CHROMA SPACE (units/Sims4.h): its space from subtle to vast, and its chops - captured only when asked, never busy
+static void runChromaTests (double sr)
+{
+    using namespace newunitstest;
+    namespace U = enh::dsp::units;
+    int k = -1; for (int i = 0; i < U::count; ++i) if (std::string (U::info[i].key) == "chroma") k = i;
+    std::printf ("\n== CHROMA SPACE at %.1f kHz ==\n", sr / 1000.0);
+    if (k < 0) { check (false, "CHROMA SPACE is in the unit list"); return; }
+    auto with = [&] (std::initializer_list<std::pair<int, float>> set) { auto q = defaults (k); q[0] = 1.0f; for (auto [i, v] : set) q[(size_t) i] = v; return q; };
+    auto rmsDbOf = [] (const Buf& b, size_t from, size_t to) { double e = 0; to = std::min (to, b.size()); for (size_t i = from; i < to; ++i) e += (double) b[i] * b[i]; return 10.0 * std::log10 (e / (double) std::max<size_t> (1, to - from) + 1e-20); };
+    // the tail 2 - 3 s after a burst: SPACE 3 (a room: gone) against SPACE 10 (a vast hall: still ringing)
+    auto tail = [&] (float space)
+    {
+        auto u = U::make (k); u->prepare (sr, 256); auto q = with ({ { 1, space }, { 8, 100.0f } });
+        std::array<Buf, 2> x { Buf ((size_t) (3.5 * sr)), Buf ((size_t) (3.5 * sr)) };
+        juce::Random rnd (3); for (size_t i = 0; i < (size_t) (0.05 * sr); ++i) x[0][i] = x[1][i] = 0.5f * (rnd.nextFloat() - 0.5f);
+        run (*u, x, 256, [&] (int) { return q.data(); });
+        return rmsDbOf (x[0], (size_t) (0.5 * sr), (size_t) (1.0 * sr)) - rmsDbOf (x[0], (size_t) (2.5 * sr), (size_t) (3.0 * sr));   // (how far it fell in 2 s)
+    };
+    if (std::getenv ("CHROMA_SWEEP") != nullptr) for (float sp : { 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f }) std::printf ("    SPACE %.0f: falls %.1f dB in 2 s\n", sp, tail (sp));
+    const double room = tail (3.0f), hall = tail (10.0f);
+    std::printf ("  the tail's fall from 0.5 - 1 s to 2.5 - 3 s after a burst: SPACE 3 %.1f dB, SPACE 10 %.1f dB\n", room, hall);
+    check (room > 45.0 && hall < 15.0 && hall > 3.0, "CHROMA SPACE: a room at 3 (gone within seconds), a vast tail at 10 (still falling, slowly - never growing)");
+    // chops: none without CHOP; with it, captured (in memory) and played - but never more often than they may be
+    auto chops = [&] (float chop, int& played, float& banked)
+    {
+        auto u = U::make (k); u->prepare (sr, 256); auto q = with ({ { 1, 0.0f }, { 4, chop }, { 8, 0.0f } });
+        auto x = music (sr, 6.0, 9u); const auto dry = x;
+        std::vector<float> st (192); float lastFlashSum = 0.0f; played = 0;
+        run (*u, x, 256, [&] (int) { u->displayState (st.data(), 192); float f = 0.0f; for (int c = 0; c < (int) st[145]; ++c) f += st[(size_t) (149 + 4 * c)] > 0.95f ? 1.0f : 0.0f; if (f > lastFlashSum) ++played; lastFlashSum = f; banked = st[145]; return q.data(); });
+        double d = 0; for (size_t i = 0; i < x[0].size(); ++i) d += std::abs (x[0][i] - dry[0][i]); return d;
+    };
+    int p0 = 0, p10 = 0; float b0 = 0, b10 = 0;
+    const double d0 = chops (0.0f, p0, b0), d10 = chops (10.0f, p10, b10);
+    std::printf ("  CHOP 0: %.0f chops kept, %d played; CHOP 10: %.0f kept, %d played in 6 s (added %.3g against %.3g)\n", b0, p0, b10, p10, d10, d0);
+    check (b0 == 0.0f && p0 == 0 && b10 > 0.0f && p10 > 0 && d10 > d0, "CHROMA SPACE: chops only when CHOP is up - captured and played then");
+    check (p10 <= 6 * 6, "CHROMA SPACE: never busy - at most a few chops a second");
+}
+
 // The LUNCHBOX's 500-series modules: the same checks as the rack's newer units, and each one's own
 static void runLbModuleTests (double sr)
 {
@@ -392,7 +646,7 @@ static void runDeHarshTests (double sr)
 {
     using namespace newunitstest;
     namespace U = enh::dsp::units;
-    int k = -1; for (int i = 0; i < U::count; ++i) if (std::string (U::info[i].name) == "DE-HARSH") k = i;
+    int k = -1; for (int i = 0; i < U::count; ++i) if (std::string (U::info[i].key) == "deharsh") k = i;
     std::printf ("\n== DE-HARSH at %.1f kHz ==\n", sr / 1000.0);
     if (k < 0) { check (false, "DE-HARSH is in the unit list"); return; }
     auto make = [&] (float midAmp, float hiAmp, bool flicker)
@@ -461,4 +715,250 @@ static void runCustomUnitTests (double sr)
     const double low = fin ? std::sqrt (diffDry / a[0].size()) : -1.0, high = std::sqrt (diffAB / a[0].size());
     std::printf ("  the design against the dry sound %.4f; DRIVE 0 against DRIVE 100 %.4f\n", low, high);
     check (low > 0.001 && high > 0.003, "the design's sound runs, and its DRIVE knob drives it");
+
+    // The moving blocks (chorus, pendulum pan, lava-lamp filter, chops, bit crusher, tape wow, shimmer): each at
+    // its defaults changes the sound, stays finite, and stays in bounds
+    using CC = enh::dsp::units::CustomConfig;
+    static const std::array<std::pair<CC::Block, std::array<float, 7>>, 7> moving {{
+        { CC::chorus, { 0.8f, 45, 45 } }, { CC::pan, { 0.5f, 60, 0 } }, { CC::wander, { 1200, 50, 0.15f, 2 } }, { CC::stutter, { 4, 70, 40 } },
+        { CC::crush, { 6, 50 } }, { CC::wow, { 35, 25 } }, { CC::shimmer, { 4, 50, 30 } } }};
+    static std::array<CC, 7> cfgs {};
+    bool allOk = true;
+    for (size_t k = 0; k < moving.size(); ++k)
+    {
+        auto& c = cfgs[k]; c = {}; c.count = 1; c.blocks[0].type = moving[k].first; c.blocks[0].p = moving[k].second;
+        enh::dsp::units::CustomUnit v; v.prepare (sr, 512); v.setConfig (&c);
+        auto x = music (sr, 2.0); const auto dry2 = music (sr, 2.0);
+        std::array<float, 21> pp {}; pp[0] = 1.0f;
+        run (v, x, 256, [&] (int) { return pp.data(); });
+        double diff = 0, peak = 0, peakDry = 0; bool fin = true;
+        for (int ch = 0; ch < 2; ++ch) for (size_t i = 0; i < x[(size_t) ch].size(); ++i)
+        { fin = fin && std::isfinite (x[(size_t) ch][i]); diff += std::pow (x[(size_t) ch][i] - dry2[(size_t) ch][i], 2); peak = std::max (peak, (double) std::abs (x[(size_t) ch][i])); peakDry = std::max (peakDry, (double) std::abs (dry2[(size_t) ch][i])); }
+        const double rms = std::sqrt (diff / (2.0 * x[0].size()));
+        const bool ok = fin && rms > 0.002 && peak < peakDry * 2.0 + 0.05;
+        std::printf ("  block %d: change %.4f, peak %.3f (dry %.3f)%s\n", (int) moving[k].first, rms, peak, peakDry, ok ? "" : "  <- WRONG");
+        allOk = allOk && ok;
+    }
+    check (allOk, "the seven moving blocks each change the sound, stay finite, and stay under twice the dry peak");
+}
+
+// RACK TUNER's level match: a tune makes the rack 6 dB louder - within its 8 s window the trim takes it back to
+// how loud it was; A/B back (rematch) and the trim follows; off, it eases to nothing; silence changes nothing
+#include "DSP/TunerMatch.h"
+static void runTunerMatchTests (double sr)
+{
+    using namespace newunitstest;
+    std::printf ("\n== RACK TUNER level match at %.1f kHz ==\n", sr / 1000.0);
+    enh::dsp::TunerMatch tm; tm.prepare (sr);
+    const int block = 256;
+    std::vector<float> inL ((size_t) block), inR ((size_t) block), outL ((size_t) block), outR ((size_t) block);
+    unsigned seed = 7;
+    auto noise = [&] { seed = seed * 1664525u + 1013904223u; return (float) ((int) (seed >> 9) - (1 << 22)) / (float) (1 << 22); };
+    int capture = 0, rematch = 0;
+    auto run = [&] (double seconds, float rackGain, bool enabled, float level = 0.1f)
+    {
+        double sumIn = 0, sumOut = 0; long cnt = 0;
+        const int blocks = (int) (seconds * sr / block);
+        for (int b = 0; b < blocks; ++b)
+        {
+            for (int i = 0; i < block; ++i) { inL[(size_t) i] = level * noise(); inR[(size_t) i] = level * noise(); outL[(size_t) i] = rackGain * inL[(size_t) i]; outR[(size_t) i] = rackGain * inR[(size_t) i]; }
+            const float* pre[2] { inL.data(), inR.data() };
+            float* io[2] { outL.data(), outR.data() };
+            tm.process (io, 2, block, pre, enabled, capture, rematch);
+            if (b > blocks * 3 / 4) for (int i = 0; i < block; ++i) { sumIn += inL[(size_t) i] * inL[(size_t) i]; sumOut += outL[(size_t) i] * outL[(size_t) i]; ++cnt; }
+        }
+        return 10.0 * std::log10 ((sumOut + 1e-20) / (sumIn + 1e-20));   // the rack's gain at the end, trim included
+    };
+    run (4.0, 1.0f, true);                   // learns the rack as it is (0 dB)
+    ++capture;                               // TUNE: remember "as loud as now" ...
+    const double tuned = run (8.0, 2.0f, true);   // ... and the tune made it 6 dB louder
+    std::printf ("  after a +6 dB tune: the rack %+.2f dB (trim %+.2f dB)\n", tuned, tm.getTrimDb());
+    check (std::abs (tuned) < 0.8, "a tune's +6 dB is taken back to within 0.8 dB");
+    ++rematch;                               // A/B: back to before (the rack at 0 dB again)
+    const double back = run (8.0, 1.0f, true);
+    std::printf ("  A/B back to before: %+.2f dB (trim %+.2f dB)\n", back, tm.getTrimDb());
+    check (std::abs (back) < 0.8, "after A/B the trim follows: still as loud as before the tune");
+    const float trimBefore = tm.getTrimDb();
+    run (4.0, 1.0f, true, 0.0f);            // silence: nothing learnt, the trim holds
+    check (std::abs (tm.getTrimDb() - trimBefore) < 0.2f, "silence changes nothing");
+    run (6.0, 2.0f, false);
+    std::printf ("  off: trim %+.2f dB\n", tm.getTrimDb());
+    check (std::abs (tm.getTrimDb()) < 0.3f, "LEVEL MATCH off: the trim eases to nothing");
+}
+
+#include "DSP/PatchBay.h"
+#include "DSP/EnhEngine.h"
+
+/*  THE PATCH BAY: what the cords make of the signal (DSP/PatchBay.h), and the engine's side of it - a cord out of
+    the chain fades the rack to silence and back without a jump, and the half-in crackle stays well down. */
+static void runPatchBayTests (double sr)
+{
+    using namespace newunitstest;
+    namespace pb = enh::patch;
+    std::printf ("\n== THE PATCH BAY at %.1f kHz ==\n", sr / 1000.0);
+
+    const std::vector<int> rack { 5, 0, 3, 8, 17, 18, 19 };
+    auto s = pb::straightThrough (rack);
+    auto l = pb::follow (s, 0), r = pb::follow (s, 1);
+    check (l.complete && r.complete && l.units == rack && r.units == rack, "straight through: both sides reach RACK OUT through every unit in order");
+
+    // Swap two of the newer units (18 before 17): RACK..8 -> 18 -> 17 -> 19
+    auto sw = s;
+    for (auto& c : sw.cords)
+        for (auto* e : { &c.a, &c.b })
+        {
+            if (e->unit == 17) e->unit = 18; else if (e->unit == 18) e->unit = 17;
+        }
+    l = pb::follow (sw, 0);
+    check (l.complete && l.units == std::vector<int> ({ 5, 0, 3, 8, 18, 17, 19 }), "re-patched: the path follows the cords (18 before 17)");
+
+    auto pulled = s;
+    pulled.cords[2].b = {};   // one end out (cords go L, R per link: [2] is the second link's left)
+    check (! pb::follow (pulled, 0).complete && pb::follow (pulled, 1).complete, "a pulled plug breaks only its own side");
+
+    auto spare = s;
+    spare.cords[2].b = { (int16_t) (pb::spareBase - 40), pb::inL };
+    check (! pb::follow (spare, 0).complete, "into a spare jack: the signal goes nowhere");
+
+    auto loop = s;   // unit 3's OUT L back into unit 0's IN L (0's own feed pulled)
+    for (auto& c : loop.cords)
+        if (c.a.unit == 3 && c.a.port == pb::outL) c.b = { 0, pb::inL };
+        else if (c.b.unit == 0 && c.b.port == pb::inL) c.b = {};
+    check (pb::follow (loop, 0).loop || ! pb::follow (loop, 0).complete, "a cord back into the chain: a loop, never 'complete'");
+
+    auto out = sw;   // unit 8 taken out of the rack: bridged
+    std::vector<int> without = rack;
+    without.erase (std::find (without.begin(), without.end(), 8));
+    check (pb::reconcile (out, without), "a unit taken out changes the cords");
+    l = pb::follow (out, 0);
+    check (l.complete && std::find (l.units.begin(), l.units.end(), 8) == l.units.end() && l.units.size() == 6, "... the chain closes over it");
+    auto in = s;
+    auto with = rack;
+    with.push_back (40);
+    pb::reconcile (in, with);
+    l = pb::follow (in, 0);
+    check (l.complete && ! l.units.empty() && l.units.back() == 40, "a unit put in is patched in before RACK OUT");
+
+    pb::State back;
+    sw.anything = true;
+    check (pb::fromString (pb::toString (sw), back) && back.anything && pb::follow (back, 0).units == pb::follow (sw, 0).units,
+           "the cords come back from the session as they were saved");
+
+    // The engine: a 1 kHz tone through the rack, the chain broken, then whole again
+    enh::dsp::EnhEngine engine;
+    const int block = 256;
+    engine.prepare (sr, block, 2);
+    enh::dsp::EnhEngine::Parameters p;
+    juce::AudioBuffer<float> buf (2, block);
+    double phase = 0.0;
+    auto runFor = [&] (double seconds, float& peak, float& maxStep, double& rms)
+    {
+        peak = 0.0f; maxStep = 0.0f; rms = 0.0;
+        float last = 0.0f;
+        long n = 0;
+        for (int b = 0; b < (int) (seconds * sr / block); ++b)
+        {
+            for (int i = 0; i < block; ++i)
+            {
+                const float v = 0.25f * (float) std::sin (phase);
+                phase += 2.0 * 3.14159265358979 * 1000.0 / sr;
+                buf.setSample (0, i, v);
+                buf.setSample (1, i, v);
+            }
+            engine.process (buf, p);
+            for (int i = 0; i < block; ++i)
+            {
+                const float v = buf.getSample (0, i);
+                peak = std::max (peak, std::abs (v));
+                maxStep = std::max (maxStep, std::abs (v - last));
+                last = v;
+                rms += (double) v * v;
+                ++n;
+            }
+        }
+        rms = std::sqrt (rms / (double) std::max (1L, n));
+    };
+    float peak = 0, step = 0;
+    double rmsOn = 0, rmsOff = 0, rmsBack = 0, rmsHalf = 0;
+    runFor (2.0, peak, step, rmsOn);
+    engine.setPatch (true, 0.0f);
+    runFor (0.1, peak, step, rmsOff);
+    runFor (0.3, peak, step, rmsOff);
+    std::printf ("  playing %.4f rms, chain open %.6f rms\n", rmsOn, rmsOff);
+    check (rmsOn > 0.01 && rmsOff < rmsOn * 0.001, "a cord out of the chain: the rack goes silent");
+    engine.setPatch (true, 1.0f);
+    runFor (1.0, peak, step, rmsHalf);
+    std::printf ("  half in: crackle and hum peak %.4f\n", peak);
+    check (peak < 0.06f, "a plug half in: its crackle stays well down");
+    engine.setPatch (false, 0.0f);
+    float stepBack = 0;
+    runFor (0.02, peak, stepBack, rmsBack);
+    double rmsFirst = rmsBack;
+    runFor (1.5, peak, step, rmsBack);
+    std::printf ("  whole again: first 20 ms %.4f rms, then %.4f rms\n", rmsFirst, rmsBack);
+    check (rmsFirst < rmsOn * 0.2 && rmsBack > rmsOn * 0.8, "whole again: it comes back slowly (no jump), all the way");
+
+    // The cords' order: the units after the enhancer in another order still play, cleanly
+    {
+        using E = enh::dsp::EnhEngine;
+        engine.setChainOrder ({ E::stSeraph, E::stCharacter, E::stNewer + 3, E::stTide, E::stLumen, E::stLunchbox, E::stDeep, E::stNewer + 1 });
+        double rmsOrder = 0;
+        runFor (1.5, peak, step, rmsOrder);
+        std::printf ("  re-ordered: %.4f rms, peak %.3f\n", rmsOrder, peak);
+        check (rmsOrder > rmsOn * 0.5 && peak <= 1.01f, "re-ordered by the cords: it plays, within full scale");
+        engine.setChainOrder ({});
+    }
+
+    // A loop of cords: feedback, filtered and soft-limited, never past full scale; loud and held, it runs away and is muted
+    {
+        engine.setFeedback (true);
+        double rmsLoop = 0;
+        runFor (2.0, peak, step, rmsLoop);
+        std::printf ("  feedback loop: %.4f rms, peak %.3f, runaway %d\n", rmsLoop, peak, (int) engine.getMeters().patchRunaway.load());
+        check (std::isfinite (rmsLoop) && peak <= 1.01f && rmsLoop > 0.01 && (engine.getMeters().patchRunaway.load() || rmsLoop < rmsOn * 2.0),
+               "a feedback loop plays, never past full scale, never more than 6 dB up (else muted)");
+        // a loop that rings on by itself once the music stops: muted
+        {
+            juce::AudioBuffer<float> quiet (2, block);
+            bool ran = engine.getMeters().patchRunaway.load();
+            for (int b = 0; b < (int) (2.0 * sr / block) && ! ran; ++b)
+            {
+                quiet.clear();
+                engine.process (quiet, p);
+                ran = engine.getMeters().patchRunaway.load();
+            }
+            float qp = 0.0f;
+            for (int b = 0; b < (int) (0.5 * sr / block); ++b)
+            {
+                quiet.clear();
+                engine.process (quiet, p);
+                qp = std::max (qp, quiet.getMagnitude (0, block));
+            }
+            std::printf ("  music stopped: runaway %d, the loop's tail %.5f\n", (int) ran, qp);
+            check (qp < 0.02f, "with the music stopped the loop dies away (or is muted)");
+        }
+        juce::AudioBuffer<float> loud (2, block);
+        bool ran = false;
+        for (int b = 0; b < (int) (3.0 * sr / block) && ! ran; ++b)
+        {
+            for (int i = 0; i < block; ++i)
+            {
+                const float v = 0.98f * (float) std::sin (phase);
+                phase += 2.0 * 3.14159265358979 * 80.0 / sr;
+                loud.setSample (0, i, v);
+                loud.setSample (1, i, v);
+            }
+            engine.process (loud, p);
+            ran = engine.getMeters().patchRunaway.load();
+        }
+        double rmsAfter = 0;
+        runFor (0.5, peak, step, rmsAfter);
+        std::printf ("  driven hard: runaway %d, then %.6f rms\n", (int) ran, rmsAfter);
+        check (! ran || rmsAfter < 0.002, "a runaway loop mutes the rack");
+        engine.setFeedback (false);
+        engine.setPatch (false, 0.0f);
+        double rmsFree = 0;
+        runFor (1.5, peak, step, rmsFree);
+        check (! engine.getMeters().patchRunaway.load() && rmsFree > rmsOn * 0.5, "re-patched: the runaway clears and it plays again");
+    }
 }

@@ -97,12 +97,15 @@ namespace pad::custom
         auto Z = [&] (float y) { return (y - 0.5f * H) * sz; };
 
         // --- the sound: blocks in the designer's order of parameters
-        static const std::array<std::pair<const char*, std::array<const char*, 7>>, 9> blockKeys {{
+        static const std::array<std::pair<const char*, std::array<const char*, 7>>, enh::dsp::units::CustomConfig::blockTypes> blockKeys {{
             { "eq", { "low", "lowf", "mid", "midf", "q", "high", "highf" } }, { "filter", { "mode", "freq", "q" } }, { "drive", { "drive", "shape", "tone", "mix" } },
             { "comp", { "threshold", "ratio", "attack", "release", "makeup", "mix" } }, { "exciter", { "freq", "amount" } }, { "delay", { "time", "feedback", "tone", "mix" } },
-            { "room", { "size", "damp", "predelay", "mix" } }, { "width", { "width" } }, { "gain", { "gain" } } }};
-        static const std::array<std::array<float, 7>, 9> defaults {{ { 0, 120, 0, 1200, 0.9f, 0, 8000 }, { 0, 8000, 0.7f }, { 9, 0, 9000, 60 }, { -18, 3, 10, 150, 4, 100 },
-                                                                   { 4000, 30 }, { 350, 35, 5000, 25 }, { 1.8f, 40, 15, 22 }, { 120 }, { 0 } }};
+            { "room", { "size", "damp", "predelay", "mix" } }, { "width", { "width" } }, { "gain", { "gain" } },
+            { "chorus", { "rate", "depth", "mix" } }, { "pan", { "rate", "depth", "mode" } }, { "wander", { "freq", "range", "speed", "q" } },
+            { "stutter", { "rate", "depth", "smooth" } }, { "crush", { "bits", "mix" } }, { "wow", { "wow", "flutter" } }, { "shimmer", { "size", "octave", "mix" } } }};
+        static const std::array<std::array<float, 7>, enh::dsp::units::CustomConfig::blockTypes> defaults {{ { 0, 120, 0, 1200, 0.9f, 0, 8000 }, { 0, 8000, 0.7f }, { 9, 0, 9000, 60 }, { -18, 3, 10, 150, 4, 100 },
+                                                                   { 4000, 30 }, { 350, 35, 5000, 25 }, { 1.8f, 40, 15, 22 }, { 120 }, { 0 },
+                                                                   { 0.8f, 45, 45 }, { 0.5f, 60, 0 }, { 1200, 50, 0.15f, 2 }, { 4, 70, 40 }, { 6, 50 }, { 35, 25 }, { 4, 50, 30 } }};
         const auto chain = root["x"]["chain"];
         if (auto* arr = chain.getArray())
             for (const auto& b : *arr)
@@ -110,7 +113,7 @@ namespace pad::custom
                 if (d.config.count >= enh::dsp::units::CustomConfig::maxBlocks) break;
                 const auto type = b["b"].toString();
                 int t = -1;
-                for (int k = 0; k < 9; ++k) if (type == blockKeys[(size_t) k].first) t = k;
+                for (int k = 0; k < (int) blockKeys.size(); ++k) if (type == blockKeys[(size_t) k].first) t = k;
                 if (t < 0) continue;
                 auto& cb = d.config.blocks[(size_t) d.config.count++];
                 cb.type = (enh::dsp::units::CustomConfig::Block) t;

@@ -1,6 +1,8 @@
-# RAY ROOM
+# ROOM SIMULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called RAY ROOM.
 
 A room around the sound, and a little of what a room full of old gear adds (3U, model RT-3). It starts in
 the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.

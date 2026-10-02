@@ -1,6 +1,8 @@
-# UPWARD LEVELER
+# UPWARD COMPRESSOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called UPWARD LEVELER.
 
 Lifts quiet sounds — quiet dialogue, distant footsteps, soft passages — in three bands (low, mid,
 high), so a quiet mid can come up even under loud bass. Loud sounds are left alone.

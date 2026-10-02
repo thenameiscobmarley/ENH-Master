@@ -11,7 +11,7 @@ namespace pad::shaders
         chassis = 0, faceplate, chrome, plastic, table, emissive, recess, print, display, shadow,
         paint, seraphDisplay, brushed, vuFace, vuGlass, callout, glow, valueArc, lens, sunlight,
         waveScreen, balancerDisplay, present, wood,
-        glassPanel, blurPass, outlineFrame, outlineHull, studioWall, designedScreen, quartzShelf, holoCard,
+        glassPanel, blurPass, outlineFrame, outlineHull, studioWall, designedScreen, quartzShelf, holoCard, colourScreen, backPanel, braid,
         numMaterials
     };
 
@@ -560,6 +560,48 @@ namespace pad::shaders
     col += envColor (R) * (0.03 + 0.20 * pow (facing, 4.0));
 )GLSL" };
 
+    /*  A colour screen (CHROMA SPACE, HYPERCUBE: UI/Scene/ColourScreens.h): its picture is light already, in
+        colour - uTex = the screen's own RGBA canvas, uParams = the screen's rect (not the panel's), uParams2.x =
+        on (1) or off (0). uBaseColor = the dark glass. */
+    inline const hwk::shaders::Material colourScreenMaterial { "colourScreen", R"GLSL(
+    vec2 uv = (vLocal.xz - uParams.xy) / uParams.zw;
+    vec3 pic = texture (uTex, uv).rgb;
+    float scan = 0.95 + 0.05 * sin (gl_FragCoord.y * 3.14159);
+    col = uBaseColor + pic * pic * 1.9 * scan * uParams2.x;   // (the canvas is gamma-encoded: back to light)
+    col += envColor (R) * (0.03 + 0.20 * pow (facing, 4.0));
+)GLSL" };
+
+    /*  A unit's back, seen when the rack is turned round: painted steel with its stickers, plates and connectors
+        printed in colour (UI/Scene/BackPanels.cpp). uTex = that print (gamma-encoded RGB), uParams = the plate's
+        rect, as a faceplate's; uParams2.w seeds the wear. */
+    inline const hwk::shaders::Material backPanelMaterial { "backPanel", R"GLSL(
+    vec2 p = vLocal.xz;
+    vec3 c = texture (uTex, (p - uParams.xy) / uParams.zw).rgb;
+    vec3 albedo = c * c;
+    float wear = wearMarks (p, uParams2.w + 5.0, 1.0);
+    albedo = mix (albedo, albedo * 1.2 + vec3 (0.01), wear * 0.25);
+    col  = albedo * (amb * 0.70 + wrap * lightCol * 0.85 + fill);
+    col += lightCol * (pow (ndh, 90.0) * 0.30 + pow (ndh, 16.0) * 0.05);
+    col += envColor (R) * (0.03 + 0.22 * pow (facing, 5.0));
+)GLSL" };
+
+    /*  A braided cable jacket: carriers woven over and under round the cable (tube UVs: u round it, v the length
+        along it), fading to their average where they are too fine to see. uParams = (carriers round it, weave
+        repeats per unit of length, _, _); uBaseColor = the yarn's colour, uParams2.xyz = the second yarn's (tweed). */
+    inline const hwk::shaders::Material braidMaterial { "braid", R"GLSL(
+    float a = vUV.x * uParams.x + vUV.y * uParams.y;
+    float b = vUV.x * uParams.x - vUV.y * uParams.y;
+    float over = mod (floor (a) + floor (b), 2.0);
+    float f = over > 0.5 ? fract (a) : fract (b);
+    float bump = sin (3.14159 * f);
+    float aa = clamp (1.2 - length (fwidth (vec2 (a, b))) * 1.6, 0.0, 1.0);
+    vec3 yarn = mix (uBaseColor, uParams2.xyz, over * step (0.001, dot (uParams2.xyz, vec3 (1.0))));
+    vec3 albedo = mix (mix (uBaseColor, uParams2.xyz, 0.5 * step (0.001, dot (uParams2.xyz, vec3 (1.0)))) * 0.72, yarn * (0.50 + 0.50 * bump), aa);
+    col  = albedo * (amb * 0.70 + wrap * lightCol * 0.85 + fill);
+    col += lightCol * pow (ndh, 24.0) * 0.10 * mix (0.5, bump, aa);   // the fibres' soft sheen, no gloss
+    col += envColor (R) * 0.02;
+)GLSL" };
+
     /** The clear coat each surface gets (HardwareKit's uCoat / uCoatLod): how wet it looks, and how sharp
         the room is in it (the room map's mip level). Glass and glossy knobs mirror it crisply; brushed
         metal only has a soft sheen of it; prints, shadows and glows get none. */
@@ -580,7 +622,8 @@ namespace pad::shaders
             case seraphDisplay:
             case balancerDisplay:
             case waveScreen:
-            case designedScreen:  return { 0.50f, 0.0f };   // behind a glass window
+            case designedScreen:
+            case colourScreen:    return { 0.50f, 0.0f };   // behind a glass window
             case recess:          return { 0.30f, 0.6f };
             default:              return { 0.0f, 0.0f };
         }
@@ -623,6 +666,9 @@ namespace pad::shaders
             case quartzShelf:   return quartzShelfMaterial;
             case holoCard:      return holoCardMaterial;
             case designedScreen: return designedScreenMaterial;
+            case colourScreen:  return colourScreenMaterial;
+            case backPanel:     return backPanelMaterial;
+            case braid:         return braidMaterial;
             default:            return lib::plastic;
         }
     }

@@ -1,4 +1,4 @@
-# LEVEL CONTROL and OUTPUT MONITOR
+# LEVEL CONTROL and LOUDNESS MONITOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
 
@@ -8,7 +8,7 @@
   Higher = they protect harder. The UPWARD LEVELER never fights this knob.
 - **INPUT** meter — the level coming in.
 
-## OUTPUT MONITOR (top, last)
+## LOUDNESS MONITOR (top, last)
 
 Shows what the rack did to your sound: the input in pencil, the output in ink.
 

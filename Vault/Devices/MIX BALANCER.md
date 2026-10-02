@@ -1,6 +1,8 @@
-# MIX BALANCER
+# MULTIBAND BALANCER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called MIX BALANCER.
 
 Keeps the mix in balance, moment to moment. It rides six band faders (lows, 200 Hz, 500 Hz,
 1.3 kHz, 3.5 kHz, highs):

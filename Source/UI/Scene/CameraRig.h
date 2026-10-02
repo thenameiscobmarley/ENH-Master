@@ -19,6 +19,8 @@ namespace pad
         float halfV = std::numeric_limits<float>::quiet_NaN();
         float side = std::numeric_limits<float>::quiet_NaN();    // 0: at the rack, 1: at the LUNCHBOX beside it
         float halfW = std::numeric_limits<float>::quiet_NaN();   // how wide the close framing is
+        float turn = 0.0f;   // 0: the rack faces front, 1: it is turned round on its shelf to show its back (animated; the renderer turns it)
+        int back = -1;       // turned round: whose back walking up goes to (-1: the patch bay)
     };
 
     /** Pure function of (aspect, parallax, focus): identical on the GL thread (rendering) and on
@@ -36,11 +38,13 @@ namespace pad
         gfx::Vec3 eye, forward, right, up;
         gfx::Vec3 lightDir;   // direction *towards* the key light (world)
         float tanHalfFovY = 0.2f, aspect = 1.0f;
+        float turn = 0.0f;    // the rack turned round (focus.turn): its front can't be picked
 
         using Focus = CameraFocus;
 
         static CameraRig build (float aspectRatio, float parallaxX, float parallaxY, Focus focus = Focus())
         {
+            constexpr float unitBodyBack = layout::unitBodyDepth;   // (where a unit's back is, behind its face)
             constexpr float deg = layout::pi / 180.0f;
             constexpr float fovY = 22.0f * deg;
             constexpr float basePitch = 11.0f * deg;
@@ -52,7 +56,7 @@ namespace pad
             // Wide framing: the whole curved case, bottom unit to top unit plus its overhang
             const auto bottom = layout::unitOrigin (layout::bottomUnit());
             const auto top = layout::unitOrigin (layout::topUnit());
-            const float wideBottom = bottom.y - layout::unitHalfH (layout::bottomUnit()) - layout::caseOverhang;
+            const float wideBottom = bottom.y - layout::unitHalfH (layout::bottomUnit()) - layout::bayArcLen - layout::caseOverhang;
             const float wideTop = top.y + layout::unitHalfH (layout::topUnit()) + layout::caseOverhang;
             // (and the LUNCHBOX beside it, when it is out: the frame then centres between the two)
             const float wideLeft = -(layout::caseSideX + layout::caseCheekW + 0.10f);
@@ -66,25 +70,33 @@ namespace pad
 
             // Close framing: one unit and a little of its neighbours
             const float t = std::clamp (focus.amount, 0.0f, 1.0f);
-            const float unitHalfV = std::isnan (focus.halfV) ? layout::unitHalfH (focus.unit) + 0.22f : focus.halfV;
-            const float unitHalfW = std::isnan (focus.halfW) ? layout::unitHalfW (focus.unit) + 0.06f : focus.halfW;
+            // (turned round, walking up goes to the patch bay at the bottom of its back, cords and all)
+            const float tt = std::clamp (focus.turn, 0.0f, 1.0f), te = tt * tt * (3.0f - 2.0f * tt);
+            const bool toBay = tt > 0.5f;
+            const bool toBack = toBay && focus.back >= 0 && layout::isShown (focus.back) && focus.back != layout::lunchboxUnit;
+            const auto bayAt = toBack ? (layout::turnMatrix (focus.turn) * layout::panelToWorld (focus.back)).transformPoint ({ 0.0f, -unitBodyBack - 0.35f, 0.0f })
+                                      : (layout::turnMatrix (focus.turn) * layout::bayToWorld()).transformPoint ({ 0.0f, -0.9f, 0.18f });
+            const float unitHalfV = toBack ? layout::unitHalfH (focus.back) + 0.45f : toBay ? layout::bayHalfH + 0.40f : std::isnan (focus.halfV) ? layout::unitHalfH (focus.unit) + 0.22f : focus.halfV;
+            const float unitHalfW = toBay ? layout::faceHalfW + 0.15f : std::isnan (focus.halfW) ? layout::unitHalfW (focus.unit) + 0.06f : focus.halfW;
             const float nearDist = std::max (unitHalfW / (c.tanHalfFovY * c.aspect), unitHalfV / c.tanHalfFovY) * 1.02f + 0.35f;
-            const float nearCentre = std::isnan (focus.centreY) ? layout::unitOrigin (focus.unit).y : focus.centreY;
+            const float nearCentre = toBay ? bayAt.y : std::isnan (focus.centreY) ? layout::unitOrigin (focus.unit).y : focus.centreY;
 
             // Ease between the two so the move feels like walking up to the rack, not a jump cut
             const float e = t * t * (3.0f - 2.0f * t);
-            float distance = wideDist + (nearDist - wideDist) * e;
-            const float centreY = wideCentre + (nearCentre - wideCentre) * e;
+            // Turned round, the rack has come forward and risen a little (layout::turnMatrix): step back to keep it all in
+            float distance = wideDist + (nearDist - wideDist) * e + 4.4f * te * (1.0f - e);
+            const float centreY = wideCentre + (nearCentre - wideCentre) * e + 0.62f * te * (1.0f - e);
             // Beside the rack, the LUNCHBOX: `side` glides the close framing across to it and back
             const float side = std::isnan (focus.side) ? (focus.unit == layout::lunchboxUnit ? 1.0f : 0.0f) : focus.side;
             const auto lbAt = layout::unitOrigin (layout::lunchboxUnit);
             const bool lbOut = layout::isShown (layout::lunchboxUnit);
             const float faceZ = layout::arcCentreZ - layout::arcRadius + 0.45f;
-            const float nearX = lbOut ? side * lbAt.x : 0.0f, nearZ = lbOut ? faceZ + side * (lbAt.z + 0.20f - faceZ) : faceZ;
+            const float nearX = toBay ? 0.0f : lbOut ? side * lbAt.x : 0.0f;
+            const float nearZ = toBay ? bayAt.z : lbOut ? faceZ + side * (lbAt.z + 0.20f - faceZ) : faceZ;
             const float centreX = wideCentreX + (nearX - wideCentreX) * e;
             const float centreZ = faceZ + (nearZ - faceZ) * e;
 
-            const float yaw   = parallaxX * 2.0f * deg;
+            const float yaw   = parallaxX * 2.0f * deg;   // (turned: the rack itself spins round - the renderer - the camera stays)
             // (the LUNCHBOX stands upright at eye level: seen straight on, its rack partner from a little above)
             const float pitch = basePitch * (1.0f - (0.7f + 0.3f * side) * e) + parallaxY * 1.2f * deg;
 
@@ -109,6 +121,7 @@ namespace pad
             c.view = gfx::Mat4::lookAt (c.eye, target, { 0, 1, 0 });
             c.proj = gfx::Mat4::perspective (fovY, c.aspect, std::max (0.5f, distance - 6.0f), distance + 40.0f);
             c.viewProj = c.proj * c.view;
+            c.turn = focus.turn;
 
             // Key light: the window, up and to the left, drifting slightly against the parallax.
             c.lightDir = gfx::normalise ({ -0.50f - parallaxX * 0.15f, 0.85f + parallaxY * 0.08f, 0.80f });
@@ -125,7 +138,7 @@ namespace pad
             the arc, so each one has its own plane). Returns panel-local (x, z). */
         bool intersectUnit (int unit, float ndcX, float ndcY, float height, float& localX, float& localZ) const noexcept
         {
-            if (! layout::isShown (unit))   // out of the case (SIMPLE view): nothing to hit
+            if (! layout::isShown (unit) || turn > 0.05f)   // out of the case (SIMPLE view), or its back to us: nothing to hit
                 return false;
             const auto n = layout::unitNormal (unit);
             const auto origin = layout::unitOrigin (unit) + n * height;

@@ -5,9 +5,11 @@
 ## Test everything at once
 
 ```sh
-scripts/selftest.sh            # all of the below; PASS / FAIL per step, logs in build/lab/selftest/
+scripts/selftest.sh            # all of the below, on every core; PASS / FAIL per job, logs in build/lab/selftest/
+                               # a job whose code hasn't changed since it passed is reused, not run again
+scripts/selftest.sh --full     # everything, nothing reused (about 14 min): before a release
+scripts/selftest.sh --quick    # every kind of check on less material (about 7 min)
 scripts/selftest.sh --build    # build first
-scripts/selftest.sh --quick    # skip the slow steps
 ```
 
 ## EnhDspTests — the DSP tests

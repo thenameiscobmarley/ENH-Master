@@ -20,7 +20,7 @@ PROCESSING. Parameter `levelGlide`.
 | **FST** 5 ms glide | Over about 5 ms. | Snappier level changes for automation that should land exactly on the beat. | No cost. |
 | **SLW** 150 ms glide | Over about 150 ms. | Level changes fade in gently: rides and automation never jump. | No cost. |
 
-## ADAPTIVE ENHANCER
+## ADAPTIVE ENHANCER EQ
 
 ### PRECISION - How finely CLARITY shapes the sound
 
@@ -42,7 +42,7 @@ PROCESSING. Parameter `enhancerHarmonics`.
 | **EVN** Even | Mostly 2nd harmonic, very little 3rd. | Warmer, rounder, tube-like: detail becomes fuller rather than sharper. | Zero latency, same CPU. Glides over 30 ms (an exact crossfade). |
 | **ODD** Odd | Mostly 3rd harmonic, less 2nd. | Edgier and more forward, tape-and-transistor-like: definition cuts through a dense mix. | Zero latency, same CPU. Glides over 30 ms (an exact crossfade). |
 
-## UPWARD LEVELER
+## UPWARD COMPRESSOR
 
 ### LIFT - How far quiet material may come up
 
@@ -84,7 +84,7 @@ STEREO. Parameter `levelerStereo`.
 | **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 | **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
-## DEEP SUB
+## SUB-HARMONIC SYNTHESIZER
 
 ### SUB SHAPE - What the generated sub is
 
@@ -158,7 +158,7 @@ STEREO. Parameter `limiterStereo`.
 | **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 | **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
-## MIX BALANCER
+## MULTIBAND BALANCER
 
 ### REFERENCE - What a band's jump is measured against
 
@@ -291,7 +291,7 @@ STEREO. Parameter `tideStereo`.
 | **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 | **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
-## FOOTSTEP RADAR
+## FOOTSTEP ENHANCER
 
 ### DETECTION - How sure it must be
 
@@ -313,7 +313,7 @@ PROCESSING. Parameter `radarRoom`.
 | **HAL** Hall | Longer lines (31 - 67 ms), a longer tail. | A big space: far steps bloom and carry. | No extra cost. |
 | **OPN** Open air | A few far echoes (47 - 127 ms), little tail, more of the top taken. | Outdoors: far steps come with a faint slap-back, as across a courtyard. | No extra cost. |
 
-## TONE & SPACE
+## TONE & SPACE FINISHER
 
 ### TAPE CURVE - How TAPE saturates
 
@@ -355,7 +355,7 @@ STEREO. Parameter `seraphStereo`.
 | **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 | **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
-## CHARACTER
+## CONSOLE & TAPE EMULATOR
 
 ### COMPONENTS - How alike its two channels are
 
@@ -377,7 +377,7 @@ STEREO. Parameter `charStereo`.
 | **MID** Mid only | The unit works on the middle of the image (L + R) only; the sides (L - R) pass untouched. | Centre-panned sound - voice, kick, bass, lead - is processed; the width, the room and the panned detail stay exactly as they were. Anything the unit makes wide from the middle (a reverb) stays wide. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 | **SID** Side only | The unit works on the sides only (L - R); the middle passes untouched. | Only the width is processed: the stereo edge, the room, the panned detail - the centre stays exactly as it was. | A few adds per sample. The untouched part waits for the unit's own latency, so nothing smears. |
 
-## OUTPUT MONITOR
+## LOUDNESS MONITOR
 
 ### CEILING - The output limiter's ceiling
 

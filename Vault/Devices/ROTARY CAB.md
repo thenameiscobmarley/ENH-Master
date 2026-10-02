@@ -1,6 +1,8 @@
-# ROTARY CAB
+# ROTARY SPEAKER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called ROTARY CAB.
 
 A rotating-speaker cabinet (3U, model RC-147). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

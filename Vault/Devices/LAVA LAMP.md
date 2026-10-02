@@ -1,6 +1,8 @@
-# LAVA LAMP
+# RESONANT FILTER BANK
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called LAVA LAMP.
 
 A lava lamp as a filter (3U, model LL-60). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

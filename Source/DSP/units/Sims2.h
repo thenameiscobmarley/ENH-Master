@@ -276,8 +276,9 @@ namespace enh::dsp::units
         static constexpr int maxTaps = 14;
         std::array<DelayLine, 2> d; std::array<float, 2> tone {}; sim::Env fast, slow;
         float age = 10.0f, t0 = 0.4f, e = 0.7f, dropH = 0.0f, level = 0.0f, tSm = -1.0f;
+        std::array<float, maxTaps> atNow {}, gNow {}; bool tapsSet = false;   // (each bounce travels to its new time, never jumps; fades in or out)
         void prepareUnit (double s, int) override { for (auto& x : d) x.setMax ((int) (3.2 * s) + 8); fast.setup (s, 0.001, 0.03); slow.setup (s, 0.05, 0.3); }
-        void resetUnit() override { for (auto& x : d) x.clear(); tone = {}; age = 10.0f; dropH = level = 0.0f; tSm = -1.0f; fast.v = slow.v = 0.0f; }
+        void resetUnit() override { for (auto& x : d) x.clear(); tone = {}; age = 10.0f; dropH = level = 0.0f; tSm = -1.0f; fast.v = slow.v = 0.0f; tapsSet = false; }
         void render (float* const* io, int n, const float* p) noexcept override
         {
             const float t = std::clamp (p[1], 50.0f, 1000.0f) / 1000.0f;
@@ -289,6 +290,9 @@ namespace enh::dsp::units
             // the taps: each bounce e times the one before, in time and in height
             std::array<float, maxTaps> at {}, g {}; int taps = 0; float when = 0.0f, gap = tSm, amp = 0.8f;
             while (taps < maxTaps && when + gap < 3.0f && gap > 0.012f) { when += gap; at[(size_t) taps] = when * (float) sr; g[(size_t) taps] = amp; ++taps; gap *= e; amp *= e; }
+            for (int k = taps; k < maxTaps; ++k) { at[(size_t) k] = taps > 0 ? at[(size_t) (taps - 1)] : tSm * (float) sr; g[(size_t) k] = 0.0f; }   // (the rest: silent, where the last is)
+            if (! tapsSet) { atNow = at; gNow = g; tapsSet = true; }
+            const float gk = 1.0f - std::exp (-1.0f / (0.02f * (float) sr));
             const float tk = sim::lp1K (sr, 5000.0 * std::pow (2.0, 1.5 * tn));
             float pk = 0.0f, hit = 0.0f;
             for (int i = 0; i < n; ++i)
@@ -296,13 +300,19 @@ namespace enh::dsp::units
                 const float m = 0.5f * (io[0][i] + io[1][i]);
                 hit = std::max (hit, std::max (0.0f, fast.process (m) - 1.6f * slow.process (m)));
                 for (int c = 0; c < 2; ++c) d[(size_t) c].push (io[c][i]);
+                for (int k = 0; k < maxTaps; ++k)
+                {
+                    atNow[(size_t) k] += std::clamp (at[(size_t) k] - atNow[(size_t) k], -0.4f, 0.4f);
+                    gNow[(size_t) k] += gk * (g[(size_t) k] - gNow[(size_t) k]);
+                }
                 for (int c = 0; c < 2; ++c)
                 {
                     float y = 0.0f;
-                    for (int k = 0; k < taps; ++k)
+                    for (int k = 0; k < maxTaps; ++k)
                     {
+                        if (gNow[(size_t) k] < 1.0e-5f) continue;
                         const float side = (k & 1) ? (c == 0 ? 1.0f - spread : 1.0f) : (c == 0 ? 1.0f : 1.0f - spread);
-                        y += g[(size_t) k] * side * d[(size_t) c].tap (at[(size_t) k]);
+                        y += gNow[(size_t) k] * side * d[(size_t) c].tap (atNow[(size_t) k]);
                     }
                     tone[(size_t) c] += tk * (y - tone[(size_t) c]);
                     y = tn >= 0.0f ? y + tn * 0.5f * (y - tone[(size_t) c]) : tone[(size_t) c] + (1.0f + tn) * (y - tone[(size_t) c]);
@@ -405,9 +415,9 @@ namespace enh::dsp::units
         static float lengthOf (int path, float d) noexcept { return path == 0 ? 120.0f : path == 1 ? 6.2832f * 1.8f * d : 6.2832f * 2.6f * d; }
     private:
         std::array<DelayLine, 2> dl; std::array<float, 2> air {};
-        float px = 0.0f, py = 5.0f, dist = 8.0f, level = 0.0f, dop = 1.0f, u = 0.0f, speed = 30.0f, prevDelay = -1.0f; int path = 1;
+        float px = 0.0f, py = 5.0f, dist = 8.0f, level = 0.0f, dop = 1.0f, u = 0.0f, speed = 30.0f, prevDelay = -1.0f, delayNow = -1.0f; int path = 1;
         void prepareUnit (double s, int) override { for (auto& d : dl) d.setMax ((int) (0.6 * s) + 16); }
-        void resetUnit() override { for (auto& d : dl) d.clear(); air = {}; u = 0.0f; level = 0.0f; prevDelay = -1.0f; }
+        void resetUnit() override { for (auto& d : dl) d.clear(); air = {}; u = 0.0f; level = 0.0f; prevDelay = -1.0f; delayNow = -1.0f; }
         void render (float* const* io, int n, const float* p) noexcept override
         {
             speed = std::clamp (p[1], 5.0f, 100.0f); dist = std::clamp (p[2], 1.0f, 50.0f);
@@ -434,7 +444,10 @@ namespace enh::dsp::units
             for (int i = 0; i < n; ++i)
             {
                 const float t = (float) i / (float) n;
-                const float delay = d0 + (d1 - d0) * t, gain = g0 + (g1 - g0) * t, side = s0 + (s1 - s0) * t, k = k0 + (k1 - k0) * t;
+                const float want = d0 + (d1 - d0) * t, gain = g0 + (g1 - g0) * t, side = s0 + (s1 - s0) * t, k = k0 + (k1 - k0) * t;
+                if (delayNow < 0.0f) delayNow = want;
+                delayNow += std::clamp (want - delayNow, -0.4f, 0.4f);   // (DISTANCE moved: it travels there, it doesn't jump)
+                const float delay = delayNow;
                 const float m = 0.5f * (io[0][i] + io[1][i]);
                 dl[0].push (m);
                 float y = dl[0].tap (delay) * gain;

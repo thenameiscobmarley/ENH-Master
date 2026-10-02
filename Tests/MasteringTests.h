@@ -1,3 +1,4 @@
+#include <set>
 // Mastering tools (3.6.4.1): COMPARE and STEREO (mid/side). Included into EnhDspTests.cpp after
 // check() and presetParameters(); run with   EnhDspTests --mastering
 
@@ -572,6 +573,19 @@ static void runKnobFuzz (double sr, double seconds, int seed)
 // steady 60 Hz + 1 kHz tone plays. A knob that steps the audio makes a burst of high frequencies (a click);
 // one that glides does not. Measured above 9 kHz, in the 30 ms after the jump, against the steadier of the
 // two settings.   EnhDspTests --zipper
+/** TEST_SHARD=i/n: this process takes every n-th item of a long loop, starting at the i-th (the self-test runs
+    n of them side by side); unset: every item. */
+static bool inShard (int item)
+{
+    static const auto [idx, count] = []
+    {
+        const auto v = juce::SystemStats::getEnvironmentVariable ("TEST_SHARD", {});
+        const int n = std::max (1, v.fromFirstOccurrenceOf ("/", false, false).getIntValue());
+        return std::pair<int, int> { std::clamp (v.upToFirstOccurrenceOf ("/", false, false).getIntValue(), 0, n - 1), n };
+    }();
+    return count <= 1 || item % count == idx;
+}
+
 static void runZipperTests (double sr)
 {
     using namespace mastertest;
@@ -601,10 +615,19 @@ static void runZipperTests (double sr)
         return peak;
     };
 
-    int worstCount = 0;
+    int worstCount = 0, item = 0;
+    // The newer units' and the LUNCHBOX modules' knobs are tested on their own unit, powered, below: in the rack
+    // (stored, POWER off) they move nothing, and a render of the whole rack for each tested nothing
+    std::set<juce::String> ownUnit;
+    for (int k = 0; k < enh::dsp::units::count; ++k)
+        for (int i = 0; i < enh::dsp::units::info[k].numParams; ++i) { const auto id = enh::dsp::designed::params[(size_t) (enh::dsp::units::info[k].firstParam + i)].id; ownUnit.insert (juce::String (id.data(), id.size())); }
+    for (int k = 0; k < enh::dsp::lbmods::count; ++k)
+        for (int i = 0; i < enh::dsp::lbmods::info[k].numParams; ++i) { const auto id = enh::dsp::designed::params[(size_t) (enh::dsp::lbmods::info[k].firstParam + i)].id; ownUnit.insert (juce::String (id.data(), id.size())); }
     for (auto& spec : pad::params::allSpecs())
     {
-        if (spec.kind != pad::params::Kind::continuous || ! spec.automatable)
+        if (spec.kind != pad::params::Kind::continuous || ! spec.automatable || ownUnit.count (spec.id) > 0)
+            continue;
+        if (! inShard (item++))
             continue;
         // Diagnosis: ZIP_PARAM=<id> one knob only; ZIP_PRESET=<name>; ZIP_SET="id=v;id=v" forced
         if (const auto only = juce::SystemStats::getEnvironmentVariable ("ZIP_PARAM", {}); only.isNotEmpty() && only != spec.id)
@@ -612,6 +635,7 @@ static void runZipperTests (double sr)
 
         for (int dir = 0; dir < 2; ++dir)
         {
+            if (testFast() && dir != (item & 1)) continue;   // (the quick tier: one way each, alternating)
             const float from = dir == 0 ? spec.minValue : spec.maxValue, to = dir == 0 ? spec.maxValue : spec.minValue;
             auto preset = presetNamed (juce::SystemStats::getEnvironmentVariable ("ZIP_PRESET", "IMMERSIVE GAMES").toRawUTF8());
             for (auto& kv : juce::StringArray::fromTokens (juce::SystemStats::getEnvironmentVariable ("ZIP_SET", {}), ";", {}))
@@ -656,7 +680,48 @@ static void runZipperTests (double sr)
             }
         }
     }
-    check (worstCount == 0, "no knob clicks when it jumps end to end in one block (" + juce::String (worstCount) + " clicked)");
+    // Each newer unit and LUNCHBOX module on its own, powered: every knob end to end in one block
+    auto unitZip = [&] (const char* name, auto makeFn, int firstParam, int numParams)
+    {
+        for (int i = 1; i < numParams; ++i)
+        {
+            const auto& d = enh::dsp::designed::params[(size_t) (firstParam + i)];
+            if (d.kind != 0 || ! inShard (item++))
+                continue;
+            for (int dir = 0; dir < 2; ++dir)
+            {
+                if (testFast() && dir != (item & 1)) continue;
+                std::vector<float> q ((size_t) numParams);
+                for (int j = 0; j < numParams; ++j) q[(size_t) j] = enh::dsp::designed::params[(size_t) (firstParam + j)].defaultValue;
+                q[0] = 1.0f;
+                const float from = dir == 0 ? d.minValue : d.maxValue, to = dir == 0 ? d.maxValue : d.minValue;
+                auto u = makeFn(); u->prepare (sr, 256);
+                std::vector<float> ol = l, orr = r;
+                for (int pos = 0; pos < n; pos += 256)
+                {
+                    const int m = std::min (256, n - pos);
+                    q[(size_t) i] = pos >= jumpAt ? to : from;
+                    float* ch[2] { ol.data() + pos, orr.data() + pos };
+                    u->process (ch, 2, m, q.data());
+                }
+                const double jump = hfLevel (ol, jumpAt, jumpAt + (int) (sr * 0.030));
+                const double steadyBefore = hfLevel (ol, jumpAt - (int) (sr * 0.2), jumpAt - 256);
+                const double steadyAfter = hfLevel (ol, n - (int) (sr * 0.3), n);
+                const double over = db (jump) - db (std::max ({ steadyBefore, steadyAfter, 1.0e-4 }));
+                if (over > 12.0 && db (jump) > -50.0)
+                {
+                    ++worstCount;
+                    std::printf ("  %-14s %-12s %s -> %s: a burst %+.1f dB over the steady sound (%.1f dBFS)\n", name, std::string (d.id).c_str(),
+                                 juce::String (from, 1).toRawUTF8(), juce::String (to, 1).toRawUTF8(), over, db (jump));
+                }
+            }
+        }
+    };
+    for (int k = 0; k < enh::dsp::units::count; ++k)
+        unitZip (enh::dsp::units::info[k].name, [k] { return enh::dsp::units::make (k); }, enh::dsp::units::info[k].firstParam, enh::dsp::units::info[k].numParams);
+    for (int k = 0; k < enh::dsp::lbmods::count; ++k)
+        unitZip (enh::dsp::lbmods::info[k].name, [k] { return enh::dsp::units::lb::make (k); }, enh::dsp::lbmods::info[k].firstParam, enh::dsp::lbmods::info[k].numParams);
+    check (worstCount == 0, "no knob clicks when it jumps end to end in one block, in the rack and on every unit of its own (" + juce::String (worstCount) + " clicked)");
 }
 
 // Aliasing through the rack's own non-linear stages (3.6.5.1): a 7 kHz tone, loud, through one stage at a

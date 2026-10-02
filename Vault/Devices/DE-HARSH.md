@@ -1,6 +1,8 @@
-# DE-HARSH
+# HARSHNESS SUPPRESSOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called DE-HARSH.
 
 A dynamic harsh remover. Units that keep adapting (compressors, AUTO, adaptive EQs) move the level many
 times a second. In the presence region (2–9 kHz), where ears are most sensitive, that constant flicker is

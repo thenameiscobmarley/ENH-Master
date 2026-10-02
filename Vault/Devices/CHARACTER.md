@@ -1,6 +1,8 @@
-# CHARACTER
+# CONSOLE & TAPE EMULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called CHARACTER.
 
 The sound of real studio hardware. Two models at once, blended.
 

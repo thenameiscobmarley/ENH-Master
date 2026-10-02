@@ -1,6 +1,8 @@
-# SUBMAXX
+# PSYCHOACOUSTIC BASS
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called SUBMAXX.
 
 Bass you hear on small speakers: the lows are turned into their harmonics (our ears rebuild the missing fundamental), kept to the 2nd - 5th and added; ORIGINAL turns the real lows down to spare the speaker. (1U, model SMX.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

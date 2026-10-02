@@ -1,6 +1,8 @@
-# SHIMMER
+# SHIMMER REVERB
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called SHIMMER.
 
 An 8-line feedback delay network reverb (every line feeds every other through a Hadamard matrix, so the tail is dense and never metallic), with a pitch shifter in its loop: each pass climbs an octave (or +7, +19, -12), the choir-like shimmer. (2U, model SH-8.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

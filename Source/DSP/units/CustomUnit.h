@@ -5,7 +5,7 @@
 #include "RackUnit.h"
 
 /*  CUSTOM: a unit made in the Rack Unit Designer, loaded from its share code. The design's sound - its chain
-    of blocks (designer.js DSP_BLOCKS: the same nine, the same parameter ranges) - runs here; its knobs are
+    of blocks (designer.js DSP_BLOCKS: the same sixteen, the same parameter ranges) - runs here; its knobs are
     the slot's 16 knob parameters and 4 switches, each wired (as the design says) to one block parameter, or
     to a block's in/out. The chain comes in as a Config built on the message thread (Custom/DesignCode.h)
     and is swapped in atomically; the audio thread never allocates or waits. */
@@ -13,7 +13,8 @@ namespace enh::dsp::units
 {
     struct CustomConfig
     {
-        enum Block { eq, filter, drive, comp, exciter, delay, room, width, gain, none };
+        enum Block { eq, filter, drive, comp, exciter, delay, room, width, gain, chorus, pan, wander, stutter, crush, wow, shimmer, none };
+        static constexpr int blockTypes = 16;
         static constexpr int maxBlocks = 8, maxParams = 7;
         struct B { Block type = none; bool on = true; std::array<float, maxParams> p {}; };
         std::array<B, maxBlocks> blocks {};
@@ -28,7 +29,7 @@ namespace enh::dsp::units
     struct ParamRange { float lo, hi; bool log; };
     inline const std::array<ParamRange, CustomConfig::maxParams>& rangesOf (CustomConfig::Block b)
     {
-        static const std::array<std::array<ParamRange, CustomConfig::maxParams>, 9> r {{
+        static const std::array<std::array<ParamRange, CustomConfig::maxParams>, CustomConfig::blockTypes> r {{
             {{ { -15, 15, false }, { 30, 500, true }, { -15, 15, false }, { 200, 8000, true }, { 0.3f, 6, false }, { -15, 15, false }, { 2000, 16000, true } }},   // eq: low lowf mid midf q high highf
             {{ { 0, 2, false }, { 20, 20000, true }, { 0.3f, 12, false } }},                                                        // filter: mode freq q
             {{ { 0, 36, false }, { 0, 2, false }, { 1000, 20000, true }, { 0, 100, false } }},                                    // drive: drive shape tone mix
@@ -38,9 +39,16 @@ namespace enh::dsp::units
             {{ { 0.2f, 8, true }, { 0, 100, false }, { 0, 200, false }, { 0, 100, false } }},                                     // room: size damp predelay mix
             {{ { 0, 200, false } }},                                                                                                // width
             {{ { -24, 12, false } }},                                                                                               // gain
+            {{ { 0.05f, 6, true }, { 0, 100, false }, { 0, 100, false } }},                                                          // chorus: rate depth mix
+            {{ { 0.05f, 12, true }, { 0, 100, false }, { 0, 1, false } }},                                                           // pan: rate depth mode
+            {{ { 150, 8000, true }, { 0, 100, false }, { 0.02f, 2, true }, { 0.3f, 10, false } }},                                   // wander: freq range speed q
+            {{ { 1, 16, true }, { 0, 100, false }, { 0, 100, false } }},                                                             // stutter: rate depth smooth
+            {{ { 2, 12, false }, { 0, 100, false } }},                                                                              // crush: bits mix
+            {{ { 0, 100, false }, { 0, 100, false } }},                                                                             // wow: wow flutter
+            {{ { 1, 8, true }, { 0, 100, false }, { 0, 100, false } }},                                                             // shimmer: size octave mix
         }};
         static const std::array<ParamRange, CustomConfig::maxParams> empty {};
-        return b >= 0 && b < 9 ? r[(size_t) b] : empty;
+        return b >= 0 && b < CustomConfig::blockTypes ? r[(size_t) b] : empty;
     }
 
     class CustomUnit final : public RackUnit
@@ -62,6 +70,7 @@ namespace enh::dsp::units
             std::array<std::array<BiquadState, 3>, 2> eq {}; std::array<BiquadState, 2> filt {}, exHp {}, exHp2 {};
             std::array<OnePole, 2> tone {}; std::array<DelayLine, 2> dl; std::array<OnePole, 2> dlTone {}; Room room;
             float env = 0.0f, grDb = 0.0f;
+            Lfo lfoA, lfoB; OnePole smooth; BiquadCoeffs wanderCo {}; int wanderAt = 0;   // (the moving blocks)
         };
         std::array<State, CustomConfig::maxBlocks> st;
         std::atomic<const CustomConfig*> pending { nullptr };
@@ -71,7 +80,7 @@ namespace enh::dsp::units
         void prepareUnit (double s, int) override { for (auto& x : st) { x.dl[0].setMax ((int) (s * 1.6)); x.dl[1].setMax ((int) (s * 1.6)); x.room.setup (s); } }
         void resetUnit() override
         {
-            for (auto& x : st) { x.eq = {}; x.filt = {}; x.exHp = {}; x.exHp2 = {}; x.tone = {}; x.dl[0].clear(); x.dl[1].clear(); x.dlTone = {}; x.room.clear(); x.env = x.grDb = 0.0f; }
+            for (auto& x : st) { x.eq = {}; x.filt = {}; x.exHp = {}; x.exHp2 = {}; x.tone = {}; x.dl[0].clear(); x.dl[1].clear(); x.dlTone = {}; x.room.clear(); x.env = x.grDb = 0.0f; x.lfoA = {}; x.lfoB = {}; x.smooth = {}; x.wanderAt = 0; }
         }
 
         void render (float* const* io, int n, const float* p) noexcept override
@@ -95,6 +104,28 @@ namespace enh::dsp::units
                 if (live.blocks[(size_t) k].on)
                     work += block (live.blocks[(size_t) k], st[(size_t) k], io, n);
             setMeter (work);
+        }
+
+        /** The four-line room over the pair, fed `feed (i)` (mono), mixed in by `mix`. */
+        template <typename Feed>
+        void runRoom (Room& rm, float* const* io, int n, float sizeS, float damp, float preMs, float mix, Feed&& feed) noexcept
+        {
+            static constexpr float ms[4] { 31.7f, 37.9f, 43.1f, 49.3f };
+            const float size = std::clamp (sizeS, 0.2f, 8.0f), dk = onePoleK (sr, 12000.0 * std::pow (0.1, damp / 100.0)), pre = std::max (1.0f, preMs * 0.001f * (float) sr);
+            std::array<float, 4> len {}, g {};
+            for (int k = 0; k < 4; ++k) { len[(size_t) k] = ms[k] * 0.001f * (float) sr * (0.7f + 0.15f * std::min (size, 4.0f)); g[(size_t) k] = std::pow (10.0f, -3.0f * len[(size_t) k] / ((float) sr * size)); }
+            for (int i = 0; i < n; ++i)
+            {
+                rm.pre.push (feed (i));
+                const float in = rm.pre.tap (pre);
+                std::array<float, 4> o {};
+                for (int k = 0; k < 4; ++k) o[(size_t) k] = rm.damp[(size_t) k].process (rm.d[(size_t) k].tap (len[(size_t) k]), dk) * g[(size_t) k];
+                const float a = o[0] + o[1], b2 = o[0] - o[1], c2 = o[2] + o[3], d2 = o[2] - o[3];
+                const std::array<float, 4> m { 0.5f * (a + c2), 0.5f * (b2 + d2), 0.5f * (a - c2), 0.5f * (b2 - d2) };
+                for (int k = 0; k < 4; ++k) rm.d[(size_t) k].push (m[(size_t) k] + ((k & 1) ? -0.3f : 0.3f) * in);
+                io[0][i] += mix * ((o[0] + o[2]) * 0.8f - io[0][i] * 0.35f);
+                io[1][i] += mix * ((o[1] + o[3]) * 0.8f - io[1][i] * 0.35f);
+            }
         }
 
         /** One block over the pair, in place; returns how hard it worked (0..1, for the meter). */
@@ -164,22 +195,85 @@ namespace enh::dsp::units
                 }
                 case CustomConfig::room:
                 {
-                    static constexpr float ms[4] { 31.7f, 37.9f, 43.1f, 49.3f };
-                    const float size = std::clamp (q[0], 0.2f, 8.0f), dk = onePoleK (sr, 12000.0 * std::pow (0.1, q[1] / 100.0)), pre = std::max (1.0f, q[2] * 0.001f * (float) sr), mix = q[3] / 100.0f;
-                    std::array<float, 4> len {}, g {};
-                    for (int k = 0; k < 4; ++k) { len[(size_t) k] = ms[k] * 0.001f * (float) sr * (0.7f + 0.15f * std::min (size, 4.0f)); g[(size_t) k] = std::pow (10.0f, -3.0f * len[(size_t) k] / ((float) sr * size)); }
+                    const float mix = q[3] / 100.0f;
+                    runRoom (s.room, io, n, q[0], q[1], q[2], mix, [&] (int i) { return 0.5f * (io[0][i] + io[1][i]); });
+                    return mix;
+                }
+                case CustomConfig::chorus:   // two voices a few ms late, their delays swaying opposite ways
+                {
+                    const float base = 0.014f * (float) sr, sw = q[1] / 100.0f * 0.006f * (float) sr, mix = q[2] / 100.0f;
                     for (int i = 0; i < n; ++i)
                     {
-                        s.room.pre.push (0.5f * (io[0][i] + io[1][i]));
-                        const float in = s.room.pre.tap (pre);
-                        std::array<float, 4> o {};
-                        for (int k = 0; k < 4; ++k) o[(size_t) k] = s.room.damp[(size_t) k].process (s.room.d[(size_t) k].tap (len[(size_t) k]), dk) * g[(size_t) k];
-                        const float a = o[0] + o[1], b2 = o[0] - o[1], c2 = o[2] + o[3], d2 = o[2] - o[3];
-                        const std::array<float, 4> m { 0.5f * (a + c2), 0.5f * (b2 + d2), 0.5f * (a - c2), 0.5f * (b2 - d2) };
-                        for (int k = 0; k < 4; ++k) s.room.d[(size_t) k].push (m[(size_t) k] + ((k & 1) ? -0.3f : 0.3f) * in);
-                        io[0][i] += mix * ((o[0] + o[2]) * 0.8f - io[0][i] * 0.35f);
-                        io[1][i] += mix * ((o[1] + o[3]) * 0.8f - io[1][i] * 0.35f);
+                        const float m = s.lfoA.next (q[0], sr);
+                        for (int c = 0; c < 2; ++c)
+                        {
+                            s.dl[(size_t) c].push (io[c][i]);
+                            const float y = s.dl[(size_t) c].tap (base + (c == 0 ? sw : -sw) * m);
+                            io[c][i] += mix * (y - io[c][i]);
+                        }
                     }
+                    return mix * q[1] / 100.0f;
+                }
+                case CustomConfig::pan:   // a pendulum: side to side (the browser's stereo panner, to the letter), or in and out
+                {
+                    const float d = q[1] / 100.0f; const bool vol = std::lround (q[2]) == 1;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float m = s.lfoA.next (q[0], sr);
+                        if (vol) { const float g = 1.0f - 0.5f * d + 0.5f * d * m; io[0][i] *= g; io[1][i] *= g; continue; }
+                        const float v = d * m, L = io[0][i], R = io[1][i];
+                        if (v <= 0.0f) { const float x = (v + 1.0f) * 1.5707963f; io[0][i] = L + R * std::cos (x); io[1][i] = R * std::sin (x); }
+                        else { const float x = v * 1.5707963f; io[0][i] = L * std::cos (x); io[1][i] = R + L * std::sin (x); }
+                    }
+                    return d;
+                }
+                case CustomConfig::wander:   // a band-pass drifting like wax in a lava lamp: two slow swings that never line up
+                {
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float a = s.lfoA.next (q[2], sr), b2 = s.lfoB.next (q[2] * 0.618, sr);
+                        if (s.wanderAt-- <= 0)
+                        {
+                            s.wanderAt = 32;
+                            const double cents = q[1] * (14.0 * a + 10.0 * b2);
+                            s.wanderCo = BiquadCoeffs::bandPass (sr, std::clamp (q[0] * std::pow (2.0, cents / 1200.0), 20.0, 0.45 * sr), std::max (0.3f, q[3]));
+                        }
+                        for (int c = 0; c < 2; ++c) io[c][i] += 0.7f * (s.filt[(size_t) c].process (s.wanderCo, io[c][i]) - io[c][i]);
+                    }
+                    return q[1] / 100.0f;
+                }
+                case CustomConfig::stutter:   // chops in time: gated on and off, the edges rounded so they never click
+                {
+                    const float d = q[1] / 100.0f, k = onePoleK (sr, 400.0 - 3.7 * q[2]);
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float sq = s.lfoA.next (q[0], sr) >= 0.0f ? 1.0f : -1.0f, g = 1.0f - 0.5f * d + 0.5f * d * s.smooth.process (sq, k);
+                        io[0][i] *= g; io[1][i] *= g;
+                    }
+                    return d;
+                }
+                case CustomConfig::crush:   // fewer bits: the steps of an old sampler
+                {
+                    const float steps = std::pow (2.0f, std::round (q[0]) - 1.0f), mix = q[1] / 100.0f;
+                    for (int c = 0; c < 2; ++c) for (int i = 0; i < n; ++i)
+                    { const float x = io[c][i], y = 0.8f * std::round (std::clamp (x, -1.0f, 1.0f) * steps) / steps; io[c][i] = x + mix * (y - x); }
+                    return mix * (1.0f - (q[0] - 2.0f) / 10.0f);
+                }
+                case CustomConfig::wow:   // a tape machine's slow wow and quick flutter, as pitch wobble
+                {
+                    const float base = 0.012f * (float) sr, w = q[0] / 100.0f * 0.004f * (float) sr, f = q[1] / 100.0f * 0.0004f * (float) sr;
+                    for (int i = 0; i < n; ++i)
+                    {
+                        const float d = base + w * s.lfoA.next (0.55, sr) + f * s.lfoB.next (8.5, sr);
+                        for (int c = 0; c < 2; ++c) { s.dl[(size_t) c].push (io[c][i]); io[c][i] = s.dl[(size_t) c].tap (d); }
+                    }
+                    return (q[0] + q[1]) / 200.0f;
+                }
+                case CustomConfig::shimmer:   // a long, bright space fed an octave up (a rectifier doubles every note)
+                {
+                    const auto hp = BiquadCoeffs::highPass (sr, 180.0, 0.707); const float up = q[1] / 100.0f * 1.4f, plain = 1.0f - q[1] / 200.0f, mix = q[2] / 100.0f;
+                    runRoom (s.room, io, n, q[0], 10.0f, 0.0f, mix, [&] (int i)
+                    { const float m = 0.5f * (io[0][i] + io[1][i]); return 0.7f * (up * s.exHp[0].process (hp, std::abs (m)) + plain * m); });
                     return mix;
                 }
                 case CustomConfig::width:

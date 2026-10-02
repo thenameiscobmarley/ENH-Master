@@ -1,6 +1,8 @@
-# DYNAMIC EQ 4
+# 4-BAND DYNAMIC EQ
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called DYNAMIC EQ 4.
 
 Four bells that move with the music: each listens to its own frequency and, over its THRESH, turns by up to its RANGE - cut a harsh resonance only when it rings, lift a band only when it's there. (2U, model DQ-4.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

@@ -1,6 +1,8 @@
-# VARI-MU
+# TUBE COMPRESSOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called VARI-MU.
 
 A variable-mu valve compressor: the ratio rises as it works harder (gentle, then firm), a soft knee, valve harmonics, RECOVERY times or AUTO, and M/S to compress the middle and the sides apart. (2U, model VM-2.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

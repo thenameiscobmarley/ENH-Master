@@ -11,7 +11,7 @@
   root.classList.add(animate ? "motion" : "still");
   window.ENHMOTION = animate;
 
-  /* The 3D rack (rack3d.js, an ES module) needs WebGL 2. While it loads, the hero keeps a quiet
+  /* The 3D rack (rack3d.bundle.js: rack3d.js and three.js as one plain script, so it runs from a file too) needs WebGL 2. While it loads, the hero keeps a quiet
      placeholder; if it can't run, rack3d.js (or the checks here) put the still pictures back. */
   var prerender = /[?&]prerender\b/.test(location.search);
   if (!prerender && window.WebGL2RenderingContext && "noModule" in document.createElement("script")) {

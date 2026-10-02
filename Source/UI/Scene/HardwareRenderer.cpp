@@ -2,6 +2,8 @@
 #include "StudioRoom.h"
 #include "HardwareRenderer.h"
 #include "GeometryFactory.h"
+#include "BackPanels.h"
+#include "PatchCables.h"
 #include "Picking.h"
 #include "LimiterDemo.h"
 #include "DesignedLayout.h"
@@ -456,8 +458,8 @@ namespace pad
         genDecalTex.resize ((size_t) gen::count); genScreenTex.resize ((size_t) gen::count);
         for (size_t k = 0; k < textureData.genDecal.size() && k < genDecalTex.size(); ++k)
         {
-            upload (genDecalTex[k], textureData.genDecal[k]);
-            upload (genScreenTex[k], textureData.genScreens[k]);
+            if (textureData.genDecal[k].width > 0) upload (genDecalTex[k], textureData.genDecal[k]);        // (a unit in the locker at start:
+            if (textureData.genScreens[k].width > 0) upload (genScreenTex[k], textureData.genScreens[k]);   //  baked when it is installed)
         }
         setUpLiveScreens();
         for (size_t m = 0; m < takebackVuFaceTex.size(); ++m)
@@ -540,6 +542,28 @@ namespace pad
         monitorVu.release();
         for (auto& o : outboard)
             o.forEach ([] (gfx::GpuMesh& m) { m.release(); });
+        for (auto& t : backTex) t.release();
+        for (auto& m : backPlate) m.release();
+        for (auto* t : { &bayFaceTex, &bayFrontTex }) t->release();
+        for (auto* m : { &bayBody, &bayFace, &bayFront }) m->release();
+        bayChain.clear();
+        for (auto* g : { &backsGpu, &cordsGpu, &heldGpu }) g->release();
+        jackRing.release();
+        bayLamp.release();
+        flagTab.release();
+        flagAtlas.release();
+        flags.clear();
+        for (auto* m : { &masterPlate, &masterFace, &masterNut, &masterLever }) m->release();
+        masterTex.release();
+        masterLeverOn = -1;
+        if (backsBuilding.valid()) backsBuilding.wait();   // (a worker still settling the backs' cables)
+        if (cordsBuilding.valid()) cordsBuilding.wait();
+        cordsBuilding = {};
+        liveRetired = -1;
+        backsBuilding = {};
+        backsBuiltFor.clear();
+        backsBuildingFor.clear();
+        cordsVersion = -1;
         for (auto* tex : { &levelDecalTex, &balancerDecalTex, &monitorDecalTex, &monitorLabelTex, &balancerLabelTex, &levelFaceTex,
                            &monitorFaceTex[0], &monitorFaceTex[1],
                            &waveTex, &balancerDataTex, &tideDecalTex, &lumenDecalTex, &limiterDecalTex, &tideLabelTex, &lumenLabelTex,
@@ -1301,9 +1325,9 @@ namespace pad
         glEnable (GL_DEPTH_TEST);
     }
 
-    /** Hover outlines, cheap: the control under the pointer gets an inverted hull (its own mesh, slightly
-        bigger, front faces culled); otherwise the unit under the pointer gets one silhouette quad over its
-        faceplate. The open panel's unit keeps a steady outline in its own colour. */
+    /** Hover outlines, cheap: the unit under the pointer (when no control is) gets one silhouette quad over its
+        faceplate; the open panel's unit keeps a steady outline. (The hovered control's own hull is off since
+        3.8.0.1: it washed the knob out white.) */
     void HardwareRenderer::drawOutlines (const CameraRig& cam, int)
     {
         (void) cam;
@@ -1311,7 +1335,9 @@ namespace pad
         glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask (GL_FALSE);
 
-        if (hullModel != nullptr)
+        // (the hovered control is no longer outlined: the white hull washed the whole knob out, in the loupe too,
+        // and hid its detail - the loupe and its name / value pill say what is under the pointer; 3.8.0.1)
+        if (hullModel != nullptr && false)
         {
             glEnable (GL_CULL_FACE);
             glCullFace (GL_FRONT);
@@ -1373,6 +1399,9 @@ namespace pad
             pointerNdcY = shared.mouseNdcY.load();
         }
 
+        // Dev-only: PAD_UI_TEST_NOPOINTER=1 - screenshots as if the pointer were away (no lean, no magnifier)
+        static const bool noPointer = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_NOPOINTER", {}).isNotEmpty();
+        if (noPointer) { pointerInside = false; pointerNdcX = pointerNdcY = 0.0f; leftDown = false; }
         shared.pointerInside = pointerInside;
         shared.pointerNdcX = pointerNdcX;
         shared.pointerNdcY = pointerNdcY;
@@ -1402,7 +1431,7 @@ namespace pad
         // A press only counts when our window is really the one under the pointer
         if (pressed && pointerInside && ! overPanel && pointer.isTopmostUnderPointer ((unsigned long) shared.nativeWindow.load()))
         {
-            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load() });
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load(), turnAmount, shared.focusBack.load() });
             const int hit = pickControl (cam, pointerNdcX, pointerNdcY);
 
             if (hit >= 0)
@@ -1456,7 +1485,7 @@ namespace pad
 
         if (dragParam < 0 && pointerInside && ! overPanel)
         {
-            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load() });
+            const auto cam = CameraRig::build ((float) w / (float) h, parallaxX, parallaxY, { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load(), turnAmount, shared.focusBack.load() });
             const int control = pickControl (cam, pointerNdcX, pointerNdcY);
             shared.hoveredControl = control;
             shared.hoveredUnit = control >= 0 ? -1 : pickUnit (cam, pointerNdcX, pointerNdcY);
@@ -1837,6 +1866,12 @@ namespace pad
             const float before = focusAmount;
             focusAmount = anim::approach (focusAmount, std::clamp (shared.focusTarget.load(), 0.0f, 1.0f), 6.0f, dt);
             shared.focusAmount.store (focusAmount);
+            {   // walking round the rack (its back): a slower move than a focus
+                const float t0 = turnAmount;
+                turnAmount = anim::approach (turnAmount, std::clamp (shared.turnTarget.load(), 0.0f, 1.0f), 2.5f, dt);
+                shared.turnAmount.store (turnAmount);
+                busy = busy || std::abs (turnAmount - t0) > 1.0e-4f;
+            }
             // A change of unit glides the close framing there (a camera move, never a cut)
             {
                 int u = std::clamp (shared.focusUnit.load(), 0, numUnits - 1);
@@ -1882,7 +1917,7 @@ namespace pad
         if (pointerInside || audioActive || shared.animating.load() || shared.dragging.load())
             busyUntilMs = frameStartMs + 1000.0;
 
-        const bool busy = frameStartMs < busyUntilMs;
+        const bool busy = frameStartMs < busyUntilMs || statsEnabled;   // (measuring: always at the full rate, so views compare)
         const int rate = busy ? config.frameRate : config.idleFrameRate;
         const int wanted = rate <= 35 ? 2 : 1;
 
@@ -1991,6 +2026,22 @@ namespace pad
             builtHidden = ~layout::UnitMask { 0 };      // (the case and its cables again)
             occBakedHidden = ~layout::UnitMask { 0 };   // (the light maps again)
         }
+        // A newer unit installed that was in the locker at start: its print and screens, baked just now
+        if (ready && genDirty.load())
+        {
+            std::lock_guard<std::mutex> l (customMutex);
+            genDirty = false;
+            for (auto& p : pendingGen)
+                if (p.k >= 0 && p.k < (int) genDecalTex.size())
+                {
+                    genDecalTex[(size_t) p.k].upload (p.decal.pixels.data(), p.decal.width, p.decal.height, p.decal.channels, true, config.anisotropy);
+                    genScreenTex[(size_t) p.k].upload (p.screens.pixels.data(), p.screens.width, p.screens.height, p.screens.channels, true, config.anisotropy);
+                    textureData.genScreens[(size_t) p.k] = std::move (p.screens);
+                }
+            pendingGen.clear();
+            setUpLiveScreens();
+            occBakedHidden = ~layout::UnitMask { 0 };   // (the light maps again, with its print)
+        }
         // The LUNCHBOX's locker changed: its print, its modules and its empty slots again, and the light maps
         if (ready && lunchboxDirty.load())
         {
@@ -2044,7 +2095,7 @@ namespace pad
         uploadDisplays (dt);
 
         const auto camera = CameraRig::build ((float) logicalW / (float) logicalH, parallaxX, parallaxY,
-                                             { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load() });
+                                             { shared.focusUnit.load(), focusAmount, shared.focusCentreY.load(), shared.focusHalfV.load(), shared.focusSide.load(), shared.focusHalfW.load(), turnAmount, shared.focusBack.load() });
 
         // Loupe: fades and zooms in over hovered print, keeps its last anchor while fading out
         const bool loupeWanted = shared.calloutVisible.load();
@@ -2494,6 +2545,26 @@ namespace pad
         use (shaders::chrome).set ("uParams", 0.35f, 0.0f, 0.0f, 0.0f);
         draw (designedJackPlugs[(size_t) k], panel, { 0.62f, 0.62f, 0.65f });
 
+        // A colour screen (CHROMA SPACE, HYPERCUBE): its own canvas, in colour, over the dark glass
+        if (const auto ck = k >= 4 && ! isCustom ? pad::colourscreen::kindOf (enh::dsp::units::info[k - 4].key) : pad::colourscreen::Kind::none;
+            ck != pad::colourscreen::Kind::none)
+        {
+            const bool on = bridge.getNormalised (designedPowerParam[(size_t) k]) > 0.5f;
+            updateColourScreen (k - 4, ck, on);
+            colourTex[k - 4].bind (0);
+            auto& cs = use (shaders::colourScreen);
+            const auto [pr, np] = gen::printOf (k - 4);
+            for (int e = 0; e < np; ++e)
+                if (pr[e].kind == 'D') { cs.set ("uParams", pr[e].x - 0.5f * pr[e].w, pr[e].z - 0.5f * pr[e].h, pr[e].w, pr[e].h); break; }
+            cs.set ("uParams2", on ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
+            draw (designedScreens[(size_t) k], panel, Vec3 { 0.0f, 0.0f, 0.0f });
+            const float level = on ? meters.unitMeter[(size_t) (k - 4)].load (std::memory_order_relaxed) : 0.0f;
+            int count = 0; for (int e = 0; e < np; ++e) count += pr[e].kind == 'E' ? 1 : 0;
+            int li = 0;
+            for (int e = 0; e < np; ++e)
+                if (pr[e].kind == 'E') drawLed (panel, pr[e].x, pr[e].z, ledColour (pr[e].param), std::clamp (level * (float) count - (float) li++, 0.0f, 1.0f));
+            return;
+        }
         // Displays: dark glass, glowing in the design's colour where it has something to show
         (k == 0 ? x4ScreenTex : k == 1 ? velvetScreenTex : k == 2 ? takebackScreenTex : k == 3 ? scopeScreenTex : isCustom ? customScreenTex : genScreenTex[(size_t) (k - 4)]).bind (0);
         auto& screen = use (shaders::designedScreen);
@@ -2592,6 +2663,41 @@ namespace pad
                     }
             }
         };
+    }
+
+    /** A colour screen, redrawn about 30 times a second while it is on (cleared once when it goes off). */
+    void HardwareRenderer::updateColourScreen (int gk, pad::colourscreen::Kind kind, bool on)
+    {
+        namespace C = pad::colourscreen;
+        const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        auto& clock = colourClock[gk];
+        auto& cv = colourCanvas[gk];
+        const bool fresh = cv.w == 0;
+        cv.resize (448, 258);
+        if (! on)   // (off: cleared once, then left alone - clock < 0 marks it cleared)
+        {
+            if (! fresh && clock < 0.0) return;
+            clock = -1.0;
+            cv.fade (0.0f); cv.toRgba();
+            colourTex[gk].upload (cv.rgba.data(), cv.w, cv.h, 4, false, 1);
+            return;
+        }
+        if (! fresh && clock >= 0.0 && now - clock < 1.0 / 30.0)
+            return;
+        const float dt = clock < 0.0 ? 1.0f / 30.0f : (float) std::clamp (now - clock, 0.0, 0.25);
+        clock = now;
+        {
+            std::array<float, 192> st {};
+            bool any = false;
+            if (! demoMeters && gk < enh::dsp::EngineMeters::displayUnits)
+                for (size_t i = 0; i < st.size(); ++i) { st[i] = meters.unitDisplay[(size_t) gk][i].load (std::memory_order_relaxed); any = any || st[i] != 0.0f; }
+            if (! any) C::demo (kind, (float) timeSeconds, st.data());
+            if (kind == C::Kind::chroma) C::chroma (cv, st.data(), (float) timeSeconds);
+            else if (kind == C::Kind::tuner) C::tunerCloud (cv, (float) timeSeconds);
+            else C::hypercube (cv, cubeState[gk], st.data(), (float) timeSeconds, dt);
+        }
+        cv.toRgba();
+        colourTex[gk].upload (cv.rgba.data(), cv.w, cv.h, 4, false, 1);
     }
 
     /** RAY ROOM's screen (RoomScreen.h): the room, the rays, the dots - its state from the meters (or, with
@@ -2738,6 +2844,8 @@ namespace pad
                     pad::simscreen::build (kind, st.data(), W, H, (float) timeSeconds, sl, sb);
                     stampScreen (&g, sl, sb);
                 }
+                else if (unit >= firstGenUnit && unit < firstGenUnit + gen::count
+                         && pad::colourscreen::kindOf (enh::dsp::units::info[unit - firstGenUnit].key) != pad::colourscreen::Kind::none) {}   // (drawn in colour: updateColourScreen)
                 else if (unit >= firstGenUnit)   // the newer units: how hard they work, scrolling, beside their name
                 {
                     const int gk = unit - firstGenUnit;
@@ -3118,7 +3226,12 @@ namespace pad
         const float t = (float) timeSeconds;
         const Vec3 zero {};
         const Vec3 L = cam.lightDir;
-        const Mat4 panel = panelToWorld();
+        // TURNED: the rack spins round on its shelf to show its back (the LUNCHBOX keeps its stand)
+        const float turnE = turnAmount * turnAmount * (3.0f - 2.0f * turnAmount);
+        const bool turned = turnE > 1.0e-3f;
+        const Mat4 R = layout::turnMatrix (turnAmount);   // (DeviceLayout.h: it rises and comes forward as it turns)
+        auto panelToWorld = [&] (int u) { return u == lunchboxUnit ? layout::panelToWorld (u) : R * layout::panelToWorld (u); };
+        const Mat4 panel = panelToWorld (enhUnit);
         const Mat4 tubePanel = panelToWorld (tubeUnit);
         const Mat4 tidePanel = panelToWorld (tideUnit);
         const Mat4 lumenPanel = panelToWorld (lumenUnit);
@@ -3183,6 +3296,365 @@ namespace pad
         // =============================================================================
         // Opaque, front to back
         // =============================================================================
+        // (turned round, the backs, the bay and the cables come first: they hide the fronts behind them, which the
+        //  depth test then throws away before shading)
+        const double profT0 = juce::Time::getMillisecondCounterHiRes();
+        // The patch bay under the first unit: a blank plate in front, its body, its jack face at the back
+        {
+            const Mat4 bayM = R * bayToWorld();
+            const float bw = backs::bay::halfW();
+            if (! bayFront.isValid())
+            {
+                bayBody.upload (geo::unitBody (bayHalfH));
+                bayFront.upload (hwk::geo::quad ({ -bw, 0.001f, -bayHalfH }, { -bw, 0.001f, bayHalfH }, { bw, 0.001f, bayHalfH }, { bw, 0.001f, -bayHalfH }));
+                const float y = backs::bay::faceY();
+                bayFace.upload (hwk::geo::quad ({ bw, y, -bayHalfH }, { bw, y, bayHalfH }, { -bw, y, bayHalfH }, { -bw, y, -bayHalfH }));
+                const auto front = backs::bay::renderFront (1536);
+                bayFrontTex.upload (front.pixels.data(), front.width, front.height, front.channels, true, config.anisotropy);
+            }
+            use (shaders::chassis);
+            draw (bayBody, bayM, colours::chassisBlack);
+            auto& prog = use (shaders::backPanel);
+            prog.set ("uParams", -bw, -bayHalfH, 2.0f * bw, 2.0f * bayHalfH);
+            prog.set ("uParams2", 0.0f, 0.0f, 0.0f, 3.0f);
+            prog.setArray ("uWear", hwk::shaders::wearUniforms (41.0f).data(), 15);
+            bayFrontTex.bind (0);
+            draw (bayFront, bayM, { 1.0f, 1.0f, 1.0f });
+            if (turned)
+            {
+                if (const auto chain = backs::bay::unitsInOrder(); chain != bayChain || ! bayFaceTex.isValid())
+                {
+                    bayChain = chain;
+                    const auto face = backs::bay::renderFace (2048);
+                    bayFaceTex.upload (face.pixels.data(), face.width, face.height, face.channels, true, config.anisotropy);
+                }
+                bayFaceTex.bind (0);
+                draw (bayFace, bayM, { 1.0f, 1.0f, 1.0f });
+            }
+        }
+
+        const double profT1 = juce::Time::getMillisecondCounterHiRes();
+        // ...and every cable at the back: the units' XLRs and mains cords into their looms, the TT cords on the bay
+        if (turned)
+        {
+            std::vector<int> inCase;
+            for (int u : rackOrder)
+                if (isShown (u))
+                    inCase.push_back (u);
+            // (settled on a worker thread - turning the rack never stalls a frame; until it is done, the last ones)
+            if (inCase != backsBuiltFor && inCase != backsBuildingFor && ! backsBuilding.valid())
+            {
+                backsBuildingFor = inCase;
+                backsBuilding = std::async (std::launch::async, [] { return geo::patch::buildBacks(); });
+            }
+            if (backsBuilding.valid() && backsBuilding.wait_for (std::chrono::seconds (0)) == std::future_status::ready)
+            {
+                auto built = backsBuilding.get();
+                backsGpu.upload (built);
+                backsBuiltFor = backsBuildingFor;
+                backsBuildingFor.clear();
+                backColliders = std::move (built.colliders);
+                backColliderR = std::move (built.colliderR);
+                cordsVersion = -1;   // (the cords settle again, against these)
+                // the tape flags' writing, eight to a row
+                flags = std::move (built.flags);
+                std::vector<juce::String> texts;
+                for (auto& f : flags) texts.push_back (f.text);
+                flagRows = juce::jmax (1, ((int) texts.size() + 7) / 8);
+                const auto atlas = backs::renderFlagAtlas (texts, 256, 80, 8);
+                flagAtlas.upload (atlas.pixels.data(), atlas.width, atlas.height, atlas.channels, true, config.anisotropy);
+                if (! flagTab.isValid())
+                {
+                    const float L = geo::patch::flagLength, w = 0.5f * geo::patch::flagWidth;
+                    flagTab.upload (hwk::geo::quad ({ 0.004f, 0.002f, -w }, { 0.004f, 0.002f, w }, { L, 0.002f, w }, { L, 0.002f, -w }));   // (written on its front only)
+                }
+            }
+
+            // THE PATCH BAY's cords as patched (none: straight through); the one in the hand drawn fresh each frame
+            enh::patch::State cords;
+            {
+                const juce::SpinLock::ScopedLockType lock (shared.patchLock);
+                cords = shared.patchCords;
+            }
+            const auto chain = backs::bay::unitsInOrder();
+            if (cords.cords.empty())
+                cords = enh::patch::straightThrough (chain);
+            const int heldNow = shared.heldCord.load(), heldEnd = shared.heldEnd.load(), version = shared.patchVersion.load();
+            // The cord in the hand is a rope stepped every frame (it trails and swings); let go, it keeps moving a
+            // moment and settles, then joins the others
+            const double nowT = timeSeconds;
+            const float liveDt = liveTime < 0.0 ? 1.0f / 60.0f : (float) juce::jlimit (0.0, 0.05, nowT - liveTime);
+            liveTime = nowT;
+            if (heldNow < 0 && liveLastHeld >= 0)
+                liveUntil = nowT + 2.2;
+            liveLastHeld = heldNow;
+            if (heldNow >= 0 && heldNow != liveCord)
+            {
+                if (liveCord >= 0 && liveCord < (int) cordRopes.size()) cordRopes[(size_t) liveCord] = liveRope;
+                liveCord = heldNow;
+                liveFresh = true;
+            }
+            if (heldNow < 0 && liveCord >= 0 && nowT > liveUntil)
+            {
+                if (liveCord < (int) cordRopes.size()) cordRopes[(size_t) liveCord] = liveRope;
+                liveRetired = liveCord;
+                liveCord = -1;
+            }
+            const int held = liveCord;   // (the live one: in the hand, or still settling)
+            auto drawOf = [&] (int k, bool live)
+            {
+                const auto& c = cords.cords[(size_t) k];
+                geo::patch::CordDraw d;
+                d.colour = k / 2;
+                int otherCol = 0, otherRow = 0;
+                for (int e = 0; e < 2; ++e)
+                {
+                    auto& end = e == 0 ? d.a : d.b;
+                    int col = 0, row = 0;
+                    if (live && e == heldEnd)
+                    {
+                        if (shared.heldJackCol.load() >= 0)
+                        {
+                            end.col = shared.heldJackCol.load();
+                            end.row = shared.heldJackRow.load();
+                            end.depth = shared.plugDepth.load();
+                        }
+                        else
+                        {
+                            end.at = { shared.heldX.load(), shared.heldY.load(), shared.heldZ.load() };
+                            end.dir = geo::patch::bayOut();
+                        }
+                    }
+                    else if (backs::bay::jackOf (chain, e == 0 ? c.a : c.b, col, row))
+                    {
+                        end.col = col; end.row = row;
+                        otherCol = col; otherRow = row;
+                    }
+                }
+                for (int e = 0; e < 2; ++e)   // a loose end that is not in the hand lies on the shelf below the other
+                {
+                    auto& end = e == 0 ? d.a : d.b;
+                    if (end.col < 0 && ! (live && e == heldEnd))
+                    {
+                        end.at = geo::patch::restingBelow (otherCol, otherRow, k);
+                        end.dir = Vec3 { 0.3f, 0.0f, 0.0f } + geo::patch::bayOut();
+                    }
+                }
+                return d;
+            };
+            // The others, settled as ropes against the backs' cables (each from where it hung, if it still can) - on a
+            // worker thread; until it is done the last ones stay (and a cord just let go stays as it was drawn)
+            if ((version != cordsVersion || chain != cordsChain || held != cordsHeld) && ! cordsBuilding.valid())
+            {
+                cordRopes.resize (cords.cords.size());
+                std::vector<geo::patch::CordDraw> still;
+                std::vector<geo::rope::Rope> prev;
+                cordsBuildingIdx.clear();
+                for (int k = 0; k < (int) cords.cords.size(); ++k)
+                    if (k != held)
+                    {
+                        still.push_back (drawOf (k, false));
+                        prev.push_back (k == liveRetired ? liveRope : cordRopes[(size_t) k]);
+                        cordsBuildingIdx.push_back (k);
+                    }
+                cordsBuildingVersion = version; cordsBuildingChain = chain; cordsBuildingHeld = held;
+                cordsBuilding = std::async (std::launch::async, [still, prev, bc = backColliders, bcr = backColliderR] () mutable
+                {
+                    CordsBuilt out;
+                    out.ropes = std::move (prev);
+                    geo::patch::buildCords (still, out.meshes, bc, bcr, out.ropes);
+                    return out;
+                });
+            }
+            if (cordsBuilding.valid() && cordsBuilding.wait_for (std::chrono::seconds (0)) == std::future_status::ready)
+            {
+                auto built = cordsBuilding.get();
+                cordRopes.resize (cords.cords.size());
+                for (size_t i = 0; i < cordsBuildingIdx.size() && i < built.ropes.size(); ++i)
+                    if (cordsBuildingIdx[i] < (int) cordRopes.size())
+                        cordRopes[(size_t) cordsBuildingIdx[i]] = built.ropes[i];
+                cordsGpu.upload (built.meshes);
+                cordsVersion = cordsBuildingVersion; cordsChain = cordsBuildingChain; cordsHeld = cordsBuildingHeld;
+                if (liveRetired >= 0 && cordsHeld != liveRetired)
+                    liveRetired = -1;   // (it is with the others now)
+                // what the cord in the hand can't go through: the backs' cables and the other cords
+                liveColliders = backColliders;
+                liveColliderR = backColliderR;
+                for (int k = 0; k < (int) cordRopes.size(); ++k)
+                    if (k != held)
+                        for (const auto& q : cordRopes[(size_t) k].p) { liveColliders.push_back (q); liveColliderR.push_back (cordRopes[(size_t) k].r); }
+            }
+            if (held >= 0 && held < (int) cords.cords.size())
+            {
+                const auto d = drawOf (held, heldNow >= 0);
+                if (liveFresh)
+                {
+                    liveRope = held < (int) cordRopes.size() && cordRopes[(size_t) held].p.size() > 3 ? cordRopes[(size_t) held] : geo::patch::cordRope (d, held);
+                    liveFresh = false;
+                }
+                geo::patch::stepCord (liveRope, d, liveDt, liveColliders, liveColliderR);
+                geo::patch::Meshes m;
+                geo::patch::cordMeshes (liveRope, d, m);
+                heldGpu.upload (m);
+            }
+            else if (liveRetired < 0)
+                heldGpu.release();   // (a cord just let go stays as it was until the others have it)
+
+            static const juce::String perfSkip = juce::SystemStats::getEnvironmentVariable ("PAD_PERF_SKIP", {});   // (dev: A/B frame times)
+            const bool skipCables = perfSkip.contains ("c"), skipParts = perfSkip.contains ("p"), skipFlags = perfSkip.contains ("f");
+            use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            if (! skipCables)
+            for (auto* g : { &backsGpu, &cordsGpu, &heldGpu })
+            {
+                draw (g->xlrJackets, R, { 0.022f, 0.022f, 0.024f });
+                draw (g->iecJackets, R, { 0.035f, 0.035f, 0.037f });
+                draw (g->rubber, R, { 0.028f, 0.028f, 0.03f });
+                for (size_t k = 0; k < g->cords.size(); ++k)
+                    draw (g->cords[k], R, geo::patch::cordColour ((int) k));
+            }
+            use (shaders::chrome).set ("uParams", 0.45f, 0.0f, 0.0f, 0.0f);
+            if (! skipParts)
+            for (auto* g : { &backsGpu, &cordsGpu, &heldGpu })
+            {
+                draw (g->nickel, R, { 0.70f, 0.70f, 0.72f });
+                draw (g->latches, R, { 0.30f, 0.30f, 0.32f });
+                draw (g->brass, R, { 1.00f, 0.76f, 0.38f });
+            }
+            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            if (! perfSkip.contains ("t"))
+            draw (backsGpu.gaps, R, { 0.006f, 0.006f, 0.007f });
+            // the tape flags: their bands, then each tab with its own writing
+            use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            draw (backsGpu.tape, R, { 0.62f, 0.58f, 0.46f });
+            if (flagAtlas.isValid() && ! skipFlags)
+            {
+                flagAtlas.bind (0);
+                auto& tab = use (shaders::backPanel);
+                tab.set ("uParams2", 0.0f, 0.0f, 0.0f, 61.0f);
+                tab.setArray ("uWear", hwk::shaders::wearUniforms (61.0f).data(), 15);
+                const float L = geo::patch::flagLength, w = geo::patch::flagWidth, x0 = 0.004f;
+                for (size_t i = 0; i < flags.size(); ++i)
+                {
+                    const float u0 = (float) (i % 8) / 8.0f, v0 = (float) (i / 8) / (float) flagRows;
+                    const float u1 = u0 + 1.0f / 8.0f, v1 = v0 + 1.0f / (float) flagRows;
+                    if (! flags[i].turned)
+                    {
+                        const float xw = (L - x0) * 8.0f, zw = w * (float) flagRows;
+                        tab.set ("uParams", x0 - u0 * xw, -0.5f * w - v0 * zw, xw, zw);
+                    }
+                    else   // (written from its tip: the cell read the other way in both directions)
+                    {
+                        const float xw = -(L - x0) * 8.0f, zw = -w * (float) flagRows;
+                        tab.set ("uParams", x0 - u1 * xw, -0.5f * w - v1 * zw, xw, zw);
+                    }
+                    draw (flagTab, R * flags[i].frame, { 1.0f, 1.0f, 1.0f });
+                }
+            }
+            if (! skipCables)
+            {
+                auto& braid = use (shaders::braid);
+                braid.set ("uParams", 16.0f, 22.0f, 0.0f, 0.0f);
+                braid.set ("uParams2", 0.0f, 0.0f, 0.0f, 0.0f);
+                draw (backsGpu.braided[0], R, { 0.030f, 0.030f, 0.034f });                 // black braid
+                braid.set ("uParams2", 0.30f, 0.20f, 0.09f, 0.0f);
+                draw (backsGpu.braided[1], R, { 0.055f, 0.040f, 0.022f });                 // tweed: brown and gold
+            }
+
+            // The MASTER switch on the crown at the back
+            {
+                if (! masterPlate.isValid())
+                {
+                    masterPlate.upload (geo::patch::masterPlate());
+                    masterFace.upload (geo::patch::masterFace());
+                    masterNut.upload (geo::patch::masterNut());
+                    const auto raw = backs::renderMasterPlate (768, geo::patch::masterHalfW, geo::patch::masterHalfH, geo::patch::masterLeverX);
+                    masterTex.upload (raw.pixels.data(), raw.width, raw.height, raw.channels, true, config.anisotropy);
+                }
+                const bool on = shared.patchAnything.load();
+                if ((int) on != masterLeverOn)
+                {
+                    masterLever.upload (geo::patch::masterLever (on));
+                    masterLeverOn = (int) on;
+                }
+                const Mat4 M = R * geo::patch::masterFrame();
+                use (shaders::chassis);
+                draw (masterPlate, M, colours::chassisBlack);
+                masterTex.bind (0);
+                auto& prog = use (shaders::backPanel);
+                prog.set ("uParams", -geo::patch::masterHalfW, -geo::patch::masterHalfH, 2.0f * geo::patch::masterHalfW, 2.0f * geo::patch::masterHalfH);
+                prog.set ("uParams2", 0.0f, 0.0f, 0.0f, 9.0f);
+                prog.setArray ("uWear", hwk::shaders::wearUniforms (53.0f).data(), 15);
+                draw (masterFace, M, { 1.0f, 1.0f, 1.0f });
+                use (shaders::chrome).set ("uParams", 0.6f, 0.0f, 0.0f, 0.0f);
+                draw (masterNut, M, { 0.72f, 0.72f, 0.74f });
+                draw (masterLever, M, { 0.80f, 0.80f, 0.82f });
+            }
+
+            // The jacks the plug in the hand can go into: an outline round each; and the bay's lamp - red while a
+            // cord out of the chain has the rack silent
+            if (! jackRing.isValid())
+            {
+                jackRing.upload (hwk::geo::lathe (0.046f, { { 0.0f, 0.0f }, { 0.0f, 0.004f }, { -0.012f, 0.004f }, { -0.012f, 0.0f } }, 32, false));
+                bayLamp.upload (hwk::geo::lathe (0.028f, { { 0.0f, 0.0f }, { 0.0f, 0.008f }, { -0.012f, 0.014f }, { -0.028f, 0.016f } }, 20, true));
+            }
+            use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+            const std::uint64_t valid[2] { shared.validTop.load(), shared.validBottom.load() };
+            const Vec3 out = geo::patch::bayOut();
+            for (int row = 0; row < 2; ++row)
+                for (int col = 0; col < backs::bay::columns; ++col)
+                    if ((valid[row] >> col) & 1u)
+                    {
+                        const Vec3 at = geo::patch::jackAt (col, row) + out * 0.004f;
+                        draw (jackRing, R * geo::patch::frameAlong (at, out), { 0.0f, 0.0f, 0.0f }, { 0.55f, 0.95f, 1.0f });
+                    }
+            {
+                const Vec3 lampAt = bayToWorld().transformPoint ({ backs::bay::lampX, backs::bay::faceY(), backs::bay::lampZ });
+                // red, blinking: the chain is open (or a loop ran away) - silent; amber: a loop, feeding back
+                const bool red = shared.patchMuted.load(), amber = ! red && shared.patchLoop.load();
+                const float blink = red ? 0.75f + 0.25f * std::sin ((float) t * 6.0f) : amber ? 0.8f : 0.0f;
+                draw (bayLamp, R * geo::patch::frameAlong (lampAt, out), { 0.10f, 0.03f, 0.01f },
+                      (amber ? Vec3 { 1.5f, 0.75f, 0.05f } : Vec3 { 1.6f, 0.08f, 0.04f }) * blink);
+            }
+        }
+
+        const double profT2 = juce::Time::getMillisecondCounterHiRes();
+        // Turned round: each unit's back, closing its body - its print baked the first time it is seen
+        if (turned)
+        {
+            bool bakedOne = false;
+            const float bw = backs::plateHalfW();
+            for (int u : rackOrder)
+            {
+                if (! isShown (u) || u == lunchboxUnit)
+                    continue;
+                auto& tex = backTex[(size_t) u];
+                if (! tex.isValid())
+                {
+                    if (bakedOne)
+                        continue;
+                    const auto raw = backs::renderBack (u, 1536);
+                    tex.upload (raw.pixels.data(), raw.width, raw.height, raw.channels, true, config.anisotropy);
+                    const float bh = backs::plateHalfH (u), y = backs::plateY();
+                    backPlate[(size_t) u].upload (hwk::geo::quad ({ bw, y, -bh }, { bw, y, bh }, { -bw, y, bh }, { -bw, y, -bh }));
+                    bakedOne = true;
+                }
+                tex.bind (0);
+                auto& prog = use (shaders::backPanel);
+                prog.set ("uParams", -bw, -backs::plateHalfH (u), 2.0f * bw, 2.0f * backs::plateHalfH (u));
+                prog.set ("uParams2", 0.0f, 0.0f, 0.0f, (float) u);
+                prog.setArray ("uWear", hwk::shaders::wearUniforms ((float) u + 19.0f).data(), 15);
+                static const bool skipBacks = juce::SystemStats::getEnvironmentVariable ("PAD_PERF_SKIP", {}).contains ("b");
+                if (! skipBacks)
+                draw (backPlate[(size_t) u], panelToWorld (u), { 1.0f, 1.0f, 1.0f });
+            }
+        if (statsEnabled)
+        {
+            static int profN = 0; static double profA = 0, profB = 0, profC = 0;
+            const double profT3 = juce::Time::getMillisecondCounterHiRes();
+            profA += profT1 - profT0; profB += profT2 - profT1; profC += profT3 - profT2;
+            if (++profN == 120) { std::fprintf (stderr, "enh-prof bay %.2f cables %.2f backs %.2f ms\n", profA / 120, profB / 120, profC / 120); profN = 0; profA = profB = profC = 0; }
+        }
+        }
         if (gallery)
         {
             // Every knob style in order, 10 across; then the switch and button styles on the last row
@@ -3207,6 +3679,9 @@ namespace pad
         }
 
         hullModel = nullptr;
+        // Turned all the way round, every unit's front is out of sight behind its back: none of it is drawn (the
+        // LUNCHBOX, beside the rack, still faces the room)
+        const bool backOnly = turnE > 0.985f;
         int hullControl = shared.hoveredControl.load();
         if (testHoverControl.isNotEmpty())
             for (int i = 0; i < numControls; ++i)
@@ -3214,6 +3689,8 @@ namespace pad
                     hullControl = i;
         for (int i = 0; i < numControls; ++i)
         {
+            if (backOnly && controls[(size_t) i].unit != lunchboxUnit)
+                continue;
             const auto& c = controls[(size_t) i];
             if (gallery && c.unit == enhUnit)
                 continue;
@@ -3284,6 +3761,9 @@ namespace pad
             }
         }
 
+        drawLunchbox (lunchboxPanel);
+        if (! backOnly)
+        {
         // --- the 1U units: compressor and leveler in natural aluminium, the limiter anodised steel-blue
         drawOneU (tideUnit, tidePanel, Vec3 { 0.035f, 0.035f, 0.04f }, tideDecalTex, { &tideLabelTex }, Finish::anodised);   // black face, like the classic FET limiter
         drawOneU (lumenUnit, lumenPanel, Vec3 { 0.70f, 0.70f, 0.71f }, lumenDecalTex, { &lumenLabelTex }, Finish::brushed,
@@ -3294,7 +3774,6 @@ namespace pad
         drawOneU (characterUnit, characterPanel, Vec3 { 0.90f, 0.90f, 0.88f }, characterDecalTex, { &characterLabelTex }, Finish::paintLight);   // off-white paint, like the modern tape-emulation module
         drawOneU (radarUnit, radarPanel, Vec3 { 0.055f, 0.070f, 0.15f }, radarDecalTex, { &radarVuFaceTex }, Finish::paint);   // deep navy paint, like the classic transient designer
         drawPowerStrip (powerPanel);
-        drawLunchbox (lunchboxPanel);
         drawDesigned (x4Unit, x4Panel);
         drawDesigned (velvetUnit, velvetPanel);
         drawDesigned (takebackUnit, takebackPanel);
@@ -3434,29 +3913,34 @@ namespace pad
         use (shaders::chrome).set ("uParams", 0.42f, 0.0f, 0.0f, 0.0f);
         draw (meshes.bodyScrews, panel * Mat4::translation ({ 0.0f, 0.0f, 0.012f - faceHalfH }), { 0.42f, 0.42f, 0.44f });
         (void) ventGlow;
+        }
 
         // The case: walnut cheeks (grain along the arc), crown and plinth (grain across), a dark-stained
         // back board, brass corners, turned feet; the steel mounting rails with their square holes
         const Vec3 walnutTone { 0.34f, 0.20f, 0.11f };
         auto& wood = use (shaders::wood);
         wood.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.caseCheeks, I, walnutTone);
-        draw (meshes.caseRails, I, walnutTone * 0.30f);
+        draw (meshes.caseCheeks, R, walnutTone);
+        if (turnE < 0.08f)   // the back board comes off when the rack is turned round, so the units' backs show
+            draw (meshes.caseRails, R, walnutTone * 0.30f);
         wood.set ("uParams", 1.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.caseBoards, I, walnutTone * 0.92f);
+        draw (meshes.caseBoards, R, walnutTone * 0.92f);
         draw (meshes.lbStand, I, walnutTone * 0.85f);
         use (shaders::chrome).set ("uParams", 0.12f, 1.0f, 0.0f, 0.0f);   // brass, brushed satin: it lights like metal, not a mirror of the dark room
-        draw (meshes.caseBrass, I, { 1.00f, 0.76f, 0.38f });
+        draw (meshes.caseBrass, R, { 1.00f, 0.76f, 0.38f });
         use (shaders::plastic).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.caseFeet, I, { 0.035f, 0.033f, 0.032f });
+        draw (meshes.caseFeet, R, { 0.035f, 0.033f, 0.032f });
         use (shaders::chrome).set ("uParams", 0.22f, 0.0f, 0.0f, 0.0f);   // zinc-plated steel, satin
-        draw (meshes.caseFrontRails, I, { 0.52f, 0.53f, 0.55f });
-        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
-        draw (meshes.caseRailHoles, I, { 0.010f, 0.010f, 0.012f });
-        draw (cableSlots, I, { 0.006f, 0.006f, 0.007f });    // the channels' dark slots
-        draw (grommetHole, I, { 0.006f, 0.006f, 0.007f });
+        draw (meshes.caseFrontRails, R, { 0.52f, 0.53f, 0.55f });
 
-        // The cables: rubber, satin - a lot less of the wet coat than the glossy knobs
+        use (shaders::emissive).set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
+        draw (meshes.caseRailHoles, R, { 0.010f, 0.010f, 0.012f });
+        draw (cableSlots, R, { 0.006f, 0.006f, 0.007f });    // the channels' dark slots
+        draw (grommetHole, R, { 0.006f, 0.006f, 0.007f });
+
+        // The cables: rubber, satin - a lot less of the wet coat than the glossy knobs (not while the rack is turned:
+        // they tie it to the wall and the LUNCHBOX, which stay where they are)
+        if (! turned)
         {
             auto& rubber = use (shaders::plastic);
             rubber.set ("uParams", 0.0f, 0.0f, 0.0f, 0.0f);
@@ -3571,6 +4055,7 @@ namespace pad
         }
 
         const float offX = -L.x, offZ = L.y;
+        const float batTogglePivot = hwk::models::batTogglePivotY;
         for (int i = 0; i < numControls; ++i)
         {
             const auto& c = controls[(size_t) i];
@@ -3593,6 +4078,20 @@ namespace pad
                     drawShadow (space, 0.0f, 0.003f, -half + r * 0.35f, model->beakHalfWidth, half,
                                 model->beakHalfWidth, 0.030f, 0.55f);
                 }
+            }
+            else if (c.kind == ControlKind::toggle && c.switchStyle == SwitchStyle::batToggle)
+            {
+                // A bat toggle: its round hex nut, and its lever - a thin stroke out to the ball, the way the lever leans
+                // (not the box a rocker casts)
+                const float nx = c.x + offX * 0.012f, nz = c.z + offZ * 0.012f;
+                drawShadow (unitPanel, nx, 0.003f, nz, 0.046f, 0.046f, 0.046f, 0.012f, 0.45f);
+                const float lean = toggles[(size_t) i].angle, len = 0.165f;
+                const float tipZ = std::sin (lean) * len, tipH = batTogglePivot + std::cos (lean) * len;
+                const float tx = c.x + offX * 0.6f * tipH, tz = c.z + tipZ + offZ * 0.6f * tipH;
+                const float dx = tx - nx, dz = tz - nz, l = std::sqrt (dx * dx + dz * dz) + 1.0e-5f;
+                const auto along = unitPanel * Mat4::translation ({ 0.5f * (nx + tx), 0.0f, 0.5f * (nz + tz) }) * Mat4::rotationY (std::atan2 (dx, dz));
+                drawShadow (along, 0.0f, 0.0031f, 0.0f, 0.012f, 0.5f * l, 0.012f, 0.010f, 0.32f);
+                drawShadow (unitPanel, tx, 0.0032f, tz, 0.021f, 0.021f, 0.021f, 0.012f, 0.30f);
             }
             else if (c.kind == ControlKind::toggle)
                 drawShadow (unitPanel, c.x + offX * 0.012f, 0.003f, c.z + offZ * 0.012f, switchOutline (c.switchStyle).halfW + 0.004f,

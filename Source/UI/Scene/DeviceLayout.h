@@ -13,6 +13,7 @@
 #include "../../Parameters/ParameterSpecs.h"
 #include "UnitPanels.h"
 #include "../../DSP/units/LbList.h"
+#include "../../DSP/UnitMask.h"
 
 /*  Layout of the rack unit. Shared by geometry, artwork, rendering and picking.
 
@@ -379,9 +380,9 @@ namespace pad::layout
     /** SIMPLE view: the units that work by themselves are taken out of the case and the rack closes up
         around the rest (they still run, as the preset set them). A bit per unit; both threads read it. */
     inline constexpr float hiddenY = -1000.0f;
-    using UnitMask = std::uint64_t;   // a bit per unit (64: room to grow)
-    inline constexpr UnitMask unitBit (int u) noexcept { return UnitMask { 1 } << u; }
-    inline std::atomic<UnitMask> hiddenUnits { 0u };
+    using UnitMask = enh::dsp::UnitMask;   // a bit per unit (128: DSP/UnitMask.h)
+    inline constexpr UnitMask unitBit (int u) noexcept { return UnitMask::bit (u); }
+    inline enh::dsp::AtomicUnitMask hiddenUnits { 0u };
     inline constexpr UnitMask simpleViewHidden = unitBit (levelUnit) | unitBit (lumenUnit) | unitBit (deepUnit) | unitBit (limiterUnit)
                                                | unitBit (balancerUnit) | unitBit (tideUnit)
                                                | unitBit (lunchboxUnit);
@@ -395,7 +396,7 @@ namespace pad::layout
         m |= unitBit (17 + gen::count);                               // (and CUSTOM)
         return m;
     }();
-    inline std::atomic<UnitMask> storedUnits { defaultStored };
+    inline enh::dsp::AtomicUnitMask storedUnits { defaultStored };
     /** Rack units in U (1U = 44.45 mm), as their panels are drawn. */
     inline int unitU (int unit) noexcept { return (int) std::lround (unitHalfH (unit) / oneUHalfH); }
     /** What can go into the locker: everything but the POWER strip, the OUTPUT MONITOR (the output and the
@@ -436,9 +437,14 @@ namespace pad::layout
     }
 
     /** Distance along the arc from the bottom of the stack to the centre of a unit (the units shown). */
+    /** The patch bay: 1U at the very bottom of the case, under the first unit - its jacks face the back (the rack
+        is turned round to patch); from the front a blank plate. It takes its place on the arc like a unit. */
+    inline constexpr float bayHalfH = oneUHalfH;
+    inline constexpr float bayArcLen = 2.0f * bayHalfH + rackGap;
+
     inline float unitArcPos (int unit) noexcept
     {
-        float pos = 0.0f;
+        float pos = bayArcLen;
         for (int u : rackOrder)
         {
             if (! isShown (u))
@@ -461,7 +467,7 @@ namespace pad::layout
                 total += 2.0f * unitHalfH (u);
                 ++shown;
             }
-        return total + (float) std::max (0, shown - 1) * rackGap;
+        return bayArcLen + total + (float) std::max (0, shown - 1) * rackGap;
     }
 
     inline constexpr float caseOverhangArc = 0.30f, caseBoardTArc = 0.10f;   // (caseOverhang, caseBoardT: the floor the stand is on)
@@ -491,6 +497,13 @@ namespace pad::layout
         return { 0.0f, arcCentreY + r * std::sin (a), arcCentreZ - r * std::cos (a) };
     }
 
+    /** The patch bay's panel-local space to world: as a unit's (its front plate at y = 0). */
+    inline gfx::Mat4 bayToWorld() noexcept
+    {
+        const float a = (bayHalfH - 0.5f * totalArcLength()) / arcRadius, r = arcRadius + unitRecess;
+        return gfx::Mat4::translation ({ 0.0f, arcCentreY + r * std::sin (a), arcCentreZ - r * std::cos (a) }) * gfx::Mat4::rotationX (0.5f * pi + a);
+    }
+
     /** Panel-local (x across, z down, y out of the panel) to world, on the arc. */
     inline gfx::Mat4 panelToWorld (int unit) noexcept
     {
@@ -513,26 +526,26 @@ namespace pad::layout
     struct UnitInfo { const char* name; const char* role; int chainPosition; };
 
     inline constexpr std::array<UnitInfo, numUnits> unitInfo = [] { std::array<UnitInfo, numUnits> a {{
-        { "ADAPTIVE ENHANCER",   "ADAPTIVE EQ - HARMONIC EXCITER - SUB",                     2 },
-        { "TONE & SPACE",        "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   9 },
+        { "ADAPTIVE ENHANCER EQ", "ADAPTIVE EQ - HARMONIC EXCITER - SUB",                     2 },
+        { "TONE & SPACE FINISHER", "FINISHING PROCESSOR - LOUDNESS-MATCHED",                   9 },
         { "ADAPTIVE COMPRESSOR", "PROGRAM-DEPENDENT - AUTO THRESHOLD",                       7 },
-        { "UPWARD LEVELER",      "3-BAND - LIFTS QUIET DETAIL",                              3 },
+        { "UPWARD COMPRESSOR",   "3-BAND - LIFTS QUIET DETAIL",                              3 },
         { "SPECTRAL LIMITER",    "ANTI-PUMP DYNAMIC EQ",                                     5 },
         { "LEVEL CONTROL",       "THE RACK'S WORKING LEVEL",                                 1 },
-        { "MIX BALANCER",        "SIX-BAND DYNAMIC BALANCE",                                 6 },
-        { "OUTPUT MONITOR",      "INPUT AGAINST OUTPUT - LOUDNESS",                         12 },
-        { "DEEP SUB",            "SUB-HARMONIC SYNTH - RESONANT HULL",                       4 },
-        { "CHARACTER",           "CONSOLES - TAPE - VALVES - MORPH",                        10 },
-        { "FOOTSTEP RADAR",      "FINDS EVERY STEP - NEAR AND FAR",                          8 },
-        { "POWER",               "CONDITIONED POWER - RACK LIGHTS",                          0 },
-        { "LUNCHBOX",            "CLASS-A EQ - DE-HARSH - CROSSFEED",                       11 },
-        { "LATINSPHIEL PRO X4",  "SMART TUBE ENHANCER - PID - FOUR BANDS A SIDE",           13 },
-        { "VELVETIZER",          "SMOOTHING - GRAIN - COLOUR A / B",                        14 },
-        { "TAKEBACK",            "GIVES BACK ATTACK - WARMTH - ROOM - AIR",                 15 },
-        { "PHOSPHOR",            "GREEN CRT SCOPE - X-Y - M/S - WAVEFORM",                  16 },
+        { "MULTIBAND BALANCER",  "SIX-BAND DYNAMIC BALANCE",                                 6 },
+        { "LOUDNESS MONITOR",    "INPUT AGAINST OUTPUT - LOUDNESS",                         12 },
+        { "SUB-HARMONIC SYNTHESIZER", "SUB-HARMONIC SYNTH - RESONANT HULL",                       4 },
+        { "CONSOLE & TAPE EMULATOR", "CONSOLES - TAPE - VALVES - MORPH",                        10 },
+        { "FOOTSTEP ENHANCER",   "FINDS EVERY STEP - NEAR AND FAR",                          8 },
+        { "POWER CONDITIONER",   "CONDITIONED POWER - RACK LIGHTS",                          0 },
+        { "500-SERIES RACK",     "CLASS-A EQ - DE-HARSH - CROSSFEED",                       11 },
+        { "SMART TUBE ENHANCER EQ", "SMART TUBE ENHANCER - PID - FOUR BANDS A SIDE",           13 },
+        { "SMOOTHING SATURATOR", "SMOOTHING - GRAIN - COLOUR A / B",                        14 },
+        { "DYNAMICS RESTORER",   "GIVES BACK ATTACK - WARMTH - ROOM - AIR",                 15 },
+        { "OSCILLOSCOPE",        "GREEN CRT SCOPE - X-Y - M/S - WAVEFORM",                  16 },
     }};
         for (int k = 0; k < gen::count; ++k) a[(size_t) (17 + k)] = { gen::looks[k].name, gen::looks[k].role, 17 + k };
-        a[(size_t) (17 + gen::count)] = { "CUSTOM", "YOUR DESIGN FROM THE RACK UNIT DESIGNER", 17 + gen::count };
+        a[(size_t) (17 + gen::count)] = { "CUSTOM UNIT", "YOUR DESIGN FROM THE RACK UNIT DESIGNER", 17 + gen::count };
         return a; }();
 
     // --- the case the units are screwed into -------------------------------------------
@@ -924,7 +937,7 @@ namespace pad::layout
         { ControlKind::knob, 1.4246f, 0.7446f, "x4R4Mix", "MIX", nullptr, nullptr, x4Unit, "RIGHT HIGH", 0.715f, KnobStyle::apiBlue },
         { ControlKind::knob, -0.2518f, -0.3504f, "x4Populate", "POPULATE", nullptr, nullptr, x4Unit, "PRO X4", 0.641f, KnobStyle::porticoBlack },
         { ControlKind::knob, 0.0176f, -0.3504f, "x4Saturate", "SATURATE", nullptr, nullptr, x4Unit, "PRO X4", 0.641f, KnobStyle::porticoBlack },
-        { ControlKind::knob, -0.1171f, 0.2310f, "x4Widen", "WIDEN", nullptr, nullptr, x4Unit, "PRO X4", 0.839f, KnobStyle::porticoBlack },
+        { ControlKind::knob, -0.1171f, 0.2610f, "x4Widen", "WIDEN", nullptr, nullptr, x4Unit, "PRO X4", 0.839f, KnobStyle::porticoBlack },
         { ControlKind::knob, -0.1171f, 0.7154f, "x4Crisp", "CRISP", nullptr, nullptr, x4Unit, "PRO X4", 0.839f, KnobStyle::porticoBlack },
         { ControlKind::toggle, -2.3394f, 0.0073f, "velPower", "POWER", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.0f, KnobStyle::proXl, SwitchStyle::rockerRed },
         { ControlKind::knob, -1.8784f, 0.0073f, "velLow", "VELVET LOW", nullptr, nullptr, velvetUnit, "VELVETIZER", 1.036f, KnobStyle::porticoBlack },
@@ -1095,5 +1108,37 @@ namespace pad::layout
     inline constexpr Rect unitDisplayRect (int unit) noexcept
     {
         return unit == tubeUnit ? seraphDisplayRect : displayRect;
+    }
+
+    /** TURNED round (0 front .. 1 back, raw - eased here): the rack spins on its shelf to show its back (the
+        LUNCHBOX keeps its stand). The case curves round the viewer, so its back runs lower than its front at the
+        bottom: turned round it would sink into the shelf - it rises as it turns, until that back edge stands on
+        the shelf. And its ends, curved toward you, would swing back through the wall: it comes forward by the
+        arc's depth, so they end up where its middle was. (Shared by the renderer and the camera.) */
+    inline gfx::Mat4 turnMatrix (float turnAmount) noexcept
+    {
+        const float t = std::clamp (turnAmount, 0.0f, 1.0f), e = t * t * (3.0f - 2.0f * t);
+        if (e <= 1.0e-3f)
+            return gfx::Mat4::identity();
+        const gfx::Vec3 pivot { 0.0f, 0.0f, arcCentreZ - arcRadius - 0.5f * caseDepth };
+        const float endAngle = (-caseOverhang - 0.5f * totalArcLength()) / arcRadius;
+        const float lift = caseDepth * std::max (0.0f, -std::sin (endAngle)) * e;
+        const float forward = arcRadius * (1.0f - std::cos (endAngle)) * e;
+        return gfx::Mat4::translation ({ pivot.x, pivot.y + lift, pivot.z + forward }) * gfx::Mat4::rotationY (pi * e)
+             * gfx::Mat4::translation ({ -pivot.x, -pivot.y, -pivot.z });
+    }
+
+    /** Undoes turnMatrix: world to the rack's own (unturned) space - for picking on its back. */
+    inline gfx::Mat4 turnMatrixInverse (float turnAmount) noexcept
+    {
+        const float t = std::clamp (turnAmount, 0.0f, 1.0f), e = t * t * (3.0f - 2.0f * t);
+        if (e <= 1.0e-3f)
+            return gfx::Mat4::identity();
+        const gfx::Vec3 pivot { 0.0f, 0.0f, arcCentreZ - arcRadius - 0.5f * caseDepth };
+        const float endAngle = (-caseOverhang - 0.5f * totalArcLength()) / arcRadius;
+        const float lift = caseDepth * std::max (0.0f, -std::sin (endAngle)) * e;
+        const float forward = arcRadius * (1.0f - std::cos (endAngle)) * e;
+        return gfx::Mat4::translation (pivot) * gfx::Mat4::rotationY (-pi * e)
+             * gfx::Mat4::translation ({ -pivot.x, -pivot.y - lift, -pivot.z - forward });
     }
 }

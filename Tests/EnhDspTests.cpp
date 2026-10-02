@@ -8,6 +8,28 @@
 #include <functional>
 #include <map>
 #include <complex>
+#include <atomic>
+#include <thread>
+
+/** TEST_FAST=1: the self-test's quick tier - every kind of check, on less material (fewer distances, one block
+    size, shorter scenes); unset: the full tests. */
+static bool testFast() { static const bool fast = std::getenv ("TEST_FAST") != nullptr && std::string (std::getenv ("TEST_FAST")) != "0"; return fast; }
+
+/** Runs job(i) for i in [0, count) on every core; the results are the caller's to keep by index (so what is
+    printed and checked afterwards is in the same order, and the same, as when they ran one after another).
+    PARALLEL=1 runs them on this thread. */
+template <typename Job>
+static void parallelFor (int count, Job&& job)
+{
+    const char* env = std::getenv ("PARALLEL");
+    const int threads = env != nullptr ? std::max (1, std::atoi (env)) : std::max (1, (int) std::thread::hardware_concurrency());
+    if (threads <= 1 || count <= 1) { for (int i = 0; i < count; ++i) job (i); return; }
+    std::atomic<int> next { 0 };
+    std::vector<std::thread> pool;
+    for (int t = 0; t < std::min (threads, count); ++t)
+        pool.emplace_back ([&] { for (int i; (i = next++) < count;) job (i); });
+    for (auto& t : pool) t.join();
+}
 #include "DSP/EnhEngine.h"
 #include "DSP/Character.h"
 #include "DSP/ParameterMapping.h"
@@ -854,17 +876,27 @@ namespace
 
         std::map<juce::String, float> dips, dipsOut;
         int defaultSteps = 0, footstepSteps = 0;
-        for (auto& preset : presetList())
+        // every preset's three runs on every core; printed and checked below in the list's order
+        const auto& list = presetList();
+        using HitResult = decltype (runLimiterScene (sr, true, false, 256, -6.0f, false, nullptr));
+        struct Out { RunResult r; int steps = 0; HitResult hit, hitOut; };
+        std::vector<Out> outs (list.size());
+        parallelFor ((int) list.size(), [&] (int i)
         {
-            const auto p = presetParameters (preset);
-            int steps = 0;
-            const auto r = run (scene, sr, 256, p, [&] (const EnhEngine& e) { steps = e.getFootstepEventCount(); });
-            const double outDb = rmsDb (r.outL, r.outR, (size_t) (4.0 * sr));
+            const auto p = presetParameters (list[(size_t) i]);
+            auto& o = outs[(size_t) i];
+            o.r = run (scene, sr, 256, p, [&] (const EnhEngine& e) { o.steps = e.getFootstepEventCount(); });
             // A bass hit peaking around full scale (a game's output), and the test's over-full-scale one
-            const auto hit = runLimiterScene (sr, true, false, 256, -6.0f, false, &p);
+            o.hit = runLimiterScene (sr, true, false, 256, -6.0f, false, &p);
             auto without = p;
             without.limiter.active = false;
-            const auto hitOut = runLimiterScene (sr, true, false, 256, -6.0f, false, &without);
+            o.hitOut = runLimiterScene (sr, true, false, 256, -6.0f, false, &without);
+        });
+        for (size_t pi = 0; pi < list.size(); ++pi)
+        {
+            const auto& preset = list[pi];
+            const auto& r = outs[pi].r; const int steps = outs[pi].steps; const auto& hit = outs[pi].hit; const auto& hitOut = outs[pi].hitOut;
+            const double outDb = rmsDb (r.outL, r.outR, (size_t) (4.0 * sr));
             dips[preset.name] = hit.detailDipDb;
             dipsOut[preset.name] = hitOut.detailDipDb;
             std::printf ("  %-24s %+6.1f dB %7.3f %6d %5.1f %+9.2f dB %6.1f dB   (limiter OUT: %+.2f dB)\n", preset.name.toRawUTF8(), outDb - inDb, r.peak, steps,
@@ -1639,13 +1671,34 @@ namespace
             std::map<std::pair<const Scene*, bool>, RunResult> references;   // per scene, with CHARACTER in or out
             int runs = 0, failed = 0, placebo = 0;
             juce::StringArray problems;
+            // every (stage, method) to run; the references they compare against made first (they are shared)
+            struct Item { const m::Stage* st; int k; bool ok = true; float diff = 0.0f; int runs = 0; };
+            std::vector<Item> items;
             for (int unit : m::unitsInRackOrder)
                 for (int i = 0; i < m::stagesForUnit (unit).count; ++i)
-                {
-                    const auto& st = m::stagesForUnit (unit).stages[i];
-                    const bool display = st.category == "DISPLAY";
-                    const float ceiling = st.id == m::outputCeiling ? 1.0f : 1.0f;
-                    for (int k = 1; k < st.numMethods; ++k)
+                    for (int k = 1; k < m::stagesForUnit (unit).stages[i].numMethods; ++k)
+                        items.push_back ({ &m::stagesForUnit (unit).stages[i], k });
+            (void) presetNamed ("IMMERSIVE GAMES");   // (the preset list loaded before the threads start)
+            std::vector<std::pair<std::pair<const Scene*, bool>, const m::Stage*>> refKeys;
+            for (auto& it : items)
+            {
+                const auto key = std::make_pair (&sceneFor (*it.st), it.st->unitIndex == 9);
+                if (std::none_of (refKeys.begin(), refKeys.end(), [&] (auto& rk) { return rk.first == key; })) refKeys.push_back ({ key, it.st });
+            }
+            std::vector<RunResult> refs (refKeys.size());
+            parallelFor ((int) refKeys.size(), [&] (int j)
+            {
+                const auto* st = refKeys[(size_t) j].second;
+                refs[(size_t) j] = run (*refKeys[(size_t) j].first.first, sr, 128, presetParameters (presetNamed ("IMMERSIVE GAMES"),
+                                        [&] (auto& kv) { base (kv); if (st->unitIndex == 9) kv.charActive = true; if (st->unitIndex == 10) kv.footstep = true; }));
+            });
+            for (size_t j = 0; j < refKeys.size(); ++j) references[refKeys[j].first] = std::move (refs[j]);
+            parallelFor ((int) items.size(), [&] (int idx)
+            {
+                auto& it = items[(size_t) idx];
+                const auto& st = *it.st;
+                const int k = it.k;
+                const float ceiling = 1.0f;
                     {
                         // A unit that is out by default (CHARACTER) is put in for its own methods
                         const auto p = presetParameters (presetNamed ("IMMERSIVE GAMES"), [&] (auto& kv) { base (kv); kv.methods[(size_t) st.id] = k; if (st.unitIndex == 9) kv.charActive = true; if (st.unitIndex == 10) kv.footstep = true; });
@@ -1654,28 +1707,33 @@ namespace
                         float diff = 0.0f;
                         const auto& scene = sceneFor (st);
                         const auto key = std::make_pair (&scene, st.unitIndex == 9);
-                        if (references.count (key) == 0)
-                            references[key] = run (scene, sr, 128, presetParameters (presetNamed ("IMMERSIVE GAMES"),
-                                                                                      [&] (auto& kv) { base (kv); if (st.unitIndex == 9) kv.charActive = true; if (st.unitIndex == 10) kv.footstep = true; }));
-                        const auto& reference = references[key];
+                        const auto& reference = references.at (key);
                         for (int bs : { 7, 128, 1024 })
                         {
+                            if (testFast() && bs != 128) continue;   // (the quick tier: one block size)
                             bool sameLatency = true;
                             const auto r = run (scene, sr, bs, p, [&] (const EnhEngine& e) { sameLatency = e.getLatencySamples() == latencyAt (sr); });
                             ok = ok && r.finite && r.peak <= limit && sameLatency;
                             if (bs == 128)
                                 for (size_t n = 0; n < r.outL.size(); ++n)
                                     diff = std::max (diff, std::abs (r.outL[n] - reference.outL[n]));
-                            ++runs;
+                            ++it.runs;
                         }
-                        const auto name = juce::String (st.unit.data(), st.unit.size()) + " " + juce::String (st.name.data(), st.name.size())
-                                        + " " + juce::String (st.methods[k].shortName.data(), st.methods[k].shortName.size());
-                        if (! ok) { ++failed; problems.add (name + " (unstable / over / latency)"); }
-                        // GLIDE only shows when LEVEL moves (tested below); a display setting must leave the audio alone
-                        if (display ? diff != 0.0f : (diff < 1.0e-5f && st.id != m::levelGlide)) { ++placebo; problems.add (name + (display ? " (changes the audio)" : " (changes nothing)")); }
+                        it.ok = ok; it.diff = diff;
                     }
-                }
-            std::printf ("  every method of every stage, one at a time: %d runs (block sizes 7, 128, 1024)\n", runs);
+            });
+            for (auto& it : items)   // (tallied in the order they were listed)
+            {
+                const auto& st = *it.st;
+                const bool display = st.category == "DISPLAY";
+                runs += it.runs;
+                const auto name = juce::String (st.unit.data(), st.unit.size()) + " " + juce::String (st.name.data(), st.name.size())
+                                + " " + juce::String (st.methods[it.k].shortName.data(), st.methods[it.k].shortName.size());
+                if (! it.ok) { ++failed; problems.add (name + " (unstable / over / latency)"); }
+                // GLIDE only shows when LEVEL moves (tested below); a display setting must leave the audio alone
+                if (display ? it.diff != 0.0f : (it.diff < 1.0e-5f && st.id != m::levelGlide)) { ++placebo; problems.add (name + (display ? " (changes the audio)" : " (changes nothing)")); }
+            }
+            std::printf ("  every method of every stage, one at a time: %d runs (block sizes %s)\n", runs, testFast() ? "128 (quick tier)" : "7, 128, 1024");
             for (auto& pr : problems)
                 std::printf ("    %s\n", pr.toRawUTF8());
             check (failed == 0, "every method is finite, under the ceiling and keeps the latency, at block sizes 7, 128 and 1024");
@@ -2243,20 +2301,38 @@ int main (int argc, char** argv)
         return failures == 0 ? 0 : 1;
     }
 
+    if (argc > 1 && juce::String (argv[1]) == "--sims3")
+    {
+        for (double rate : { 44100.0, 48000.0, 96000.0 })
+            runSimTests3 (rate);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--patchbay")
+    {
+        for (double rate : { 44100.0, 48000.0, 96000.0 })
+            runPatchBayTests (rate);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--chroma")
+    {
+        runChromaTests (sr);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
     if (argc > 1 && juce::String (argv[1]) == "--mastering")
     {
-        runMasteringTests (sr);
-        runSafetyTests (sr);
-        runLatencyTests (sr);
-        runLunchboxTests (sr);
-        runDesignedUnitsTests (sr);
-        runNewUnitsTests16 (sr);
-        runDeHarshTests (sr);
-        runLbModuleTests (sr);
-        runRayRoomTests (sr);
-        runSimTests (sr);
-        runSimTests2 (sr);
-        runCustomUnitTests (sr);
+        // (TEST_SHARD=i/n: the self-test splits these groups across processes, whole groups each)
+        const std::function<void()> groups[] { [&] { runMasteringTests (sr); }, [&] { runSafetyTests (sr); }, [&] { runLatencyTests (sr); },
+                                               [&] { runLunchboxTests (sr); }, [&] { runDesignedUnitsTests (sr); }, [&] { runNewUnitsTests16 (sr); },
+                                               [&] { runDeHarshTests (sr); }, [&] { runLbModuleTests (sr); }, [&] { runRayRoomTests (sr); },
+                                               [&] { runSimTests (sr); }, [&] { runSimTests2 (sr); }, [&] { runSimTests3 (sr); }, [&] { runCustomUnitTests (sr); }, [&] { runTunerMatchTests (sr); }, [&] { runChromaTests (sr); }, [&] { runPatchBayTests (sr); } };
+        for (int g = 0; g < (int) std::size (groups); ++g)
+            if (inShard (g)) groups[g]();
         std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
         return failures == 0 ? 0 : 1;
     }
@@ -2387,7 +2463,10 @@ int main (int argc, char** argv)
             runRayRoomTests (rate);
             runSimTests (rate);
             runSimTests2 (rate);
+            runSimTests3 (rate);
             runCustomUnitTests (rate);
+            runTunerMatchTests (rate);
+            runPatchBayTests (rate);
         }
         std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
         return failures == 0 ? 0 : 1;
@@ -2431,7 +2510,10 @@ int main (int argc, char** argv)
     //==========================================================================
     // Footsteps: the FOOTSTEP RADAR on every surface and distance, under game audio, against look-alikes,
     // and on the scenes the old detector was tuned on (the same ground truth)
-    radartests::runRadarTests (sr, false, false);
+    // --core: all of this but the parts the self-test runs as jobs of their own, side by side (--radar, --limiter,
+    // --presets, --bass, --methods, --cpu); with no argument, everything, one after another, as always
+    const bool core = argc > 1 && juce::String (argv[1]) == "--core";
+    if (! core) radartests::runRadarTests (sr, false, false);
     precisiontests::runPrecisionTests (sr);
 
     //==========================================================================
@@ -3674,14 +3756,10 @@ int main (int argc, char** argv)
         check (quiet.finite && loud.finite, "LUMEN stays finite");
     }
 
-    runLimiterTests (sr);
-    runPresetTests (sr);
-    runLoudBassTests (sr);
+    if (! core) { runLimiterTests (sr); runPresetTests (sr); runLoudBassTests (sr); }
     runNewUnitTests (sr);
     runDeepSubTests (sr);
-    runMethodTests (sr);
-
-    runCpuBenchmark();
+    if (! core) { runMethodTests (sr); runCpuBenchmark(); }
 
     //==========================================================================
     std::printf ("\n== Odd block sizes ==\n");

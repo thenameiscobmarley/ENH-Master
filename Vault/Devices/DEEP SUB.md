@@ -1,6 +1,8 @@
-# DEEP SUB
+# SUB-HARMONIC SYNTHESIZER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called DEEP SUB.
 
 Low end you feel: deep, dark and huge, like standing in a steel hull under water. It *adds* sound
 rather than boosting what's there.

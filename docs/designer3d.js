@@ -21,7 +21,9 @@ function setView (v) {
   view = v;
   for (const b of document.querySelectorAll ("[data-view]")) b.setAttribute ("aria-pressed", String (b.dataset.view === v));
   wrap.hidden = v === "2d"; stage2d.hidden = v === "3d";
+  wrap.classList.toggle ("both", v === "both");   // (side by side in the column: the 3D view shorter, the faceplate room)
   if (v !== "2d") { if (!started) start(); else { resize(); rebuild(); } }
+  requestAnimationFrame (() => window.dispatchEvent (new Event ("resize")));   // (the 2D stage fits its new size)
 }
 
 let renderer, scene, camera, root, pmrem, dirty = true;

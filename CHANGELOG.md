@@ -5,6 +5,103 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.8.0.1 — the rack turned round: a patch bay, every back, real cables; plain names; twenty mastering simulations
+
+- **Twenty mastering simulations**, 3U each, each with its own live screen: [CLARITY LENS](Vault/Devices/CLARITY%20LENS.md), [SUB DRIVER](Vault/Devices/SUB%20DRIVER.md), [VINYL CUTTER](Vault/Devices/VINYL%20CUTTER.md), [CAR TEST](Vault/Devices/CAR%20TEST.md), [PHONE CHECK](Vault/Devices/PHONE%20CHECK.md), [CLUB SYSTEM](Vault/Devices/CLUB%20SYSTEM.md), [PRESSURE](Vault/Devices/PRESSURE.md), [BALANCE](Vault/Devices/BALANCE.md), [STEREO FIELD](Vault/Devices/STEREO%20FIELD.md), [SONAR](Vault/Devices/SONAR.md), [SEISMOGRAPH](Vault/Devices/SEISMOGRAPH.md), [PRISM](Vault/Devices/PRISM.md), [FURNACE](Vault/Devices/FURNACE.md), [DITHER](Vault/Devices/DITHER.md), [RIDER](Vault/Devices/RIDER.md), [COMPASS](Vault/Devices/COMPASS.md), [SUSPENSION](Vault/Devices/SUSPENSION.md), [SKYLINE](Vault/Devices/SKYLINE.md), [HOURGLASS](Vault/Devices/HOURGLASS.md), [AURORA](Vault/Devices/AURORA.md).
+  Clarity, a modelled sub, what a lathe allows, car, phone and club checks, a maximizer, a see-saw
+  balancer, stereo width, transients, bass damping, five-band colour, thermal warmth, dither, a fader
+  rider, phase alignment, dynamics smoothing, resonance trimming, a limiter and air.
+- **Two more units:** [CHROMA SPACE](Vault/Devices/CHROMA%20SPACE.md) - a space that goes from a room to a vast
+  shimmering tail, a warm-to-airy tone, and chops of the track (kept in memory only) that follow its melody,
+  with VARIETY and four AUTO switches - and [HYPERCUBE](Vault/Devices/HYPERCUBE.md), a scope-drawn cube warped by
+  what plays. Both have colour screens.
+- **Knobs glide:** every newer unit's and LUNCHBOX module's knobs now ease to a new value, so automation that
+  jumps no longer clicks. Size and delay-time knobs bend smoothly instead of glitching. (The click test now
+  checks every one of them on its own unit, powered: it found 123 clicks, all fixed.)
+- **Hovering a knob no longer washes it out white:** the magnifier shows it as it really looks.
+- **The gear locker by category.** The Locker tab folds out into categories with sections (Low end:
+  Sub bass, Simulated sub bass, Bass control; Dynamics; EQ and tone; Filters; Space; Simulated; Mastering
+  and more). A unit can be in more than one. Search finds categories too, and opens them.
+- **A preview of every unit** in the gear locker: its faceplate beside its name, growing when you point at it
+  (under its name and button, never over them).
+- **Knobs and their labels**, checked on every unit (the layout check now covers the designed and newer
+  units too): the simulations' screens no longer run under their names, two-position selectors' labels
+  line up with the knobs', 2U panels' bottom labels clear the edge, and PRO X4's and VELVETIZER's numbers
+  no longer touch each other.
+- The rack now holds up to 128 units (it was 64). Sessions saved before still load.
+- **The self-test is 3.5 times faster** (48 min to 14) and misses nothing: it runs on every core and no longer
+  repeats tests. `--quick` checks everything on less material (about 7 min), and a normal run reuses a pass
+  when nothing it depends on has changed.
+- Units in the locker are prepared only when you install them: less memory, a quicker start.
+- **RACK TUNER**, a new unit: type what you want ("warm punchy hip-hop", "huge dreamy space") and it tunes the
+  whole rack. It knows about 480 words and phrases (genres, instruments, uses) and holds 60,000 settings for every unit
+  that changes the sound - the rack's own (switches and choices too), PRO X4, VELVETIZER, TAKEBACK, the radar, the
+  newer units and all the LUNCHBOX's modules. What each knob does was measured on the real rack,
+  not guessed, and each unit's 24 strongest settings were played and heard. Units are chosen to complement each
+  other (a warm one, a punchy one, a deep one). Checked by playing it: 19 of 20 phrases it had never been tuned on went the way
+  asked. No AI, nothing online. VARIETY gives a different, equally fitting take each
+  time. Switches say what it may change (knobs, units on and off, units in and out of the locker); the knobs glide
+  there, the level stays as it was (LEVEL MATCH), A/B compares, UNDO takes it back. Its screen shows the 60,000 as
+  cubes and lights the chosen ones. [RACK TUNER](Vault/Devices/RACK%20TUNER.md)
+- A session saved with CUSTOM in the rack keeps it there (adding units used to move its place in the locker).
+- **HYPERCUBE, redone:** a clean neon purple vector cube (its edges and one diagonal per face) drawn like a vector
+  monitor's beam, that morphs with the music into any blend of 30 forms (droplets, puddles, waves, stars,
+  shards...) with liquid, ripple, shatter or rubber behaviour - calm music slow and liquid, hard music sharp - and
+  comes home to the cube when it's quiet. One colour at a time from a hundred. New knobs MORPH, REACT, PALETTE and
+  BEAM, each with an AUTO switch.
+- Bat toggles (and the LUNCHBOX's switches) cast a round shadow and a lever's shadow, not a box.
+- CHROMA SPACE's and HYPERCUBE's colour screens now show in the 2D rack too.
+- ENH Master 2D: the simulation screens no longer show the desktop through them on some Linux desktops.
+- **Section names on your designs** (in the CUSTOM unit) printed as a solid white bar; they now read properly,
+  with the border broken round them. The same fix sharpens the built-in units' section titles.
+- **Seven new sound blocks for your designs**, in the designer and in the CUSTOM unit: chorus, pendulum
+  pan, lava-lamp filter, chops (stutter), bit crusher, tape wow and shimmer. Seven sound presets use them.
+- **The website:** bolder and more colourful, and the welcome banner is centred over the rack. The 3D rack and the
+  designer's 3D view now also run on a page opened straight from the folder. The designer's 3D view shows again
+  (it was hidden behind the flat view). A new [Every unit](https://thenameiscobmarley.github.io/ENH-Master/units.html)
+  page shows all 71 units: faceplates, live screens, a sound demo of each
+  (dry and with the unit) and what every knob does, filed by the locker's categories. The download page
+  says which version to pick and how to install it.
+- **Every unit has a plain name now**, saying what it is: SHIMMER is SHIMMER REVERB, ROBOVOX is VOCODER,
+  LATINSPHIEL PRO X4 is SMART TUBE ENHANCER EQ, DEEP SUB is SUB-HARMONIC SYNTHESIZER, and so on (each page
+  in the docs says what it was called). Point at a unit in the gear locker, or at its back with the rack
+  turned round, for what it does.
+- **MULTIPLY and STRENGTH** on every new unit of this release that changes the sound (the twenty mastering
+  simulations, SPACE & TONE PROCESSOR, SPECTRAL DETAIL ENHANCER): MULTIPLY scales its amount knobs
+  together (0.25x to 3x), STRENGTH sets how much of its change you hear (0 to 200 %).
+- **Cables from the side:** the looms are laced to a steel lacing bar down each side of the rack's back,
+  just behind the plugs, so they follow the case instead of standing out from it.
+- **SPECTRAL DETAIL ENHANCER**, a new unit: a simulation of hearing finds what the mix masks (tails,
+  breaths, ghost notes, air) and brings it out with clarity, at the same level. Its screen shows the masking.
+  [SPECTRAL DETAIL ENHANCER](Vault/Devices/SPECTRAL%20DETAIL%20ENHANCER.md)
+- **The cables are real ropes:** they hang, lie on the shelf, rest against the rack and push against each
+  other, never through. Each leaves its plug straight. The cord in your hand swings and settles. The physics
+  runs on a second core, so turning the rack never stutters.
+- With the rack turned round, scroll toward any unit's back or click it to get close.
+- **Turn the rack round** (drag sideways on empty space, or right-click → Turn the rack round). Every
+  unit has a detailed back, with its connectors standing out in 3D. The units come from ten different
+  makers, and each maker's backs look their own (paint, lettering, badge, which side the mains is on,
+  IEC inlet, switched inlet or fixed cord, vents, plates and stickers, screws). All of their cables are
+  plugged in, rubber, braided or cloth, each with a tape flag written in marker, running down two looms.
+  [Patch bay](Vault/UI/Patch%20bay.md)
+- **A patch bay:** a 1U Studio TT bay (2 x 48 bantam jacks, names on its strips) at the bottom of the rack,
+  facing the back. Its colour-coded cords are the real signal chain, the LUNCHBOX included. Pull a plug,
+  carry it (the cord swings), push it into another jack (it slides in, gripping along the way, and clicks
+  home). The signal follows the cords: units left out are passed by, and every unit after the enhancer runs
+  in the order patched. A cord out of the chain fades the rack to silence and lights a red lamp. A MASTER
+  switch on top lets any plug into any jack. Loops feed back for real, filtered and ear-guarded, and a
+  runaway one is muted. The cords are saved with the session. ENH Master 2D has the patch bay too.
+- **The Rack Unit Designer:**
+  - The unit sits in the middle of the page and fits itself to the window.
+  - A 500-series design stands upright, as it does in a LUNCHBOX.
+  - Snapping: hold Shift to turn in 45° steps, pick a grid size, and colours snap to a palette (hardware
+    colours, RAL, harmonies of your colour, or the unit's own colours).
+  - Screens in your designs: a scope, colour lines, a warped 3D cube, or one of your own (shape, style,
+    colours, speed). They move in Play, following the song.
+  - **Guided start:** answer two questions (what it does, how it looks) and a unit is made, sound and all.
+  - **Make it sound good:** one button puts the blocks in a sensible order, tames anything extreme, and
+    matches the level to the dry sound.
+
 ## 3.8.0.0 — thirty-three new units, 14 new 500-series modules, and your designs in the rack
 
 - **Nineteen new units** (all in the gear locker - install what you want):

@@ -1,6 +1,8 @@
-# SYMPATHY
+# SYMPATHETIC RESONATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called SYMPATHY.
 
 Six sympathetic strings (3U, model SR-6). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

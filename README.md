@@ -16,6 +16,40 @@ ducking everything else, and nothing leaves it too loud for your speakers or hea
 
 **Website:** [thenameiscobmarley.github.io/ENH-Master](https://thenameiscobmarley.github.io/ENH-Master/)
 
+## New in 3.8.0.1: turn the rack round
+
+Drag sideways on empty space (or right-click → **Turn the rack round**) and the rack turns on its shelf. Every unit
+has a detailed back from one of ten makers, all of its cables plugged in, and a 96-point patch bay at the bottom
+that really routes the sound. [Patch bay](Vault/UI/Patch%20bay.md)
+
+![The rack turned round: every unit's back, its cables and the patch bay](docs/img/3.8.0.1/back.png)
+
+<p align="center">
+  <img src="docs/img/3.8.0.1/back-halden-ross.png" width="49%" alt="A HALDEN & ROSS back: hammertone, louvres, a riveted brass plate, cloth-covered cables">
+  <img src="docs/img/3.8.0.1/back-brixton.png" width="49%" alt="A BRIXTON VALVE CO. back: black crackle paint, a mains cord through a grommet">
+</p>
+<p align="center">
+  <img src="docs/img/3.8.0.1/back-akagi.png" width="49%" alt="An AKAGI DENKI back: the mains on the right, tape flags on every cable">
+  <img src="docs/img/3.8.0.1/back-northfield.png" width="49%" alt="A NORTHFIELD ELECTRONICS back: a switched IEC inlet, a yellow warning sticker">
+</p>
+
+The patch bay: colour-coded TT cords along the real signal chain. Pull a plug, carry it, push it into another jack -
+the sound follows the cords. The cables are real ropes: they hang, rest on the shelf and never pass through each other.
+
+<p align="center">
+  <img src="docs/img/3.8.0.1/patch-bay.png" width="49%" alt="The 96-point TT patch bay and its cords">
+  <img src="docs/img/3.8.0.1/patch-bay-plug-in-hand.png" width="49%" alt="A plug in the hand: the jacks it can go into outlined, the CHAIN OPEN lamp lit">
+</p>
+<p align="center">
+  <img src="docs/img/3.8.0.1/side-lacing-bar.png" width="49%" alt="From the side: the looms laced to the rack's lacing bars">
+  <img src="docs/img/3.8.0.1/2d-patch-bay.png" width="49%" alt="ENH Master 2D: the patch bay, flat">
+</p>
+
+**SPECTRAL DETAIL ENHANCER**, a new unit: a simulation of hearing finds what the mix masks and brings it out, with
+clarity, at the same level. Its screen shows the masking. Every unit now has a plain name that says what it is.
+
+![SPECTRAL DETAIL ENHANCER: the 24 bands as the ear hears them, the masking threshold, and what it brings out](docs/img/3.8.0.1/detail-unit.png)
+
 ## Three ways to use it
 
 | You are… | Use | Get it |
@@ -45,16 +79,16 @@ Sound goes in at the bottom and comes out at the top.
 | Unit | What it does |
 |---|---|
 | **LEVEL CONTROL** | how loud the rack runs |
-| **ADAPTIVE ENHANCER** | brings out detail and sub, following the audio; CLARITY's precision bands fix narrow resonances and holes, each with its own width |
-| **UPWARD LEVELER** | lifts quiet sounds |
-| **DEEP SUB** | adds a deep sub and a ringing "steel hull" under the bass |
+| **ADAPTIVE ENHANCER EQ** | brings out detail and sub, following the audio; CLARITY's precision bands fix narrow resonances and holes, each with its own width |
+| **UPWARD COMPRESSOR** | lifts quiet sounds |
+| **SUB-HARMONIC SYNTHESIZER** | adds a deep sub and a ringing "steel hull" under the bass |
 | **SPECTRAL LIMITER** | takes a loud bang down *where it is*, so the rest of the mix doesn't duck |
-| **MIX BALANCER** | keeps the bands of the mix in balance |
+| **MULTIBAND BALANCER** | keeps the bands of the mix in balance |
 | **ADAPTIVE COMPRESSOR** | evens out the level |
-| **FOOTSTEP RADAR** | finds footsteps in any game, near or far, lifts them, and shows on a radar where they came from |
-| **TONE & SPACE** | polish, air, width and room |
-| **CHARACTER** | the sound of consoles, tape and valves: two at once, blended |
-| **OUTPUT MONITOR** | shows what the rack does: before and after, loudness, and who is ducking |
+| **FOOTSTEP ENHANCER** | finds footsteps in any game, near or far, lifts them, and shows on a radar where they came from |
+| **TONE & SPACE FINISHER** | polish, air, width and room |
+| **CONSOLE & TAPE EMULATOR** | the sound of consoles, tape and valves: two at once, blended |
+| **LOUDNESS MONITOR** | shows what the rack does: before and after, loudness, and who is ducking |
 
 Click any unit to open its **glass panel**: more settings, each explained when you hover it.
 

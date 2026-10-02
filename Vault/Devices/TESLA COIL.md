@@ -1,6 +1,8 @@
-# TESLA COIL
+# TESLA COIL SYNTHESIZER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called TESLA COIL.
 
 The sound played by a singing Tesla coil (3U, model TC-1M). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

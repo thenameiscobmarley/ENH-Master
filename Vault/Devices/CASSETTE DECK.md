@@ -1,6 +1,8 @@
-# CASSETTE DECK
+# CASSETTE SIMULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called CASSETTE DECK.
 
 The sound recorded to cassette and played back (3U, model CD-3). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

@@ -1,6 +1,8 @@
-# OVERCLIP
+# OVERSAMPLED CLIPPER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called OVERCLIP.
 
 A clipper run four times faster than the audio, so what it cuts doesn't fold back as aliasing. DRIVE in, CEILING out, KNEE rounds the corner; SOFT, HARD or TUBE (asymmetric). (1U, model OC-4X.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

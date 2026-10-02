@@ -1,6 +1,8 @@
-# PHOSPHOR SCOPE
+# OSCILLOSCOPE
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called PHOSPHOR SCOPE.
 
 A 2U green-phosphor CRT oscilloscope and vectorscope (model XY-2), like the X-Y displays on old studio,
 laboratory and computer gear. It watches the rack's **output** - exactly what you hear - and never changes

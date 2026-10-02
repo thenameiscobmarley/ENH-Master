@@ -1,6 +1,8 @@
-# HARMONIZER
+# PITCH SHIFTER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called HARMONIZER.
 
 A two-voice pitch shifter: each voice up or down to an octave, DETUNE pulling them apart, a DELAY and FEEDBACK round them - the studio harmonizer, voice 1 left, voice 2 right. (2U, model H-910.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

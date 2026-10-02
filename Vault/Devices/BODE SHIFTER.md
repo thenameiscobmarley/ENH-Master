@@ -1,6 +1,8 @@
-# BODE SHIFTER
+# FREQUENCY SHIFTER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called BODE SHIFTER.
 
 A frequency shifter: every frequency moved by the same number of Hertz (not a pitch shift), from a Hilbert transform. A few Hertz: a slow swirl; more: bells and robots; FEEDBACK: spirals. (1U, model BS-1630.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

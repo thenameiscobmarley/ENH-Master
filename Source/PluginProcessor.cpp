@@ -208,7 +208,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             k.designed[(size_t) i] = designedParams[(size_t) i]->load();
     k.charActive     = charActive->load() > 0.5f;
     k.compare        = abCompare->load() > 0.5f;
-    k.stored         = storedUnits.load (std::memory_order_relaxed);
+    k.stored         = storedUnits.load (std::memory_order_relaxed) | patchBypass.load (std::memory_order_relaxed);
     k.lbStored       = storedModules.load (std::memory_order_relaxed);
     k.charGrit       = charGrit->load() > 0.5f;
     k.lumenTargetDb  = lumenTarget->load();
@@ -347,10 +347,24 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
             currentPreset = juce::jlimit (0, getNumPrograms() - 1, (int) state.state.getProperty ("preset", 0));
             // THE GEAR LOCKER (a session saved before it existed: the rack as it was, the designed units stored)
             // A unit added to the plugin after the session was saved starts in the locker, like a new one
-            auto stored = (enh::dsp::rack::Mask) (juce::int64) state.state.getProperty ("lockerStored", (juce::int64) enh::dsp::rack::defaultStored);
+            enh::dsp::rack::Mask stored { (std::uint64_t) (juce::int64) state.state.getProperty ("lockerStored", (juce::int64) enh::dsp::rack::defaultStored.lo),
+                                          (std::uint64_t) (juce::int64) state.state.getProperty ("lockerStoredHi", (juce::int64) enh::dsp::rack::defaultStored.hi) };
             const int knewUnits = (int) state.state.getProperty ("lockerUnits", enh::dsp::rack::takeback);   // (TAKEBACK came after the first locker)
+            // CUSTOM is always the last unit, so a newer unit added since moves it along: its place in the
+            // locker moves with it (it has been last since it came, in 3.8.0.0 at 70: 71 units)
+            if (knewUnits >= 71 && knewUnits < enh::dsp::rack::numUnits)
+            {
+                const int oldCustom = knewUnits - 1;
+                const bool customStored = ((stored >> oldCustom) & 1u) != 0u;
+                stored &= ~enh::dsp::rack::bit (oldCustom);
+                stored &= ~enh::dsp::rack::bit (enh::dsp::rack::custom);
+                if (customStored) stored |= enh::dsp::rack::bit (enh::dsp::rack::custom);
+                for (int u = oldCustom; u < enh::dsp::rack::numUnits; ++u)   // (the units new since: in the locker, as new ones start)
+                    if (u != enh::dsp::rack::custom) stored |= enh::dsp::rack::defaultStored & enh::dsp::rack::bit (u);
+            }
             for (int u = std::max (0, knewUnits); u < enh::dsp::rack::numUnits; ++u)
-                stored |= enh::dsp::rack::defaultStored & enh::dsp::rack::bit (u);
+                if (knewUnits < 71 || u != enh::dsp::rack::custom)   // (CUSTOM's own place was carried over above)
+                    stored |= enh::dsp::rack::defaultStored & enh::dsp::rack::bit (u);
             storedUnits.store (stored, std::memory_order_relaxed);
             // The LUNCHBOX's modules the same way (a module added later starts in its locker)
             auto lbStored = (enh::dsp::rack::LbMask) (juce::int64) state.state.getProperty ("lunchboxStored", (juce::int64) enh::dsp::rack::defaultLbStored);
@@ -360,7 +374,74 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
             storedModules.store (lbStored, std::memory_order_relaxed);
             // CUSTOM: the design it had (its knobs are the session's own)
             setCustomCode (state.state.getProperty ("customCode", juce::String()).toString(), false);
+            // THE PATCH BAY: its cords (none: straight through)
+            patch = {};
+            enh::patch::fromString (state.state.getProperty ("patchCords", juce::String()).toString().toStdString(), patch);
+            applyPatch();
+            patchVersion.fetch_add (1, std::memory_order_relaxed);
         }
+}
+
+void PluginProcessor::applyPatch()
+{
+    namespace rk = enh::dsp::rack;
+    namespace un = enh::dsp::units;
+    using E = enh::dsp::EnhEngine;
+    std::vector<int> order;
+    bool loop = false;
+    if (patch.cords.empty())
+    {
+        patchBypass.store (rk::Mask {}, std::memory_order_relaxed);
+        patchMuted = false;
+    }
+    else
+    {
+        const auto left = enh::patch::follow (patch, 0), right = enh::patch::follow (patch, 1);
+        // A loop of cords is feedback (ear-guarded in the engine); a cord out of the chain is silence
+        loop = left.loop || right.loop;
+        patchMuted = ! ((left.complete || left.loop) && (right.complete || right.loop));
+        // Every unit the signal does not go through is passed by (POWER and the OUTPUT MONITOR always run)
+        rk::Mask inPath {};
+        for (const auto* path : { &left, &right })
+            for (int u : path->units)
+                if (u >= 0 && u < rk::numUnits)
+                    inPath |= rk::bit (u);
+        rk::Mask bypass {};
+        for (int u = 0; u < rk::numUnits; ++u)
+            if (u != rk::power && u != rk::monitor && ((inPath >> u) & 1u) == 0u)
+                bypass |= rk::bit (u);
+        patchBypass.store (bypass, std::memory_order_relaxed);
+        // The units after the enhancer run in the order the left side's cords take them
+        for (int u : left.units)
+        {
+            int code = -1;
+            switch (u)
+            {
+                case rk::leveler:   code = E::stLumen; break;
+                case rk::deepSub:   code = E::stDeep; break;
+                case rk::limiter:   code = E::stLimiter; break;
+                case rk::balancer:  code = E::stBalancer; break;
+                case rk::compressor:code = E::stTide; break;
+                case rk::radar:     code = E::stRadar; break;
+                case rk::toneSpace: code = E::stSeraph; break;
+                case rk::character: code = E::stCharacter; break;
+                case rk::x4:        code = E::stX4; break;
+                case rk::velvet:    code = E::stVelvet; break;
+                case rk::takeback:  code = E::stTakeback; break;
+                case rk::custom:    code = E::stCustom; break;
+                case rk::lunchbox:  code = E::stLunchbox; break;
+                default:
+                    if (u >= un::firstUnit && u < un::firstUnit + un::count) code = E::stNewer + (u - un::firstUnit);
+                    break;
+            }
+            if (code >= 0)
+                order.push_back (code);
+        }
+    }
+    engine.setChainOrder (order);
+    engine.setFeedback (loop);
+    patchLoop = loop;
+    engine.setPatch (patchMuted, patchNoise);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

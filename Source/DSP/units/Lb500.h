@@ -98,10 +98,12 @@ namespace enh::dsp::units::lb
             for (int i = 0; i < n; ++i)
                 for (int c = 0; c < 2; ++c)
                 {
-                    float x = io[c][i];
-                    if (hpOn) for (int k = 0; k < stages; ++k) x = hp[(size_t) k].run (c, x);
-                    if (lpOn) for (int k = 0; k < stages; ++k) x = lp[(size_t) k].run (c, x);
-                    io[c][i] = x;
+                    // (a filter switched out still runs, unheard: switched in, it carries on from where the sound is - no click)
+                    const float x = io[c][i];
+                    float h = x; for (int k = 0; k < stages; ++k) h = hp[(size_t) k].run (c, h);
+                    float y = hpOn ? h : x;
+                    float l = y; for (int k = 0; k < stages; ++k) l = lp[(size_t) k].run (c, l);
+                    io[c][i] = lpOn ? l : y;
                 }
             setMeter ((hpOn ? 0.5f : 0.0f) + (lpOn ? 0.5f : 0.0f));
         }
@@ -568,7 +570,7 @@ namespace enh::dsp::units::lb
     };
 
     /** The modules, by their place in LbList.h (keep the order of gen_units.py's LB_MODULES). */
-    inline std::unique_ptr<RackUnit> make (int k)
+    inline std::unique_ptr<RackUnit> makeUnit (int k)
     {
         switch (k)
         {
@@ -588,6 +590,13 @@ namespace enh::dsp::units::lb
             case 13: return std::make_unique<Limiter>();
             default: return nullptr;
         }
+    }
+    /** Unit k, its knob count set (so its knobs glide: RackUnit). */
+    inline std::unique_ptr<RackUnit> make (int k)
+    {
+        auto u = makeUnit (k);
+        if (u != nullptr) u->setParamCount (enh::dsp::lbmods::info[k].numParams);
+        return u;
     }
     static_assert (lbmods::count == 14, "Lb500.h: one case per module in LbList.h");
 }

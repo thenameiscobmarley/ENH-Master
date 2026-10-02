@@ -1,6 +1,8 @@
-# TONE and SPACE
+# TONE & SPACE FINISHER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called TONE and SPACE.
 
 The purple unit near the top. It takes everything the rack did and makes it sound finished.
 How to use it: [Making it sound heavenly](../Tutorial/04%20Making%20it%20sound%20heavenly.md).

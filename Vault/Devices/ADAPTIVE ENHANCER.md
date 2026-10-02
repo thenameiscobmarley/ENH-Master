@@ -1,6 +1,8 @@
-# ADAPTIVE ENHANCER
+# ADAPTIVE ENHANCER EQ
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called ADAPTIVE ENHANCER.
 
 The black unit, second from the bottom. It listens to the sound and brings out what's missing.
 

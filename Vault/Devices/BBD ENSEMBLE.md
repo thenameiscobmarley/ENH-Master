@@ -1,6 +1,8 @@
-# BBD ENSEMBLE
+# ANALOG CHORUS
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called BBD ENSEMBLE.
 
 A bucket-brigade chorus: delays swept by LFOs, through the chips' own filters, compander and clock hiss. CHORUS I, CHORUS II, or ENSEMBLE (three delays 120 degrees apart with a fast shimmer: the string-machine sound). (1U, model CE-3.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

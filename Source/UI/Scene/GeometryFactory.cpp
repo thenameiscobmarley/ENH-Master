@@ -846,7 +846,7 @@ namespace pad::geo
     }
 
     //==============================================================================
-    MeshData tubeAlong (const std::vector<Vec3>& pts, float r, int sides)
+    MeshData tubeAlong (const std::vector<Vec3>& pts, float r, int sides, float step)
     {
         MeshData mesh;
         if (pts.size() < 2)
@@ -857,7 +857,7 @@ namespace pad::geo
         for (int i = 0; i + 1 < (int) pts.size(); ++i)
         {
             const Vec3 p0 = at (i - 1), p1 = at (i), p2 = at (i + 1), p3 = at (i + 2);
-            const int steps = std::max (2, (int) std::ceil (length (p2 - p1) / 0.06f));
+            const int steps = std::max (1, (int) std::ceil (length (p2 - p1) / step));
             for (int k = 0; k < steps; ++k)
             {
                 const float t = (float) k / (float) steps, t2 = t * t, t3 = t2 * t;
@@ -867,8 +867,10 @@ namespace pad::geo
         c.push_back (pts.back());
         Vec3 prevT = normalise (c[1] - c[0]);
         Vec3 n = std::abs (prevT.y) < 0.9f ? normalise (cross (prevT, { 0.0f, 1.0f, 0.0f })) : normalise (cross (prevT, { 1.0f, 0.0f, 0.0f }));
+        float run = 0.0f;   // (v: the length along it, for a braid's weave)
         for (size_t i = 0; i < c.size(); ++i)
         {
+            if (i > 0) run += length (c[i] - c[i - 1]);
             const Vec3 t = normalise (i + 1 < c.size() ? c[i + 1] - c[i] : c[i] - c[i - 1]);
             // carry the frame along: take out the part of n along the new tangent
             n = normalise (n - t * dot (n, t));
@@ -877,7 +879,7 @@ namespace pad::geo
             {
                 const float a = 2.0f * 3.14159265f * (float) s / (float) sides;
                 const Vec3 d = n * std::cos (a) + b * std::sin (a);
-                mesh.addVertex (c[i] + d * r, d, (float) s / (float) sides, (float) i * 0.1f);
+                mesh.addVertex (c[i] + d * r, d, (float) s / (float) sides, run);
             }
             prevT = t;
         }

@@ -252,7 +252,7 @@ namespace pad::artwork
             {
                 text (g, m, s, x0, z, fitHeight (m, s, h, width, true, tracking), left, true, tracking, width);
             };
-            line ("TONE & SPACE", -0.745f, 0.050f, 0.16f);
+            line ("TONE & SPACE FINISHER", -0.745f, 0.050f, 0.16f);
             line (juce::String ("MODEL EM-") + juce::String (unitInfo[(size_t) tubeUnit].chainPosition), -0.675f, 0.020f, 0.12f);
         }
 
@@ -399,17 +399,16 @@ namespace pad::artwork
             const auto title = unit == tideUnit ? juce::String ("COMPRESSOR") : unit == lumenUnit ? juce::String ("LEVELER")
                              : unit == levelUnit ? juce::String ("LEVEL") : unit == balancerUnit ? juce::String ("BALANCE")
                              : unit == monitorUnit ? juce::String ("MONITOR")
-                             : unit == characterUnit ? juce::String ("CHARACTER")
+                             : unit == characterUnit ? juce::String ("CONSOLE & TAPE EMULATOR")
                              : unit == radarUnit ? juce::String ("RADAR")
                              : unit == powerUnit ? juce::String ("MAINS")
                                                                                                    : juce::String ("DYNAMIC EQ");
             const auto font = makeFont (m.len (0.024f), true, 0.30f);
             const float tw = juce::GlyphArrangement::getStringWidth (font, title);
-            // Break the border where the title sits, the way engraved panels do
-            g.setColour (juce::Colours::black);
-            g.fillRect (juce::Rectangle<float> (m.px (box.cx) - 0.5f * tw - m.len (0.02f), m.pz (box.minZ()) - m.len (0.012f),
-                                                tw + m.len (0.04f), m.len (0.024f)));
-            g.setColour (juce::Colours::white);
+            // Break the border where the title sits, the way engraved panels do (erased from the ink: on a
+            // one-channel image, painting "black" is painting ink - it printed as a solid white bar)
+            ink.clear (juce::Rectangle<float> (m.px (box.cx) - 0.5f * tw - m.len (0.02f), m.pz (box.minZ()) - m.len (0.012f),
+                                               tw + m.len (0.04f), m.len (0.024f)).getSmallestIntegerContainer());
             text (g, m, title, box.cx, box.minZ() + 0.004f, 0.024f, centred, true, 0.30f, 0.0f);
         }
 
@@ -567,7 +566,7 @@ namespace pad::artwork
         }
 
         // Under the OUTPUT meter: what the frame is
-        text (g, m, "LUNCHBOX", lbModuleX (3), 0.02f, 0.030f, centred, true, 0.20f, 0.38f);
+        text (g, m, "500 SERIES", lbModuleX (3), 0.02f, 0.030f, centred, true, 0.20f, 0.38f);
         text (g, m, "10-SLOT FRAME", lbModuleX (3), 0.08f, 0.017f, centred, true, 0.20f, 0.38f);
         text (g, m, "CLASS A", lbModuleX (3), 0.40f, 0.022f, centred, true, 0.24f, 0.38f);
         text (g, m, "DISCRETE", lbModuleX (3), 0.45f, 0.017f, centred, true, 0.24f, 0.38f);
@@ -1135,12 +1134,12 @@ namespace pad::artwork
         struct DesignedLook { const char* name; const char* model; const char* sub; };
         DesignedLook designedLook (int unit)
         {
-            return unit == x4Unit ? DesignedLook { "LATINSPHIEL PRO X4", "PRO X4", "BY LATINSPHIEL AUDIO" }
-                 : unit == takebackUnit ? DesignedLook { "TAKEBACK", "BLONDEX", "BY TEXAS STUDIOS" }
-                 : unit == scopeUnit ? DesignedLook { "PHOSPHOR", "XY-2", "CRT VECTOR / WAVEFORM MONITOR" }
+            return unit == x4Unit ? DesignedLook { "SMART TUBE ENHANCER EQ", "PRO X4", "BY LATINSPHIEL AUDIO" }
+                 : unit == takebackUnit ? DesignedLook { "DYNAMICS RESTORER", "BLONDEX", "BY TEXAS STUDIOS" }
+                 : unit == scopeUnit ? DesignedLook { "OSCILLOSCOPE", "XY-2", "CRT VECTOR / WAVEFORM MONITOR" }
                  : unit >= firstGenUnit && unit < firstGenUnit + gen::count ? DesignedLook { gen::looks[unit - firstGenUnit].name, gen::looks[unit - firstGenUnit].model, gen::looks[unit - firstGenUnit].sub }
                  : unit == customUnit ? [] { static std::shared_ptr<const custom::Look> k; k = custom::get(); return DesignedLook { k->name.c_str(), k->model.c_str(), k->sub.c_str() }; }()
-                                        : DesignedLook { "VELVETIZER", "BSK-14D1", "BY KHRIS'S AUDIO" };
+                                        : DesignedLook { "SMOOTHING SATURATOR", "BSK-14D1", "BY KHRIS'S AUDIO" };
         }
 
         juce::String scaleNumber (float v)
@@ -1170,7 +1169,9 @@ namespace pad::artwork
         {
             const auto look = designedLook (unit);
             const float x0 = -faceHalfW + 23.0f * mmX;
-            text (g, m, look.name, x0, -halfH + 9.0f * mmZ, 4.4f * mmX, left, true, 0.20f, 1.4f);
+            // (a long name prints smaller, so it keeps clear of the controls beside it)
+            const float nameH = 4.4f * mmX * std::min (1.0f, 12.0f / (float) juce::jmax (1, juce::String (look.name).length()));
+            text (g, m, look.name, x0, -halfH + 9.0f * mmZ, nameH, left, true, 0.20f, 1.4f);
             text (g, m, juce::String ("MODEL ") + look.model, x0, -halfH + 14.5f * mmZ, 2.3f * mmX, left, false, 0.15f, 1.0f);
             text (g, m, look.sub, x0, -halfH + 19.0f * mmZ, 2.1f * mmX, left, false, 0.15f, 1.2f);
         }
@@ -1197,7 +1198,7 @@ namespace pad::artwork
                             g.fillEllipse (m.rect (p.x + dir.x * rd - 0.008f, p.z + dir.y * rd - 0.008f, p.x + dir.x * rd + 0.008f, p.z + dir.y * rd + 0.008f));
                             text (g, m, spec->texts[k].toUpperCase(), p.x + dir.x * rr, p.z + dir.y * rr, 0.016f, centred, true, 0.04f, 0.15f);
                         }
-                        labelR = r * 1.25f + 0.12f;
+                        labelR = r * 1.62f;   // (level with a knob's: the stop names at the bottom sit either side of it)
                     }
                     else if (p.nums != 3 && spec != nullptr)
                     {
@@ -1223,7 +1224,7 @@ namespace pad::artwork
                     }
                     // Its name under it; a band's DRIVE also carries the band over it
                     text (g, m, p.text, p.x, p.z + labelR + 3.0f * mmZ, 2.6f * mmX, centred, true, 0.12f, 0.3f);
-                    if (juce::String (p.param).endsWith ("Drive"))
+                    if (juce::String (p.param).startsWith ("x4") && juce::String (p.param).endsWith ("Drive"))   // (PRO X4's bands only: other units have DRIVE knobs too)
                     {
                         const int band = juce::String (p.param).substring (3, 4).getIntValue();
                         static const char* names[] { "LOW", "LO MID", "HI MID", "HIGH" };
@@ -1231,7 +1232,7 @@ namespace pad::artwork
                     }
                     break;
                 }
-                case 'T': text (g, m, p.text, p.x, p.z + 12.0f * mmZ, 2.5f * mmX, centred, true, 0.10f, 0.2f); break;
+                case 'T': text (g, m, p.text, p.x, p.z + 12.6f * mmZ, 2.5f * mmX, centred, true, 0.10f, 0.2f); break;
                 case 'U': text (g, m, p.text, p.x, p.z + p.h + 4.0f * mmZ, 2.5f * mmX, centred, true, 0.10f, 0.2f); break;
                 case 'E': if (juce::String (p.text).isNotEmpty()) text (g, m, p.text, p.x, p.z + p.w + 4.0f * mmZ, 2.2f * mmX, centred, true, 0.08f, 0.2f); break;
                 case 'J': text (g, m, p.text, p.x, p.z + p.w + 3.5f * mmZ, 2.2f * mmX, centred, true, 0.08f, 0.25f); break;
@@ -1247,9 +1248,9 @@ namespace pad::artwork
                     {
                         const auto font = makeFont (m.len (2.5f * mmX), true, 0.30f);
                         const float tw = juce::GlyphArrangement::getStringWidth (font, p.text);
-                        g.setColour (juce::Colours::black);   // the border breaks where the title sits
-                        g.fillRect (juce::Rectangle<float> (box.getCentreX() - 0.5f * tw - m.len (0.02f), box.getY() - m.len (0.012f), tw + m.len (0.04f), m.len (0.024f)));
-                        g.setColour (juce::Colours::white);
+                        // the border breaks where the title sits: erased from the ink (on a one-channel image,
+                        // painting "black" is painting ink - the title printed as a solid white bar)
+                        ink.clear (juce::Rectangle<float> (box.getCentreX() - 0.5f * tw - m.len (0.02f), box.getY() - m.len (0.012f), tw + m.len (0.04f), m.len (0.024f)).getSmallestIntegerContainer());
                         text (g, m, p.text, p.x, p.z - 0.5f * p.h, 2.5f * mmX, centred, true, 0.30f, 0.0f);
                     }
                     break;

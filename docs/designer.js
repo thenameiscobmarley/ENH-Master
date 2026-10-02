@@ -24,7 +24,8 @@
     led:     { label: "LED", w: 4, h: 4, defaults: { colour: "#46e070", on: true, text: "", shape: "round", blink: false, bezel: "chrome", ink: "print" } },
     vu:      { label: "VU meter", w: 64, h: 36, defaults: { style: "cream", value: 55, text: "VU", dial: "vu", light: false, peak: false } },
     ladder:  { label: "LED ladder", w: 6, h: 40, defaults: { segments: 10, value: 60, text: "", horizontal: false, palette: "classic", peak: false } },
-    display: { label: "Display", w: 90, h: 30, defaults: { colour: "#56c8f5", text: "ENH", kind: "wave", content: "", backlit: false } },
+    display: { label: "Display", w: 90, h: 30, defaults: { colour: "#56c8f5", text: "ENH", kind: "wave", content: "", backlit: false,
+                                                   scrShape: "sine", scrStyle: "lines", scrColours: "warmcool", scrSpeed: 5 } },
     label:   { label: "Text", w: 40, h: 8, defaults: { text: "LABEL", size: 5, bold: true, align: "center", bend: "none", curve: 40, radius: 20, start: 0, flip: false,
                                                    italic: false, spacing: 1, look: "print", ink: "print" } },
     box:     { label: "Section box", w: 90, h: 34, defaults: { text: "SECTION", round: 3, fill: false, lineStyle: "solid", lineW: 0.35, tone: "lighter", fillCol: "#2a2b30", ink: "print" } },
@@ -77,7 +78,8 @@
   // The newer settings' choices (each a fixed list: a share code can only pick from them)
   const INKS = ["print", "accent", "white", "black", "red", "gold"], MARKS = ["ticks", "dots", "arc"], LABEL_POS = ["below", "above", "none"];
   const LED_SHAPES = ["round", "square", "rect", "triangle"], BEZELS = ["chrome", "black", "none"], DIALS = ["vu", "ppm", "percent", "gr"];
-  const PALETTES = ["classic", "green", "blue", "amber", "white", "red"], DISPLAYS = ["wave", "bars", "spectrum", "digits", "text", "blank"];
+  const PALETTES = ["classic", "green", "blue", "amber", "white", "red"], DISPLAYS = ["wave", "bars", "spectrum", "digits", "text", "blank", "scope", "colour", "cube", "custom"];
+  const SCR_SHAPES = ["sine", "square", "saw", "noise", "pulse"], SCR_STYLES = ["lines", "dots", "bars", "rings"], SCR_COLOURS = ["mono", "warmcool", "rainbow"];
   const LOOKS = ["print", "engraved", "embossed", "outline"], LINES = ["solid", "dashed", "double", "none"], TONES = ["lighter", "darker", "colour"];
   const NUTS = ["chrome", "black", "gold"], SCREW_STYLES = ["unit", "phillips", "hex", "thumb", "torx", "flat"], METALS = ["unit", "chrome", "black", "brass"];
   const VENTS = ["slots", "holes", "hex", "louvre", "grille"], FADERS = ["black", "silver", "white", "red"], LAMPS = ["jewel", "dome", "square"];
@@ -103,6 +105,13 @@
     delay:   ["Delay", { time: ["Time", 10, 1500, 350, "ms", 1], feedback: ["Feedback", 0, 90, 35, "%"], tone: ["Tone", 500, 16000, 5000, "Hz", 1], mix: ["Mix", 0, 100, 25, "%"] }],
     room:    ["Reverb", { size: ["Size", 0.2, 8, 1.8, "s", 1], damp: ["Damping", 0, 100, 40, "%"], predelay: ["Pre-delay", 0, 200, 15, "ms"], mix: ["Mix", 0, 100, 22, "%"] }],
     width:   ["Stereo width", { width: ["Width", 0, 200, 120, "%"] }],
+    chorus:  ["Chorus", { rate: ["Rate", 0.05, 6, 0.8, "Hz", 1], depth: ["Depth", 0, 100, 45, "%"], mix: ["Mix", 0, 100, 45, "%"] }],
+    pan:     ["Pendulum pan", { rate: ["Rate", 0.05, 12, 0.5, "Hz", 1], depth: ["Depth", 0, 100, 60, "%"], mode: ["Moves (0 side to side, 1 volume)", 0, 1, 0, ""] }],
+    wander:  ["Lava-lamp filter", { freq: ["Centre", 150, 8000, 1200, "Hz", 1], range: ["Range", 0, 100, 50, "%"], speed: ["Speed", 0.02, 2, 0.15, "Hz", 1], q: ["Resonance", 0.3, 10, 2, ""] }],
+    stutter: ["Chops (stutter)", { rate: ["Chops a second", 1, 16, 4, "", 1], depth: ["Depth", 0, 100, 70, "%"], smooth: ["Smooth", 0, 100, 40, "%"] }],
+    crush:   ["Bit crusher", { bits: ["Bits", 2, 12, 6, ""], mix: ["Mix", 0, 100, 50, "%"] }],
+    wow:     ["Tape wow", { wow: ["Wow", 0, 100, 35, "%"], flutter: ["Flutter", 0, 100, 25, "%"] }],
+    shimmer: ["Shimmer", { size: ["Size", 1, 8, 4, "s", 1], octave: ["Octave up", 0, 100, 50, "%"], mix: ["Mix", 0, 100, 30, "%"] }],
     gain:    ["Output", { gain: ["Level", -24, 12, 0, "dB"] }],
   };
   const DSP_TYPES = Object.keys (DSP_BLOCKS);
@@ -166,6 +175,9 @@
                              pt: "line", bc: "#141416", kc: "#c9cacf", sc: "#141416", pc: "#f2f2f2", mt: "satin" });
 
   let design = blank(), selected = [], history = [], future = [], play = false, zoom = 1, snap = true, nextId = 1;
+  let refit = () => {};   // (set once the zoom controls are wired: fits the unit to the stage unless you zoomed)
+  let faceGroup = null, upNow = false, lastUp = false;   // (the editor's plate group, and whether it stands upright this render)
+  const isUpright = () => design.unit.ears === "none";   // a 500-series module: no rack ears
 
   // ---------------------------------------------------------------------------------------------------
   // Sanitizing: the only way anything from outside (a share code, the browser's saved copy) gets in
@@ -195,6 +207,7 @@
     kind: one (DISPLAYS), content: (v, d) => text (v, 24, d), backlit: bool, italic: bool, spacing: num (0, 3), look: one (LOOKS),
     lineStyle: one (LINES), lineW: num (0.1, 2), tone: one (TONES), fillCol: colour, dashed: bool, nut: one (NUTS), cable: colour,
     metal: one (METALS), stops: (v, d) => stopList (typeof v === "string" ? v : d).join ("|"), screws: bool,
+    scrShape: one (SCR_SHAPES), scrStyle: one (SCR_STYLES), scrColours: one (SCR_COLOURS), scrSpeed: num (0, 10),
   };
   /** A rotary switch's positions: 2 - 12 names, each short plain text. */
   function stopList (s) {
@@ -286,7 +299,8 @@
     marks: "mk", bipolar: "bp", ring: "rg", ringColour: "rc", suffix: "sx", labelPos: "lp", labelSize: "lz", ink: "ik", detent: "dt", three: "th", mid: "md",
     upText: "ut", downText: "dx", led: "ld", momentary: "mo", capText: "ct", shape: "sh", blink: "bk", bezel: "bz", dial: "di", light: "li", peak: "pk",
     horizontal: "hz", palette: "pa", kind: "kd", content: "co", backlit: "bl", italic: "it", spacing: "sp", look: "lk", lineStyle: "ls", lineW: "lw",
-    tone: "tn", fillCol: "fc", dashed: "da", nut: "nt", cable: "cb", metal: "me", stops: "so", screws: "sc", ctl: "cl" };
+    tone: "tn", fillCol: "fc", dashed: "da", nut: "nt", cable: "cb", metal: "me", stops: "so", screws: "sc", ctl: "cl",
+    scrShape: "ssh", scrStyle: "sst", scrColours: "scl", scrSpeed: "ssp" };
   const LONG = Object.fromEntries (Object.entries (SHORT).map (([a, b]) => [b, a]));
   const round1 = (n) => Math.round (n * 10) / 10;
 
@@ -468,11 +482,17 @@
     mode = rmode;
     while (root.lastChild && root.lastChild.nodeName !== "title") root.removeChild (root.lastChild);
     const u = design.unit, H = u.height * U, print = mode === "print";
-    root.setAttribute ("viewBox", print ? `0 0 ${W} ${H}` : `-6 -6 ${W + 12} ${H + 12}`);
-    root.setAttribute ("width", print ? W : (W + 12) * 2 * zoom);
-    root.setAttribute ("height", print ? H : (H + 12) * 2 * zoom);
+    // A 500-series module (no rack ears) stands upright in the editor, as it sits in a LUNCHBOX: the plate turned a
+    // quarter, each part turned back so knobs, switches and print read the right way up (the design itself is unchanged)
+    const up = root === svg && !print && isUpright();
+    upNow = up;
+    if (root === svg && !print && up !== lastUp) { lastUp = up; requestAnimationFrame (() => refit()); }   // (turned: fit it again)
+    root.setAttribute ("viewBox", print ? `0 0 ${W} ${H}` : up ? `-6 -6 ${H + 12} ${W + 12}` : `-6 -6 ${W + 12} ${H + 12}`);
+    root.setAttribute ("width", print ? W : ((up ? H : W) + 12) * 2 * zoom);
+    root.setAttribute ("height", print ? H : ((up ? W : H) + 12) * 2 * zoom);
     if (ownDefs) defs (root);
-    const face = el ("g", {}, root);
+    const face = el ("g", up ? { transform: `translate(${H} 0) rotate(90)` } : {}, root);
+    if (root === svg) faceGroup = face;
     const rx = u.edge === "square" ? 0.2 : u.edge === "bevel" ? 0.6 : 1.4;
     // The plate: shadow, body, finish, edge highlight, wear
     if (!print) el ("rect", { x: 0.8, y: 1.6, width: W, height: H, rx, fill: "#000", opacity: 0.55, filter: "url(#drop)" }, face);
@@ -522,6 +542,13 @@
       const bx = W - (u.ears === "none" ? 26 : EAR + (u.handles !== "none" ? 36 : 26)), bw = Math.max (22, u.badge.length * 2.6 + 8);
       el ("rect", { x: bx - bw / 2, y: 4, width: bw, height: 8, rx: 4, fill: shade (u.colour, -0.5), stroke: u.ink, "stroke-width": 0.35 }, face);
       txt (face, bx, 8, u.badge, 3, u.ink, { spacing: 0.5 });
+    }
+    // The grid, faint, while a part is dragged with snapping on (every millimetre it snaps to; every 5th brighter)
+    if (root === svg && drag && drag.mode === "move" && drag.moved && snap && gridMm >= 1) {
+      const gp = [];
+      for (let x = 0, i = 0; x <= W; x += gridMm, ++i) gp.push (`M${x.toFixed (2)} 0V${H}`);
+      for (let y = 0, i = 0; y <= H; y += gridMm, ++i) gp.push (`M0 ${y.toFixed (2)}H${W}`);
+      el ("path", { d: gp.join (""), fill: "none", stroke: "#9ad8ff", "stroke-width": 0.08, opacity: 0.35 }, face);
     }
     // Parts, back to front
     for (const p of design.parts) drawPart (face, p);
@@ -595,7 +622,7 @@
   const METAL_FILL = { chrome: "url(#knobAlu)", black: "url(#knobBlack)", brass: "url(#brass)", gold: "url(#brass)" };
 
   function drawPart (parent, p) {
-    const g = el ("g", { "data-id": p.id, class: "d-part", transform: `translate(${p.x} ${p.y})${p.rot ? ` rotate(${p.rot})` : ""}` }, parent);
+    const g = el ("g", { "data-id": p.id, class: "d-part", transform: `translate(${p.x} ${p.y})${upNow ? " rotate(-90)" : ""}${p.rot ? ` rotate(${p.rot})` : ""}` }, parent);
     const ink = inkOf (p), r = Math.min (p.w, p.h) / 2, printing = mode === "print";
     // A knob's (or rotary switch's) name: under it, over it, or not at all; straight or curved
     const knobLabel = (R) => {
@@ -782,7 +809,8 @@
         el ("rect", { x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 1.2, fill: shade (p.colour, p.backlit ? -0.45 : -0.88) }, g);
         const fg = p.backlit ? "#0a0b0c" : p.colour, x0 = -p.w / 2 + 3, span = p.w - 6;
         const kind = p.kind || "wave", body = p.content || "";
-        if (kind === "wave") { let d = ""; for (let i = 0; i <= 60; ++i) { const x = x0 + span * i / 60, y = Math.sin (i * 0.45) * Math.cos (i * 0.11) * p.h * 0.25; d += (i ? " L " : "M ") + x.toFixed (2) + " " + y.toFixed (2); }
+        if (SCREEN_KINDS.includes (kind)) { const scr = el ("g", { class: "d-scr", "data-scr": p.id }, g); drawScreen (scr, p, 1.3, 0.55, null); }
+        else if (kind === "wave") { let d = ""; for (let i = 0; i <= 60; ++i) { const x = x0 + span * i / 60, y = Math.sin (i * 0.45) * Math.cos (i * 0.11) * p.h * 0.25; d += (i ? " L " : "M ") + x.toFixed (2) + " " + y.toFixed (2); }
           el ("path", { d, fill: "none", stroke: fg, "stroke-width": 0.6, opacity: 0.9 }, g); }
         else if (kind === "bars" || kind === "spectrum") { const n = kind === "bars" ? 8 : 24, bw = span / n;
           for (let i = 0; i < n; ++i) { const hgt = p.h * (kind === "bars" ? 0.25 + 0.4 * Math.abs (Math.sin (i * 1.3 + 0.4)) : 0.55 * Math.exp (-i / 14) * (0.7 + 0.3 * Math.sin (i * 2.1)));
@@ -1039,7 +1067,10 @@
     // The sound (designer-audio.js): the blocks, and a way to change the chain (sanitized, one undo step;
     // any wiring left pointing at a block that is gone is dropped)
     DSP_BLOCKS, MAX_BLOCKS,
-    setDsp: (d) => { design.dsp = sanitizeDsp (d); for (const q of design.parts) if (q.ctl && !ctlOk (q.ctl, design.dsp.chain)) delete q.ctl; commit(); },
+    setDsp: (d, remap) => { design.dsp = sanitizeDsp (d);   // (remap: a block's old place -> its new one, so wiring follows a reorder)
+      for (const q of design.parts) { if (q.ctl && remap) { const [bi, key] = q.ctl.split ("."); if (remap[Number (bi)] != null) q.ctl = remap[Number (bi)] + "." + key; }
+        if (q.ctl && !ctlOk (q.ctl, design.dsp.chain)) delete q.ctl; }
+      commit(); },
   });
 
   // ---------------------------------------------------------------------------------------------------
@@ -1145,8 +1176,10 @@
   function replaceDesign (d) {   // a template, an imported code, a new blank unit: one undoable step
     if (last !== null) { history.push (last); future = []; }
     design = d; selected = []; last = JSON.stringify (design); save(); render(); props(); syncUnit();
+    requestAnimationFrame (refit);
   }
-  function snapV (v) { return snap ? Math.round (v * 2) / 2 : v; }
+  let gridMm = 0.5;   // the grid's step, mm (Look: Grid size)
+  function snapV (v) { return snap ? Math.round (v / gridMm) * gridMm : v; }
 
   function addPart (type) {
     const t = TYPES[type], H = design.unit.height * U;
@@ -1469,7 +1502,10 @@
 
   // Pointer: select, drag, and in Play mode turn knobs / flip switches
   let drag = null;
-  function svgPoint (e) { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform (svg.getScreenCTM().inverse()); }
+  function svgPoint (e) {   // (in the plate's own millimetres, whichever way up it is shown)
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    return pt.matrixTransform ((faceGroup && faceGroup.ownerSVGElement === svg ? faceGroup : svg).getScreenCTM().inverse());
+  }
   svg.addEventListener ("pointerdown", (e) => {
     const g = e.target.closest (".d-part"); const pt = svgPoint (e);
     if (!g) {   // empty space: drag a box to select what it touches (Shift adds to what is selected)
@@ -1516,6 +1552,11 @@
     }
     const pt = svgPoint (e), H = design.unit.height * U;
     let dx = pt.x - drag.start.x, dy = pt.y - drag.start.y;
+    if (e.shiftKey && drag.orig.length) {   // Shift: the move held to 0, 45 or 90 degrees (angle snapping)
+      const a = Math.atan2 (dy, dx), step = Math.PI / 4, snapped = Math.round (a / step) * step, len = Math.hypot (dx, dy) * Math.cos (a - snapped);
+      dx = len * Math.cos (snapped); dy = len * Math.sin (snapped);
+      if (Math.abs (dx) < 1e-6) dx = 0; if (Math.abs (dy) < 1e-6) dy = 0;
+    }
     if (Math.abs (dx) + Math.abs (dy) > 0.2) drag.moved = true;
     // Smart guides: the moving parts' edges and middle snap to the other parts' (and the panel's middle)
     // when they come within ~1.2 mm on screen; the lines they snap to are drawn while dragging (Alt: off)
@@ -1566,7 +1607,97 @@
   function redo () { if (!future.length) return; history.push (JSON.stringify (design)); design = JSON.parse (future.pop()); last = JSON.stringify (design); selected = []; save(); render(); props(); syncUnit(); }
   let blinkTimer = 0;
   function setPlay (on) { play = on;
+    if (on && !screenRaf) screenRaf = requestAnimationFrame (animateScreens);
     clearInterval (blinkTimer); if (on) blinkTimer = setInterval (() => { if (design.parts.some ((q) => q.blink && q.on)) render(); }, 250); const b = document.getElementById ("play"); b.setAttribute ("aria-pressed", String (on)); b.textContent = on ? "Edit" : "Play"; document.body.classList.toggle ("playing", on); render(); }
+
+
+  // ---------------------------------------------------------------------------------------------------
+  // Screens: a display's moving picture - drawn still in the editor, alive in Play (following the Sound tab's
+  // song when one plays: its level and its waveform). A scope's phase trace, colour lines (warm when it's
+  // quiet, cool when it's loud), a warped wireframe cube, or one of your own (shape, style, colours, speed).
+  const SCREEN_KINDS = ["wave", "bars", "spectrum", "scope", "colour", "cube", "custom"];
+  function screenColour (p, x01, t, i) {
+    if (p.kind === "colour" || (p.kind === "custom" && p.scrColours === "warmcool")) { const h = 20 + 200 * x01; return `hsl(${h.toFixed (0)} 95% 62%)`; }
+    if (p.kind === "cube" || (p.kind === "custom" && p.scrColours === "rainbow")) return `hsl(${((x01 * 300 + t * 40 + i * 25) % 360).toFixed (0)} 90% 62%)`;
+    return p.backlit ? "#0a0b0c" : p.colour;
+  }
+  function screenShape (shape, ph, i) {
+    const f = ph - Math.floor (ph);
+    return shape === "square" ? (f < 0.5 ? 1 : -1) : shape === "saw" ? 2 * f - 1 : shape === "pulse" ? (f < 0.15 ? 1 : -0.2)
+         : shape === "noise" ? Math.sin (i * 12.9898 + Math.floor (ph * 8) * 78.233) * 0.9 : Math.sin (2 * Math.PI * ph);
+  }
+  function drawScreen (g, p, t, lv, wave) {
+    g = el ("svg", { x: -p.w / 2 + 1, y: -p.h / 2 + 1, width: p.w - 2, height: p.h - 2, viewBox: `${-p.w / 2 + 1} ${-p.h / 2 + 1} ${p.w - 2} ${p.h - 2}`, overflow: "hidden" }, g);   // (kept inside its glass)
+    const x0 = -p.w / 2 + 2.5, span = p.w - 5, y0 = -p.h / 2 + 2.5, hgt = p.h - 5, cx = 0, cy = 0, n = 64;
+    const line = (pts, col, w = 0.5, op = 0.95) => { if (pts.length < 2) return; el ("path", { d: "M" + pts.map ((q) => q[0].toFixed (2) + " " + q[1].toFixed (2)).join (" L "), fill: "none", stroke: col, "stroke-width": w, opacity: op, "stroke-linejoin": "round" }, g); };
+    const glow = (pts, col) => { line (pts, col, 1.6, 0.18); line (pts, col, 0.5, 0.95); };
+    const w = (i) => wave && wave.length ? wave[Math.floor (i / n * (wave.length - 16))] * 3 : Math.sin (i * 0.45 + t * 3) * Math.cos (i * 0.11 + t) * (0.4 + lv);
+    const kind = p.kind;
+    if (kind === "wave") { const pts = []; for (let i = 0; i <= n; ++i) pts.push ([x0 + span * i / n, Math.max (-1, Math.min (1, w (i))) * hgt * 0.4]); glow (pts, screenColour (p, 0, t, 0)); }
+    else if (kind === "bars" || kind === "spectrum") {
+      const m = kind === "bars" ? 8 : 24, bw = span / m;
+      for (let i = 0; i < m; ++i) {
+        const base = kind === "bars" ? 0.25 + 0.4 * Math.abs (Math.sin (i * 1.3 + 0.4 + t * 2)) : 0.55 * Math.exp (-i / 14) * (0.7 + 0.3 * Math.sin (i * 2.1 + t * 3));
+        const h = hgt * Math.min (0.95, base * (0.6 + 0.8 * lv));
+        el ("rect", { x: x0 + i * bw + bw * 0.15, y: y0 + hgt - h, width: bw * 0.7, height: h, fill: screenColour (p, i / m, t, i), opacity: 0.9 }, g);
+      }
+    }
+    else if (kind === "scope") {   // the phase trace: the signal against itself a moment later - a scope's X-Y
+      const pts = [], k = 9;
+      for (let i = 0; i <= 120; ++i) {
+        const a = i / 120 * Math.PI * 2;
+        const x = wave && wave.length > 200 ? wave[i * 3] * 3 : Math.sin (3 * a + t * 0.7) * (0.6 + 0.3 * lv);
+        const y = wave && wave.length > 200 ? wave[i * 3 + k] * 3 : Math.sin (2 * a + t * 0.45) * (0.6 + 0.3 * lv);
+        pts.push ([cx + Math.max (-1, Math.min (1, x)) * span * 0.45, cy + Math.max (-1, Math.min (1, y)) * hgt * 0.45]);
+      }
+      for (let gx = 1; gx < 8; ++gx) el ("line", { x1: x0 + span * gx / 8, y1: y0, x2: x0 + span * gx / 8, y2: y0 + hgt, stroke: p.colour, "stroke-width": 0.12, opacity: 0.25 }, g);
+      glow (pts, screenColour (p, 0, t, 0));
+    }
+    else if (kind === "colour") {   // strands of light: warm to cool across, swaying with the level
+      for (let j = 0; j < 6; ++j) {
+        const pts = [], yb = y0 + hgt * (j + 0.5) / 6;
+        for (let i = 0; i <= n; ++i) pts.push ([x0 + span * i / n, yb + Math.sin (i * 0.3 + t * 1.7 + j) * hgt * (0.03 + 0.07 * lv)]);
+        for (let i = 0; i < n; i += 8) line (pts.slice (i, i + 9), screenColour (p, i / n, t, j), 0.7, 0.9);
+      }
+    }
+    else if (kind === "cube") {   // a wireframe cube, turning, bent by the level
+      const ry = t * 0.8, rx = t * 0.5 + 0.4, r = Math.min (span, hgt) * 0.27, gridN = 5;
+      const P = (x, y, z) => { const warp = 1 + (0.06 + 0.16 * lv) * Math.sin (x * 2.1 + y * 1.7 + z * 2.3 + t * 2);
+        x *= warp; y *= warp; z *= warp;
+        const x1 = Math.cos (ry) * x + Math.sin (ry) * z, z1 = -Math.sin (ry) * x + Math.cos (ry) * z;
+        const y1 = Math.cos (rx) * y - Math.sin (rx) * z1, z2 = Math.sin (rx) * y + Math.cos (rx) * z1, s = 3 / (3 + z2);
+        return [cx + x1 * r * s, cy + y1 * r * s]; };
+      const faces = [[1, 0, 0, 0, 1, 0, 0, 0, 1], [-1, 0, 0, 0, 1, 0, 0, 0, 1], [0, 1, 0, 1, 0, 0, 0, 0, 1], [0, -1, 0, 1, 0, 0, 0, 0, 1], [0, 0, 1, 1, 0, 0, 0, 1, 0], [0, 0, -1, 1, 0, 0, 0, 1, 0]];
+      faces.forEach ((F, fi) => { for (let a = 0; a <= gridN; ++a) for (const dir of [0, 1]) {
+        const pts = []; const u0 = -1 + 2 * a / gridN;
+        for (let b = 0; b <= 10; ++b) { const v = -1 + 2 * b / 10, uu = dir ? u0 : v, vv = dir ? v : u0; pts.push (P (F[0] + F[3] * uu + F[6] * vv, F[1] + F[4] * uu + F[7] * vv, F[2] + F[5] * uu + F[8] * vv)); }
+        line (pts, screenColour (p, a / gridN, t, fi), 0.28, 0.8); } });
+    }
+    else if (kind === "custom") {   // yours: a shape, drawn as lines, dots, bars or rings, in one colour, warm to cool, or a rainbow
+      const speed = 0.2 + (p.scrSpeed ?? 5) * 0.3, shape = p.scrShape || "sine", style = p.scrStyle || "lines", amp = 0.35 + 0.6 * lv;
+      if (style === "rings") {
+        for (let k = 1; k <= 6; ++k) { const rr = Math.min (span, hgt) * 0.08 * k * (1 + 0.25 * screenShape (shape, t * speed * 0.3 + k * 0.17, k) * amp);
+          el ("circle", { cx, cy, r: Math.max (0.3, rr), fill: "none", stroke: screenColour (p, k / 6, t, k), "stroke-width": 0.45, opacity: 0.9 }, g); }
+      } else {
+        const pts = [];
+        for (let i = 0; i <= n; ++i) pts.push ([x0 + span * i / n, screenShape (shape, i / n * 3 + t * speed * 0.5, i) * hgt * 0.4 * amp]);
+        if (style === "lines") for (let i = 0; i < n; i += 8) line (pts.slice (i, i + 9), screenColour (p, i / n, t, 0), 0.6, 0.95);
+        else if (style === "dots") pts.forEach ((q, i) => { if (i % 2 === 0) el ("circle", { cx: q[0], cy: q[1], r: 0.55, fill: screenColour (p, i / n, t, 0) }, g); });
+        else pts.forEach ((q, i) => { if (i % 3 === 0) el ("rect", { x: q[0] - 0.6, y: Math.min (0, q[1]), width: 1.2, height: Math.max (0.3, Math.abs (q[1])), fill: screenColour (p, i / n, t, 0), opacity: 0.9 }, g); });
+      }
+    }
+  }
+  let screenRaf = 0;
+  function animateScreens () {   // in Play: every screen redrawn about 30 times a second
+    if (!play) { screenRaf = 0; return; }
+    const snd = window.ENHSound, lv = snd && snd.levelNow ? snd.levelNow() : 0, wave = snd && snd.waveNow ? snd.waveNow() : null;
+    const t = performance.now() / 1000;
+    for (const g of svg.querySelectorAll (".d-scr")) {
+      const p = byId (Number (g.getAttribute ("data-scr"))); if (!p) continue;
+      g.replaceChildren(); drawScreen (g, p, t, lv > 0 ? lv : 0.35 + 0.25 * Math.sin (t * 2.3), wave);
+    }
+    screenRaf = setTimeout (() => requestAnimationFrame (animateScreens), 30);
+  }
 
   // ---------------------------------------------------------------------------------------------------
   // Panels
@@ -1668,8 +1799,9 @@
     body.appendChild (h);
     const mixed = (i, key) => { if (!same (key)) { i.value = ""; i.placeholder = "mixed"; } };
     const num = (key, label, lo, hi, step = 0.5, after) => { const i = document.createElement ("input"); i.type = "number"; i.min = lo; i.max = hi; i.step = step; i.value = Math.round (p[key] * 10) / 10; mixed (i, key);
+      if (key === "rot" && snap) i.step = 15;   // (angle snapping: its arrows step 15 degrees, and a typed angle snaps when done)
       i.addEventListener ("input", () => { if (i.value === "") return; const v = clamp (i.value, lo, hi, p[key]); for (const q of ps) { q[key] = v; if (["knob", "selector", "led", "lamp", "screw"].includes (q.type) && key === "w") q.h = v; } if (after) after(); render(); save(); });
-      i.addEventListener ("change", commit); field (body, label, i); };
+      i.addEventListener ("change", () => { if (key === "rot" && snap && i.value !== "") { const v = Math.round (clamp (i.value, lo, hi, 0) / 15) * 15; i.value = v; for (const q of ps) q.rot = v; } commit(); }); field (body, label, i); };
     const str = (key, label, max) => { const i = document.createElement ("input"); i.maxLength = max; i.value = p[key]; i.autocomplete = "off"; mixed (i, key);
       i.addEventListener ("input", () => { setAll (key, text (i.value, max, "")); render(); save(); }); i.addEventListener ("change", commit); field (body, label, i); };
     const chk = (key, label) => { const i = document.createElement ("input"); i.type = "checkbox"; i.checked = !!p[key]; i.indeterminate = !same (key);
@@ -1766,7 +1898,14 @@
     if (sameType && p.type === "lamp") ask ("style", "Lens", LAMPS, { jewel: "Jewel (faceted)", dome: "Dome", square: "Square" });
     if (sameType && p.type === "vu") { choice ("dial", "Dial", DIALS, { vu: "VU (-20 .. +3)", ppm: "PPM (1 .. 7)", percent: "Percent", gr: "Gain reduction" }); chk ("light", "Lamp behind the dial"); chk ("peak", "Peak LED"); }
     if (sameType && p.type === "ladder") { chk ("horizontal", "Horizontal"); ask ("palette", "Colours", PALETTES, { classic: "Green, yellow, red" }); chk ("peak", "Peak hold"); }
-    if (sameType && p.type === "display") { ask ("kind", "Shows", DISPLAYS, { wave: "A waveform", bars: "Bars", spectrum: "A spectrum", digits: "Digits (7-segment)", text: "Text", blank: "Nothing" });
+    if (sameType && p.type === "display") { ask ("kind", "Shows", DISPLAYS, { wave: "A waveform", bars: "Bars", spectrum: "A spectrum", digits: "Digits (7-segment)", text: "Text", blank: "Nothing",
+                                                                 scope: "A scope (phosphor trace)", colour: "Colour lines (warm to cool)", cube: "A 3D cube (warped)", custom: "Your own screen" });
+      if (p.kind === "custom") {
+        ask ("scrShape", "Shape", SCR_SHAPES, { sine: "Sine", square: "Square", saw: "Saw", noise: "Noise", pulse: "Pulse" });
+        ask ("scrStyle", "Drawn as", SCR_STYLES, { lines: "Lines", dots: "Dots", bars: "Bars", rings: "Rings" });
+        ask ("scrColours", "Colours", SCR_COLOURS, { mono: "Its colour", warmcool: "Warm to cool", rainbow: "Rainbow" });
+        num ("scrSpeed", "Speed", 0, 10, 0.5);
+      }
       str ("content", "Digits / text on it", 24); chk ("backlit", "Backlit (lit glass, dark print)"); }
     if (sameType && p.type === "label") { chk ("italic", "Italic"); num ("spacing", "Letter spacing (x)", 0, 3, 0.1); ask ("look", "Look", LOOKS, { print: "Printed", engraved: "Engraved", embossed: "Embossed", outline: "Outline" }); }
     if (sameType && p.type === "box") { choice ("lineStyle", "Border", LINES, { solid: "Solid", dashed: "Dashed", double: "Double", none: "None" }); num ("lineW", "Border width", 0.1, 2, 0.05);
@@ -2141,8 +2280,19 @@
   $("tidy").addEventListener ("click", () => { tidy(); toast ("Tidied up - Undo takes it back"); });
   bindAi();
   const setZoom = (z) => { zoom = Math.min (4, Math.max (0.4, z)); $("zoom-val").textContent = Math.round (zoom * 100) + "%"; render(); };
-  $("zoom-in").addEventListener ("click", () => setZoom (zoom * 1.2)); $("zoom-out").addEventListener ("click", () => setZoom (zoom / 1.2));
-  $("zoom-fit").addEventListener ("click", () => { const w = $("stage").clientWidth - 24; setZoom (w / ((W + 12) * 2)); });
+  // Fit: the whole unit, as big as the stage allows, in its middle - on opening, on a new unit, when the window
+  // changes; until you zoom yourself (Fit gives it back)
+  let userZoomed = false;
+  const fitZoom = () => {
+    const st = $("stage"); if (!st || st.clientWidth < 50) return;
+    const H = design.unit.height * U, up = isUpright (), across = up ? H : W, down = up ? W : H;
+    setZoom (Math.min ((st.clientWidth - 40) / ((across + 12) * 2), (st.clientHeight - 40) / ((down + 12) * 2)));
+  };
+  refit = () => { if (!userZoomed) fitZoom(); };
+  $("zoom-in").addEventListener ("click", () => { userZoomed = true; setZoom (zoom * 1.2); }); $("zoom-out").addEventListener ("click", () => { userZoomed = true; setZoom (zoom / 1.2); });
+  $("zoom-fit").addEventListener ("click", () => { userZoomed = false; fitZoom(); });
+  addEventListener ("resize", () => requestAnimationFrame (refit));
+  requestAnimationFrame (() => requestAnimationFrame (refit));
 
   // The knob maker: the design's own knobs, each made of checked choices and clamped numbers
   let ckEditing = 0;
@@ -2227,6 +2377,78 @@
 
   // Palette and templates
   for (const type in TYPES) { const b = document.createElement ("button"); b.type = "button"; b.textContent = TYPES[type].label; b.addEventListener ("click", () => addPart (type)); $("palette").appendChild (b); }
+  // ---------------------------------------------------------------------------------------------------
+  // Colour snapping: a colour picked close to one of these is pulled onto it (ΔE in CIELAB under 14); the same
+  // colours as swatches, a click puts one on the colour field you last changed
+  const HARDWARE = [["API blue", "#2c4c86"], ["API red", "#9a2a22"], ["Neve maroon", "#6a1c1a"], ["Neve grey", "#76787c"], ["Neve blue-grey", "#5b6b7a"],
+    ["Pultec cream", "#e9e2cf"], ["Pultec blue", "#6f8aa0"], ["SSL grey", "#3a3d42"], ["1176 black", "#1b1b1d"], ["LA-2A silver", "#c9cbce"],
+    ["Fairchild grey", "#7f8386"], ["Tube-Tech blue", "#2d4a6b"], ["UREI silver", "#aeb7c0"], ["Manley plum", "#4b2a3a"], ["Lexicon red", "#b3262e"], ["Studer green", "#5d7a5f"]];
+  const RAL = [["RAL 1013 oyster white", "#e3d9c6"], ["RAL 1021 colza yellow", "#f3c200"], ["RAL 2004 pure orange", "#e75b12"], ["RAL 3000 flame red", "#af2b1e"],
+    ["RAL 3004 purple red", "#6b1c23"], ["RAL 5003 sapphire blue", "#1f3855"], ["RAL 5010 gentian blue", "#0e4c92"], ["RAL 5024 pastel blue", "#6093ac"],
+    ["RAL 6005 moss green", "#114232"], ["RAL 6011 reseda green", "#587246"], ["RAL 7016 anthracite", "#293133"], ["RAL 7032 pebble grey", "#b9b9a8"],
+    ["RAL 7035 light grey", "#cbd0cc"], ["RAL 8017 chocolate", "#442f29"], ["RAL 9005 jet black", "#0a0a0a"], ["RAL 9006 white aluminium", "#a5a5a5"]];
+  const hexRgb = (h) => { const n = parseInt (String (h).replace ("#", ""), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const rgbHex = (r, g, b) => "#" + [r, g, b].map ((v) => Math.round (Math.min (255, Math.max (0, v))).toString (16).padStart (2, "0")).join ("");
+  function toLab (hex) {
+    const lin = hexRgb (hex).map ((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow ((v + 0.055) / 1.055, 2.4); });
+    const X = (lin[0] * 0.4124 + lin[1] * 0.3576 + lin[2] * 0.1805) / 0.95047, Y = lin[0] * 0.2126 + lin[1] * 0.7152 + lin[2] * 0.0722, Z = (lin[0] * 0.0193 + lin[1] * 0.1192 + lin[2] * 0.9505) / 1.08883;
+    const f = (t) => (t > 0.008856 ? Math.cbrt (t) : 7.787 * t + 16 / 116);
+    return [116 * f (Y) - 16, 500 * (f (X) - f (Y)), 200 * (f (Y) - f (Z))];
+  }
+  function hueShift (hex, deg) {   // the same colour turned round the wheel (HSL)
+    let [r, g, b] = hexRgb (hex).map ((v) => v / 255); const mx = Math.max (r, g, b), mn = Math.min (r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    if (d < 1e-6) return hex;
+    const sat = d / (1 - Math.abs (2 * l - 1)); let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + deg + 360) % 360;
+    const c = (1 - Math.abs (2 * l - 1)) * sat, x = c * (1 - Math.abs ((h / 60) % 2 - 1)), m = l - c / 2;
+    const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return rgbHex ((r1 + m) * 255, (g1 + m) * 255, (b1 + m) * 255);
+  }
+  function snapTargets () {
+    const u = design.unit, mine = new Map ();
+    for (const [n, c] of [["Panel", u.colour], ["Print", u.ink], ["Accent", u.accent], ["Second colour", u.toneColour], ["Chassis", u.chassis]]) if (c) mine.set (c.toLowerCase(), n);
+    for (const p of design.parts) for (const k of ["colour", "ringColour", "fillCol", "cable"]) if (typeof p[k] === "string" && p[k].startsWith ("#") && !mine.has (p[k].toLowerCase())) mine.set (p[k].toLowerCase(), TYPES[p.type].label + " " + k.replace ("Col", " colour"));
+    const harmonies = [["Complement", 180], ["Analogous -30°", -30], ["Analogous +30°", 30], ["Triad -120°", -120], ["Triad +120°", 120]].map (([n, d]) => [n + " of the panel", hueShift (u.colour, d)]);
+    return [["This unit", [...mine].map (([c, n]) => [n, c])], ["Harmonies", harmonies], ["Hardware", HARDWARE], ["Paint (RAL)", RAL]];
+  }
+  let lastColourField = null;
+  function snapColour (hex) {
+    const a = toLab (hex); let best = null, bd = 14;
+    for (const [, list] of snapTargets()) for (const [, c] of list) {
+      const b = toLab (c), d = Math.hypot (a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best || hex;
+  }
+  function drawSwatches () {
+    const box = $("u-swatches"); if (!box) return; box.replaceChildren();
+    for (const [group, list] of snapTargets()) {
+      if (!list.length) continue;
+      const row = document.createElement ("div"); row.className = "d-sw-row";
+      const h = document.createElement ("span"); h.textContent = group; row.appendChild (h);
+      for (const [name, c] of list) {
+        const b = document.createElement ("button"); b.type = "button"; b.className = "d-sw"; b.style.background = c; b.title = name + " " + c; b.setAttribute ("aria-label", name);
+        b.addEventListener ("click", () => {
+          const f = lastColourField && document.contains (lastColourField) ? lastColourField : $("u-colour");
+          f.value = c; f.dispatchEvent (new Event ("input", { bubbles: true })); f.dispatchEvent (new Event ("change", { bubbles: true })); lastColourField = f;
+          toast (name + " on " + ((f.labels && f.labels[0] && f.labels[0].textContent.trim()) || "the colour"));
+        });
+        row.appendChild (b);
+      }
+      box.appendChild (row);
+    }
+  }
+  // (capture: the colour is snapped before the field's own handlers read it)
+  for (const type of ["input", "change"])
+    document.addEventListener (type, (e) => {
+      const f = e.target;
+      if (!(f instanceof HTMLInputElement) || f.type !== "color" || !f.closest (".designer") || f.closest ("#u-swatches")) return;
+      lastColourField = f;
+      if ($("u-colsnap") && $("u-colsnap").checked && type === "change") { const s2 = snapColour (f.value); if (s2.toLowerCase() !== f.value.toLowerCase()) f.value = s2; }
+      if (type === "change") requestAnimationFrame (drawSwatches);
+    }, true);
+  drawSwatches();
+  $("u-gridmm").addEventListener ("change", (e) => { gridMm = Number (e.target.value) || 0.5; });
+
   $("check-run").addEventListener ("click", showIssues);
   $("check-fix").addEventListener ("click", fixIssues);
   $("ideas").addEventListener ("click", ideas);
@@ -2274,6 +2496,33 @@
   filterPresets();
 
   // Quick start (the empty "Selected" panel): each step opens its tab, or the share dialog
+  // Guided start: what it does (a preset to build from, its sound included) and how it looks (panel and print)
+  const GUIDE_KINDS = [["Compressor", "evens out the level", "FET compressor"], ["EQ", "shapes the tone", "Program EQ"], ["Tube warmth", "thick and warm", "Tube saturator"],
+    ["Echo", "repeats that fade", "Tape echo"], ["Reverb", "a space around it", "Hall reverb"], ["Mastering", "loud and polished", "Mastering limiter"],
+    ["Lo-fi and weird", "crunchy, wobbly", "Lo-fi box"], ["Game audio", "hear footsteps", "Game audio enhancer"]];
+  const GUIDE_LOOKS = [["As it comes", "the preset's own look", null, null], ["Vintage cream", "warm and classic", "#d9cfb6", "#1b1a18"], ["Modern black", "sleek and dark", "#16171a", "#f2f2f2"],
+    ["Bold red", "loud and proud", "#b8322a", "#fff4ea"], ["Blue steel", "cool and calm", "#2c4868", "#eef4ff"], ["Army green", "rugged", "#4a5a3a", "#f1efe4"]];
+  let guideKind = 0, guideLook = 0;
+  function guideChoices (box, list, pick, onPick) {
+    box.replaceChildren();
+    list.forEach ((c, i) => { const b = document.createElement ("button"); b.type = "button"; b.setAttribute ("role", "radio"); b.setAttribute ("aria-checked", String (i === pick));
+      if (c[2] && c[2].startsWith ("#")) { const chip = document.createElement ("span"); chip.className = "d-chip"; chip.style.background = c[2]; b.append (chip); }
+      const t = document.createElement ("b"); t.textContent = c[0]; const s2 = document.createElement ("small"); s2.textContent = c[1]; b.append (t, s2);
+      b.addEventListener ("click", () => { onPick (i); guideChoices (box, list, i, onPick); }); box.append (b); });
+  }
+  function openGuide () {
+    guideChoices ($("guide-kind"), GUIDE_KINDS, guideKind, (i) => { guideKind = i; });
+    guideChoices ($("guide-look"), GUIDE_LOOKS, guideLook, (i) => { guideLook = i; });
+    $("guide-dialog").showModal();
+  }
+  $("guide-open").addEventListener ("click", openGuide);
+  $("guide-close").addEventListener ("click", () => $("guide-dialog").close());
+  $("guide-go").addEventListener ("click", () => {
+    const k = GUIDE_KINDS[guideKind], l = GUIDE_LOOKS[guideLook], d = sanitize (templates[k[2]]());
+    if (l[2]) { d.unit.colour = l[2]; d.unit.ink = l[3]; }
+    replaceDesign (d); $("guide-dialog").close();
+    showTab ($("t-sound"), true);   // (next: hear it)
+  });
   document.querySelectorAll (".d-start [data-go]").forEach ((b) => b.addEventListener ("click", () => { const t = $(b.dataset.go); if (t) { showTab (t, true); if (b.dataset.go === "t-presets") $("tpl-search").focus(); } }));
   document.querySelectorAll (".d-start [data-do=share]").forEach ((b) => b.addEventListener ("click", () => $("share").click()));
 
@@ -2375,8 +2624,34 @@
     const t = sanitize (templates["Program EQ"]()), code = await encode (t), back = await decode (code);
     const strip = (x) => JSON.stringify (x.parts.map ((p) => Object.assign ({}, p, { id: 0 })).map ((p) => Object.fromEntries (Object.entries (p).map (([a, b]) => [a, typeof b === "number" ? Math.round (b * 10) / 10 : b]))));
     ok (JSON.stringify (back.unit) === JSON.stringify (t.unit) && strip (back) === strip (t), "a design survives the round trip (" + code.length + " chars)");
-    const pre = document.createElement ("pre"); pre.id = "selftest"; pre.textContent = out.join ("\n"); document.body.prepend (pre);
+    ok (GUIDE_KINDS.every ((k) => typeof templates[k[2]] === "function"), "guided start: every choice has its preset");
+    // Screens: every kind draws, the custom one's settings survive a code, and Play animates them
+    const keep = design;
+    design = sanitize ({ unit: { height: 3 }, parts: SCREEN_KINDS.map ((kind, i) => ({ type: "display", kind, x: 60 + (i % 4) * 110, y: 30 + Math.floor (i / 4) * 60, w: 96, h: 44,
+      scrShape: "saw", scrStyle: "rings", scrColours: "rainbow", scrSpeed: 8 })) });
+    render();
+    const scrs = [...svg.querySelectorAll (".d-scr")];
+    ok (scrs.length === SCREEN_KINDS.length && scrs.every ((g) => g.childElementCount > 0), "every screen kind draws (" + scrs.map ((g) => g.childElementCount).join (",") + ")");
+    const cu = (await decode (await encode (design))).parts.find ((q) => q.kind === "custom");
+    ok (cu && cu.scrShape === "saw" && cu.scrStyle === "rings" && cu.scrColours === "rainbow" && cu.scrSpeed === 8, "a custom screen's settings survive the round trip");
+    const firstPath = () => { const g = svg.querySelector (".d-scr path"); return g ? g.getAttribute ("d") : ""; };
+    setPlay (true); const d0 = firstPath (); await new Promise ((r) => setTimeout (r, 300)); const d1 = firstPath (); setPlay (false);
+    ok (d0 !== "" && d0 !== d1, "in Play the screens move");
+    if (!location.search.includes ("screens")) { design = keep; render(); }
+    if (window.ENHSound && window.ENHSound.testBlocks) {   // every sound block, rendered offline
+      const res = await window.ENHSound.testBlocks ();
+      const badB = res.filter ((x) => !x[1]);
+      const keep2 = design;
+      design = sanitize ({ unit: {}, parts: [{ type: "knob", ctl: "1.drive" }], dsp: { chain: [{ b: "room", on: true, p: { mix: 80 } }, { b: "drive", on: true, p: { drive: 36 } }, { b: "eq", on: true, p: {} }] } });
+      const said = await window.ENHSound.makeItGood ();
+      const ch = design.dsp.chain.map ((b) => b.b).join (",");
+      ok (/^eq,drive,room(,gain)?$/.test (ch) && design.parts[0].ctl === "1.drive" && design.dsp.chain[1].p.drive === 24 && design.dsp.chain[2].p.mix === 40,
+          "make it sound good: reordered (" + ch + "), wiring followed, extremes tamed - " + said);
+      design = keep2; render();
+      ok (res.length === DSP_TYPES.length && !badB.length, res.length + " sound blocks build, change the sound and stay in bounds" + (badB.length ? " - not: " + badB.map ((x) => x[0] + " (" + x[2] + ")").join (", ") : ""));
+    }
     document.title = out.every ((l) => l.startsWith ("PASS")) ? "SELFTEST PASS" : "SELFTEST FAIL";
+    const pre = document.createElement ("pre"); pre.id = "selftest"; pre.textContent = [...out.filter ((l) => !l.startsWith ("PASS")), ...out.filter ((l) => l.startsWith ("PASS")).reverse ()].join ("\n"); document.body.prepend (pre);   // (failures first, then the newest checks)
   }
 
   // Start: a shared link's design, else the one saved in this browser, else the FET template
@@ -2393,5 +2668,6 @@
     bindUnit(); syncUnit(); render(); props(); showLib();
     setZoom (Math.min (1.4, ($("stage").clientWidth - 24) / ((W + 12) * 2)));
     if (location.search.includes ("selftest")) selftest();
+    else if (!start) openGuide();   // (a first visit: nothing saved, no link - offer the two questions)
   })();
 }());

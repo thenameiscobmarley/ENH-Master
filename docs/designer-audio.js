@@ -32,6 +32,13 @@
     P ("Heavy crush", [["comp", { threshold: -40, ratio: 20, attack: 0.5, release: 60, makeup: 18, mix: 50 }], ["drive", { drive: 18, shape: 2, mix: 40 }]]),
     P ("Dark and warm", [["filter", { mode: 0, freq: 5000, q: 0.7 }], ["drive", { drive: 10, shape: 0, mix: 50 }], ["eq", { low: 3, lowf: 120 }]]),
     P ("Telephone", [["filter", { mode: 2, freq: 1800, q: 2.5 }], ["drive", { drive: 15, shape: 2, mix: 60 }]]),
+    P ("Chorus shine", [["chorus", { rate: 0.7, depth: 50, mix: 45 }], ["eq", { high: 1.5, highf: 10000 }]]),
+    P ("Pendulum", [["pan", { rate: 0.35, depth: 70, mode: 0 }], ["room", { size: 1.5, mix: 15 }]]),
+    P ("Lava lamp", [["wander", { freq: 900, range: 70, speed: 0.12, q: 3 }], ["delay", { time: 420, feedback: 30, tone: 3000, mix: 18 }]]),
+    P ("Chopped up", [["stutter", { rate: 8, depth: 85, smooth: 35 }]]),
+    P ("Old sampler", [["crush", { bits: 8, mix: 60 }], ["filter", { mode: 0, freq: 9000, q: 0.7 }]]),
+    P ("Worn tape", [["wow", { wow: 45, flutter: 35 }], ["drive", { drive: 7, shape: 1, tone: 8000, mix: 45 }]]),
+    P ("Shimmer heaven", [["shimmer", { size: 5, octave: 65, mix: 35 }], ["width", { width: 140 }]]),
     P ("Dub delay", [["filter", { mode: 1, freq: 300 }], ["delay", { time: 600, feedback: 70, tone: 2000, mix: 40 }], ["room", { size: 3, mix: 20 }]]),
   ];
 
@@ -99,6 +106,7 @@
   // ------------------------------------------------------------------------------------------------
   // The engine
   let ctx = null, source = null, input = null, chainOut = null, limiter = null, volume = null, analyser = null;
+  let lastLevel = 0, lastWave = null;
   let blocks = [], builtSig = "", playing = false, bypass = false, current = null;
   const curves = {};
   function curve (shape) {   // the saturator's curves: tube (asymmetric, soft), tape (soft, even), hard (clipping)
@@ -119,7 +127,9 @@
     const i = ctx.createGain (), o = ctx.createGain (), dry = ctx.createGain (), wet = ctx.createGain ();
     const mixIn = (node, last) => { i.connect (dry).connect (o); i.connect (node); last.connect (wet).connect (o); };
     const setMix = (m) => { dry.gain.value = 1 - m / 100; wet.gain.value = m / 100; };
-    let set;
+    let set; const oscs = [];
+    const lfo = (f, kind) => { const x = ctx.createOscillator (); x.type = kind || "sine"; x.frequency.value = f; x.start (); oscs.push (x); return x; };
+    const depthOf = (src, param, amount) => { const g = ctx.createGain (); g.gain.value = amount; src.connect (g).connect (param); return g; };
     switch (type) {
       case "eq": { const lo = ctx.createBiquadFilter (), mid = ctx.createBiquadFilter (), hi = ctx.createBiquadFilter (); lo.type = "lowshelf"; mid.type = "peaking"; hi.type = "highshelf";
         i.connect (lo).connect (mid).connect (hi).connect (o);
@@ -144,9 +154,44 @@
         i.connect (sp); sp.connect (g[0], 0); sp.connect (g[1], 1); sp.connect (g[2], 0); sp.connect (g[3], 1);
         g[0].connect (mg, 0, 0); g[1].connect (mg, 0, 0); g[2].connect (mg, 0, 1); g[3].connect (mg, 0, 1); mg.connect (o);
         set = (p) => { const w = p.width / 100; g[0].gain.value = g[3].gain.value = 0.5 + 0.5 * w; g[1].gain.value = g[2].gain.value = 0.5 - 0.5 * w; }; break; }
+      case "chorus": {   // two voices a few ms late, their delays swaying opposite ways
+        const sp = ctx.createChannelSplitter (2), mg = ctx.createChannelMerger (2), dl = ctx.createDelay (0.05), dr = ctx.createDelay (0.05), osc = lfo (0.8);
+        dl.delayTime.value = dr.delayTime.value = 0.014; const gl = depthOf (osc, dl.delayTime, 0), gr = depthOf (osc, dr.delayTime, 0);
+        sp.connect (dl, 0); sp.connect (dr, 1); dl.connect (mg, 0, 0); dr.connect (mg, 0, 1); mixIn (sp, mg);
+        set = (p) => { osc.frequency.value = p.rate; gl.gain.value = p.depth / 100 * 0.006; gr.gain.value = -p.depth / 100 * 0.006; setMix (p.mix); }; break; }
+      case "pan": {   // a pendulum: side to side, or in and out
+        const pn = ctx.createStereoPanner (), vg = ctx.createGain (), osc = lfo (0.5); i.connect (pn).connect (vg).connect (o);
+        const gp = depthOf (osc, pn.pan, 0), gv = depthOf (osc, vg.gain, 0);
+        set = (p) => { osc.frequency.value = p.rate; const d = p.depth / 100, vol = Math.round (p.mode) === 1;
+          gp.gain.value = vol ? 0 : d; gv.gain.value = vol ? d / 2 : 0; vg.gain.value = vol ? 1 - d / 2 : 1; }; break; }
+      case "wander": {   // a filter drifting like wax in a lava lamp: two slow swings that never line up
+        const f = ctx.createBiquadFilter (), a = lfo (0.15), b = lfo (0.15 * 0.618, "triangle"); f.type = "bandpass"; mixIn (f, f);
+        const ga = depthOf (a, f.detune, 0), gb = depthOf (b, f.detune, 0);
+        set = (p) => { f.frequency.value = p.freq; f.Q.value = p.q; a.frequency.value = p.speed; b.frequency.value = p.speed * 0.618;
+          ga.gain.value = p.range * 14; gb.gain.value = p.range * 10; setMix (70); }; break; }
+      case "stutter": {   // chops in time: the sound gated on and off, the edges rounded so they never click
+        const vg = ctx.createGain (), osc = lfo (4, "square"), sm = ctx.createBiquadFilter (); sm.type = "lowpass"; i.connect (vg).connect (o);
+        osc.connect (sm); const gd = depthOf (sm, vg.gain, 0);
+        set = (p) => { osc.frequency.value = p.rate; const d = p.depth / 100; gd.gain.value = d / 2; vg.gain.value = 1 - d / 2;
+          sm.frequency.value = 400 - 3.7 * p.smooth; }; break; }
+      case "crush": {   // fewer bits: the steps of an old sampler
+        const ws = ctx.createWaveShaper (), post = ctx.createGain (); post.gain.value = 0.8; ws.connect (post); mixIn (ws, post); let bits = -1;
+        set = (p) => { const nb = Math.round (p.bits); if (nb !== bits) { bits = nb; const n = 4096, c = new Float32Array (n), steps = Math.pow (2, nb - 1);
+          for (let k = 0; k < n; ++k) c[k] = Math.round ((k / (n - 1) * 2 - 1) * steps) / steps; ws.curve = c; } setMix (p.mix); }; break; }
+      case "wow": {   // a tape machine's slow wow and quick flutter, as pitch wobble
+        const d = ctx.createDelay (0.1), w = lfo (0.55), fl = lfo (8.5); d.delayTime.value = 0.012; i.connect (d).connect (o);
+        const gw = depthOf (w, d.delayTime, 0), gf = depthOf (fl, d.delayTime, 0);
+        set = (p) => { gw.gain.value = p.wow / 100 * 0.004; gf.gain.value = p.flutter / 100 * 0.0004; }; break; }
+      case "shimmer": {   // a long, bright space fed an octave up (a rectifier doubles every note)
+        const ws = ctx.createWaveShaper (), hp = ctx.createBiquadFilter (), up = ctx.createGain (), plain = ctx.createGain (), cv = ctx.createConvolver (), trim = ctx.createGain ();
+        const c = new Float32Array (2048); for (let k = 0; k < 2048; ++k) c[k] = Math.abs (k / 2047 * 2 - 1); ws.curve = c; hp.type = "highpass"; hp.frequency.value = 180; trim.gain.value = 0.7;
+        const feed = ctx.createGain (); ws.connect (hp).connect (up).connect (feed); plain.connect (feed); feed.connect (cv).connect (trim);
+        i.connect (dry).connect (o); i.connect (ws); i.connect (plain); trim.connect (wet).connect (o); let key = "";
+        set = (p) => { up.gain.value = p.octave / 100 * 1.4; plain.gain.value = 1 - p.octave / 200; setMix (p.mix);
+          const k = p.size.toFixed (1); if (k !== key) { key = k; cv.buffer = impulse (p.size, 10); } }; break; }
       default: { i.connect (o); set = (p) => { o.gain.value = dbToGain (p.gain); }; }
     }
-    return { input: i, output: o, set };
+    return { input: i, output: o, set, stop: () => oscs.forEach ((x) => { try { x.stop (); } catch (_) { /* stopped */ } }) };
   }
 
   /** The block parameters as the knobs set them: each wired part moves its parameter across its range. */
@@ -179,7 +224,7 @@
     const chain = liveChain (D.get ()), sig = bypass + "|" + chain.map ((b) => b.b + (b.on ? "1" : "0")).join (",");
     if (sig !== builtSig) {
       builtSig = sig;
-      input.disconnect (); blocks.forEach ((b) => b && b.output.disconnect ());
+      input.disconnect (); blocks.forEach ((b) => { if (b) { b.output.disconnect (); b.stop (); } });
       blocks = chain.map ((b) => (b.on && !bypass ? makeBlock (b.b) : null));
       let at = input;
       blocks.forEach ((blk) => { if (blk) { at.connect (blk.input); at = blk.output; } });
@@ -204,10 +249,11 @@
     meter ();
   }
   function meter () {
-    if (!playing || !analyser) { $("snd-meter").style.transform = "scaleX(0)"; return; }
+    if (!playing || !analyser) { $("snd-meter").style.transform = "scaleX(0)"; lastLevel = 0; lastWave = null; return; }
     const a = new Float32Array (analyser.fftSize); analyser.getFloatTimeDomainData (a);
+    lastWave = a;
     let pk = 0; for (const v of a) pk = Math.max (pk, Math.abs (v));
-    const db = 20 * Math.log10 (pk + 1e-6); $("snd-meter").style.transform = "scaleX(" + Math.max (0, Math.min (1, (db + 48) / 48)).toFixed (3) + ")";
+    const db = 20 * Math.log10 (pk + 1e-6); lastLevel = Math.max (0, Math.min (1, (db + 48) / 48)); $("snd-meter").style.transform = "scaleX(" + Math.max (0, Math.min (1, (db + 48) / 48)).toFixed (3) + ")";
     requestAnimationFrame (meter);
   }
 
@@ -260,6 +306,12 @@
     const pre = $("snd-preset");
     PRESETS.forEach ((p, i) => el ("option", { value: String (i), textContent: p.name }, pre));
     $("snd-preset-go").addEventListener ("click", () => { const p = PRESETS[Number (pre.value)]; if (p) D.setDsp ({ chain: JSON.parse (JSON.stringify (p.chain)) }); });
+    $("snd-good").addEventListener ("click", async (e) => {
+      if (!D.get ().dsp.chain.length) { $("snd-msg").textContent = "Add a block or load a sound preset first."; return; }
+      e.target.disabled = true; $("snd-msg").textContent = "Listening…";
+      try { $("snd-msg").textContent = await makeItGood (); } catch (_) { $("snd-msg").textContent = "That didn't work in this browser."; }
+      e.target.disabled = false;
+    });
     const add = $("snd-add-type");
     for (const t in B) el ("option", { value: t, textContent: B[t][0] }, add);
     $("snd-add").addEventListener ("click", () => { const c = JSON.parse (JSON.stringify (D.get ().dsp)); c.chain.push ({ b: add.value, on: true, p: {} }); D.setDsp (c); });
@@ -270,6 +322,71 @@
       if (sig !== uiSig) { uiSig = sig; chainUi (); }
     });
   }
-  window.ENHSound = Object.freeze ({ PRESETS, SONGS, renderSong });
+  // what is playing now, for the designer's screens (a level 0..1 and the last waveform; null when nothing plays)
+  // "Make it sound good": a sensible order (clean-up, dynamics, colour, movement, space, width, level), extremes
+  // tamed, and the output set so the unit is as loud as the dry sound (measured on the song, offline)
+  const ORDER = ["filter", "eq", "comp", "drive", "exciter", "crush", "wow", "chorus", "wander", "stutter", "pan", "delay", "shimmer", "room", "width", "gain"];
+  const TAME = [["delay", "feedback", (v) => Math.min (v, 70)], ["room", "mix", (v) => Math.min (v, 40)], ["shimmer", "mix", (v) => Math.min (v, 40)],
+                ["stutter", "depth", (v) => Math.min (v, 85)], ["width", "width", (v) => Math.min (v, 160)], ["comp", "ratio", (v) => Math.min (v, 10)],
+                ["drive", "drive", (v) => Math.min (v, 24)], ["exciter", "amount", (v) => Math.min (v, 60)], ["crush", "bits", (v) => Math.max (v, 4)]];
+  async function renderThrough (buf, chain) {
+    const live = ctx, off = new OfflineAudioContext (2, buf.length, buf.sampleRate); ctx = off;
+    try {
+      const src = off.createBufferSource (); src.buffer = buf; let at = src; const made = [];
+      for (const b of chain) { if (!b.on) continue; const blk = makeBlock (b.b); blk.set (Object.assign (blockDefaultsOf (b.b), b.p)); at.connect (blk.input); at = blk.output; made.push (blk); }
+      at.connect (off.destination); src.start ();
+      const r = await off.startRendering (); made.forEach ((m) => m.stop ()); return r;
+    } finally { ctx = live; }
+  }
+  const blockDefaultsOf = (t) => Object.fromEntries (Object.entries (B[t][1]).map (([k, v]) => [k, v[3]]));
+  const rmsOf = (b) => { let s = 0; for (let c = 0; c < b.numberOfChannels; ++c) { const d = b.getChannelData (c); for (let i = 0; i < d.length; ++i) s += d[i] * d[i]; } return Math.sqrt (s / (b.length * b.numberOfChannels)); };
+  async function makeItGood () {
+    const d = D.get (), old = d.dsp.chain.map ((b, i) => ({ b: b.b, on: b.on, p: Object.assign ({}, b.p), was: i }));
+    const notes = [];
+    const sorted = old.slice ().sort ((a, b) => ORDER.indexOf (a.b) - ORDER.indexOf (b.b));
+    if (sorted.some ((b, i) => b.was !== i)) notes.push ("put the blocks in a better order");
+    let tamed = 0;
+    for (const b of sorted) for (const [t, k, f] of TAME) if (b.b === t) { const v = b.p[k] ?? blockDefaultsOf (t)[k], nv = f (v); if (nv !== v) { b.p[k] = nv; ++tamed; } }
+    if (tamed) notes.push ("tamed " + tamed + " extreme setting" + (tamed > 1 ? "s" : ""));
+    // the level: the chain against the dry song, matched with an Output block at the end (within 12 dB)
+    let gi = sorted.findIndex ((b) => b.b === "gain");
+    if (gi >= 0) sorted.push (...sorted.splice (gi, 1));
+    const song = await renderSong (($("snd-song") || {}).value || SONGS[0]);
+    const withGain = (g) => sorted.filter ((b) => b.b !== "gain").concat (g == null ? [] : [{ b: "gain", on: true, p: { gain: g } }]);
+    const dryRms = rmsOf (song), wetRms = rmsOf (await renderThrough (song, withGain (null)));
+    const need = Math.max (-12, Math.min (12, 20 * Math.log10 ((dryRms + 1e-9) / (wetRms + 1e-9))));
+    gi = sorted.findIndex ((b) => b.b === "gain");
+    if (Math.abs (need) >= 0.5 || gi >= 0) {
+      if (gi >= 0) sorted[gi].p.gain = Math.round (need * 10) / 10;
+      else if (sorted.length < D.MAX_BLOCKS) sorted.push ({ b: "gain", on: true, p: { gain: Math.round (need * 10) / 10 }, was: -1 });
+      notes.push ("matched the level (" + (need >= 0 ? "+" : "") + need.toFixed (1) + " dB)");
+    }
+    const remap = {}; sorted.forEach ((b, i) => { if (b.was >= 0) remap[b.was] = i; });
+    D.setDsp ({ chain: sorted.map ((b) => ({ b: b.b, on: b.on, p: b.p })) }, remap);
+    return notes.length ? "Done: " + notes.join ("; ") + "." : "It already sounds balanced - nothing to change.";
+  }
+
+  /** ?selftest: every block type, at its defaults, through an offline context (nothing is heard): does it build,
+      change the sound, stay finite and stay in bounds? Returns [type, ok, note] each. */
+  async function testBlocks () {
+    const out = [], live = ctx;
+    for (const type of Object.keys (B)) {
+      const off = new OfflineAudioContext (2, 24000, 48000); ctx = off;
+      try {
+        const src = off.createBufferSource (), buf = off.createBuffer (2, 24000, 48000);
+        for (let c = 0; c < 2; ++c) { const d = buf.getChannelData (c); for (let i = 0; i < d.length; ++i) d[i] = 0.3 * Math.sin (i * 0.031 * (c + 1)) + 0.1 * Math.sin (i * 0.37); }
+        src.buffer = buf; const blk = makeBlock (type); blk.set (Object.fromEntries (Object.entries (B[type][1]).map (([k, v]) => [k, v[3]])));
+        src.connect (blk.input); blk.output.connect (off.destination); src.start ();
+        const r = await off.startRendering (); blk.stop ();
+        let diff = 0, peak = 0, fin = true;
+        for (let c = 0; c < 2; ++c) { const y = r.getChannelData (c), x = buf.getChannelData (c); for (let i = 0; i < y.length; ++i) { fin = fin && Number.isFinite (y[i]); diff += (y[i] - x[i]) ** 2; peak = Math.max (peak, Math.abs (y[i])); } }
+        const rms = Math.sqrt (diff / 48000), neutral = type === "gain" || type === "eq";   // (these two are flat at their defaults)
+        out.push ([type, fin && peak < 1.2 && (neutral || rms > 0.002), "change " + rms.toFixed (4) + ", peak " + peak.toFixed (2)]);
+      } catch (e) { out.push ([type, false, String (e)]); }
+    }
+    ctx = live;
+    return out;
+  }
+  window.ENHSound = Object.freeze ({ PRESETS, SONGS, renderSong, levelNow: () => lastLevel, waveNow: () => lastWave, testBlocks, makeItGood });
   if (document.readyState === "loading") document.addEventListener ("DOMContentLoaded", bind); else bind ();
 }());

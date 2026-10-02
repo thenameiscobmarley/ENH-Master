@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_opengl/juce_opengl.h>
+#include <future>
 
 #include "../HardwareKit.h"
 #include "../Render/PluginMaterials.h"
@@ -11,11 +12,14 @@
 #include "DeviceLayout.h"
 #include "PanelArtwork.h"
 #include "CameraRig.h"
+#include "PatchCables.h"
 #include "../../DSP/EngineMeters.h"
 #include "../../DSP/SpectrumScope.h"
 #include "../../DSP/MixBalancer.h"
 #include "../DisplayHistory.h"
 #include "RoomScreen.h"
+#include "ColourScreens.h"
+#include <map>
 
 namespace pad
 {
@@ -47,6 +51,14 @@ namespace pad
         }
         /** The LUNCHBOX's locker changed (layout::placeLunchbox has run): its print, its modules' plates and
             the empty slots are rebuilt on the next frame. Message thread. */
+        /** A newer unit's print and screens, baked late (it was in the locker at start and has been installed).
+            Message thread; uploaded on the next frame. */
+        void setGenTextures (int k, artwork::RawTexture decal, artwork::RawTexture screens)
+        {
+            std::lock_guard<std::mutex> l (customMutex);
+            pendingGen.push_back ({ k, std::move (decal), std::move (screens) });
+            genDirty = true;
+        }
         void setLunchboxDecal (artwork::RawTexture decal)
         {
             std::lock_guard<std::mutex> l (customMutex);
@@ -224,10 +236,68 @@ namespace pad
         gfx::Texture2D radarDecalTex, radarVuFaceTex;   // FOOTSTEP RADAR: panel print, its meter's dial
         // The designed units (PRO X4, VELVETIZER): print, meter dial, what glows in the displays; and what is
         // modelled flat on the panel from the design - its screws, jack sockets and display screens
+        // The units' backs (BackPanels.h): baked the first time the rack is turned round, a unit a frame
+        std::array<gfx::Texture2D, layout::numUnits> backTex;
+        std::array<gfx::GpuMesh, layout::numUnits> backPlate;
+        gfx::Texture2D bayFaceTex, bayFrontTex;          // the patch bay (its face redrawn when the rack's units change)
+        gfx::GpuMesh bayBody, bayFace, bayFront;
+        std::vector<int> bayChain;
+        // The cables at the back (PatchCables.h): the backs' looms (built when the rack is turned, again when what is
+        // in it changes), THE PATCH BAY's cords as patched (again when they change), and the one in the hand (every frame)
+        struct PatchGpu
+        {
+            gfx::GpuMesh xlrJackets, iecJackets, nickel, rubber, latches, brass, gaps, tape;
+            std::array<gfx::GpuMesh, 5> cords;
+            std::array<gfx::GpuMesh, 2> braided;
+            void upload (const geo::patch::Meshes& m)
+            {
+                xlrJackets.upload (m.xlrJackets); iecJackets.upload (m.iecJackets); nickel.upload (m.nickel);
+                rubber.upload (m.rubber); latches.upload (m.latches); brass.upload (m.brass); gaps.upload (m.gaps); tape.upload (m.tape);
+                for (size_t k = 0; k < cords.size(); ++k) cords[k].upload (m.cordJackets[k]);
+                for (size_t k = 0; k < braided.size(); ++k) braided[k].upload (m.braided[k]);
+            }
+            void release()
+            {
+                for (auto* g : { &xlrJackets, &iecJackets, &nickel, &rubber, &latches, &brass, &gaps, &tape }) g->release();
+                for (auto& g : cords) g.release();
+                for (auto& g : braided) g.release();
+            }
+        } backsGpu, cordsGpu, heldGpu;
+        std::vector<int> backsBuiltFor, cordsChain;
+        int cordsVersion = -1, cordsHeld = -2;
+        // the cables as ropes (CablePhysics.h): the backs' settled particles, each cord as it hangs, and the one in the
+        // hand stepped every frame (and for a moment after it is let go)
+        std::vector<gfx::Vec3> backColliders, liveColliders;
+        std::vector<float> backColliderR, liveColliderR;
+        std::vector<geo::rope::Rope> cordRopes;
+        std::future<geo::patch::Meshes> backsBuilding;   // (the backs' cables settle on a worker thread)
+        std::vector<int> backsBuildingFor;
+        struct CordsBuilt { geo::patch::Meshes meshes; std::vector<geo::rope::Rope> ropes; };
+        std::future<CordsBuilt> cordsBuilding;           // (and the cords, each time they change)
+        std::vector<int> cordsBuildingIdx, cordsBuildingChain;
+        int cordsBuildingVersion = -1, cordsBuildingHeld = -2, liveRetired = -1;
+        geo::rope::Rope liveRope;
+        int liveCord = -1, liveLastHeld = -1;
+        bool liveFresh = false;
+        double liveUntil = 0.0, liveTime = -1.0;
+        gfx::GpuMesh jackRing, bayLamp;
+        gfx::GpuMesh flagTab;                                  // a tape flag's tab (both faces), drawn once per flag
+        gfx::Texture2D flagAtlas;                              //   with its writing from here
+        std::vector<geo::patch::Meshes::Flag> flags;
+        int flagRows = 1;
+        gfx::GpuMesh masterPlate, masterFace, masterNut, masterLever;   // the MASTER switch (ANYTHING INTO ANYTHING)
+        gfx::Texture2D masterTex;
+        int masterLeverOn = -1;
         gfx::Texture2D x4DecalTex, x4VuFaceTex, x4ScreenTex, velvetDecalTex, velvetVuFaceTex, velvetScreenTex, takebackDecalTex, takebackScreenTex, scopeDecalTex, scopeScreenTex;
         std::vector<gfx::Texture2D> genDecalTex, genScreenTex;   // the newer units (UnitPanels.h)
+        // the colour screens (ColourScreens.h), by the newer unit's index: canvas, texture, when last drawn
+        std::map<int, pad::colourscreen::Canvas> colourCanvas; std::map<int, gfx::Texture2D> colourTex;
+        std::map<int, pad::colourscreen::CubeState> cubeState; std::map<int, double> colourClock;
+        void updateColourScreen (int gk, pad::colourscreen::Kind, bool on);
         gfx::Texture2D customDecalTex, customScreenTex;           // CUSTOM
         std::mutex customMutex; artwork::RawTexture pendingCustomDecal, pendingCustomScreens; std::atomic<bool> customDirty { false };
+        struct PendingGen { int k; artwork::RawTexture decal, screens; };
+        std::vector<PendingGen> pendingGen; std::atomic<bool> genDirty { false };
         artwork::RawTexture pendingLunchboxDecal; std::atomic<bool> lunchboxDirty { false };
         void buildLunchboxMeshes();
         std::array<gfx::Texture2D, 4> takebackVuFaceTex;
@@ -415,6 +485,7 @@ namespace pad
 
         float parallaxX = 0.0f, parallaxY = 0.0f;
         float focusAmount = 0.0f;      // animated toward shared.focusTarget
+        float turnAmount = 0.0f;       // animated toward shared.turnTarget (0 front .. 1 behind the rack)
         std::array<float, enh::dsp::numBands> displayBands {};
         std::array<float, 24> displayPrecision {};   // CLARITY's precision bands: (Hz, Q, dB) x 8
         std::array<float, 48> limitCurve {};       // SPECTRAL LIMITER cut on the analyser's axis (dB), smoothed

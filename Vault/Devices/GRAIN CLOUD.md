@@ -1,6 +1,8 @@
-# GRAIN CLOUD
+# GRANULAR DELAY
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called GRAIN CLOUD.
 
 Granular delay: the sound goes into a 2.5 s memory and comes back as grains - windowed, pitched, scattered in time and stereo, some backwards. FEEDBACK builds it into a texture. (2U, model GC-1.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

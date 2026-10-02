@@ -1,6 +1,8 @@
-# SPEAKER CAB
+# SPEAKER CABINET SIMULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called SPEAKER CAB.
 
 A speaker in its cabinet and the mic in front of it (3U, model SC-412). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

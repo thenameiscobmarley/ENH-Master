@@ -1,6 +1,8 @@
-# PENDULUM
+# PENDULUM MODULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called PENDULUM.
 
 A real swinging pendulum that moves the sound (3U, model PT-2). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

@@ -7,6 +7,9 @@ namespace enh::dsp
     {
         sampleRate = sr;
         maxBlock = std::max (16, maxBlockSize);
+        for (auto& r : fbRing)   // THE PATCH BAY's feedback loop: a block and 12 ms of cable and circuitry round
+            r.assign ((size_t) maxBlock + (size_t) (0.012 * sr), 0.0f);
+        fbPos = 0;
         controlInterval = std::max (8, (int) std::lround (sr / 1500.0));
         controlDt = (float) controlInterval / (float) sr;
         const double controlRate = sr / controlInterval;
@@ -29,6 +32,7 @@ namespace enh::dsp
         character.prepare (sr, maxBlock, numChannels);
         lunchbox.prepare (sr, maxBlock);
         outputStage.prepare (sr);
+        tunerMatch.prepare (sr);
         headphones.prepare (sr, numChannels);
         x4.prepare (sr);
         velvet.prepare (sr);
@@ -91,6 +95,7 @@ namespace enh::dsp
         character.reset();
         lunchbox.reset();
         outputStage.reset();
+        tunerMatch.reset();
         headphones.reset();
         x4.reset();
         velvet.reset();
@@ -512,61 +517,59 @@ namespace enh::dsp
 
         float* chunk[2] { write[0] + start, write[chans - 1] + start };
 
-        // The leveler lifts what is too quiet; the spectral limiter takes out abnormal excess where it
-        // is, so the compressor after it only reacts to what is loud across the whole programme.
-        auto lumenSettings = p.lumen;
-        lumenSettings.holdGains = p.limiter.active && limiter.isHandlingLocalisedEvent();
-        lumenSettings.levelDb = levelDbNow;   // LEVEL moves the whole rack; the leveler reads levels relative to it
-        inStereoMode (chunk, chans, n, p.methods[(size_t) methods::levelerStereo], 0, keepDelays[0],
-                      [&] (float* const* c, int k) { lumen.process (c, k, n, lumenSettings); });
-        deep.process (chunk, chans, n, p.deep);   // DEEP SUB: before the limiters, so they look after what it adds
-        inStereoMode (chunk, chans, n, p.methods[(size_t) methods::limiterStereo], 0, keepDelays[1],
-                      [&] (float* const* c, int k) { limiter.process (c, k, n, p.limiter); });
-
-        // MIX BALANCER, with taps either side of it for its display
-        scopeBalIn.push (chunk, chans, n);
-        // Footsteps being lifted (one in the last second): the balancer lets its cuts go, so it never takes
-        // the lift back
-        footstepRecentS = p.radar.active && radar.getActivity() > 0.1f ? 1.0f : std::max (0.0f, footstepRecentS - (float) n / (float) sampleRate);
-        auto balancerSettings = p.balancer;
-        balancerSettings.holdCuts = footstepRecentS > 0.0f;
-        inStereoMode (chunk, chans, n, p.methods[(size_t) methods::balancerStereo], 0, keepDelays[2],
-                      [&] (float* const* c, int k) { balancer.process (c, k, n, balancerSettings); });
-        scopeBalOut.push (chunk, chans, n);
-
-        inStereoMode (chunk, chans, n, p.methods[(size_t) methods::tideStereo], 0, keepDelays[3],
-                      [&] (float* const* c, int k) { tide.process (c, k, n, p.tide, p.limiter.active ? limiter.key() : nullptr); });
-        // FOOTSTEP RADAR: after the dynamics (it lifts what they have settled), before TONE & SPACE finishes it
-        // It listens to the rack's input (its steps as they came, before the dynamics flattened them) and
-        // lifts them here; the few samples the stages between add are well inside its 2.5 ms lookahead
-        const float* radarKey[2] { compareIn[0].data() + start, compareIn[chans > 1 ? 1 : 0].data() + start };
-        radar.process (chunk, chans, n, p.radar, compareReady ? radarKey : nullptr);
-        meters.radarOn.store (p.radar.active, std::memory_order_relaxed);
-        publishRadar();
-
-        inStereoMode (chunk, chans, n, p.methods[(size_t) methods::seraphStereo], seraph.getLatencySamples(), keepDelays[4],
-                      [&] (float* const* c, int k) { seraph.process (c, k, n, p.seraph); });
-
-        // CHARACTER: the hardware the rack is made of (out: a delay of the same length)
-        inStereoMode (chunk, chans, n, p.methods[(size_t) methods::charStereo], character.getLatencySamples(), keepDelays[5],
-                      [&] (float* const* c, int k) { character.process (c, k, n, p.character); });
-
-        // The designed units: LATINSPHIEL PRO X4, VELVETIZER, then TAKEBACK (each bit-for-bit out until powered)
-        x4.process (chunk, chans, n, p.x4);
-        velvet.process (chunk, chans, n, p.velvet);
-        takeback.process (chunk, chans, n, p.takeback);
-        // The newer units (each bit-for-bit out until its POWER is on)
-        for (int k = 0; k < (int) newer.size(); ++k)
+        // THE PATCH BAY: round a loop of cords, what left the chain comes into it again (filtered by the loop's
+        // cables and transformers, softly limited; one that runs away is muted - EAR GUARD after it as always)
+        if (const int ep = feedbackEpoch.load (std::memory_order_relaxed); ep != feedbackEpochSeen)
         {
-            newer[(size_t) k]->process (chunk, chans, n, p.unitParams.data() + (units::info[k].firstParam - units::firstParam));
-            meters.unitMeter[(size_t) k].store (newer[(size_t) k]->meter(), std::memory_order_relaxed);
-            if (const int nd = newer[(size_t) k]->displayState (displayScratch.data(), (int) displayScratch.size()); nd > 0)
-                if (k < EngineMeters::displayUnits)
-                    for (int i = 0; i < std::min (nd, EngineMeters::displayFloats); ++i)
-                        meters.unitDisplay[(size_t) k][(size_t) i].store (displayScratch[(size_t) i], std::memory_order_relaxed);
+            feedbackEpochSeen = ep;
+            runaway = false;
+            runawayS = 0.0f;
+            meters.patchRunaway.store (false, std::memory_order_relaxed);
         }
-        custom->process (chunk, chans, n, p.customParams.data());   // CUSTOM (bit-for-bit out until powered and loaded)
-        meters.unitMeter[(size_t) units::count].store (custom->meter(), std::memory_order_relaxed);
+        const bool feedback = feedbackOn.load (std::memory_order_relaxed) && ! runaway;
+        {
+            float in = 0.0f;   // (how loud the chain is fed, before the loop adds to it)
+            for (int i = 0; i < n; ++i) in = std::max (in, std::abs (chunk[0][i]));
+            fbInLevel = std::max (in, fbInLevel * std::exp (-(float) n / (0.3f * (float) sampleRate)));
+        }
+        if (feedback && ! fbRing[0].empty())
+        {
+            const int len = (int) fbRing[0].size();
+            const float hpA = std::exp (-2.0f * 3.14159265f * 90.0f / (float) sampleRate), lpA = std::exp (-2.0f * 3.14159265f * 7000.0f / (float) sampleRate);
+            for (int i = 0; i < n; ++i)
+            {
+                const int rd = (fbPos + i) % len;   // (the oldest: a loop's worth of cable and circuitry ago)
+                for (int c = 0; c < chans; ++c)
+                {
+                    float v = fbRing[(size_t) c][(size_t) rd];
+                    fbLp[(size_t) c] = v + (fbLp[(size_t) c] - v) * lpA;           // the top rolls off
+                    fbHp[(size_t) c] = fbLp[(size_t) c] + (fbHp[(size_t) c] - fbLp[(size_t) c]) * hpA;
+                    v = fbLp[(size_t) c] - fbHp[(size_t) c];                        // and the very bottom
+                    chunk[c][i] += 0.5f * std::tanh (v * 1.4f) / 1.4f;
+                }
+            }
+        }
+
+        // The units after the enhancer, in the order the cords take them (stages left out of the order: after)
+        bool done[numStages] {};
+        auto indexOf = [] (int code) { return code >= stNewer ? numCoreStages + (code - stNewer) : code; };
+        for (size_t s = 0; s < chainOrder.size(); ++s)
+        {
+            const int c = chainOrder[s].load (std::memory_order_relaxed) - 1;
+            if (c < 0 || (c >= numCoreStages && c < stNewer) || c >= stNewer + units::count || done[indexOf (c)])
+                continue;
+            done[indexOf (c)] = true;
+            runStage (c, chunk, chans, n, start, p);
+        }
+        static constexpr std::array<int, numCoreStages> usual { stLumen, stDeep, stLimiter, stBalancer, stTide, stRadar, stSeraph, stCharacter,
+                                                               stX4, stVelvet, stTakeback, stCustom, stLunchbox };
+        for (int c : usual)
+        {
+            if (c == stCustom)   // (the newer units go before CUSTOM, as they always have)
+                for (int k = 0; k < units::count; ++k)
+                    if (! done[numCoreStages + k]) { done[numCoreStages + k] = true; runStage (stNewer + k, chunk, chans, n, start, p); }
+            if (! done[c]) { done[c] = true; runStage (c, chunk, chans, n, start, p); }
+        }
         meters.x4DensityDb.store (x4.getReadout().densityDb, std::memory_order_relaxed);
         meters.velvetDb.store (velvet.getVelvetDb(), std::memory_order_relaxed);
         {
@@ -588,15 +591,46 @@ namespace enh::dsp
             }
         }
 
-        // LUNCHBOX: the side rack's modules (each bit-for-bit out until switched in; no latency)
-        // (its modules in signal order: those before the CLASS-A EQ, the EQ and DE-HARSH, the ones after, then
-        // CROSSFEED and the output meter; a module in the locker has its IN held off - see withLocker)
-        runLbModules (chunk, chans, n, p, true);
-        lunchbox.process (chunk, chans, n, p.lunchbox, 1);
-        runLbModules (chunk, chans, n, p, false);
-        lunchbox.process (chunk, chans, n, p.lunchbox, 2);
-        meters.lunchboxHarshDb.store (lunchbox.getHarshReductionDb(), std::memory_order_relaxed);
-        meters.lunchboxPeak.store (lunchbox.getOutputPeak(), std::memory_order_relaxed);
+
+        // ... and what leaves the chain goes round the loop (watched: held loud for long, it is muted)
+        if (! fbRing[0].empty())
+        {
+            const int len = (int) fbRing[0].size();
+            float peak = 0.0f;
+            for (int i = 0; i < n; ++i)
+            {
+                for (int c = 0; c < 2; ++c)
+                    fbRing[(size_t) c][(size_t) fbPos] = feedback ? chunk[std::min (c, chans - 1)][i] : 0.0f;
+                peak = std::max (peak, std::abs (chunk[0][i]));
+                fbPos = (fbPos + 1) % len;
+            }
+            fbLevel = std::max (peak, fbLevel * std::exp (-(float) n / (0.05f * (float) sampleRate)));
+            // runaway: held more than 6 dB over what it is fed (or ringing on in silence)
+            const bool over = fbLevel > 0.05f && fbLevel > 2.0f * fbInLevel;
+            runawayS = feedback && over ? runawayS + (float) n / (float) sampleRate : std::max (0.0f, runawayS - 0.5f * (float) n / (float) sampleRate);
+            if (feedback && runawayS > 0.4f)
+            {
+                runaway = true;
+                meters.patchRunaway.store (true, std::memory_order_relaxed);
+                for (auto& r : fbRing) std::fill (r.begin(), r.end(), 0.0f);
+            }
+        }
+        if (runaway)   // a runaway loop: the rack is muted (faded by the patch stage) until it is re-patched
+            patchMuted.store (true, std::memory_order_relaxed);
+
+        // RACK TUNER: after a tune, the whole rack trimmed back to how loud it was (against the rack's input)
+        {
+            const int tk = units::tunerIndex;
+            const float* tp = p.unitParams.data() + (units::info[tk].firstParam - units::firstParam);
+            const float* pre[2] { compareIn[0].data() + start, compareIn[chans > 1 ? 1 : 0].data() + start };
+            tunerMatch.process (chunk, chans, n, compareReady ? pre : nullptr, tp[0] > 0.5f && tp[6] > 0.5f,
+                                tunerCapture.load (std::memory_order_relaxed), tunerRematch.load (std::memory_order_relaxed));
+            meters.tunerTrimDb.store (tunerMatch.getTrimDb(), std::memory_order_relaxed);
+            meters.unitMeter[(size_t) tk].store (std::min (1.0f, std::abs (tunerMatch.getTrimDb()) / 12.0f), std::memory_order_relaxed);
+        }
+
+        // THE PATCH BAY: a cord out of the chain leaves the rack silent (faded, and back slowly - never a jump)
+        patchStage (chunk, chans, n);
 
         // The rack's output amplifier: every analog unit's colour leaves through one stage
         outputStage.process (chunk, chans, n, strength > 0.001f || p.character.active || p.lunchbox.eqIn || p.x4.power || p.velvet.power || p.takeback.power);
@@ -634,6 +668,141 @@ namespace enh::dsp
             }
             meters.scopeWrite.store (w, std::memory_order_release);
             meters.scopeRate.store ((float) sampleRate, std::memory_order_relaxed);
+        }
+    }
+
+    void EnhEngine::runStage (int code, float* const* chunk, int chans, int n, int start, const Parameters& p) noexcept
+    {
+        switch (code)
+        {
+            case stLumen:
+            {
+                // The leveler lifts what is too quiet; the spectral limiter takes out abnormal excess where it is, so the
+                // compressor after it only reacts to what is loud across the whole programme (in the usual order)
+                auto lumenSettings = p.lumen;
+                lumenSettings.holdGains = p.limiter.active && limiter.isHandlingLocalisedEvent();
+                lumenSettings.levelDb = levelDbNow;   // LEVEL moves the whole rack; the leveler reads levels relative to it
+                inStereoMode (chunk, chans, n, p.methods[(size_t) methods::levelerStereo], 0, keepDelays[0],
+                              [&] (float* const* c, int k) { lumen.process (c, k, n, lumenSettings); });
+                break;
+            }
+            case stDeep:
+                deep.process (chunk, chans, n, p.deep);   // DEEP SUB: before the limiters, so they look after what it adds
+                break;
+            case stLimiter:
+                inStereoMode (chunk, chans, n, p.methods[(size_t) methods::limiterStereo], 0, keepDelays[1],
+                              [&] (float* const* c, int k) { limiter.process (c, k, n, p.limiter); });
+                break;
+            case stBalancer:
+            {
+                // MIX BALANCER, with taps either side of it for its display. Footsteps being lifted (one in the last
+                // second): it lets its cuts go, so it never takes the lift back
+                scopeBalIn.push (chunk, chans, n);
+                footstepRecentS = p.radar.active && radar.getActivity() > 0.1f ? 1.0f : std::max (0.0f, footstepRecentS - (float) n / (float) sampleRate);
+                auto balancerSettings = p.balancer;
+                balancerSettings.holdCuts = footstepRecentS > 0.0f;
+                inStereoMode (chunk, chans, n, p.methods[(size_t) methods::balancerStereo], 0, keepDelays[2],
+                              [&] (float* const* c, int k) { balancer.process (c, k, n, balancerSettings); });
+                scopeBalOut.push (chunk, chans, n);
+                break;
+            }
+            case stTide:
+                inStereoMode (chunk, chans, n, p.methods[(size_t) methods::tideStereo], 0, keepDelays[3],
+                              [&] (float* const* c, int k) { tide.process (c, k, n, p.tide, p.limiter.active ? limiter.key() : nullptr); });
+                break;
+            case stRadar:
+            {
+                // FOOTSTEP RADAR listens to the rack's input (its steps as they came) and lifts them here
+                const float* radarKey[2] { compareIn[0].data() + start, compareIn[chans > 1 ? 1 : 0].data() + start };
+                radar.process (chunk, chans, n, p.radar, compareReady ? radarKey : nullptr);
+                meters.radarOn.store (p.radar.active, std::memory_order_relaxed);
+                publishRadar();
+                break;
+            }
+            case stSeraph:
+                inStereoMode (chunk, chans, n, p.methods[(size_t) methods::seraphStereo], seraph.getLatencySamples(), keepDelays[4],
+                              [&] (float* const* c, int k) { seraph.process (c, k, n, p.seraph); });
+                break;
+            case stCharacter:
+                inStereoMode (chunk, chans, n, p.methods[(size_t) methods::charStereo], character.getLatencySamples(), keepDelays[5],
+                              [&] (float* const* c, int k) { character.process (c, k, n, p.character); });
+                break;
+            case stX4:       x4.process (chunk, chans, n, p.x4); break;
+            case stVelvet:   velvet.process (chunk, chans, n, p.velvet); break;
+            case stTakeback: takeback.process (chunk, chans, n, p.takeback); break;
+            case stCustom:
+                custom->process (chunk, chans, n, p.customParams.data());   // CUSTOM (bit-for-bit out until powered and loaded)
+                meters.unitMeter[(size_t) units::count].store (custom->meter(), std::memory_order_relaxed);
+                break;
+            case stLunchbox:
+                // LUNCHBOX: its modules in signal order (those before the CLASS-A EQ, the EQ and DE-HARSH, the ones
+                // after, then CROSSFEED and the output meter; a module in the locker has its IN held off)
+                runLbModules (chunk, chans, n, p, true);
+                lunchbox.process (chunk, chans, n, p.lunchbox, 1);
+                runLbModules (chunk, chans, n, p, false);
+                lunchbox.process (chunk, chans, n, p.lunchbox, 2);
+                meters.lunchboxHarshDb.store (lunchbox.getHarshReductionDb(), std::memory_order_relaxed);
+                meters.lunchboxPeak.store (lunchbox.getOutputPeak(), std::memory_order_relaxed);
+                break;
+            default:
+            {
+                const int k = code - stNewer;   // a newer unit (bit-for-bit out until its POWER is on)
+                if (k < 0 || k >= (int) newer.size())
+                    break;
+                newer[(size_t) k]->process (chunk, chans, n, p.unitParams.data() + (units::info[k].firstParam - units::firstParam));
+                meters.unitMeter[(size_t) k].store (newer[(size_t) k]->meter(), std::memory_order_relaxed);
+                if (const int nd = newer[(size_t) k]->displayState (displayScratch.data(), (int) displayScratch.size()); nd > 0)
+                    if (k < EngineMeters::displayUnits)
+                        for (int i = 0; i < std::min (nd, EngineMeters::displayFloats); ++i)
+                            meters.unitDisplay[(size_t) k][(size_t) i].store (displayScratch[(size_t) i], std::memory_order_relaxed);
+                break;
+            }
+        }
+    }
+
+    void EnhEngine::patchStage (float* const* chunk, int chans, int n) noexcept
+    {
+        const float target = patchMuted.load (std::memory_order_relaxed) ? 0.0f : 1.0f;
+        const float noise = std::clamp (patchNoise.load (std::memory_order_relaxed), 0.0f, 1.0f);
+        if (const int clicks = patchClicks.load (std::memory_order_relaxed); clicks != clicksDone)
+        {
+            clicksDone = clicks;
+            clickEnv = 1.0f;
+            clickPhase = 0.0f;
+        }
+        if (target == 1.0f && patchGain >= 1.0f && noise <= 0.0f && clickEnv < 1.0e-4f)
+            return;
+        const float sr = (float) sampleRate;
+        const float down = 1.0f / (0.04f * sr), up = 1.0f / (0.6f * sr);
+        const float humStep = 2.0f * 3.14159265f * 60.0f / sr;
+        for (int i = 0; i < n; ++i)
+        {
+            patchGain = target > patchGain ? std::min (target, patchGain + up) : std::max (target, patchGain - down);
+            const float g = patchGain * patchGain * (3.0f - 2.0f * patchGain);
+            // a plug half in: mains hum (and its third) well down, and the odd crackle as the contacts scrape
+            float extra = 0.0f;
+            if (noise > 0.0f)
+            {
+                humPhase += humStep;
+                if (humPhase > 6.2831853f) humPhase -= 6.2831853f;
+                crackleSeed = crackleSeed * 1664525u + 1013904223u;
+                const float r = (float) (crackleSeed >> 8) / 16777216.0f;
+                if (r < 0.0006f * noise) crackle = 0.012f * noise * (r * 1600.0f + 0.3f);
+                crackle *= 0.985f;
+                crackleSeed = crackleSeed * 1664525u + 1013904223u;
+                extra = 0.0016f * noise * (std::sin (humPhase) + 0.35f * std::sin (3.0f * humPhase))
+                      + crackle * ((float) (crackleSeed >> 8) / 8388608.0f - 1.0f);
+            }
+            // a plug's click: a dull knock of the barrel and the snap of the contacts, a few milliseconds, well down
+            if (clickEnv >= 1.0e-4f)
+            {
+                crackleSeed = crackleSeed * 1664525u + 1013904223u;
+                clickPhase += 2.0f * 3.14159265f * 190.0f / sr;
+                extra += clickEnv * (0.030f * std::sin (clickPhase) + 0.022f * clickEnv * ((float) (crackleSeed >> 8) / 8388608.0f - 1.0f));
+                clickEnv *= std::exp (-1.0f / (0.006f * sr));
+            }
+            for (int c = 0; c < chans; ++c)
+                chunk[c][i] = chunk[c][i] * g + extra;
         }
     }
 

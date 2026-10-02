@@ -6,19 +6,18 @@
 <!-- No trackers, no cookies, no fonts or scripts from anywhere else: this page asks nothing of any
      server but GitHub Pages, and tells no one where a visitor goes next. -->
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
 <title>ENH Master</title>
-<meta name="description" content="A studio rack in one plugin: eleven adaptive processors, 23 more units and a ten-slot 500-series lunchbox, drawn as real 3D hardware. VST3 for Windows and Linux, an app for gamers, and a light 2D version. Open source, tested on every build.">
+<meta name="description" content="A studio rack in one plugin: eleven adaptive processors, 56 more units and a ten-slot 500-series lunchbox, drawn as real 3D hardware. VST3 for Windows and Linux, an app for gamers, and a light 2D version. Open source, tested on every build.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0a0908">
-<link rel="stylesheet" href="site.css?v=9a736356a1">
-<script src="site.js?v=1b156fc3eb"></script>
+<link rel="stylesheet" href="site.css?v=bc745492ac">
+<script src="site.js?v=4b0faf2503"></script>
 <script src="gallery.js?v=420607d677" defer></script>
 <script src="hub.js?v=5394594a1f" defer></script>
 <script src="units.js?v=bc73fe1919" defer></script>
 <script src="search.js?v=4d58c80820" defer></script>
-<link rel="modulepreload" href="vendor/three/three.module.min.js?v=2e08e4d017">
-<script type="module" src="rack3d.js?v=b003986bef"></script>
+<script src="rack3d.bundle.js?v=b35c9250e4" defer></script>
 <script src="dsp.js?v=c1af232a89" defer></script>
 <script src="demos.js?v=287b14ea3d" defer></script>
 </head>
@@ -52,6 +51,7 @@
       <li><a href="#/rack" data-go="rack">The rack</a></li>
       <li><a href="#/download" data-go="download">Download</a></li>
       <li><a href="#/gallery" data-go="gallery">Designs</a></li>
+      <li><a href="units.html">Every unit</a></li>
       <li><a href="designer.html">Unit Designer</a></li>
     </ul>
     <a class="btn primary nav-cta" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>Download</a>
@@ -71,7 +71,7 @@
       <div class="hero-copy">
         <p class="eyebrow rv"><b>FREE</b>VST3 for Windows &amp; Linux · Gamer app for Windows</p>
         <h1 class="rv" id="hero-h">A studio rack for<br><span class="grad sweep">everything you hear.</span></h1>
-        <p class="lede rv">Eleven adaptive processors, 23 more units and a ten-slot 500-series lunchbox, drawn as real 3D hardware.</p>
+        <p class="lede rv">Eleven adaptive processors, 56 more units and a ten-slot <span class="nowrap">500-series</span> lunchbox, drawn as real 3D hardware.</p>
         <p class="lede2 rv">Footsteps and detail come forward, loud bangs stop ducking everything else, and nothing ever leaves it too loud for your ears.</p>
         <div class="cta rv">
           <a class="btn primary" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>Download the latest release</a>
@@ -80,7 +80,7 @@
         <p class="cta-links rv"><a href="https://github.com/thenameiscobmarley/ENH-Master"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Source on GitHub</a><a href="#verify"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Check your download</a></p>
       </div>
       <div class="facts rv">
-      <div><b class="grad" data-num>48</b><span>rack units, one plugin</span></div>
+      <div><b class="grad" data-num>73</b><span>rack units, one plugin</span></div>
       <div><b class="grad">0 dBFS</b><span>never over, true peak</span></div>
       <div><b class="grad" data-num>182</b><span>AudioLab test runs, every preset</span></div>
       <div><b class="grad">0</b><span>trackers, cookies or ads here</span></div>
@@ -137,12 +137,13 @@
         <a class="hub-tile rv" href="#/rack" data-go="rack"><span class="hub-no">01</span><b>The rack</b><span>Every unit, what it does, live demos and the test lab.</span><i aria-hidden="true">→</i></a>
         <a class="hub-tile rv" href="#/download" data-go="download" data-delay="60"><span class="hub-no">02</span><b>Download</b><span>The latest release for Windows and Linux, and how to check it.</span><i aria-hidden="true">→</i></a>
         <a class="hub-tile rv" href="#/gallery" data-go="gallery" data-delay="120"><span class="hub-no">03</span><b>Designs</b><span>The units built into the plugin, and every designer preset.</span><i aria-hidden="true">→</i></a>
-        <a class="hub-tile rv" href="designer.html" data-delay="180"><span class="hub-no">04</span><b>Unit Designer</b><span>Design your own rack unit, hear it, and share it with a code.</span><i aria-hidden="true">→</i></a>
+        <a class="hub-tile rv" href="units.html" data-delay="180"><span class="hub-no">04</span><b>Every unit</b><span>All 73 units: faceplates, live screens, how each sounds, what every knob does.</span><i aria-hidden="true">→</i></a>
+        <a class="hub-tile rv" href="designer.html" data-delay="240"><span class="hub-no">05</span><b>Unit Designer</b><span>Design your own rack unit, hear it, and share it with a code.</span><i aria-hidden="true">→</i></a>
       </nav>
       <div class="news rv" aria-labelledby="news-h">
         <h3 id="news-h" class="news-h"><span class="knum">3.8</span> New in this version</h3>
         <ul class="news-list">
-          <li><b>33 new rack units</b><span>Reverbs, tape, vari-mu, the 882i, and 15 live simulations - a record deck, a tape echo, a pendulum, a Tesla coil, a lava lamp - each on its own screen.</span></li>
+          <li><b>53 new rack units</b><span>Reverbs, tape, vari-mu, the 882i, and 35 live simulations - a record deck, a Tesla coil, 20 for mastering - each on its own screen.</span></li>
           <li><b>A 10-slot LUNCHBOX</b><span>Its own gear locker and 14 new 500-series modules, as clean as its EQ.</span></li>
           <li><b>A room with a view</b><span>The rack on a quartz shelf by a window, and a hologram welcome screen.</span></li>
           <li><b>ENH Master 2D</b><span>The same plugin, drawn flat, for older graphics.</span></li>
@@ -449,6 +450,36 @@
           <a class="go" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest">ENH-Master-2D zips →</a>
         </div>
       </div>
+      <div class="choose rv" aria-labelledby="choose-h">
+        <h3 id="choose-h">Which one do I need?</h3>
+        <ol class="pick">
+          <li><b>You play games on Windows</b> and want to hear more: the <b>gamer app</b> (<code>windows-gamer-app.zip</code>).</li>
+          <li><b>You make music</b> in a DAW, or run Carla on Linux: the <b>VST3</b> (<code>windows-x64.zip</code> or <code>linux-x64.zip</code>).</li>
+          <li><b>Your computer's graphics are old or slow</b> (it stutters, or won't open): the <b>2D</b> version of either (<code>ENH-Master-2D-…</code>). It sounds exactly the same.</li>
+        </ol>
+        <div class="versus">
+          <table>
+            <caption class="sr">3D against 2D</caption>
+            <thead><tr><th scope="col"></th><th scope="col">3D <span>(ENH Master)</span></th><th scope="col">2D <span>(ENH Master 2D)</span></th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Sound</th><td colspan="2" class="same">Exactly the same: the same units, presets and settings</td></tr>
+              <tr><th scope="row">Looks</th><td>The rack in 3D, in a room, with live screens and a magnifier</td><td>Every faceplate flat, one under another; scroll to move</td></tr>
+              <tr><th scope="row">Graphics</th><td>OpenGL 3.2 - Intel UHD 600 or better runs it smoothly</td><td>No OpenGL needed: any graphics</td></tr>
+              <tr><th scope="row">Memory</th><td>About 300 MB</td><td>Less</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="install">
+          <div><h4>Install the plugin</h4><p>Unzip, then copy <code>ENH Master.vst3</code> to your VST3 folder:
+            <code>C:\Program Files\Common Files\VST3</code> on Windows, <code>~/.vst3</code> on Linux. Rescan plugins in your DAW or Carla.</p></div>
+          <div><h4>Install the gamer app</h4><p>Install the free VB-Audio Cable, run <code>ENH Master.exe</code>, pick your headset under
+            <b>LISTEN ON</b> and press <b>INSERT RACK</b>. Press it again to take the rack out.</p></div>
+          <div><h4>What it runs on</h4><p>Windows 10 or 11 (64-bit); Linux x64 (Ubuntu 22.04 or newer, or the same age). A 64-bit DAW for the VST3.
+            Every download has a checksum: <a href="#/download" data-go="download" onclick="document.getElementById('verify')?.scrollIntoView()">check it</a>.</p></div>
+          <div><h4>New in 3.8</h4><p>53 new units - 35 of them live simulations, 20 for mastering - a 10-slot LUNCHBOX, a gear locker by category
+            with previews, a room around the rack, and knobs that never click. <a href="https://github.com/thenameiscobmarley/ENH-Master/blob/main/CHANGELOG.md">Everything that changed</a>.</p></div>
+        </div>
+      </div>
       <div class="get-cta rv">
         <a class="btn primary big" href="https://github.com/thenameiscobmarley/ENH-Master/releases/latest"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>Download the latest release</a>
         <a class="btn" href="https://github.com/thenameiscobmarley/ENH-Master"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Source on GitHub</a>
@@ -505,7 +536,7 @@
     </div>
     <nav class="foot-col" aria-label="Places">
       <h4>Product</h4>
-      <a href="#/rack" data-go="rack">The rack</a><a href="#/download" data-go="download">Download</a><a href="#/gallery" data-go="gallery">Designs</a><a href="designer.html">Unit Designer</a>
+      <a href="#/rack" data-go="rack">The rack</a><a href="#/download" data-go="download">Download</a><a href="#/gallery" data-go="gallery">Designs</a><a href="designer.html">Unit Designer</a><a href="units.html">Every unit</a>
     </nav>
     <nav class="foot-col" aria-label="Help">
       <h4>Help</h4>

@@ -1,6 +1,8 @@
-# SHUFFLER
+# STEREO SHUFFLER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called SHUFFLER.
 
 Blumlein stereo shuffling: the sides' low end widened more than their top (below ~700 Hz we judge direction by phase and the image narrows), the bass made mono below BASS MONO, and MID / SIDE levels. (1U, model SF-B.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

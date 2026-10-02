@@ -1,6 +1,8 @@
-# ATR TAPE
+# TAPE MACHINE
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called ATR TAPE.
 
 A tape machine: the saturation remembers where it has been (a hysteresis loop, like magnetic tape), then each SPEED's head bump and top roll-off, WOW and FLUTTER pitch wander, and optional HISS. (2U, model ATR-102.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

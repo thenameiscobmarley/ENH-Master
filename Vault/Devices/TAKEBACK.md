@@ -1,6 +1,8 @@
-# TAKEBACK
+# DYNAMICS RESTORER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called TAKEBACK.
 
 Takes back what processing took out of the sound (2U, model BLONDEX, by Texas Studios). Designed in the
 [Rack Unit Designer](https://thenameiscobmarley.github.io/ENH-Master/designer.html). It starts in the

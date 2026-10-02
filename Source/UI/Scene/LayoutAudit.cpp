@@ -1,5 +1,8 @@
 #include "LayoutAudit.h"
 #include "DeviceLayout.h"
+#include "DesignedLayout.h"
+#include "UnitPanels.h"
+#include "../../DSP/units/UnitList.h"
 #include <juce_graphics/juce_graphics.h>
 
 namespace pad::audit
@@ -246,6 +249,52 @@ namespace pad::audit
         }
     }
 
+    namespace
+    {
+        /** A designed or newer unit's print list (DesignedLayout.h, UnitPanels.h). */
+        std::vector<designed::Print> printsOf (int unit)
+        {
+            if (unit >= firstGenUnit && unit < firstGenUnit + gen::count) { const auto [p, n] = gen::printOf (unit - firstGenUnit); return { p, p + n }; }
+            if (unit == x4Unit) return { designed::x4Print.begin(), designed::x4Print.end() };
+            if (unit == velvetUnit) return { designed::velPrint.begin(), designed::velPrint.end() };
+            if (unit == takebackUnit) return { designed::tbPrint.begin(), designed::tbPrint.end() };
+            if (unit == scopeUnit) return { designed::scPrint.begin(), designed::scPrint.end() };
+            return {};
+        }
+
+        /** What a designed / newer unit's print must keep clear of: each knob's body and the ticks printed round
+            it (as renderDesignedDecal draws them: r x 1.18 .. 1.38, or a selector's dots at r x 1.25), its displays'
+            bezels, and its switches and buttons (from the controls, as the older panels'). */
+        std::vector<Obstacle> printedObstacles (int unit)
+        {
+            std::vector<Obstacle> obs;
+            for (auto& o : obstaclesFor (unit))
+                if (! o.name.endsWith (" ticks") && ! o.name.endsWith (" knob") && ! o.name.endsWith (" selector")
+                    && ! o.name.contains ("section border"))   // (the 1U layout's section frame: not printed on these)
+                    obs.push_back (o);
+            for (const auto& p : printsOf (unit))
+            {
+                if (p.kind == 'K')
+                {
+                    const float r = p.w;
+                    obs.push_back ({ Obstacle::circle, p.x, p.z, r * 1.05f, 0.0f, juce::String (p.text) + " knob" });
+                    const auto* spec = pad::params::findSpec (p.param);
+                    const bool selector = spec != nullptr && spec->kind == pad::params::Kind::choice;
+                    const int n = selector ? std::max (2, spec->texts.size()) - 1 : std::max (2, p.steps);
+                    for (int i = 0; i <= n && (selector || p.nums != 3); ++i)
+                    {
+                        const float angle = selector ? characterSelectorAngle ((float) i / (float) n) : knobAngleForValue ((float) i / (float) n);
+                        for (float rr : selector ? std::initializer_list<float> { r * 1.25f } : std::initializer_list<float> { r * 1.18f, r * 1.28f, r * 1.38f })
+                            obs.push_back ({ Obstacle::circle, p.x + std::sin (angle) * rr, p.z - std::cos (angle) * rr, 0.006f, 0.0f, juce::String (p.text) + " ticks" });
+                    }
+                }
+                else if (p.kind == 'D')
+                    obs.push_back ({ Obstacle::hole, p.x, p.z, 0.5f * p.w + 0.017f, 0.5f * p.h + 0.017f, "display bezel" });   // (a strip display's own text sits inside it)
+            }
+            return obs;
+        }
+    }
+
     void writeLayoutAudit (const artwork::TextureSet& textures, const artwork::TextRegistry& items, const juce::File& dir)
     {
         dir.createDirectory();
@@ -259,9 +308,29 @@ namespace pad::audit
                                     { balancerUnit, &textures.balancerDecal, "balancer.png" }, { monitorUnit, &textures.monitorDecal, "monitor.png" },
                                     { radarUnit, &textures.radarDecal, "radar.png" }, { powerUnit, &textures.powerDecal, "power.png" },
                                     { lunchboxUnit, &textures.lunchboxDecal, "lunchbox.png" } };
-
-        for (auto& panel : panels)
+        // The designed units and the newer ones (their print from a list: DesignedLayout.h, UnitPanels.h)
+        static std::vector<std::string> genFiles;
+        genFiles.clear();
+        for (size_t k = 0; k < textures.genDecal.size(); ++k) genFiles.push_back (std::string ("gen-") + enh::dsp::units::info[k].key + ".png");
+        const size_t firstPrinted = panels.size();
+        panels.push_back ({ x4Unit, &textures.x4Decal, "x4.png" }); panels.push_back ({ velvetUnit, &textures.velvetDecal, "velvet.png" });
+        panels.push_back ({ takebackUnit, &textures.takebackDecal, "takeback.png" }); panels.push_back ({ scopeUnit, &textures.scopeDecal, "scope.png" });
+        for (size_t k = 0; k < textures.genDecal.size() && k < (size_t) gen::count; ++k) panels.push_back ({ firstGenUnit + (int) k, &textures.genDecal[k], genFiles[k].c_str() });
+        // CUSTOM, when a design is loaded for the test (PAD_UI_TEST_CUSTOM): its print, from the share code
+        static artwork::RawTexture customTex;
+        if (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_CUSTOM", {}).isNotEmpty())
         {
+            customTex = artwork::renderDesignedDecal (customUnit, textures.faceplateDecal.width, nullptr);
+            panels.push_back ({ customUnit, &customTex, "custom.png" });
+        }
+        juce::String printedReport;
+        int printedProblems = 0;
+
+        for (size_t pi = 0; pi < panels.size(); ++pi)
+        {
+            auto& panel = panels[pi];
+            const bool printed = pi >= firstPrinted;
+            if (panel.tex == nullptr || panel.tex->width <= 0) continue;
             const int unit = panel.unit;
             const float halfH = unitHalfH (unit);
             auto img = toImage (*panel.tex);
@@ -271,7 +340,7 @@ namespace pad::audit
             auto pz = [&] (float z) { return (z + halfH) * sz; };
 
             juce::Graphics g (img);
-            const auto obs = obstaclesFor (unit);
+            const auto obs = printed ? printedObstacles (unit) : obstaclesFor (unit);
 
             g.setColour (juce::Colours::red.withAlpha (0.8f));
             for (auto& o : obs)
@@ -287,7 +356,8 @@ namespace pad::audit
                     g.drawRect (juce::Rectangle<float>::leftTopRightBottom (px (o.x - o.a), pz (o.z - o.b), px (o.x + o.a), pz (o.z + o.b)), 2.0f);
             }
 
-            report << "=== " << panel.file << " (" << unitInfo[(size_t) unit].name << ") ===\n";
+            juce::String& out = printed ? printedReport : report;
+            out << "=== " << panel.file << " (" << unitInfo[(size_t) unit].name << ") ===\n";
             int problems = 0;
 
             std::vector<const artwork::TextItem*> mine;
@@ -309,7 +379,7 @@ namespace pad::audit
                     const float c = clearance (b, o);
                     if (c < margin)
                     {
-                        report << juce::String::formatted ("  %-34s vs %-30s clearance %+.3f\n", t->text.substring (0, 34).toRawUTF8(), o.name.toRawUTF8(), c);
+                        out << juce::String::formatted ("  %-34s vs %-30s clearance %+.3f\n", t->text.substring (0, 34).toRawUTF8(), o.name.toRawUTF8(), c);
                         bad = true;
                     }
                 }
@@ -321,7 +391,7 @@ namespace pad::audit
                     const float c = boxGap (b, boxOf (*other));
                     if (c < margin * 0.6f)
                     {
-                        report << juce::String::formatted ("  %-34s vs text '%s' clearance %+.3f\n", t->text.substring (0, 34).toRawUTF8(), other->text.substring (0, 30).toRawUTF8(), c);
+                        out << juce::String::formatted ("  %-34s vs text '%s' clearance %+.3f\n", t->text.substring (0, 34).toRawUTF8(), other->text.substring (0, 30).toRawUTF8(), c);
                         bad = true;
                     }
                 }
@@ -331,7 +401,8 @@ namespace pad::audit
                 g.drawRect (juce::Rectangle<float>::leftTopRightBottom (px (b.x0), pz (b.z0), px (b.x1), pz (b.z1)), 1.5f);
             }
 
-            report << "  " << problems << " cramped / overlapping print item(s)\n\n";
+            out << "  " << problems << (printed ? " tight / overlapping item(s)\n\n" : " cramped / overlapping print item(s)\n\n");
+            if (printed) printedProblems += problems;
             juce::PNGImageFormat png;
             if (auto out = dir.getChildFile (panel.file).createOutputStream())
             {
@@ -342,5 +413,7 @@ namespace pad::audit
         }
 
         dir.getChildFile ("clearances.txt").replaceWithText (report);
+        // (the designed and newer units in their own file: their count is held to its own limit)
+        dir.getChildFile ("clearances-units.txt").replaceWithText (printedReport + juce::String (printedProblems) + " tight item(s) in all\n");
     }
 }

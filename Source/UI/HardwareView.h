@@ -20,6 +20,7 @@ namespace pad
     /** Hosts the OpenGL context and handles mouse interaction/picking on the
         message thread. Frame pacing lives in the renderer (render thread). */
     class HardwareView final : public juce::Component,
+                               public juce::SettableTooltipClient,
                                private juce::Timer
     {
     public:
@@ -104,6 +105,29 @@ namespace pad
 
         int dragControl = -1, dragParam = -1;
         int gestureParam = -1, pendingToggle = -1;
+        // THE PATCH BAY, turned round: a plug in the hand (pulled out of a jack, or picked up off the shelf), and one
+        // on its way in or out of a jack - the slide, with a grip that varies along the way like a real one
+        struct PlugMove { int cord = -1, end = 0, col = -1, row = 0; bool inserting = false; double start = 0.0; float seconds = 0.3f; std::array<float, 8> grip {}; };
+        int heldCord = -1, heldEnd = 0, seenPatchVersion = -1;
+        PlugMove plugMove;
+        juce::Point<float> lastPointer;
+        juce::Random plugRandom;
+        bool patchMouseDown (juce::Point<float> pos);
+        bool jackClicked (int col, int row);   // nothing in the hand: take out the plug there, or put a loose one in
+        bool bayJackAt (juce::Point<float> pos, int& col, int& row) const;
+        bool masterAt (juce::Point<float> pos) const;
+        int backUnitAt (juce::Point<float> pos) const;   // turned round: whose back is under the pointer (-1 none)
+        juce::TooltipWindow tips { this, 500 };
+        int tipBack = -2;   // on the MASTER switch (ANYTHING INTO ANYTHING)
+        hwk::gfx::Vec3 handAt (juce::Point<float> pos) const;
+        bool canGoInto (const enh::patch::State& s, int cord, int end, int col, int row) const;
+        void setValidJacks();
+        void startInsert (int cord, int end, int col, int row);
+        void tickPatch();
+        enh::patch::State currentPatch() const;
+        bool turnDrag = false, turnDragMoved = false;   // a drag on empty space turns the rack round on its shelf
+        float turnDragX = 0.0f, turnDragFrom = 0.0f;
+        void setTurned (bool back);
         double pressEventMs = 0.0;
         float dragValue = 0.0f;
         juce::Point<float> lastDragPos;
@@ -114,6 +138,8 @@ namespace pad
         artwork::DisplayText lastText;
 
         artwork::TextRegistry textItems;   // every printed word on both panels, for the hover callouts
+        std::vector<bool> genBaked;         // the newer units' print baked yet (a unit in the locker: when installed)
+        void bakeInstalledUnits();
         juce::String lastCalloutKey;
 
         // Rendering is paused while the window is minimised or hidden

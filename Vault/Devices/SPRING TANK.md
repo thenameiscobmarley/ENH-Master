@@ -1,6 +1,8 @@
-# SPRING TANK
+# SPRING REVERB
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called SPRING TANK.
 
 A real spring disperses: its highs arrive before its lows, so every echo is a chirp. 1 to 3 springs, each a feedback loop with a chain of 24 allpasses (the dispersion), a tone filter and a gently driven input (DWELL). (1U, model ST-3.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

@@ -1,16 +1,17 @@
 /* ENH Master site. Self-hosted, no external anything.
-   Studio hardware: warm graphite, walnut and brushed metal, lit by one amber accent. Motion is transform/opacity only, and only with html.motion
+   Bold and colourful (3.8.0.1): the hardware's graphite and walnut, lit by CHROMA SPACE's light - warm (amber,
+   coral, magenta) against cool (cyan, blue, violet). Motion is transform/opacity only, and only with html.motion
    (JavaScript on, no reduced-motion preference, no ?static). */
 :root {
   --bg: #0a0908; --bg2: #0e0d0b; --bg3: #14120f;
   --ink: #efe8dc; --muted: #b9ae9e; --dim: #948a7c;
   --line: rgba(255, 228, 190, .09); --line2: rgba(255, 228, 190, .17);
-  --green: #e0a84a; --teal: #c9974a; --cyan: #d9a54e; --blue: #b07a3c; --violet: #9a6a3a; --pink: #f0c070;
-  --accent: #e8a33a; --accent2: #f3c677;
-  /* Studio hardware: graphite, walnut and brushed metal, one amber light (a lit VU). No rainbow anywhere. */
-  --aurora: linear-gradient(100deg, #f3dfb5 0%, #e0a84a 55%, #c58a3a 100%);
-  --aurora-x: linear-gradient(100deg, #f3dfb5 0%, #e0a84a 50%, #f3dfb5 100%);
-  --pearl: linear-gradient(120deg, #f4ecdd 0%, #d9ccb4 55%, #bfae90 100%);
+  --green: #2de2ff; --teal: #4a7dff; --cyan: #2de2ff; --blue: #4a7dff; --violet: #8f5bff; --pink: #ff2d95;
+  --accent: #ff7a59; --accent2: #ffb347;
+  /* Warm against cool: the gradient everything bold is lit with */
+  --aurora: linear-gradient(100deg, #ffb347 0%, #ff5e62 30%, #ff2d95 50%, #8f5bff 72%, #2de2ff 100%);
+  --aurora-x: linear-gradient(100deg, #ffb347 0%, #ff2d95 25%, #8f5bff 50%, #2de2ff 75%, #ffb347 100%);
+  --pearl: linear-gradient(120deg, #ffd08a 0%, #ff8a5c 50%, #ff4f8b 100%);
   --glass: linear-gradient(165deg, rgba(255, 236, 205, .055), rgba(255, 236, 205, .014) 42%, rgba(120, 80, 45, .05) 100%);
   --walnut: #4a2f1d; --brass: #c9a24a; --steel: #9a948a;
   --fill: rgba(15, 13, 11, .78);
@@ -29,7 +30,11 @@
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--nav-h) + 16px); scrollbar-color: #3a332a #0b0a08; background: var(--bg); }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
-  margin: 0; min-width: 320px; overflow-x: hidden; color: var(--ink); background: transparent;
+  margin: 0; min-width: 320px; overflow-x: hidden; color: var(--ink);
+  background:   /* warm light from the left, cool from the right, a little violet under it all */
+    radial-gradient(60vw 40vw at 6% 0%, rgba(255, 94, 98, .13), transparent 70%),
+    radial-gradient(60vw 40vw at 96% 6%, rgba(74, 125, 255, .15), transparent 70%),
+    radial-gradient(90vw 60vw at 50% 110%, rgba(143, 91, 255, .10), transparent 70%) fixed;
   font: 400 clamp(16px, .95rem + .2vw, 18px)/1.65 var(--sans);
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
@@ -49,7 +54,7 @@ pre code { background: none; padding: 0; color: inherit; overflow-wrap: normal; 
 .skip { position: absolute; left: -999px; top: 8px; z-index: 200; padding: 10px 16px; background: var(--pearl); color: #05070a; border-radius: 10px; font-weight: 700; }
 .skip:focus { left: 12px; }
 .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gut); }
-.grad { color: var(--accent); background: none; }   /* (one amber, like a lit meter - it was a rainbow gradient) */
+.grad { background: var(--aurora); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }   /* (warm into cool, as CHROMA SPACE lights it) */
 .muted { color: var(--muted); }
 .small { font-size: .9em; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -198,6 +203,24 @@ pre code { background: none; padding: 0; color: inherit; overflow-wrap: normal; 
   .scroll-cue { display: none; }
 }
 @media (max-width: 560px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hero h1 { font-size: clamp(2.2rem, 1rem + 7vw, 3.2rem); } }
+/* The welcome banner, centred: the words across the middle, the rack framed full-width under them (the 3D rack
+   frames itself into .hero-stage wherever it is), the facts centred below. .hero-in steps aside (display:
+   contents) so its two parts take their own places in the hero's column. */
+.hero-in { display: contents; }
+.nowrap { white-space: nowrap; }
+.hero-copy { order: 1; position: relative; z-index: 1; width: 100%; max-width: 54rem; margin: 0 auto; padding: 0 var(--gut); text-align: center; pointer-events: none; }
+.hero-copy a { pointer-events: auto; }
+.hero .lede, .hero .lede2 { margin-left: auto; margin-right: auto; }
+.hero .cta, .hero .cta-links { justify-content: center; }
+.hero-stage { order: 2; position: relative; top: auto; right: auto; bottom: auto; width: min(100%, 1180px); height: clamp(300px, 50vh, 640px); margin: 6px auto 0; }
+.facts { order: 3; position: relative; z-index: 1; width: calc(100% - 2 * var(--gut)); max-width: 44rem; margin: 14px auto 0; text-align: center; }
+.scroll-cue { left: 50%; }
+.hero .lede2 { margin-bottom: 1.3em; }
+@media (min-width: 1800px) { .hero-copy { max-width: 60rem; } .facts { max-width: 48rem; } }
+@media (max-width: 999px) { .hero-stage { order: 0; width: auto; height: 46vh; height: 46svh; margin: 0 0 8px; } }
+/* No 3D (older graphics): the still picture drifts slowly, so the hero still breathes */
+.motion.gl-no .hero-still img { animation: stillDrift 26s var(--ease-io) infinite alternate; }
+@keyframes stillDrift { from { transform: scale(1.02) translate3d(-1.2%, .6%, 0); } to { transform: scale(1.09) translate3d(1.2%, -.8%, 0); } }
 
 /* ---------- sections ---------- */
 main { overflow-x: hidden; overflow-x: clip; }   /* the side glows never widen the page */
@@ -643,7 +666,7 @@ footer .logo { color: var(--ink); }
 .motion .rv.in { opacity: 1; transform: none; }
 .motion .kicker.rv::before { transform: scaleX(0); transition: transform 1s var(--ease) .25s; }
 .motion .kicker.rv.in::before { transform: scaleX(1); }
-.grad.sweep { color: var(--accent); }
+.grad.sweep { background: var(--aurora-x); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
 .motion .grad.sweep.go { animation: none; }
 @keyframes sweep { from { background-position: 100% 0; } to { background-position: 0 0; } }
 .motion .heat.go td { animation: cellIn .7s var(--ease) both; }
@@ -777,6 +800,7 @@ body[data-place] .gl-layer { opacity: .18; }
 .nav a[aria-current="page"] { color: var(--accent); }
 
 .hub { padding: var(--sec) 0; }
+.hub .kicker, .hub #hub-h { text-align: center; }
 .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 28px; }
 .hub-tile { position: relative; display: flex; flex-direction: column; gap: 8px; min-height: 210px; padding: 26px 24px 22px; border-radius: var(--r);
   color: var(--ink); text-decoration: none; overflow: hidden;
@@ -826,3 +850,21 @@ footer .foot { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, mi
 .foot-col a { color: var(--dim); text-decoration: none; font-size: .9rem; }
 .foot-col a:hover { color: var(--ink); }
 footer .foot-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: .82rem; }
+
+/* ---------- download: which one, 3D against 2D, installing (3.8.0.1) ---------- */
+.choose { margin: 40px 0 8px; padding: clamp(18px, 3vw, 32px); border: 1px solid var(--line2); border-radius: var(--r); background: var(--glass); }
+.choose h3 { margin: 0 0 12px; font-size: clamp(22px, 1.2rem + 1vw, 30px); }
+.pick { margin: 0 0 22px; padding-left: 1.2em; display: grid; gap: 8px; color: var(--muted); }
+.pick b { color: var(--ink); }
+.versus { overflow-x: auto; }
+.versus table { width: 100%; border-collapse: collapse; min-width: 520px; font-size: 15px; }
+.versus th, .versus td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.versus thead th { font-size: 16px; background: var(--aurora); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.versus thead th span { color: var(--dim); -webkit-text-fill-color: var(--dim); font-weight: 400; font-size: 13px; }
+.versus tbody th { color: var(--muted); font-weight: 600; width: 110px; }
+.versus td { color: var(--ink); }
+.versus td.same { text-align: center; color: #fff; background: linear-gradient(90deg, rgba(255, 94, 98, .10), rgba(74, 125, 255, .10)); border-radius: 8px; }
+.install { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 22px; margin-top: 24px; }
+.install h4 { margin: 0 0 6px; font-size: 16px; }
+.install p { margin: 0; color: var(--muted); font-size: 15px; }
+.install code, .pick code { font-size: .88em; overflow-wrap: anywhere; word-break: normal; }

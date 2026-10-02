@@ -1,3 +1,4 @@
+#include <map>
 /*  EnhAudioLab - listen to ENH Master with your eyes.
 
     Runs audio (built-in test scenes or any WAV file) through the real engine with any preset, knob or
@@ -44,6 +45,7 @@
 #include "DSP/MethodRegistry.h"
 #include "Parameters/ParameterSpecs.h"
 #include "Parameters/PresetLibrary.h"
+#include "Tuner/TunerCore.h"
 
 namespace lab
 {
@@ -475,6 +477,15 @@ namespace lab
             else if (i == id::silkAuto) k.autoGain = on;       else if (i == id::heavenMode) k.heavenLiftMode = on;
             else if (i == id::heavenAuto) k.heavenAuto = on;   else if (i == id::haloDuck) k.duck = on;
             else if (i == id::haloBassMono) k.bassMono = on;   else if (i == id::haloMod) k.mod = on;
+            // the LUNCHBOX's own modules (CLASS-A EQ, DE-HARSH, CROSSFEED), as PluginProcessor fills them
+            else if (i == "lbEqIn") k.lbEqIn = on;             else if (i == "lbMidHiQ") k.lbMidHiQ = on;
+            else if (i == "lbIron") k.lbIron = on;             else if (i == "lbHarshIn") k.lbHarshIn = on;
+            else if (i == "lbFeedIn") k.lbFeedIn = on;         else if (i == "lbHpf") k.lbHpf = v;
+            else if (i == "lbLowFreq") k.lbLowFreq = v;        else if (i == "lbLowGain") k.lbLowGain = v;
+            else if (i == "lbMidFreq") k.lbMidFreq = v;        else if (i == "lbMidGain") k.lbMidGain = v;
+            else if (i == "lbHighGain") k.lbHighGain = v;      else if (i == "lbHarshAmount") k.lbHarshAmount = v;
+            else if (i == "lbHarshFreq") k.lbHarshFreq = v;    else if (i == "lbHarshSpeed") k.lbHarshSpeed = v;
+            else if (i == "lbFeedAmount") k.lbFeedAmount = v;
         }
         return enh::dsp::mapKnobs (k);
     }
@@ -1267,27 +1278,46 @@ namespace lab
     }
 
     /** Everything measured about one run (the output already aligned to the input). */
-    Result analyse (const Buffer& input, const Buffer& output, const juce::String& scene)
+    /** What analyse () measures of the input alone: the same for every run on a scene, so `check` measures it
+        once a scene (the scenes are made from a fixed seed: the same every time). */
+    struct InputInfo
+    {
+        Buffer audio;
+        decltype (stats (std::declval<const Buffer&>())) st;
+        float lowDb = 0.0f;
+        decltype (bandLevels (std::declval<const Buffer&>())) bands;
+    };
+
+    float lowBandDb (const Buffer& b)   // (each channel's own spectrum, averaged: the mid signal is empty for out-of-phase material)
+    {
+        Buffer l (2, b.getNumSamples()), r (2, b.getNumSamples());
+        for (int c = 0; c < 2; ++c) { l.copyFrom (c, 0, b, 0, 0, b.getNumSamples()); r.copyFrom (c, 0, b, 1, 0, b.getNumSamples()); }
+        return 0.5f * (bandDb (averageSpectrum (l), 20.0f, 150.0f) + bandDb (averageSpectrum (r), 20.0f, 150.0f));
+    }
+
+    InputInfo measureInput (Buffer audio)
+    {
+        InputInfo in;
+        in.st = stats (audio);
+        in.lowDb = lowBandDb (audio);
+        in.bands = bandLevels (audio);
+        in.audio = std::move (audio);
+        return in;
+    }
+
+    Result analyse (const Buffer& input, const Buffer& output, const juce::String& scene, const InputInfo* pre = nullptr)
     {
         Result res;
         for (int c = 0; c < 2; ++c)
             for (int i = 0; i < output.getNumSamples(); ++i)
                 res.finite = res.finite && std::isfinite (output.getSample (c, i));
-        res.in = stats (input);
+        res.in = pre != nullptr ? pre->st : stats (input);
         res.out = stats (output);
         res.clicks = (int) newClicks (input, output).size();
+        res.lowDelta = lowBandDb (output) - (pre != nullptr ? pre->lowDb : lowBandDb (input));
         {
-            // Each channel's own spectrum, averaged: the mid signal is empty for out-of-phase material
-            auto channels = [] (const Buffer& b)
-            {
-                Buffer l (2, b.getNumSamples()), r (2, b.getNumSamples());
-                for (int c = 0; c < 2; ++c) { l.copyFrom (c, 0, b, 0, 0, b.getNumSamples()); r.copyFrom (c, 0, b, 1, 0, b.getNumSamples()); }
-                return 0.5f * (bandDb (averageSpectrum (l), 20.0f, 150.0f) + bandDb (averageSpectrum (r), 20.0f, 150.0f));
-            };
-            res.lowDelta = channels (output) - channels (input);
-        }
-        {
-            const auto bi = bandLevels (input), bo = bandLevels (output);
+            const auto bi = pre != nullptr ? pre->bands : bandLevels (input);
+            const auto bo = bandLevels (output);
             auto spread = [&] (size_t k)
             {
                 std::vector<float> d;
@@ -1913,14 +1943,524 @@ namespace lab
         return f;
     }
 
+    /** EnhAudioLab demos [--out DIR]: the website's sound demos - the "music" scene (6 s) through each of the newer
+        units on its own (its own DSP, POWER on, its defaults, a few set to show what they do), written as
+        _dry.wav and <key>.wav (scripts/make-site-units.py turns them into small Opus files for the site). */
+
+    //==============================================================================
+    // RACK TUNER: measure what every unit and knob does (tunerbank), and check a tune does what its words ask
+    // (tunercheck). Tuner/TunerCore.h.
+    namespace tunerlab
+    {
+        namespace T = pad::tuner;
+        // The test: music 0-3 s | steady chord + noise 3-4.5 | a 1 kHz sine 4.6-5.1 | silence 5.1-6.6
+        Buffer signal()
+        {
+            auto b = makeBuffer (6.6);
+            const auto music = makeScene ("music", 3.0);
+            for (int c = 0; c < 2; ++c) b.copyFrom (c, 0, music, c, 0, std::min (music.getNumSamples(), (int) (3.0 * sr)));
+            Rng rng; Pink pl, pr;
+            for (int i = (int) (3.0 * sr); i < (int) (4.5 * sr); ++i)
+            {
+                const double t = i / sr;
+                const float chord = 0.08f * (float) (std::sin (twoPi * 220.0 * t) + std::sin (twoPi * 277.2 * t) + std::sin (twoPi * 329.6 * t));
+                b.setSample (0, i, chord + db (-26.0f) * pl.next (rng));
+                b.setSample (1, i, chord + db (-26.0f) * pr.next (rng));
+            }
+            for (int i = (int) (4.6 * sr); i < (int) (5.1 * sr); ++i)
+            {
+                const float v = db (-12.0f) * (float) std::sin (twoPi * 1000.0 * i / sr);
+                b.setSample (0, i, v); b.setSample (1, i, v);
+            }
+            return b;
+        }
+
+        struct Feat { float low = 0, lowmid = 0, mid = 0, pres = 0, high = 0, width = 0, rms = 0, crest = 0, punch = 0, motion = 0, thd = 0, tail = 0, noise = 0; };
+
+        Feat features (const Buffer& b)
+        {
+            Feat f;
+            const int a0 = (int) (1.0 * sr), a1 = (int) (3.0 * sr);
+            const auto sp = averageSpectrum (b, 12, a0, a1);
+            const float total = bandDb (sp, 500.0f, 2000.0f);   // (every band against the mids: more bass is not "less treble")
+            f.low = bandDb (sp, 20.0f, 120.0f) - total; f.lowmid = bandDb (sp, 120.0f, 500.0f) - total; f.mid = bandDb (sp, 500.0f, 2000.0f) - total;
+            f.pres = bandDb (sp, 2000.0f, 6000.0f) - total; f.high = bandDb (sp, 6000.0f, 16000.0f) - total;
+            double ms = 0.0, ss = 0.0, all = 0.0; float peak = 0.0f;
+            const float hpk = 1.0f - std::exp (-2.0f * (float) juce::MathConstants<double>::pi * 200.0f / (float) sr);
+            float lpl = 0.0f, lpr = 0.0f;
+            for (int i = a0; i < a1; ++i)
+            {
+                const float l = b.getSample (0, i), r = b.getSample (1, i);
+                lpl += hpk * (l - lpl); lpr += hpk * (r - lpr);
+                const float hl = l - lpl, hr = r - lpr;   // (width above 200 Hz: bass is mono on purpose)
+                ms += 0.25 * (hl + hr) * (hl + hr); ss += 0.25 * (hl - hr) * (hl - hr); all += 0.5 * (l * l + r * r);
+                peak = std::max ({ peak, std::abs (l), std::abs (r) });
+            }
+            const double n = (double) (a1 - a0);
+            f.width = dbOf (ss / n) - dbOf (ms / n);
+            f.rms = dbOf (all / n);
+            f.crest = 20.0f * std::log10 (peak + 1.0e-9f) - f.rms;
+            std::vector<float> w5;
+            for (int i = a0; i + 240 <= a1; i += 240)
+            {
+                double e = 0.0;
+                for (int k = 0; k < 240; ++k) e += 0.5 * (std::pow (b.getSample (0, i + k), 2.0) + std::pow (b.getSample (1, i + k), 2.0));
+                w5.push_back (dbOf (e / 240.0));
+            }
+            std::sort (w5.begin(), w5.end());
+            if (! w5.empty()) f.punch = w5[(size_t) (0.95 * (double) (w5.size() - 1))] - w5[w5.size() / 2];
+            // movement: over the steady chord, how much the level and the balance of highs to lows wander
+            {
+                const int size = 1024;
+                juce::dsp::FFT fft (10);
+                std::vector<float> work ((size_t) size * 2);
+                std::vector<float> lv, tilt, wid;
+                for (int pos = (int) (3.4 * sr); pos + size <= (int) (4.4 * sr); pos += size / 2)
+                {
+                    std::fill (work.begin(), work.end(), 0.0f);
+                    double e = 0.0, sd = 1.0e-12, md = 1.0e-12;
+                    for (int i = 0; i < size; ++i)
+                    {
+                        const float m = 0.5f * (b.getSample (0, pos + i) + b.getSample (1, pos + i)), sdv = 0.5f * (b.getSample (0, pos + i) - b.getSample (1, pos + i));
+                        work[(size_t) i] = m * (0.5f - 0.5f * std::cos ((float) twoPi * (float) i / (float) size)); e += m * m; sd += sdv * sdv; md += m * m;
+                    }
+                    wid.push_back ((float) (10.0 * std::log10 (sd / md)));
+                    fft.performFrequencyOnlyForwardTransform (work.data());
+                    double lo = 1.0e-12, hi = 1.0e-12;
+                    for (int k = 1; k < size / 2; ++k) { const double hz = k * sr / size, pw = work[(size_t) k] * work[(size_t) k]; if (hz < 500.0) lo += pw; else if (hz > 2000.0) hi += pw; }
+                    lv.push_back (dbOf (e / size)); tilt.push_back ((float) (10.0 * std::log10 (hi / lo)));
+                }
+                auto stdev = [] (const std::vector<float>& v) { if (v.size() < 2) return 0.0f; double m = 0; for (auto x : v) m += x; m /= (double) v.size(); double q = 0; for (auto x : v) q += (x - m) * (x - m); return (float) std::sqrt (q / (double) v.size()); };
+                f.motion = stdev (lv) + 0.5f * stdev (tilt) + 0.5f * stdev (wid);   // (level, tone and stereo image wandering)
+            }
+            // distortion: on the sine, its harmonics (2 - 9 kHz) against it - only harmonics, so a reverb's tail or a
+            // chorus's smear round the sine does not count as distortion
+            {
+                const auto s = averageSpectrum (b, 13, (int) (4.7 * sr), (int) (5.05 * sr));
+                double fund = 1.0e-20, harm = 1.0e-20;
+                for (size_t k = 1; k < s.power.size(); ++k)
+                {
+                    const float hz = (float) k * s.binHz, h = hz / 1000.0f, near = std::abs (h - std::round (h)) * 1000.0f;
+                    if (near > 25.0f) continue;
+                    if (std::round (h) == 1.0f) fund += s.power[k]; else if (h > 1.5f && h < 9.5f) harm += s.power[k];
+                }
+                f.thd = std::max (-100.0f, dbOf (harm) - dbOf (fund));
+            }
+            // the tail after the sound stops, and what is left at the end (hiss)
+            auto energy = [&] (double t0, double t1) { double e = 0.0; const int i0 = (int) (t0 * sr), i1 = std::min (b.getNumSamples(), (int) (t1 * sr)); for (int i = i0; i < i1; ++i) e += 0.5 * (std::pow (b.getSample (0, i), 2.0) + std::pow (b.getSample (1, i), 2.0)); return e / std::max (1, i1 - i0); };
+            f.tail = std::max (-90.0f, dbOf (energy (5.15, 5.9)) - f.rms);
+            f.noise = std::max (-110.0f, dbOf (energy (6.2, 6.6)) - f.rms);
+            return f;
+        }
+
+        /** What changed from a to b, in the tuner's twelve tags. */
+        T::Tags tagsOf (const Feat& a, const Feat& b)
+        {
+            auto d = [&] (float Feat::* m) { return b.*m - a.*m; };
+            T::Tags t {};
+            t[T::BRIGHT] = (d (&Feat::high) + 0.5f * d (&Feat::pres)) / 5.0f;
+            t[T::DEEP] = d (&Feat::low) / 3.0f;
+            t[T::DIRTY] = d (&Feat::thd) / 10.0f;
+            t[T::WARM] = (d (&Feat::lowmid) - 0.4f * d (&Feat::high) - 0.2f * d (&Feat::pres)) / 4.0f + 0.1f * t[T::DIRTY];
+            t[T::PUNCH] = d (&Feat::punch) / 2.0f;
+            t[T::LOUD] = -d (&Feat::crest) / 3.5f + d (&Feat::rms) / 10.0f;
+            t[T::SPACE] = d (&Feat::tail) / 10.0f;
+            t[T::WIDE] = d (&Feat::width) / 4.0f;
+            t[T::SMOOTH] = -d (&Feat::punch) / 3.0f - d (&Feat::crest) / 6.0f - 0.25f * std::max (0.0f, d (&Feat::high) - 2.0f);   // (softer peaks and transients, no spit: not simply less presence - that is CLARITY's)   // (harshness against the mids, spikiness: not plain brightness or level)
+            t[T::MOTION] = d (&Feat::motion) / 1.5f;
+            t[T::VINTAGE] = 0.4f * std::max (0.0f, t[T::DIRTY]) + 0.4f * std::max (0.0f, -t[T::BRIGHT]) + 0.4f * std::max (0.0f, t[T::MOTION]) + 0.2f * std::max (0.0f, -t[T::WIDE]);   // (what old gear does: harmonics, dull top, wobble, narrower)
+            t[T::CLARITY] = (d (&Feat::pres) - 0.6f * d (&Feat::lowmid) - 0.2f * d (&Feat::low)) / 3.5f - 0.2f * std::max (0.0f, d (&Feat::tail) / 10.0f);   // (presence up, mud and wash down)
+            for (auto& v : t) v = std::clamp (std::isfinite (v) ? v : 0.0f, -2.0f, 2.0f);
+            return t;
+        }
+
+        /** A parameter's value in its own units from its position (0..1), as the plugin's knob maps it. */
+        float rawOf (const juce::String& id, float norm)
+        {
+            const auto* s = pad::params::findSpec (id);
+            if (s == nullptr) return norm;
+            if (s->kind == pad::params::Kind::toggle) return norm > 0.5f ? 1.0f : 0.0f;
+            if (s->kind == pad::params::Kind::choice) return (float) juce::roundToInt (norm * (float) std::max (1, s->texts.size() - 1));
+            juce::NormalisableRange<float> r (s->minValue, s->maxValue, 0.0f);
+            if (s->skewCentre > 0.0f) r.setSkewForCentre (s->skewCentre);
+            return r.convertFrom0to1 (std::clamp (norm, 0.0f, 1.0f));
+        }
+        float defaultNorm (const juce::String& id)
+        {
+            const auto* s = pad::params::findSpec (id);
+            if (s == nullptr) return 0.5f;
+            if (s->kind != pad::params::Kind::continuous) return s->maxValue > s->minValue ? (s->defaultValue - s->minValue) / (s->maxValue - s->minValue) : 0.0f;
+            juce::NormalisableRange<float> r (s->minValue, s->maxValue, 0.0f);
+            if (s->skewCentre > 0.0f) r.setSkewForCentre (s->skewCentre);
+            return r.convertTo0to1 (s->defaultValue);
+        }
+
+        /** Renders the test through the rack with these settings (in parallel: one job a thread). */
+        std::vector<Feat> renderAll (const std::vector<std::vector<std::pair<juce::String, float>>>& jobs, int threads)
+        {
+            const auto sig = signal();
+            std::vector<Feat> out (jobs.size());
+            std::atomic<int> next { 0 }, done { 0 };
+            std::vector<std::thread> pool;
+            for (int t = 0; t < threads; ++t)
+                pool.emplace_back ([&]
+                {
+                    for (int j; (j = next++) < (int) jobs.size();)
+                    {
+                        Setup setup; setup.sets = jobs[(size_t) j];
+                        int latency = 0;
+                        const auto r = run (sig, parametersFor (setup), latency);
+                        Buffer aligned (2, sig.getNumSamples());
+                        for (int c = 0; c < 2; ++c) aligned.copyFrom (c, 0, r, c, std::min (latency, r.getNumSamples() - sig.getNumSamples()), sig.getNumSamples());
+                        out[(size_t) j] = features (aligned);
+                        const int d = ++done;
+                        if (d % 25 == 0) std::printf ("  %d / %d\n", d, (int) jobs.size());
+                    }
+                });
+            for (auto& t : pool) t.join();
+            return out;
+        }
+
+        int tunerbank (const juce::StringArray& args)
+        {
+            namespace B = T::bank;
+            const int threads = std::max (1, (int) std::thread::hardware_concurrency());
+            juce::File outFile = juce::File::getCurrentWorkingDirectory().getChildFile ("Source/Tuner/TunerMeasured.inc");
+            for (int i = 1; i < args.size(); ++i) if (args[i] == "--out" && i + 1 < args.size()) outFile = juce::File::getCurrentWorkingDirectory().getChildFile (args[i + 1]);
+            using Sets = std::vector<std::pair<juce::String, float>>;
+            std::vector<Sets> jobs;
+            jobs.push_back ({});   // 0: the rack as it comes (the newer units off)
+            // per unit: on vs off (its base); per knob: five points along its travel (a switch: off and on), each
+            // against the unit on at its defaults - knobs are not straight lines
+            struct Plan { int unit, param, ref; std::array<int, 5> at; };   // (param -1: the unit's base: at[0] on, ref off)
+            std::vector<Plan> plans;
+            for (int u = 0; u < B::numUnits; ++u)
+            {
+                const auto& unit = B::units[u];
+                const juce::String power (unit.power);
+                const Sets on = power.isNotEmpty() ? Sets { { power, 1.0f } } : Sets {};
+                int ref = 0;
+                if (power.isNotEmpty())
+                {
+                    jobs.push_back (on); jobs.push_back ({ { power, 0.0f } });
+                    ref = (int) jobs.size() - 2;
+                    plans.push_back ({ u, -1, (int) jobs.size() - 1, { ref, ref, ref, ref, ref } });
+                }
+                for (int k = 0; k < unit.numParams; ++k)
+                {
+                    const auto& p = B::params[unit.firstParam + k];
+                    if (p.flags & 1) continue;   // (a choice too: five points along it are five of its choices)
+                    const juce::String id (p.id);
+                    Plan pl { u, unit.firstParam + k, ref, {} };
+                    for (int q = 0; q < 5; ++q)
+                    {
+                        if (p.kind == 1 && q != 0 && q != 4) { pl.at[(size_t) q] = -1; continue; }
+                        Sets x = on; x.push_back ({ id, rawOf (id, (float) q / 4.0f) });
+                        jobs.push_back (x); pl.at[(size_t) q] = (int) jobs.size() - 1;
+                    }
+                    if (p.kind == 1) { pl.at[1] = pl.at[2] = pl.at[3] = -1; }
+                    plans.push_back (pl);
+                }
+            }
+            const auto t0 = juce::Time::getMillisecondCounterHiRes();
+            // (every render's measurements are kept in build/lab/tunerbank.txt: --retag re-derives the tags from them in a moment)
+            const auto cache = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/tunerbank.txt");
+            std::vector<Feat> f;
+            if (args.contains ("--retag") && cache.existsAsFile())
+            {
+                juce::StringArray lines; lines.addLines (cache.loadFileAsString());
+                for (const auto& l : lines)
+                {
+                    juce::StringArray v; v.addTokens (l, " ", {}); v.removeEmptyStrings();
+                    if (v.size() < 13) continue;
+                    Feat x; float* at = &x.low;
+                    for (int q = 0; q < 13; ++q) at[q] = v[q].getFloatValue();
+                    f.push_back (x);
+                }
+                if (f.size() != jobs.size()) { std::printf ("the cache does not match the bank (%d vs %d): measure again\n", (int) f.size(), (int) jobs.size()); return 1; }
+                std::printf ("RACK TUNER bank: re-derived from %s\n", cache.getFullPathName().toRawUTF8());
+            }
+            else
+            {
+                std::printf ("RACK TUNER bank: %d units, %d knob curves and bases, %d renders on %d threads\n", B::numUnits, (int) plans.size(), (int) jobs.size(), threads);
+                f = renderAll (jobs, threads);
+                juce::String text;
+                for (const auto& x : f) { const float* at = &x.low; for (int q = 0; q < 13; ++q) text << at[q] << (q < 12 ? " " : "\n"); }
+                cache.getParentDirectory().createDirectory();
+                cache.replaceWithText (text);
+            }
+            std::vector<std::array<std::array<float, 12>, 5>> curve ((size_t) B::numParams);
+            std::vector<std::array<float, 12>> base ((size_t) B::numUnits);
+            std::vector<bool> known ((size_t) B::numParams, false);
+            for (auto& c : curve) for (auto& q : c) q.fill (0.0f);
+            for (auto& s : base) s.fill (0.0f);
+            for (const auto& pl : plans)
+            {
+                if (pl.param < 0) { const auto t = tagsOf (f[(size_t) pl.ref], f[(size_t) pl.at[0]]); for (int g = 0; g < 12; ++g) base[(size_t) pl.unit][(size_t) g] = t[(size_t) g]; continue; }
+                float mag = 0.0f;
+                for (int q = 0; q < 5; ++q)
+                {
+                    if (pl.at[(size_t) q] < 0) continue;
+                    const auto t = tagsOf (f[(size_t) pl.ref], f[(size_t) pl.at[(size_t) q]]);
+                    for (int g = 0; g < 12; ++g) curve[(size_t) pl.param][(size_t) q][(size_t) g] = t[(size_t) g];
+                }
+                auto& c = curve[(size_t) pl.param];
+                if (B::params[pl.param].kind == 1)   // (a switch: straight from off to on)
+                    for (int q = 1; q < 4; ++q) for (int g = 0; g < 12; ++g) c[(size_t) q][(size_t) g] = c[0][(size_t) g] + (c[4][(size_t) g] - c[0][(size_t) g]) * (float) q / 4.0f;
+                for (int g = 0; g < 12; ++g) mag += std::abs (c[4][(size_t) g] - c[0][(size_t) g]) + std::abs (c[2][(size_t) g] - 0.5f * (c[0][(size_t) g] + c[4][(size_t) g]));
+                known[(size_t) pl.param] = mag > 0.05f;   // (nothing measurable: the guess stands)
+            }
+            juce::String o;
+            o << "// GENERATED by EnhAudioLab tunerbank - what each unit and knob was measured to do (RACK TUNER): the rack played\n"
+              << "// music, a steady chord, a sine and silence; each unit on vs off; each knob at 0, 25, 50, 75 and 100 % of its travel\n"
+              << "// against the unit at its defaults; the differences (brightness, lows, width, tail, loudness, punch, distortion,\n"
+              << "// movement...) as the tuner's tags.\n"
+              << "namespace pad::tuner::measured\n{\n"
+              << "    inline constexpr int numParams = " << B::numParams << ", numUnits = " << B::numUnits << ";\n"
+              << "    inline constexpr bool have = true;\n    inline constexpr bool known[numParams] {";
+            for (int i = 0; i < B::numParams; ++i) o << (i ? "," : " ") << (known[(size_t) i] ? "true" : "false");
+            o << " };\n    inline constexpr float defaultNorm[numParams] {";
+            for (int i = 0; i < B::numParams; ++i) o << (i ? "," : " ") << juce::String (defaultNorm (B::params[i].id), 4) << "f";
+            o << " };\n    inline constexpr float curve[numParams][5][12] {\n";
+            auto row = [] (const std::array<float, 12>& a) { juce::String r ("{ "); for (int g = 0; g < 12; ++g) r << (g ? "," : "") << juce::String (a[(size_t) g], 3) << "f"; return r + " }"; };
+            for (int i = 0; i < B::numParams; ++i)
+            {
+                o << "        { ";
+                for (int q = 0; q < 5; ++q) o << (q ? ", " : "") << row (curve[(size_t) i][(size_t) q]);
+                o << " },   // " << B::params[i].id << "\n";
+            }
+            o << "    };\n    inline constexpr float base[numUnits][12] {\n";
+            for (int u = 0; u < B::numUnits; ++u) o << "        " << row (base[(size_t) u]) << ",   // " << B::units[u].key << "\n";
+            o << "    };\n}\n";
+            outFile.replaceWithText (o);
+            int nKnown = 0; for (bool k : known) nKnown += k ? 1 : 0;
+            std::printf ("wrote %s: %d of %d knobs measured doing something (%.0f s)\n", outFile.getFullPathName().toRawUTF8(), nKnown, B::numParams, (juce::Time::getMillisecondCounterHiRes() - t0) / 1000.0);
+            return 0;
+        }
+
+
+        /** Plays 8 of each unit's settings from the bank through the rack and compares what was heard with what the
+            bank says they do: each unit's reliability (the mean cosine, 0..1) and gain (heard size / said size).
+            Writes Source/Tuner/TunerVerified.inc (run after tunerbank and a rebuild). */
+        int tunerverify (const juce::StringArray&)
+        {
+            namespace B = T::bank;
+            const auto& bk = T::theBank();
+            using Sets = std::vector<std::pair<juce::String, float>>;
+            std::vector<Sets> jobs;
+            struct Try { int unit, vendor, ref, job; };
+            std::vector<Try> tries;
+            std::mt19937 rng (99);
+            for (int u = 0; u < B::numUnits; ++u)
+            {
+                const auto& unit = B::units[u];
+                const juce::String power (unit.power);
+                int ref = 0;
+                if (jobs.empty()) jobs.push_back ({});
+                if (power.isNotEmpty()) { jobs.push_back ({ { power, 0.0f } }); ref = (int) jobs.size() - 1; }
+                for (int k = 0; k < 28; ++k)
+                {
+                    // (its 24 strongest settings - each tag either way: what a tune leans on most, heard for real - and 4 at random)
+                    const int n = bk.unitCount[(size_t) u];
+                    const int v = bk.unitFirst[(size_t) u] + (k < 24 ? std::min (k, n - 1) : (int) (rng() % (unsigned) n));
+                    Sets sets;
+                    if (power.isNotEmpty()) sets.push_back ({ power, 1.0f });
+                    for (int q = 0; q < unit.numParams; ++q)
+                    {
+                        const juce::String id (B::params[unit.firstParam + q].id);
+                        const float to = T::targetOf (v, q, defaultNorm (id), 1.0f);
+                        if (to >= 0.0f) sets.push_back ({ id, rawOf (id, to) });
+                    }
+                    jobs.push_back (sets);
+                    tries.push_back ({ u, v, ref, (int) jobs.size() - 1 });
+                }
+            }
+            std::printf ("RACK TUNER verify: %d settings played (%d renders)\n", (int) tries.size(), (int) jobs.size());
+            std::vector<std::array<std::array<float, 12>, 24>> heardStrong ((size_t) B::numUnits);
+            for (auto& u : heardStrong) for (auto& t : u) t.fill (0.0f);
+            const auto f = renderAll (jobs, std::max (1, (int) std::thread::hardware_concurrency()));
+            // per unit and tag: heard = scale x said (least squares through 0), then how closely the scaled prediction followed
+            std::vector<std::array<double, 12>> hs ((size_t) B::numUnits), ss ((size_t) B::numUnits);
+            for (auto& a : hs) a.fill (0.0); for (auto& a : ss) a.fill (0.0);
+            std::vector<std::pair<T::Tags, T::Tags>> seen ((size_t) tries.size());
+            for (size_t i = 0; i < tries.size(); ++i)
+            {
+                const auto& t = tries[i];
+                const auto heard = tagsOf (f[(size_t) t.ref], f[(size_t) t.job]);
+                const auto& said = bk.tags[(size_t) t.vendor];   // (raw: the bank's own prediction)
+                seen[i] = { heard, said };
+                if (const int k = t.vendor - bk.unitFirst[(size_t) t.unit]; k >= 0 && k < 24) for (int g = 0; g < 12; ++g) heardStrong[(size_t) t.unit][(size_t) k][(size_t) g] = heard[(size_t) g];
+                for (int g = 0; g < 12; ++g) { hs[(size_t) t.unit][(size_t) g] += heard[(size_t) g] * said[(size_t) g]; ss[(size_t) t.unit][(size_t) g] += said[(size_t) g] * said[(size_t) g]; }
+            }
+            std::vector<std::array<float, 12>> scale ((size_t) B::numUnits);
+            for (int u = 0; u < B::numUnits; ++u)
+                for (int g = 0; g < 12; ++g)
+                    scale[(size_t) u][(size_t) g] = ss[(size_t) u][(size_t) g] > 0.02 ? (float) std::clamp (hs[(size_t) u][(size_t) g] / ss[(size_t) u][(size_t) g], 0.0, 1.5) : 1.0f;
+            std::vector<double> cosSum ((size_t) B::numUnits, 0.0);
+            std::vector<int> count ((size_t) B::numUnits, 0);
+            for (size_t i = 0; i < tries.size(); ++i)
+            {
+                const int u = tries[i].unit;
+                auto said = seen[i].second; for (int g = 0; g < 12; ++g) said[(size_t) g] *= scale[(size_t) u][(size_t) g];
+                const auto& heard = seen[i].first;
+                const float h = std::sqrt (T::dot (heard, heard)), sd = std::sqrt (T::dot (said, said));
+                if (sd < 0.05f) continue;
+                cosSum[(size_t) u] += std::max (0.0f, T::dot (heard, said) / (h * sd + 1.0e-9f));
+                ++count[(size_t) u];
+            }
+            juce::String o;
+            o << "// GENERATED by EnhAudioLab tunerverify - how well each unit's settings do what the bank predicts (RACK TUNER):\n"
+              << "// 16 of each unit's settings played through the rack; per tag, how much of the prediction was heard (scale), and how\n"
+              << "// closely the scaled prediction followed what was heard (reliability).\n"
+              << "namespace pad::tuner::verified\n{\n    inline constexpr int numUnits = " << B::numUnits << ";\n    inline constexpr bool have = true;\n"
+              << "    inline constexpr float reliability[numUnits] {\n";
+            juce::String sc;
+            for (int u = 0; u < B::numUnits; ++u)
+            {
+                const int n = count[(size_t) u];
+                const double rel = n > 0 ? cosSum[(size_t) u] / n : 0.5;
+                o << "        " << juce::String (rel, 3) << "f,   // " << B::units[u].key << "\n";
+                sc << "        {"; for (int g = 0; g < 12; ++g) sc << (g ? "," : " ") << juce::String (scale[(size_t) u][(size_t) g], 2) << "f"; sc << " },   // " << B::units[u].key << "\n";
+                std::printf ("  %-12s reliability %.2f\n", B::units[u].key, rel);
+            }
+            o << "    };\n    inline constexpr float scale[numUnits][12] {\n" << sc << "    };\n";
+            o << "    // each unit's 24 strongest settings (the bank's first 24 of it): what was heard\n    inline constexpr float heard[numUnits][24][12] {\n";
+            for (int u = 0; u < B::numUnits; ++u)
+            {
+                o << "        {";
+                for (int k = 0; k < 24; ++k) { o << (k ? ", {" : " {"); for (int g = 0; g < 12; ++g) o << (g ? "," : "") << juce::String (heardStrong[(size_t) u][(size_t) k][(size_t) g], 2) << "f"; o << "}"; }
+                o << " },   // " << B::units[u].key << "\n";
+            }
+            o << "    };\n}\n";
+            juce::File::getCurrentWorkingDirectory().getChildFile ("Source/Tuner/TunerVerified.inc").replaceWithText (o);
+            std::printf ("wrote Source/Tuner/TunerVerified.inc\n");
+            return 0;
+        }
+
+        /** Tunes each set of words (VARIETY 0, every unit may play), plays the rack and says whether what was heard
+            went the way the words asked: the cosine between the words' tags and the heard change's. */
+        int tunercheck (const juce::StringArray& args)
+        {
+            juce::StringArray tests;
+            float variety = 0.0f;   // (--variety 0..10, as the knob)
+            bool coreOnly = false;  // (--core-only: only the rack's own units, as a full rack with SWAP off)
+            for (int i = 1; i < args.size(); ++i)
+            {
+                if (args[i] == "--variety" && i + 1 < args.size()) { variety = args[++i].getFloatValue() / 10.0f; continue; }
+                if (args[i] == "--core-only") { coreOnly = true; continue; }
+                if (! args[i].startsWith ("--")) tests.add (args[i]);
+            }
+            if (tests.isEmpty())
+                tests = { "bright", "dark", "warm", "deep", "thin", "wide", "narrow", "spacious", "dry", "punchy", "smooth", "gritty", "clean", "loud", "vintage",
+                          "clear", "moving", "huge dreamy space", "warm punchy hip-hop", "clean podcast voice", "lo-fi", "metal", "ambient", "gaming footsteps", "dark and wide", "bright punchy edm" };
+            using Sets = std::vector<std::pair<juce::String, float>>;
+            std::vector<Sets> jobs { {} };
+            std::vector<T::Tags> wants;
+            std::vector<juce::String> chosenNames;
+            std::mt19937 rng (1);
+            for (const auto& words : tests)
+            {
+                const auto want = T::parse (words);
+                wants.push_back (want);
+                const auto picks = T::choose (want, variety, rng, [&] (int ui) { return ! coreOnly || (T::bank::units[ui].genIndex < 0 && T::bank::units[ui].lbModule < 0); });
+                if (coreOnly)
+                {
+                    juce::String w; for (int g = 0; g < 12; ++g) if (std::abs (want[(size_t) g]) > 0.05f) w << T::tagName (g) << juce::String (want[(size_t) g], 2) << " ";
+                    std::printf ("  want: %s\n", w.toRawUTF8());
+                    for (const auto& pk : picks)
+                    {
+                        const auto best = T::bestFor (pk.unit, want, 0.0f, rng);
+                        juce::String t; for (int g = 0; g < 12; ++g) if (std::abs (T::theBank().tags[(size_t) best.vendor][(size_t) g]) > 0.1f) t << T::tagName (g) << juce::String (T::theBank().tags[(size_t) best.vendor][(size_t) g], 2) << " ";
+                        std::printf ("    %-20s best %.3f  %s\n", T::bank::units[pk.unit].name, best.score, t.toRawUTF8());
+                    }
+                }
+                Sets sets;
+                juce::StringArray names;
+                for (const auto& pk : picks)
+                {
+                    const auto& u = T::bank::units[pk.unit];
+                    if (! pk.play) continue;
+                    names.add (u.name);
+                    if (juce::String (u.power).isNotEmpty()) sets.push_back ({ u.power, 1.0f });
+                    for (int k = 0; k < u.numParams; ++k)
+                    {
+                        const juce::String id (T::bank::params[u.firstParam + k].id);
+                        const float to = T::targetOf (pk.vendor, k, defaultNorm (id), 1.0f);
+                        if (to >= 0.0f) sets.push_back ({ id, rawOf (id, to) });
+                    }
+                }
+                chosenNames.push_back (names.joinIntoString (", "));
+                jobs.push_back (sets);
+            }
+            const auto f = renderAll (jobs, std::max (1, (int) std::thread::hardware_concurrency()));
+            double sum = 0.0; int good = 0;
+            std::printf ("\nRACK TUNER check: what was asked vs what the rack did (cosine, 1 = exactly the way asked)\n");
+            for (int i = 0; i < tests.size(); ++i)
+            {
+                const auto heard = tagsOf (f[0], f[(size_t) i + 1]);
+                const auto& w = wants[(size_t) i];
+                const float c = T::dot (w, heard) / (std::sqrt (T::dot (w, w) * T::dot (heard, heard)) + 1.0e-9f);
+                sum += c; good += c > 0.5f ? 1 : 0;
+                juce::String top;
+                std::vector<int> order (12); for (int g = 0; g < 12; ++g) order[(size_t) g] = g;
+                std::sort (order.begin(), order.end(), [&] (int a, int b) { return std::abs (heard[(size_t) a]) > std::abs (heard[(size_t) b]); });
+                for (int q = 0; q < 3; ++q) top << (q ? " " : "") << T::tagName (order[(size_t) q]) << (heard[(size_t) order[(size_t) q]] >= 0 ? "+" : "") << juce::String (heard[(size_t) order[(size_t) q]], 2);
+                std::printf ("  %-22s %5.2f %s  heard: %-40s  units: %s\n", tests[i].toRawUTF8(), c, c > 0.5f ? "ok " : "OFF", top.toRawUTF8(), chosenNames[(size_t) i].toRawUTF8());
+            }
+            std::printf ("\n%d of %d went the way asked (cosine > 0.5); mean %.2f\n", good, tests.size(), sum / std::max (1, tests.size()));
+            return good * 4 >= tests.size() * 3 ? 0 : 1;   // (three in four or better)
+        }
+    }
+
+    int demos (const juce::StringArray& args)
+    {
+        juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile ("build/site-units/audio");
+        for (int i = 1; i < args.size(); ++i) if (args[i] == "--out" && i + 1 < args.size()) out = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
+        out.createDirectory();
+        const auto input = makeScene ("music", 6.0);
+        writeWav (input, out.getChildFile ("_dry.wav"));
+        namespace U = enh::dsp::units;
+        // what a few need to be heard at all (their defaults leave them quiet or off)
+        const std::map<juce::String, std::vector<std::pair<int, float>>> show {
+            { "chroma", { { 4, 7.0f }, { 1, 6.5f } } }, { "sympathy", { { 5, 60.0f } } }, { "bounce", { { 5, 50.0f } } },
+            { "tapeecho", { { 6, 45.0f } } }, { "tesla", { { 5, 70.0f } } }, { "shimmer", { { 3, 60.0f } } }, { "lavalamp", { { 3, 8.0f } } } };
+        int written = 0;
+        for (int k = 0; k < U::count; ++k)
+        {
+            const auto& in = U::info[k];
+            if (juce::String (in.key) == "hypercube" || juce::String (in.key) == "tuner") continue;   // (a visualiser, the tuner: they pass the sound untouched)
+            std::vector<float> q ((size_t) in.numParams);
+            for (int j = 0; j < in.numParams; ++j) q[(size_t) j] = enh::dsp::designed::params[(size_t) (in.firstParam + j)].defaultValue;
+            q[0] = 1.0f;
+            if (auto it = show.find (in.key); it != show.end()) for (auto [j, v] : it->second) q[(size_t) j] = v;
+            auto u = U::make (k);
+            u->prepare (sr, 256);
+            Buffer b (input);
+            for (int pos = 0; pos < b.getNumSamples(); pos += 256)
+            {
+                const int m = std::min (256, b.getNumSamples() - pos);
+                float* ch[2] { b.getWritePointer (0) + pos, b.getWritePointer (1) + pos };
+                u->process (ch, 2, m, q.data());
+            }
+            // (the ears: nothing over -1 dBFS in a demo)
+            const float pk = std::max (b.getMagnitude (0, 0, b.getNumSamples()), b.getMagnitude (1, 0, b.getNumSamples()));
+            if (pk > 0.89f) b.applyGain (0.89f / pk);
+            writeWav (b, out.getChildFile (juce::String (in.key) + ".wav"));
+            ++written;
+        }
+        std::printf ("%d demos in %s\n", written, out.getFullPathName().toRawUTF8());
+        return 0;
+    }
+
     int check (const juce::StringArray& args)
     {
         factoryPresetsOnly = true;
         juce::File baselineFile = juce::File::getCurrentWorkingDirectory().getChildFile ("Tests/lab-baseline.json");
         juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/check");
         bool update = false;
-        int threads = std::max (1, std::min (3, (int) std::thread::hardware_concurrency() - 1));
+        int threads = std::max (1, (int) std::thread::hardware_concurrency());   // (--threads N to leave some free)
         juce::String only;
+        bool fast = false;
         for (int i = 1; i < args.size(); ++i)
         {
             if (args[i] == "--update") update = true;
@@ -1928,12 +2468,28 @@ namespace lab
             else if (args[i] == "--out" && i + 1 < args.size()) out = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
             else if (args[i] == "--threads" && i + 1 < args.size()) threads = std::max (1, args[++i].getIntValue());
             else if (args[i] == "--only" && i + 1 < args.size()) only = args[++i];   // runs whose key contains this
+            else if (args[i] == "--fast") fast = true;   // the self-test's quick tier: every preset, on three scenes
         }
 
         auto plan = checkPlan();
+        if (fast)   // (the game, the start and the silence: loudness, ears, surges and tails - every preset on each)
+            plan.erase (std::remove_if (plan.begin(), plan.end(), [] (const CheckRun& c) { return c.scene != "game" && c.scene != "start" && c.scene != "silence"; }), plan.end());
         if (only.isNotEmpty())
             plan.erase (std::remove_if (plan.begin(), plan.end(), [&] (const CheckRun& c) { return ! c.key().containsIgnoreCase (only); }), plan.end());
         std::printf ("EnhAudioLab check: %d runs on %d threads (factory presets, 48 kHz, 8 s each)\n", (int) plan.size(), threads);
+
+        // Each scene made and measured once (every run on it shares them), on the pool's threads
+        std::map<juce::String, InputInfo> inputs;
+        {
+            std::vector<juce::String> names;
+            for (auto& c : plan) if (std::find (names.begin(), names.end(), c.scene) == names.end()) names.push_back (c.scene);
+            for (auto& n : names) inputs[n];
+            std::atomic<int> nextScene { 0 };
+            std::vector<std::thread> makers;
+            for (int t = 0; t < threads; ++t)
+                makers.emplace_back ([&] { for (int i; (i = nextScene++) < (int) names.size();) inputs[names[(size_t) i]] = measureInput (makeScene (names[(size_t) i], 8.0)); });
+            for (auto& t : makers) t.join();
+        }
 
         std::atomic<int> next { 0 }, done { 0 };
         std::vector<std::thread> pool;
@@ -1943,11 +2499,12 @@ namespace lab
                 for (int i; (i = next++) < (int) plan.size();)
                 {
                     auto& c = plan[(size_t) i];
-                    const auto input = makeScene (c.scene, 8.0);
+                    const auto& pre = inputs.at (c.scene);
+                    const auto& input = pre.audio;
                     int latency = 0;
                     float guard = 0.0f;
                     const auto output = run (input, parametersFor ({ c.preset, c.sets }), latency, 256, &guard);
-                    c.r = analyse (input, output, c.scene);
+                    c.r = analyse (input, output, c.scene, &pre);
                     c.r.earGuardDb = guard;
                     const int d = ++done;
                     if (d % 10 == 0 || d == (int) plan.size())
@@ -2075,6 +2632,10 @@ int main (int argc, char** argv)
     if (command == "suite") return suite (out);
     if (command == "listen") return listen (args.size() > 1 ? args[1] : juce::String());
     if (command == "check") return check (args);
+    if (command == "demos") return demos (args);
+    if (command == "tunerbank") return tunerlab::tunerbank (args);
+    if (command == "tunercheck") return tunerlab::tunercheck (args);
+    if (command == "tunerverify") return tunerlab::tunerverify (args);
     std::printf ("unknown command (EnhAudioLab --help)\n");
     return 1;
 }

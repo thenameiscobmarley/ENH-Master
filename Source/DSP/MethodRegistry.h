@@ -580,18 +580,18 @@ namespace enh::dsp::methods
         { "SPECTRAL LIMITER", 4, "STEREO", "STEREO", "Which part of the image it works on", "limiterStereo", limiterStereo, "", stereoMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 6> balancerStages {{
-        { "MIX BALANCER", 6, "PROCESSING", "REFERENCE", "What a band's jump is measured against", "balancerReference", balancerReference, "", balancerReferenceMethods.data(), 2 },
-        { "MIX BALANCER", 6, "PROCESSING", "DEAD ZONE", "How big a move is ignored", "balancerDeadZone", balancerDeadZone, "", balancerDeadZoneMethods.data(), 3 },
-        { "MIX BALANCER", 6, "PROCESSING", "LIFTS", "What it does with a band that drops out", "balancerLifts", balancerLifts, "", balancerLiftsMethods.data(), 3 },
-        { "MIX BALANCER", 6, "PROCESSING", "ATTACK GUARD", "How it treats a fresh transient", "balancerGuard", balancerGuard, "", balancerGuardMethods.data(), 3 },
-        { "MIX BALANCER", 6, "PROCESSING", "LOUDNESS KEEPER", "What it gives back while cutting", "balancerKeeper", balancerKeeper, "", keeperMethods.data(), 3 },
-        { "MIX BALANCER", 6, "STEREO", "STEREO", "Which part of the image it works on", "balancerStereo", balancerStereo, "", stereoMethods.data(), 3 },
+        { "MULTIBAND BALANCER", 6, "PROCESSING", "REFERENCE", "What a band's jump is measured against", "balancerReference", balancerReference, "", balancerReferenceMethods.data(), 2 },
+        { "MULTIBAND BALANCER", 6, "PROCESSING", "DEAD ZONE", "How big a move is ignored", "balancerDeadZone", balancerDeadZone, "", balancerDeadZoneMethods.data(), 3 },
+        { "MULTIBAND BALANCER", 6, "PROCESSING", "LIFTS", "What it does with a band that drops out", "balancerLifts", balancerLifts, "", balancerLiftsMethods.data(), 3 },
+        { "MULTIBAND BALANCER", 6, "PROCESSING", "ATTACK GUARD", "How it treats a fresh transient", "balancerGuard", balancerGuard, "", balancerGuardMethods.data(), 3 },
+        { "MULTIBAND BALANCER", 6, "PROCESSING", "LOUDNESS KEEPER", "What it gives back while cutting", "balancerKeeper", balancerKeeper, "", keeperMethods.data(), 3 },
+        { "MULTIBAND BALANCER", 6, "STEREO", "STEREO", "Which part of the image it works on", "balancerStereo", balancerStereo, "", stereoMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 4> levelerStages {{
-        { "UPWARD LEVELER", 3, "PROCESSING", "LIFT", "How far quiet material may come up", "levelerLift", levelerLift, "", levelerLiftMethods.data(), 3 },
-        { "UPWARD LEVELER", 3, "PROCESSING", "GATE", "What is too quiet to lift", "levelerGate", levelerGate, "", levelerGateMethods.data(), 3 },
-        { "UPWARD LEVELER", 3, "PROCESSING", "BAND BALANCE", "Where the lift goes", "levelerBalance", levelerBalance, "", levelerBalanceMethods.data(), 3 },
-        { "UPWARD LEVELER", 3, "STEREO", "STEREO", "Which part of the image it works on", "levelerStereo", levelerStereo, "", stereoMethods.data(), 3 },
+        { "UPWARD COMPRESSOR", 3, "PROCESSING", "LIFT", "How far quiet material may come up", "levelerLift", levelerLift, "", levelerLiftMethods.data(), 3 },
+        { "UPWARD COMPRESSOR", 3, "PROCESSING", "GATE", "What is too quiet to lift", "levelerGate", levelerGate, "", levelerGateMethods.data(), 3 },
+        { "UPWARD COMPRESSOR", 3, "PROCESSING", "BAND BALANCE", "Where the lift goes", "levelerBalance", levelerBalance, "", levelerBalanceMethods.data(), 3 },
+        { "UPWARD COMPRESSOR", 3, "STEREO", "STEREO", "Which part of the image it works on", "levelerStereo", levelerStereo, "", stereoMethods.data(), 3 },
     }};
     inline constexpr std::array<Method, 3> enhancerPrecisionMethods {{
         { "8", "Eight precision bands",
@@ -609,34 +609,34 @@ namespace enh::dsp::methods
     }};
 
     inline constexpr std::array<Stage, 2> enhancerStages {{
-        { "ADAPTIVE ENHANCER", 0, "PROCESSING", "PRECISION", "How finely CLARITY shapes the sound", "enhancerPrecision", enhancerPrecision, "", enhancerPrecisionMethods.data(), 3 },
-        { "ADAPTIVE ENHANCER", 0, "PROCESSING", "HARMONICS", "What the exciters generate", "enhancerHarmonics", enhancerHarmonics, "", enhancerHarmonicsMethods.data(), 3 },
+        { "ADAPTIVE ENHANCER EQ", 0, "PROCESSING", "PRECISION", "How finely CLARITY shapes the sound", "enhancerPrecision", enhancerPrecision, "", enhancerPrecisionMethods.data(), 3 },
+        { "ADAPTIVE ENHANCER EQ", 0, "PROCESSING", "HARMONICS", "What the exciters generate", "enhancerHarmonics", enhancerHarmonics, "", enhancerHarmonicsMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 4> seraphStages {{
-        { "TONE & SPACE", 1, "PROCESSING", "TAPE CURVE", "How TAPE saturates", "seraphTape", seraphTape, "", seraphTapeMethods.data(), 3 },
-        { "TONE & SPACE", 1, "PROCESSING", "PRE-DELAY", "When the space begins", "seraphPreDelay", seraphPreDelay, "", seraphPreDelayMethods.data(), 3 },
-        { "TONE & SPACE", 1, "PROCESSING", "LOUDNESS WINDOW", "How long LOUDNESS listens", "seraphWindow", seraphWindow, "", seraphWindowMethods.data(), 3 },
-        { "TONE & SPACE", 1, "STEREO", "STEREO", "Which part of the image it works on", "seraphStereo", seraphStereo, "", stereoMethods.data(), 3 },
+        { "TONE & SPACE FINISHER", 1, "PROCESSING", "TAPE CURVE", "How TAPE saturates", "seraphTape", seraphTape, "", seraphTapeMethods.data(), 3 },
+        { "TONE & SPACE FINISHER", 1, "PROCESSING", "PRE-DELAY", "When the space begins", "seraphPreDelay", seraphPreDelay, "", seraphPreDelayMethods.data(), 3 },
+        { "TONE & SPACE FINISHER", 1, "PROCESSING", "LOUDNESS WINDOW", "How long LOUDNESS listens", "seraphWindow", seraphWindow, "", seraphWindowMethods.data(), 3 },
+        { "TONE & SPACE FINISHER", 1, "STEREO", "STEREO", "Which part of the image it works on", "seraphStereo", seraphStereo, "", stereoMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 1> levelStages {{
         { "LEVEL CONTROL", 5, "PROCESSING", "GLIDE", "How fast LEVEL moves", "levelGlide", levelGlide, "", levelGlideMethods.data(), 3 },
     }};
     inline constexpr std::array<Stage, 9> monitorStages {{
-        { "OUTPUT MONITOR", 7, "OUTPUT", "CEILING", "The output limiter's ceiling", "outputCeiling", outputCeiling, "", outputCeilingMethods.data(), 3 },
-        { "OUTPUT MONITOR", 7, "OUTPUT", "LOUDNESS TARGET", "How loud everything leaves the rack", "outputTarget", outputTarget, "", outputTargetMethods.data(), 4 },
-        { "OUTPUT MONITOR", 7, "OUTPUT", "EAR GUARD", "How far the sound may suddenly jump", "earGuard", earGuard, "", earGuardMethods.data(), 3 },
-        { "OUTPUT MONITOR", 7, "OUTPUT", "HEADPHONES", "Which headphones to correct for", "outputHeadphones", outputHeadphones, "", outputHeadphonesMethods.data(), 2 },
-        { "OUTPUT MONITOR", 7, "OUTPUT", "HEADPHONE ROOM", "Where the sound sits on headphones", "outputRoom", outputRoom, "", outputRoomMethods.data(), 3 },
-        { "OUTPUT MONITOR", 7, "OUTPUT", "LONG SESSIONS", "How it keeps a long session from tiring you", "outputSessions", outputSessions, "", outputSessionsMethods.data(), 3 },
-        { "OUTPUT MONITOR", 7, "DISPLAY", "TONE RANGE", "The tone-change curve's scale", "displayToneRange", displayToneRange, "", displayToneRangeMethods.data(), 3 },
-        { "OUTPUT MONITOR", 7, "DISPLAY", "DUCK HOLD", "How long DUCK holds a reading", "displayDuckHold", displayDuckHold, "", displayDuckHoldMethods.data(), 3 },
-        { "OUTPUT MONITOR", 7, "DISPLAY", "WAVEFORM", "What each waveform column shows", "displayWaveform", displayWaveform, "", displayWaveformMethods.data(), 2 },
+        { "LOUDNESS MONITOR", 7, "OUTPUT", "CEILING", "The output limiter's ceiling", "outputCeiling", outputCeiling, "", outputCeilingMethods.data(), 3 },
+        { "LOUDNESS MONITOR", 7, "OUTPUT", "LOUDNESS TARGET", "How loud everything leaves the rack", "outputTarget", outputTarget, "", outputTargetMethods.data(), 4 },
+        { "LOUDNESS MONITOR", 7, "OUTPUT", "EAR GUARD", "How far the sound may suddenly jump", "earGuard", earGuard, "", earGuardMethods.data(), 3 },
+        { "LOUDNESS MONITOR", 7, "OUTPUT", "HEADPHONES", "Which headphones to correct for", "outputHeadphones", outputHeadphones, "", outputHeadphonesMethods.data(), 2 },
+        { "LOUDNESS MONITOR", 7, "OUTPUT", "HEADPHONE ROOM", "Where the sound sits on headphones", "outputRoom", outputRoom, "", outputRoomMethods.data(), 3 },
+        { "LOUDNESS MONITOR", 7, "OUTPUT", "LONG SESSIONS", "How it keeps a long session from tiring you", "outputSessions", outputSessions, "", outputSessionsMethods.data(), 3 },
+        { "LOUDNESS MONITOR", 7, "DISPLAY", "TONE RANGE", "The tone-change curve's scale", "displayToneRange", displayToneRange, "", displayToneRangeMethods.data(), 3 },
+        { "LOUDNESS MONITOR", 7, "DISPLAY", "DUCK HOLD", "How long DUCK holds a reading", "displayDuckHold", displayDuckHold, "", displayDuckHoldMethods.data(), 3 },
+        { "LOUDNESS MONITOR", 7, "DISPLAY", "WAVEFORM", "What each waveform column shows", "displayWaveform", displayWaveform, "", displayWaveformMethods.data(), 2 },
     }};
 
     inline constexpr std::array<Stage, 3> deepStages {{
-        { "DEEP SUB", 8, "PROCESSING", "SUB SHAPE", "What the generated sub is", "deepShape", deepShape, "", deepShapeMethods.data(), 3 },
-        { "DEEP SUB", 8, "PROCESSING", "TRACKING", "How it follows the bass note", "deepTracking", deepTracking, "", deepTrackingMethods.data(), 3 },
-        { "DEEP SUB", 8, "PROCESSING", "HULL MATERIAL", "How long the hull rings", "deepMaterial", deepMaterial, "", deepMaterialMethods.data(), 3 },
+        { "SUB-HARMONIC SYNTHESIZER", 8, "PROCESSING", "SUB SHAPE", "What the generated sub is", "deepShape", deepShape, "", deepShapeMethods.data(), 3 },
+        { "SUB-HARMONIC SYNTHESIZER", 8, "PROCESSING", "TRACKING", "How it follows the bass note", "deepTracking", deepTracking, "", deepTrackingMethods.data(), 3 },
+        { "SUB-HARMONIC SYNTHESIZER", 8, "PROCESSING", "HULL MATERIAL", "How long the hull rings", "deepMaterial", deepMaterial, "", deepMaterialMethods.data(), 3 },
     }};
 
     //==================================================================================================
@@ -656,8 +656,8 @@ namespace enh::dsp::methods
           "No cost." },
     }};
     inline constexpr std::array<Stage, 2> characterStages {{
-        { "CHARACTER", 9, "PROCESSING", "COMPONENTS", "How alike its two channels are", "charComponents", charComponents, "", charComponentsMethods.data(), 3 },
-        { "CHARACTER", 9, "STEREO", "STEREO", "Which part of the image it works on", "charStereo", charStereo, "", stereoMethods.data(), 3 },
+        { "CONSOLE & TAPE EMULATOR", 9, "PROCESSING", "COMPONENTS", "How alike its two channels are", "charComponents", charComponents, "", charComponentsMethods.data(), 3 },
+        { "CONSOLE & TAPE EMULATOR", 9, "STEREO", "STEREO", "Which part of the image it works on", "charStereo", charStereo, "", stereoMethods.data(), 3 },
     }};
 
     //==================================================================================================
@@ -691,8 +691,8 @@ namespace enh::dsp::methods
           "No extra cost." },
     }};
     inline constexpr std::array<Stage, 2> radarStages {{
-        { "FOOTSTEP RADAR", 10, "PROCESSING", "DETECTION", "How sure it must be", "radarDetection", radarDetection, "", radarDetectionMethods.data(), 3 },
-        { "FOOTSTEP RADAR", 10, "PROCESSING", "ROOM", "The space it gives far steps", "radarRoom", radarRoom, "", radarRoomMethods.data(), 3 },
+        { "FOOTSTEP ENHANCER", 10, "PROCESSING", "DETECTION", "How sure it must be", "radarDetection", radarDetection, "", radarDetectionMethods.data(), 3 },
+        { "FOOTSTEP ENHANCER", 10, "PROCESSING", "ROOM", "The space it gives far steps", "radarRoom", radarRoom, "", radarRoomMethods.data(), 3 },
     }};
 
     struct StageList { const Stage* stages; int count; };

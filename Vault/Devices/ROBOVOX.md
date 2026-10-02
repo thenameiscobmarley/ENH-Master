@@ -1,6 +1,8 @@
-# ROBOVOX
+# VOCODER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called ROBOVOX.
 
 A 16-band vocoder: the sound's levels, band by band, open the same bands of a carrier made here - a saw, a pulse, noise or a chord at NOTE. FORMANT moves the carrier's bands against the voice. (2U, model VX-16.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

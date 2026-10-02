@@ -1,6 +1,8 @@
-# RADIO
+# RADIO SIMULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called RADIO.
 
 The sound as a radio receives it (3U, model AM-5). Mono, as a radio is. It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

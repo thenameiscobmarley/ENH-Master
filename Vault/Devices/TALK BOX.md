@@ -1,6 +1,8 @@
-# TALK BOX
+# TALK BOX FORMANT FILTER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called TALK BOX.
 
 The sound through a mouth (3U, model TB-3). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

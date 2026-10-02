@@ -1,6 +1,8 @@
-# VALVE AMP
+# VALVE AMP SIMULATOR
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called VALVE AMP.
 
 A valve amplifier (3U, model VA-50). It starts in the [Gear locker](../UI/Gear%20locker.md).
 **POWER** off: it doesn't touch the sound.

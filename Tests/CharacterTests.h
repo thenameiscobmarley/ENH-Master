@@ -248,14 +248,29 @@ static void runCharacterTests (bool table)
         std::printf ("\n");
     }
 
+    // Every model's measurements for 1 - 4, taken on every core first (the checks below read them, in order)
+    struct Measured { decltype (sine (0, 0.0f, 1000.0f, 0.0f)) alias5, alias10, clean, d0, d5, d10; float level[3]; };
+    std::vector<Measured> meas ((size_t) Character::numModels);
+    parallelFor (Character::numModels * 4, [&] (int job)
+    {
+        const int m = job / 4; auto& me = meas[(size_t) m];
+        switch (job % 4)
+        {
+            case 0: me.alias5 = sine (m, 5.0f, 7000.0f, -6.0f); me.alias10 = sine (m, 10.0f, 7000.0f, -3.0f); break;
+            case 1: me.clean = sine (m, 5.0f, 1000.0f, -18.0f); break;
+            case 2: me.d0 = sine (m, 0.0f, 100.0f, -6.0f); me.d5 = sine (m, 5.0f, 100.0f, -6.0f); me.d10 = sine (m, 10.0f, 100.0f, -6.0f); break;
+            default: { int k = 0; for (float d : { 0.0f, 5.0f, 10.0f }) me.level[k++] = levelChange (m, d); } break;
+        }
+    });
+
     // 1. Aliasing. At the default DRIVE a loud 7 kHz tone must stay alias-free (its harmonics above
     //    24 kHz filtered, not folded back); at full DRIVE, where the tone is half square, a little is allowed.
     for (int m = 0; m < Character::numModels; ++m)
     {
-        const auto r = sine (m, 5.0f, 7000.0f, -6.0f);
+        const auto& r = meas[(size_t) m].alias5;
         check (r.otherDb < -75.0f, juce::String (Character::names[(size_t) m]) + ": 7 kHz at -6 dBFS, drive 5 - aliases and noise "
                                        + juce::String (r.otherDb, 1) + " dB (< -75)");
-        const auto h = sine (m, 10.0f, 7000.0f, -3.0f);
+        const auto& h = meas[(size_t) m].alias10;
         check (h.otherDb < -50.0f, juce::String (Character::names[(size_t) m]) + ": 7 kHz at -3 dBFS, drive 10 - aliases and noise "
                                        + juce::String (h.otherDb, 1) + " dB (< -50)");
     }
@@ -263,7 +278,7 @@ static void runCharacterTests (bool table)
     // 2. Working level stays clean at the default drive; a quiet 1 kHz tone is not coloured audibly
     for (int m = 0; m < Character::numModels; ++m)
     {
-        const auto r = sine (m, 5.0f, 1000.0f, -18.0f);
+        const auto& r = meas[(size_t) m].clean;
         check (r.thd < 1.0f, juce::String (Character::names[(size_t) m]) + ": 1 kHz at -18 dBFS, drive 5 - THD "
                                  + juce::String (r.thd, 3) + " % (< 1 %)");
     }
@@ -271,7 +286,7 @@ static void runCharacterTests (bool table)
     // 3. More drive, more colour (never less): THD at -6 dBFS, 100 Hz, rises with DRIVE
     for (int m = 0; m < Character::numModels; ++m)
     {
-        const float a = sine (m, 0.0f, 100.0f, -6.0f).thd, b = sine (m, 5.0f, 100.0f, -6.0f).thd, c = sine (m, 10.0f, 100.0f, -6.0f).thd;
+        const float a = meas[(size_t) m].d0.thd, b = meas[(size_t) m].d5.thd, c = meas[(size_t) m].d10.thd;
         check (a <= b + 0.01f && b <= c + 0.01f, juce::String (Character::names[(size_t) m]) + ": colour grows with DRIVE ("
                                                    + juce::String (a, 2) + " / " + juce::String (b, 2) + " / " + juce::String (c, 2) + " %)");
     }
@@ -280,8 +295,8 @@ static void runCharacterTests (bool table)
     for (int m = 0; m < Character::numModels; ++m)
     {
         float worst = 0.0f;
-        for (float d : { 0.0f, 5.0f, 10.0f })
-            worst = std::max (worst, std::abs (levelChange (m, d)));
+        for (float l : meas[(size_t) m].level)
+            worst = std::max (worst, std::abs (l));
         check (worst < 1.5f, juce::String (Character::names[(size_t) m]) + ": level kept within " + juce::String (worst, 2) + " dB (< 1.5)");
     }
 

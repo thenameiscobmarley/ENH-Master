@@ -1,6 +1,8 @@
-# FOOTSTEP RADAR
+# FOOTSTEP ENHANCER
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called FOOTSTEP RADAR.
 
 The olive-green unit between the ADAPTIVE COMPRESSOR and TONE & SPACE: CHARACTER's sister, the same
 front panel in its own finish. It finds

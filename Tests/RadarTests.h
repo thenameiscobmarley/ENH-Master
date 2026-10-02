@@ -2,6 +2,11 @@
 #include <cstdlib>
 #pragma once
 
+#include <deque>
+#include <future>
+#include <memory>
+#include <thread>
+
 /*  FOOTSTEP RADAR tests (EnhDspTests --radar [table]): footsteps of every kind, near and far, alone and
     under every kind of game audio, against distractors that look like steps. Everything is synthesised
     with its ground truth, so every decision can be scored.
@@ -624,12 +629,14 @@ namespace radartests
         FootstepRadar::Settings s;   // the defaults: SENSITIVITY 6, standard detection
         std::vector<Row> rows;
         const juce::String dumpWhat = juce::SystemStats::getEnvironmentVariable ("RADAR_DUMP", {});
-        auto runOne = [&] (const std::string& name, const Audio& a)
+        // Each scene is independent: they run on every core, in batches, and are taken back in order (so the
+        // table, the seeds and every result are exactly as when they ran one after another). A dump, or the
+        // old detector's comparison, runs them one at a time on this thread instead.
+        struct Pending { std::string name; std::shared_ptr<const Audio> a; std::future<std::vector<FootstepRadar::Step>> found; std::function<void (const Row&)> after; };
+        std::deque<Pending> pending;
+        const int workers = std::max (1, (int) std::thread::hardware_concurrency());
+        auto post = [&] (const std::string& name, const Audio& a, std::vector<FootstepRadar::Step> found, std::vector<FootstepRadar::Decision>& log)
         {
-            std::vector<FootstepRadar::Decision> log;
-            log.reserve (20000);
-            const bool dumping = dumpWhat.isNotEmpty() && juce::String (name).containsIgnoreCase (dumpWhat);
-            auto found = runRadar (a, s, nullptr, &log, dumping && std::getenv ("RADAR_TRACE") != nullptr);
             Row row { name, score (a, found, 0.0), {}, found };
             if (dumpWhat.isNotEmpty() && juce::String (name).containsIgnoreCase (dumpWhat))
             {
@@ -667,6 +674,32 @@ namespace radartests
             rows.push_back (row);
             return row;
         };
+        auto finishOldest = [&]
+        {
+            auto p = std::move (pending.front());
+            pending.pop_front();
+            std::vector<FootstepRadar::Decision> none;
+            const auto row = post (p.name, *p.a, p.found.get(), none);
+            if (p.after) p.after (row);
+        };
+        auto flush = [&] { while (! pending.empty()) finishOldest(); };
+        auto runOne = [&] (const std::string& name, const Audio& a, std::function<void (const Row&)> after = {})
+        {
+            const bool dumping = dumpWhat.isNotEmpty() && juce::String (name).containsIgnoreCase (dumpWhat);
+            if (dumping || compareOld || workers == 1)
+            {
+                flush();
+                std::vector<FootstepRadar::Decision> log;
+                log.reserve (20000);
+                auto found = runRadar (a, s, nullptr, &log, dumping && std::getenv ("RADAR_TRACE") != nullptr);
+                const auto row = post (name, a, std::move (found), log);
+                if (after) after (row);
+                return;
+            }
+            auto shared = std::make_shared<const Audio> (a);
+            pending.push_back ({ name, shared, std::async (std::launch::async, [shared, s] { return runRadar (*shared, s); }), std::move (after) });
+            while ((int) pending.size() >= workers) finishOldest();
+        };
 
         // 1. Every surface at every distance, over a quiet ambience (steps alone)
         // Distance is quietness, a duller top and more room: very far steps are -60 dBFS in a quiet scene;
@@ -676,18 +709,23 @@ namespace radartests
                              { "very far", 0.95f, -60.0f, -76.0f }, { "buried", 0.8f, -58.0f, -64.0f } };
         std::map<std::string, Score> byDistance, byDistanceOld;
         int seed = 100;
+        const bool fast = std::getenv ("TEST_FAST") != nullptr && std::string (std::getenv ("TEST_FAST")) != "0";   // (the quick tier)
+        int skipped = 0;   // (scenes the quick tier leaves out still count toward the later scenes' seeds: those are the full run's)
         for (int surface = 0; surface < numSurfaces; ++surface)
             for (auto& d : dists)
             {
+                if (fast && std::string (d.name) != "near" && std::string (d.name) != "far") { ++seed; ++skipped; continue; }   // (quick: two distances; seeds as in the full run)
                 Rng rng (seed++);
                 auto a = blank (sr, 9.0);
                 addAmbience (a, rng, d.ambienceDb);
                 addWalk (a, rng, { surface, d.distance, rng.uni (-0.8f, 0.8f), false, 0.5, d.levelDb }, 0.6, 8.6);
-                const auto row = runOne (std::string (surfaceName (surface)) + ", " + d.name, a);
-                auto& agg = byDistance[d.name];
-                agg.trueSteps += row.news.trueSteps; agg.hits += row.news.hits; agg.falseAlarms += row.news.falseAlarms; agg.seconds += row.news.seconds;
-                auto& ago = byDistanceOld[d.name];
-                ago.trueSteps += row.olds.trueSteps; ago.hits += row.olds.hits; ago.falseAlarms += row.olds.falseAlarms; ago.seconds += row.olds.seconds;
+                runOne (std::string (surfaceName (surface)) + ", " + d.name, a, [&byDistance, &byDistanceOld, dn = std::string (d.name)] (const Row& row)
+                {
+                    auto& agg = byDistance[dn];
+                    agg.trueSteps += row.news.trueSteps; agg.hits += row.news.hits; agg.falseAlarms += row.news.falseAlarms; agg.seconds += row.news.seconds;
+                    auto& ago = byDistanceOld[dn];
+                    ago.trueSteps += row.olds.trueSteps; ago.hits += row.olds.hits; ago.falseAlarms += row.olds.falseAlarms; ago.seconds += row.olds.seconds;
+                });
             }
 
         // 2. Walking, running, sneaking, from behind, two walkers at once
@@ -730,7 +768,7 @@ namespace radartests
         };
         for (auto& u : under)
         {
-            Rng rng (200 + (int) rows.size());
+            Rng rng (200 + (int) (rows.size() + pending.size() + (size_t) skipped));   // (the scenes still running count: the seeds are as they were)
             auto a = blank (sr, 14.0);
             addAmbience (a, rng, -56.0f);
             u.add (a, rng);
@@ -753,8 +791,8 @@ namespace radartests
         };
         for (auto& u : alone)
         {
-            Rng rng (300 + (int) rows.size());
-            auto a = blank (sr, 30.0);
+            Rng rng (300 + (int) (rows.size() + pending.size() + (size_t) skipped));
+            auto a = blank (sr, 30.0);   // (full length in the quick tier too: a false-alarm rate needs the minutes)
             addAmbience (a, rng, -58.0f);
             u.add (a, rng);
             runOne (u.name, a);
@@ -762,8 +800,13 @@ namespace radartests
 
         // 5. The scenes the old detector was tuned on (steps, gunshots, speech, crates)
         runOne ("classic game scene", fromScene (makeScene (sr, 30.0, true, true, 42), sr));
-        runOne ("classic varied surfaces", fromScene (makeScene (sr, 30.0, true, true, 7, true), sr));
-        runOne ("classic crates", fromScene (makeCrateScene (sr, 40.0, 5), sr));
+        if (! fast)
+        {
+            runOne ("classic varied surfaces", fromScene (makeScene (sr, 30.0, true, true, 7, true), sr));
+            runOne ("classic crates", fromScene (makeCrateScene (sr, 40.0, 5), sr));
+        }
+
+        flush();
 
         // --- the table ---------------------------------------------------------------------------------------
         if (table || compareOld)
@@ -793,11 +836,14 @@ namespace radartests
         std::vector<std::string> goals;
         auto goal = [&] (bool ok, const std::string& what) { if (! ok) goals.push_back (what); };
         check (byDistance["near"].recall() >= 0.95f, "near steps on every surface found (>= 95 %)");
-        check (byDistance["mid"].recall() >= 0.95f, "mid-distance steps on every surface found (>= 95 %)");
         check (byDistance["far"].recall() >= 0.90f, "far steps (-50 dBFS) on every surface found (>= 90 %)");
-        check (byDistance["very far"].recall() >= 0.90f, "very far steps (-60 dBFS, a quiet scene) on every surface found (>= 90 %)");
-        check (byDistance["buried"].recall() >= 0.15f, "buried steps (as loud as the ambience): at least 15 % found");
-        goal (byDistance["buried"].recall() >= 0.5f, "buried steps: half found");
+        if (! fast)
+        {
+            check (byDistance["mid"].recall() >= 0.95f, "mid-distance steps on every surface found (>= 95 %)");
+            check (byDistance["very far"].recall() >= 0.90f, "very far steps (-60 dBFS, a quiet scene) on every surface found (>= 90 %)");
+            check (byDistance["buried"].recall() >= 0.15f, "buried steps (as loud as the ambience): at least 15 % found");
+            goal (byDistance["buried"].recall() >= 0.5f, "buried steps: half found");
+        }
         for (auto* n : { "running (0.3 s)", "sneaking (0.8 s, quiet)", "from behind (out of phase)" })
             check (find (n).news.recall() >= 0.9f, juce::String (n) + ": >= 90 % found");
         check (find ("two walkers at once").news.recall() >= 0.8f, "two walkers at once: >= 80 % found");

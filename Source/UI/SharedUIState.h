@@ -5,6 +5,7 @@
 
 #include <juce_core/juce_core.h>
 #include "Scene/PanelArtwork.h"
+#include "../DSP/PatchBay.h"
 
 namespace pad
 {
@@ -34,7 +35,21 @@ namespace pad
         std::atomic<float> focusHalfV { std::numeric_limits<float>::quiet_NaN() };
         std::atomic<float> focusSide { std::numeric_limits<float>::quiet_NaN() }, focusHalfW { std::numeric_limits<float>::quiet_NaN() };
 
-        CameraFocus focus() const noexcept { return { focusUnit.load(), focusAmount.load(), focusCentreY.load(), focusHalfV.load(), focusSide.load(), focusHalfW.load() }; }
+        std::atomic<float> turnTarget { 0.0f }, turnAmount { 0.0f };
+        std::atomic<int>   focusBack { -1 };   // turned round: whose back walking up goes to (-1: the patch bay)   // round behind the rack (0 front .. 1 back): asked, animated
+
+        // THE PATCH BAY (message thread writes; the renderer draws): the cords as the processor has them (none:
+        // straight through), and the plug in the hand - its cord and end, where it is (rack space, unturned), and
+        // when it is going in or coming out, the jack and how far in it is (0 out .. 1 home)
+        juce::SpinLock patchLock;
+        enh::patch::State patchCords;
+        std::atomic<int> patchVersion { 0 };
+        std::atomic<int> heldCord { -1 }, heldEnd { 0 }, heldJackCol { -1 }, heldJackRow { 0 };
+        std::atomic<float> heldX { 0.0f }, heldY { 0.0f }, heldZ { 0.0f }, plugDepth { 1.0f };
+        std::atomic<std::uint64_t> validTop { 0 }, validBottom { 0 };   // the jacks it can go into: outlined
+        std::atomic<bool> patchMuted { false }, patchAnything { false }, patchLoop { false };
+
+        CameraFocus focus() const noexcept { return { focusUnit.load(), focusAmount.load(), focusCentreY.load(), focusHalfV.load(), focusSide.load(), focusHalfW.load(), turnAmount.load(), focusBack.load() }; }
 
         // written by render thread
         std::atomic<float> parallaxX { 0.0f }, parallaxY { 0.0f };

@@ -11,11 +11,11 @@
 <meta name="description" content="Design your own rack unit in the ENH Master style - faceplate, finish, knobs, meters, switches, print - and share it with a code. Nothing is stored anywhere.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0a0908">
-<link rel="stylesheet" href="site.css?v=9a736356a1">
-<link rel="stylesheet" href="designer.css?v=1de4c4edc9">
-<script src="designer.js?v=d48a58519d" defer></script>
-<script src="designer-audio.js?v=64896bbfe8" defer></script>
-<script type="module" src="designer3d.js?v=f87e186a79"></script>
+<link rel="stylesheet" href="site.css?v=bc745492ac">
+<link rel="stylesheet" href="designer.css?v=bfa94300d1">
+<script src="designer.js?v=01aded8c82" defer></script>
+<script src="designer-audio.js?v=2b24cd9c2c" defer></script>
+<script src="designer3d.bundle.js?v=36a00677ac" defer></script>
 </head>
 <body class="designer">
 <svg id="d-defs" class="d-defs" aria-hidden="true" focusable="false"></svg>
@@ -95,6 +95,11 @@
       <label class="row">Chassis <input type="color" id="u-chassis"></label>
       <label>Chassis depth (3D) <input type="range" id="u-depth" min="60" max="400" step="10"></label>
       <label class="row"><input type="checkbox" id="u-grid"> Snap to grid</label>
+      <label>Grid size <select id="u-gridmm"><option value="0.5">0.5 mm</option><option value="1">1 mm</option><option value="2">2 mm</option><option value="2.5">2.5 mm</option><option value="5">5 mm</option></select></label>
+      <p class="muted small d-hint-inline">Snapping also turns rotations in 15° steps; hold <kbd>Shift</kbd> while dragging to move straight or at 45°.</p>
+      <label class="row"><input type="checkbox" id="u-colsnap" checked> Snap colours</label>
+      <p class="muted small d-hint-inline">A colour you pick close to one below is pulled onto it. Click one to use it on the colour you last changed.</p>
+      <div id="u-swatches" class="d-swatches" aria-label="Colours to snap to"></div>
     </section>
     <section role="tabpanel" id="p-details" aria-labelledby="t-details" hidden>
       <h2>Details</h2>
@@ -141,6 +146,8 @@
       <h3 class="d-sub">Sound presets</h3>
       <div class="d-save"><select id="snd-preset" aria-label="Sound preset"></select><button type="button" id="snd-preset-go">Load</button></div>
       <h3 class="d-sub">Signal chain</h3>
+      <div class="d-save"><button type="button" id="snd-good" class="primary">Make it sound good</button></div>
+      <p class="muted small">Puts the blocks in a sensible order, tames anything extreme, and sets the output so the unit is as loud as the dry sound - so you hear what it does, not just "louder".</p>
       <ol class="snd-chain" id="snd-chain"></ol>
       <div class="d-save"><select id="snd-add-type" aria-label="Block to add"></select><button type="button" id="snd-add">Add block</button></div>
     </section>
@@ -189,7 +196,7 @@
         <p class="muted small">Nothing selected. Click a part on the faceplate to change it.</p>
         <h3 class="d-sub">Quick start</h3>
         <ol class="d-steps">
-          <li><span><b>Pick a starting point</b></span><button type="button" data-go="t-presets">Browse presets</button></li>
+          <li><span><b>Pick a starting point</b> - or answer two questions and get one made</span><span class="d-btns"><button type="button" id="guide-open" class="primary">Guided start</button><button type="button" data-go="t-presets">Browse presets</button></span></li>
           <li><span><b>Make it yours:</b> its look, parts and knobs</span><button type="button" data-go="t-parts">Add parts</button></li>
           <li><span><b>Give it a sound</b>, then press Play to hear it</span><button type="button" data-go="t-sound">Sound</button></li>
           <li><span><b>Load it in ENH Master:</b> paste its code in the CUSTOM unit</span><button type="button" data-do="share">Share / copy code</button></li>
@@ -234,6 +241,15 @@
   <label>…or paste a link or code <textarea id="import-code" rows="3" placeholder="A link, or a code starting with ENH2-"></textarea></label>
   <p class="small" id="import-msg" role="status"></p>
   <div class="d-btns"><button type="button" id="import-go" class="primary">Open design</button><button type="button" id="share-close">Close</button></div>
+</dialog>
+<dialog id="guide-dialog" aria-labelledby="guide-title" class="d-guide">
+  <h2 id="guide-title">Make a unit in two questions</h2>
+  <p class="muted small">Pick what it does and how it looks - it's built for you, sound and all. Change anything after.</p>
+  <h3 class="d-sub">1. What should it do?</h3>
+  <div class="d-choices" id="guide-kind" role="radiogroup" aria-label="What it does"></div>
+  <h3 class="d-sub">2. How should it look?</h3>
+  <div class="d-choices" id="guide-look" role="radiogroup" aria-label="How it looks"></div>
+  <div class="d-btns"><button type="button" id="guide-go" class="primary">Make it</button><button type="button" id="guide-close">Not now</button></div>
 </dialog>
 <dialog id="ai-dialog" aria-labelledby="ai-title">
   <h2 id="ai-title">Polish it with an AI</h2>

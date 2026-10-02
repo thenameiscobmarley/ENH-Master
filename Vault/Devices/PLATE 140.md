@@ -1,6 +1,8 @@
-# PLATE 140
+# PLATE REVERB
 
 > 🔎 **[Searchbar](../../Searchbar.md)** — find any doc, setting, function or GitHub page (Ctrl+F)
+
+Formerly called PLATE 140.
 
 Jon Dattorro's plate reverb (1997): pre-delay, four diffusers, then the figure-eight tank with modulated allpasses and damping, read out at many taps. Bright, dense, classic. (1U, model EMT-STYLE.) It starts in the [Gear locker](../UI/Gear%20locker.md). **POWER** off: it doesn't touch the sound.
 

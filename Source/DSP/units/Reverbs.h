@@ -36,7 +36,7 @@ namespace enh::dsp::units
     {
         static constexpr int N = 8;
         std::array<DelayLine, N> lines; std::array<OnePole, N> damp; std::array<Lfo, N> lfo;
-        PitchShifter shift; DelayLine pre; float shimmerFb = 0.0f;
+        PitchShifter shift; DelayLine pre; float shimmerFb = 0.0f, sizeNow = -1.0f;   // (SIZE slewed: its lines never move faster than 0.4 sample a sample)
         static constexpr float baseMs[N] { 29.7f, 37.1f, 41.1f, 43.7f, 53.0f, 59.9f, 67.7f, 73.1f };
         void prepareUnit (double s, int) override
         {
@@ -44,7 +44,7 @@ namespace enh::dsp::units
             shift.setup (s, 70.0); pre.setMax ((int) (s * 0.05));
             for (int i = 0; i < N; ++i) lfo[(size_t) i].ph = 0.13 * i;
         }
-        void resetUnit() override { for (auto& l : lines) l.clear(); for (auto& d : damp) d.z = 0; shift.clear(); pre.clear(); shimmerFb = 0.0f; }
+        void resetUnit() override { for (auto& l : lines) l.clear(); for (auto& d : damp) d.z = 0; shift.clear(); pre.clear(); shimmerFb = 0.0f; sizeNow = -1.0f; }
         void render (float* const* io, int n, const float* p) noexcept override
         {
             const float size = 0.5f + 0.12f * std::clamp (p[1], 0.0f, 10.0f), decay = std::clamp (p[2], 0.3f, 20.0f);
@@ -56,14 +56,17 @@ namespace enh::dsp::units
             std::array<float, N> len {}, g {};
             for (int i = 0; i < N; ++i) { len[(size_t) i] = baseMs[i] * size * 0.001f * (float) sr; g[(size_t) i] = std::pow (10.0f, -3.0f * len[(size_t) i] / ((float) sr * decay)); }
             float wetPow = 0.0f;
+            if (sizeNow < 0.0f) sizeNow = size;
+            const float sizeStep = 0.4f / (baseMs[N - 1] * 0.001f * (float) sr);
             for (int s = 0; s < n; ++s)
             {
                 const float in = 0.5f * (io[0][s] + io[1][s]);
+                sizeNow += std::clamp (size - sizeNow, -sizeStep, sizeStep);
                 std::array<float, N> o {};
                 for (int i = 0; i < N; ++i)
                 {
                     const float m = mod * (0.0008f * (float) sr) * lfo[(size_t) i].next (0.07 + 0.031 * i, sr);
-                    o[(size_t) i] = damp[(size_t) i].process (lines[(size_t) i].tap (len[(size_t) i] + m), dk) * g[(size_t) i];
+                    o[(size_t) i] = damp[(size_t) i].process (lines[(size_t) i].tap (baseMs[i] * sizeNow * 0.001f * (float) sr + m), dk) * g[(size_t) i];
                 }
                 // Hadamard 8 (fast, scaled to keep energy)
                 for (int h = 1; h < N; h <<= 1)
@@ -91,7 +94,7 @@ namespace enh::dsp::units
     {
         struct AP { DelayLine d; float len = 1; float process (float x, float g, float mod = 0.0f) noexcept { const float v = d.tap (len + mod); const float w = x + g * v; d.push (w); return v - g * w; } };
         DelayLine pre; OnePole bw; std::array<AP, 4> diff; std::array<AP, 2> modAp, ap2; std::array<DelayLine, 2> d1, d2; std::array<OnePole, 2> dampF;
-        Lfo lfo; float scaleSr = 1.0f, fbL = 0.0f, fbR = 0.0f, curSize = -1.0f;
+        Lfo lfo; float scaleSr = 1.0f, fbL = 0.0f, fbR = 0.0f, curSize = -1.0f, sizeNow = -1.0f;   // (SIZE slewed: no length moves faster than 0.4 sample a sample)
         void lengths (float size)
         {
             const float k = scaleSr * (0.6f + 0.06f * size);
@@ -115,13 +118,15 @@ namespace enh::dsp::units
         void resetUnit() override
         {
             pre.clear(); bw.z = 0; for (auto& a : diff) a.d.clear(); for (auto& a : modAp) a.d.clear(); for (auto& a : ap2) a.d.clear();
-            for (auto& d : d1) d.clear(); for (auto& d : d2) d.clear(); dampF[0].z = dampF[1].z = 0; fbL = fbR = 0;
+            for (auto& d : d1) d.clear(); for (auto& d : d2) d.clear(); dampF[0].z = dampF[1].z = 0; fbL = fbR = 0; sizeNow = -1.0f;
         }
         void render (float* const* io, int n, const float* p) noexcept override
         {
             const float size = std::clamp (p[4], 0.0f, 10.0f);
-            if (std::abs (size - curSize) > 0.05f) lengths (size);
-            const float k = scaleSr * (0.6f + 0.06f * size);
+            if (sizeNow < 0.0f) sizeNow = size;
+            const float sizeStep = 0.4f / (4453.0f * scaleSr * 0.06f);
+            float k = scaleSr * (0.6f + 0.06f * sizeNow);
+            lengths (sizeNow);
             lenD1[0] = 4453 * k; lenD1[1] = 4217 * k; lenD2[0] = 3720 * k; lenD2[1] = 3163 * k;
             const float loop = (lenD1[0] + lenD2[0] + modAp[0].len + ap2[0].len) / (float) sr;
             const float decay = std::clamp (std::pow (10.0f, -3.0f * loop / std::clamp (p[1], 0.2f, 8.0f)), 0.0f, 0.97f);
@@ -131,6 +136,13 @@ namespace enh::dsp::units
             float wp = 0.0f;
             for (int s = 0; s < n; ++s)
             {
+                if (sizeNow != size)
+                {
+                    sizeNow += std::clamp (size - sizeNow, -sizeStep, sizeStep);
+                    k = scaleSr * (0.6f + 0.06f * sizeNow);
+                    lengths (sizeNow);
+                    lenD1[0] = 4453 * k; lenD1[1] = 4217 * k; lenD2[0] = 3720 * k; lenD2[1] = 3163 * k;
+                }
                 pre.push (0.5f * (io[0][s] + io[1][s]));
                 float x = bw.process (pre.tap (std::max (1.0f, preS)), bwK);
                 x = diff[0].process (x, 0.75f); x = diff[1].process (x, 0.75f); x = diff[2].process (x, 0.625f); x = diff[3].process (x, 0.625f);

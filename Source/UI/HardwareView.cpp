@@ -1,9 +1,12 @@
+#include "SiteExport.h"
 #include "HardwareView.h"
 #include "Scene/CustomLayout.h"
 #include "Scene/HardwareRenderer.h"
 #include "Scene/CameraRig.h"
 #include "Scene/DeviceLayout.h"
 #include "Scene/Picking.h"
+#include "Scene/BackPanels.h"
+#include "Scene/UnitDescriptions.h"
 #include "Scene/LayoutAudit.h"
 #include "Scene/LimiterDemo.h"
 #include "Controls/ControlBinding.h"
@@ -41,7 +44,8 @@ namespace pad
         }
         // Dev-only: PAD_UI_TEST_STORED=<mask> sets THE GEAR LOCKER (screenshots of other rack line-ups)
         if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_STORED", {}); t.isNotEmpty())
-            processor.setStoredUnits ((layout::UnitMask) t.getLargeIntValue());
+            processor.setStoredUnits (layout::UnitMask { (std::uint64_t) t.upToFirstOccurrenceOf (":", false, false).getLargeIntValue(),
+                                                         (std::uint64_t) t.fromFirstOccurrenceOf (":", false, false).getLargeIntValue() });   // (lo[:hi])
         storedUnits = processor.getStoredUnits();   // THE GEAR LOCKER, as the session left it
         // Dev-only: PAD_UI_TEST_LBSTORED=<mask> sets the LUNCHBOX's locker (screenshots of other line-ups)
         if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_LBSTORED", {}); t.isNotEmpty())
@@ -50,7 +54,10 @@ namespace pad
         layout::placeLunchbox (seenStoredModules);   // the LUNCHBOX's modules in their slots (before its print is drawn)
         // Dev-only: PAD_UI_TEST_CUSTOM=<share code> loads a design into the CUSTOM slot
         if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_CUSTOM", {}); t.isNotEmpty())
+        {
             processor.setCustomCode (t, true);
+            applyCustomDesign();   // (now, so the artwork dump below prints it)
+        }
 
         artwork::TextureSet textures;
         textures.faceplateDecal = artwork::renderFaceplateDecal (config.panelTextureWidth, &textItems);
@@ -88,10 +95,16 @@ namespace pad
         textures.takebackScreens = artwork::renderDesignedScreens (takebackUnit, config.panelTextureWidth / 2);
         textures.scopeDecal = artwork::renderDesignedDecal (scopeUnit, config.panelTextureWidth, &textItems);
         textures.scopeScreens = artwork::renderDesignedScreens (scopeUnit, config.panelTextureWidth / 2);
-        for (int k = 0; k < gen::count; ++k)   // the newer units
+        // The newer units: only those in the rack now (a unit in the locker is baked when it is installed -
+        // with 53 of them, baking all took seconds and 100+ MB); the layout audit wants every one
+        const bool bakeAll = juce::SystemStats::getEnvironmentVariable ("PAD_UI_DUMP_ARTWORK", {}).isNotEmpty();
+        genBaked.assign ((size_t) gen::count, false);
+        for (int k = 0; k < gen::count; ++k)
         {
-            textures.genDecal.push_back (artwork::renderDesignedDecal (firstGenUnit + k, config.panelTextureWidth, &textItems));
-            textures.genScreens.push_back (artwork::renderDesignedScreens (firstGenUnit + k, config.panelTextureWidth / 2));
+            const bool now = bakeAll || ! layout::isStored (firstGenUnit + k);
+            textures.genDecal.push_back (now ? artwork::renderDesignedDecal (firstGenUnit + k, config.panelTextureWidth, &textItems) : artwork::RawTexture {});
+            textures.genScreens.push_back (now ? artwork::renderDesignedScreens (firstGenUnit + k, config.panelTextureWidth / 2) : artwork::RawTexture {});
+            genBaked[(size_t) k] = now;
         }
         textures.levelDecal = artwork::renderOneUDecal (levelUnit, config.panelTextureWidth, &textItems);
         textures.balancerDecal = artwork::renderOneUDecal (balancerUnit, config.panelTextureWidth, &textItems);
@@ -108,8 +121,19 @@ namespace pad
 
         // Dev-only: PAD_UI_DUMP_ARTWORK=<dir> writes the printed panels with measured clearances
         const auto dumpDir = juce::SystemStats::getEnvironmentVariable ("PAD_UI_DUMP_ARTWORK", {});
+        // Dev-only: PAD_UI_EXPORT_SITE=<dir> writes the website's units gallery pictures (SiteExport.h) and closes
+        if (const auto siteDir = juce::SystemStats::getEnvironmentVariable ("PAD_UI_EXPORT_SITE", {}); siteDir.isNotEmpty())
+        {
+            siteexport::write (juce::File (siteDir));
+            juce::MessageManager::callAsync ([] { if (auto* app = juce::JUCEApplicationBase::getInstance()) app->systemRequestedQuit(); });
+        }
         if (dumpDir.isNotEmpty())
+        {
             audit::writeLayoutAudit (textures, textItems, juce::File (dumpDir));
+            // (PAD_UI_DUMP_QUIT: the self-test's audit - nothing more to wait for, so the app closes)
+            if (juce::SystemStats::getEnvironmentVariable ("PAD_UI_DUMP_QUIT", {}).isNotEmpty())
+                juce::MessageManager::callAsync ([] { if (auto* app = juce::JUCEApplicationBase::getInstance()) app->systemRequestedQuit(); });
+        }
 
         renderer = std::make_unique<HardwareRenderer> (bridge, shared, meters, config, std::move (textures), scopeCurve,
                                                        balancerCurve, displayHistory);
@@ -129,6 +153,23 @@ namespace pad
         const auto focusTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_FOCUS", {});
         if (focusTest.isNotEmpty())
             setFocus (juce::jlimit (0, numUnits - 1, focusTest.getIntValue()), 1.0f);
+        // Dev-only: PAD_UI_TEST_TURN=<0..1> starts that far round behind the rack
+        // Dev-only: PAD_UI_TEST_BACK=<unit> starts walked up to that unit's back (with PAD_UI_TEST_TURN=1)
+        if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_BACK", {}); t.isNotEmpty())
+        {
+            shared.focusBack = t.getIntValue();
+            shared.focusTarget = 1.0f;
+        }
+        // Dev-only: PAD_UI_TEST_PATCH="col,row" pulls the plug out of that bay jack 2 s in (turned round)
+        if (const auto t = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_PATCH", {}); t.isNotEmpty())
+            juce::Timer::callAfterDelay (2000, [safe = juce::Component::SafePointer<HardwareView> (this), t]
+            {
+                if (safe == nullptr) return;
+                safe->lastPointer = safe->getLocalBounds().toFloat().getCentre().translated (120.0f, -40.0f);
+                safe->jackClicked (t.upToFirstOccurrenceOf (",", false, false).getIntValue(), t.fromFirstOccurrenceOf (",", false, false).getIntValue());
+            });
+        if (const auto turnTest = juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_TURN", {}); turnTest.isNotEmpty())
+            shared.turnTarget = juce::jlimit (0.0f, 1.0f, turnTest.getFloatValue());
 
         glassPanel = std::make_unique<GlassPanel> (bridge, processor);
         if (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_HOLO", {}).isNotEmpty())   // (dev: the HOLOGRAM panel)
@@ -163,8 +204,15 @@ namespace pad
                 // (PAD_UI_TEST_SEARCH: typed into THE GEAR LOCKER's search)
                 for (auto c : juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_SEARCH", {}))
                     safe->glassPanel->keyPressed (juce::KeyPress (0, 0, c));
-                if (parts.size() > 1 && parts[1].startsWith ("t"))   // (",t2": show that tab)
+                // (PAD_UI_TEST_TUNE: and Enter - RACK TUNER tunes to what was typed)
+                if (juce::SystemStats::getEnvironmentVariable ("PAD_UI_TEST_TUNE", {}).isNotEmpty())
+                    juce::Timer::callAfterDelay (1500, [safe] { if (safe != nullptr) safe->glassPanel->keyPressed (juce::KeyPress (juce::KeyPress::returnKey)); });   // (after PAD_UI_TEST_PARAMS)
+                if (parts.size() > 1 && parts[1].startsWith ("t"))   // (",t2": show that tab; ",t1,h3": and hover its 4th unit)
+                {
                     safe->glassPanel->selectTab (parts[1].substring (1).getIntValue());
+                    if (parts.size() > 2 && parts[2].startsWith ("h"))
+                        safe->glassPanel->testHoverUnit (parts[2].substring (1).getIntValue());
+                }
                 else if (parts.size() > 1)
                     safe->glassPanel->setExpanded (parts[1].getIntValue(), parts.size() > 2 ? parts[2].getIntValue() : -1);
                 safe->publishPanel (true);
@@ -213,6 +261,7 @@ namespace pad
         m.addItem (2, "Full rack - every unit installed", true, ! simple);
         m.addSeparator();
         m.addItem (4, "Gear locker...  (swap units in and out of the rack)", true, glassPanel->getUnit() == glass::lockerPage);
+        m.addItem (7, "Turn the rack round - its back, the patch bay  (or drag on empty space)", true, shared.turnTarget.load() > 0.5f);
         m.addItem (5, "Welcome screen...");
         m.addItem (6, "Hologram settings panel", true, config.holoPanel);
         m.addSeparator();
@@ -224,6 +273,8 @@ namespace pad
                                  safe->setSimpleView (chosen == 1);
                              if (safe != nullptr && chosen == 4)
                                  safe->openPanel (glass::lockerPage);
+                             if (safe != nullptr && chosen == 7)
+                                 safe->setTurned (safe->shared.turnTarget.load() < 0.5f);
                              if (safe != nullptr && chosen == 5)
                                  safe->showWelcome (true);
                              if (safe != nullptr && chosen == 6)
@@ -236,6 +287,338 @@ namespace pad
                                  safe->publishPanel (true);
                              }
                          });
+    }
+
+    //==============================================================================
+    // THE PATCH BAY
+    enh::patch::State HardwareView::currentPatch() const
+    {
+        auto s = processor.getPatch();
+        if (s.cords.empty())
+            s = enh::patch::straightThrough (backs::bay::unitsInOrder());
+        return s;
+    }
+
+    bool HardwareView::bayJackAt (juce::Point<float> pos, int& col, int& row) const
+    {
+        if (shared.turnAmount.load() < 0.9f)
+            return false;
+        const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(), shared.focus());
+        const auto inv = layout::turnMatrixInverse (shared.turnAmount.load());
+        const auto o = inv.transformPoint (cam.eye);
+        const auto d = hwk::gfx::normalise (inv.transformDir (cam.rayDirection (2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h)));
+        const auto B = layout::bayToWorld();
+        const auto p0 = B.transformPoint ({ 0.0f, backs::bay::faceY(), 0.0f });
+        const auto n = geo::patch::bayOut();
+        const float den = hwk::gfx::dot (d, n);
+        if (std::abs (den) < 1.0e-4f)
+            return false;
+        const float t = hwk::gfx::dot (p0 - o, n) / den;
+        if (t <= 0.0f)
+            return false;
+        const auto hit = o + d * t - p0;
+        const auto ax = hwk::gfx::normalise (B.transformDir ({ 1.0f, 0.0f, 0.0f })), az = hwk::gfx::normalise (B.transformDir ({ 0.0f, 0.0f, 1.0f }));
+        const float lx = hwk::gfx::dot (hit, ax), lz = hwk::gfx::dot (hit, az);
+        const float pitch = backs::bay::jackX (0) - backs::bay::jackX (1);
+        const float c = (backs::bay::jackX (0) - lx) / pitch;
+        col = (int) std::lround (c);
+        row = std::abs (lz - backs::bay::rowZ (0)) < std::abs (lz - backs::bay::rowZ (1)) ? 0 : 1;
+        return col >= 0 && col < backs::bay::columns && std::abs (c - (float) col) < 0.48f && std::abs (lz - backs::bay::rowZ (row)) < 0.075f;
+    }
+
+    int HardwareView::backUnitAt (juce::Point<float> pos) const
+    {
+        if (shared.turnAmount.load() < 0.9f)
+            return -1;
+        const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(), shared.focus());
+        const auto inv = layout::turnMatrixInverse (shared.turnAmount.load());
+        const auto o = inv.transformPoint (cam.eye);
+        const auto d = hwk::gfx::normalise (inv.transformDir (cam.rayDirection (2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h)));
+        int best = -1;
+        float bestT = 1.0e9f;
+        for (int u : rackOrder)
+        {
+            if (! isShown (u))
+                continue;
+            const auto P = panelToWorld (u);
+            const auto p0 = P.transformPoint ({ 0.0f, backs::plateY(), 0.0f });
+            const auto n = hwk::gfx::normalise (P.transformDir ({ 0.0f, -1.0f, 0.0f }));
+            const float den = hwk::gfx::dot (d, n);
+            if (std::abs (den) < 1.0e-4f)
+                continue;
+            const float t = hwk::gfx::dot (p0 - o, n) / den;
+            if (t <= 0.0f || t >= bestT)
+                continue;
+            const auto hit = o + d * t - p0;
+            const float lx = hwk::gfx::dot (hit, hwk::gfx::normalise (P.transformDir ({ 1.0f, 0.0f, 0.0f })));
+            const float lz = hwk::gfx::dot (hit, hwk::gfx::normalise (P.transformDir ({ 0.0f, 0.0f, 1.0f })));
+            if (std::abs (lx) < chassisHalfW && std::abs (lz) < unitHalfH (u) + 0.5f * rackGap)
+            {
+                best = u;
+                bestT = t;
+            }
+        }
+        return best;
+    }
+
+    bool HardwareView::masterAt (juce::Point<float> pos) const
+    {
+        // The MASTER switch's plate: the ray (rack space) through its face
+        const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(), shared.focus());
+        const auto inv = layout::turnMatrixInverse (shared.turnAmount.load());
+        const auto o = inv.transformPoint (cam.eye);
+        const auto d = hwk::gfx::normalise (inv.transformDir (cam.rayDirection (2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h)));
+        const auto M = geo::patch::masterFrame();
+        const auto p0 = M.transformPoint ({ 0.0f, 0.0f, 0.0f });
+        const auto n = hwk::gfx::normalise (M.transformDir ({ 0.0f, 1.0f, 0.0f }));
+        const float den = hwk::gfx::dot (d, n);
+        if (std::abs (den) < 1.0e-4f)
+            return false;
+        const float t = hwk::gfx::dot (p0 - o, n) / den;
+        if (t <= 0.0f)
+            return false;
+        const auto hit = o + d * t - p0;
+        const float lx = hwk::gfx::dot (hit, hwk::gfx::normalise (M.transformDir ({ 1.0f, 0.0f, 0.0f })));
+        const float lz = hwk::gfx::dot (hit, hwk::gfx::normalise (M.transformDir ({ 0.0f, 0.0f, 1.0f })));
+        return std::abs (lx) < geo::patch::masterHalfW + 0.05f && std::abs (lz) < geo::patch::masterHalfH + 0.15f;
+    }
+
+    hwk::gfx::Vec3 HardwareView::handAt (juce::Point<float> pos) const
+    {
+        // On a plane just out from the bay's face: the plug held up to the jacks
+        const float w = (float) juce::jmax (1, getWidth()), h = (float) juce::jmax (1, getHeight());
+        const auto cam = CameraRig::build (w / h, shared.parallaxX.load(), shared.parallaxY.load(), shared.focus());
+        const auto inv = layout::turnMatrixInverse (shared.turnAmount.load());
+        const auto o = inv.transformPoint (cam.eye);
+        const auto d = hwk::gfx::normalise (inv.transformDir (cam.rayDirection (2.0f * pos.x / w - 1.0f, 1.0f - 2.0f * pos.y / h)));
+        const auto n = geo::patch::bayOut();
+        const auto p0 = layout::bayToWorld().transformPoint ({ 0.0f, backs::bay::faceY(), 0.0f }) + n * 0.30f;
+        const float den = hwk::gfx::dot (d, n);
+        const float t = std::abs (den) < 1.0e-4f ? 8.0f : std::max (0.5f, hwk::gfx::dot (p0 - o, n) / den);
+        return o + d * t;
+    }
+
+    bool HardwareView::canGoInto (const enh::patch::State& s, int cord, int end, int col, int row) const
+    {
+        const auto chain = backs::bay::unitsInOrder();
+        const auto port = backs::bay::portAt (chain, col, row);
+        if (! enh::patch::isFree (s, port))
+            return false;
+        if (s.anything)
+            return true;
+        const auto& c = s.cords[(size_t) cord];
+        const auto& other = end == 0 ? c.b : c.a;
+        if (! other.plugged())
+            return true;
+        return other.isOut() ? row == 1 : row == 0;   // an OUT goes into an IN, and the other way round
+    }
+
+    void HardwareView::setValidJacks()
+    {
+        std::uint64_t valid[2] {};
+        if (heldCord >= 0 && plugMove.cord < 0)
+        {
+            const auto s = currentPatch();
+            if (heldCord < (int) s.cords.size())
+                for (int row = 0; row < 2; ++row)
+                    for (int col = 0; col < backs::bay::columns; ++col)
+                        if (canGoInto (s, heldCord, heldEnd, col, row))
+                            valid[row] |= std::uint64_t { 1 } << col;
+        }
+        shared.validTop = valid[0];
+        shared.validBottom = valid[1];
+    }
+
+    void HardwareView::startInsert (int cord, int end, int col, int row)
+    {
+        plugMove = { cord, end, col, row, true, juce::Time::getMillisecondCounterHiRes(), 0.38f + 0.32f * plugRandom.nextFloat(), {} };
+        for (auto& g : plugMove.grip)
+            g = 0.30f + 0.70f * plugRandom.nextFloat();   // how freely it slides along each stretch
+        heldCord = cord;
+        heldEnd = end;
+        shared.heldCord = cord;
+        shared.heldEnd = end;
+        shared.heldJackCol = col;
+        shared.heldJackRow = row;
+        shared.plugDepth = 0.0f;
+        shared.validTop = 0;
+        shared.validBottom = 0;
+    }
+
+    bool HardwareView::patchMouseDown (juce::Point<float> pos)
+    {
+        if (shared.turnAmount.load() < 0.9f)
+            return false;
+        if (plugMove.cord >= 0)
+            return true;   // (one at a time: a plug is on its way)
+        if (masterAt (pos))
+        {
+            auto s = currentPatch();
+            s.anything = ! s.anything;
+            processor.setPatch (s);
+            processor.patchClick();
+            setValidJacks();
+            return true;
+        }
+        int col = 0, row = 0;
+        const bool onJack = bayJackAt (pos, col, row);
+        const auto s = currentPatch();
+
+        if (heldCord < 0)
+        {
+            if (! onJack)
+                return false;
+            return jackClicked (col, row);
+        }
+
+        // A plug in the hand: into a jack it may go into; anywhere else it is put down (it lies on the shelf)
+        if (onJack)
+        {
+            if (heldCord < (int) s.cords.size() && canGoInto (s, heldCord, heldEnd, col, row))
+                startInsert (heldCord, heldEnd, col, row);
+            return true;
+        }
+        heldCord = -1;
+        shared.heldCord = -1;
+        setValidJacks();
+        return true;
+    }
+
+    bool HardwareView::jackClicked (int col, int row)
+    {
+        auto s = currentPatch();
+        const auto chain = backs::bay::unitsInOrder();
+        {
+            const auto port = backs::bay::portAt (chain, col, row);
+            for (int k = 0; k < (int) s.cords.size(); ++k)
+                for (int e = 0; e < 2; ++e)
+                    if (const auto& end = e == 0 ? s.cords[(size_t) k].a : s.cords[(size_t) k].b; end.plugged() && end == port)
+                    {
+                        // Out it comes: it slides out (a crackle as it goes), then it is in your hand
+                        plugMove = { k, e, col, row, false, juce::Time::getMillisecondCounterHiRes(), 0.20f + 0.08f * plugRandom.nextFloat(), {} };
+                        heldCord = k;
+                        heldEnd = e;
+                        shared.heldCord = k;
+                        shared.heldEnd = e;
+                        shared.heldJackCol = col;
+                        shared.heldJackRow = row;
+                        shared.plugDepth = 1.0f;
+                        processor.patchClick();
+                        return true;
+                    }
+            // An empty jack: a plug lying loose goes into it (the nearest one that may)
+            int best = -1, bestEnd = 0;
+            float bestDist = 1.0e9f;
+            for (int k = 0; k < (int) s.cords.size(); ++k)
+                for (int e = 0; e < 2; ++e)
+                {
+                    const auto& c = s.cords[(size_t) k];
+                    if ((e == 0 ? c.a : c.b).plugged() || ! canGoInto (s, k, e, col, row))
+                        continue;
+                    int oc = 0, orow = 0;
+                    const float dist = backs::bay::jackOf (chain, e == 0 ? c.b : c.a, oc, orow) ? std::abs ((float) (oc - col)) : 100.0f;
+                    if (dist < bestDist) { bestDist = dist; best = k; bestEnd = e; }
+                }
+            if (best >= 0)
+                startInsert (best, bestEnd, col, row);
+            return true;
+        }
+    }
+
+    void HardwareView::tickPatch()
+    {
+        // The processor's cords to the renderer
+        auto sync = [this]
+        {
+            if (const int v = processor.getPatchVersion(); v != seenPatchVersion)
+            {
+                seenPatchVersion = v;
+                {
+                    const juce::SpinLock::ScopedLockType lock (shared.patchLock);
+                    shared.patchCords = processor.getPatch();
+                }
+                shared.patchVersion.fetch_add (1);
+                shared.patchAnything = processor.getPatch().anything;
+            }
+        };
+        sync();
+        shared.patchMuted = processor.isPatchMuted();
+        shared.patchLoop = processor.isPatchLoop();
+        // A unit put into the rack or taken out: the cords follow (not while a plug is in the hand)
+        if (heldCord < 0)
+            if (auto s = processor.getPatch(); ! s.cords.empty() && enh::patch::reconcile (s, backs::bay::unitsInOrder()))
+                processor.setPatch (s);
+
+        if (heldCord >= 0 && plugMove.cord < 0)
+        {
+            const auto p = handAt (lastPointer);
+            shared.heldX = p.x; shared.heldY = p.y; shared.heldZ = p.z;
+        }
+        if (plugMove.cord < 0)
+            return;
+
+        const float t = (float) juce::jlimit (0.0, 1.0, (juce::Time::getMillisecondCounterHiRes() - plugMove.start) / (1000.0 * plugMove.seconds));
+        if (! plugMove.inserting)
+        {
+            shared.plugDepth = 1.0f - t * t * (3.0f - 2.0f * t);
+            processor.setPatchNoise (0.9f * std::sin (juce::MathConstants<float>::pi * t));
+        }
+        else
+        {
+            // along the way it grips and gives (each stretch its own), then seats with a click
+            float total = 0.0f, done = 0.0f;
+            const float at = t * (float) plugMove.grip.size();
+            for (size_t i = 0; i < plugMove.grip.size(); ++i)
+            {
+                total += plugMove.grip[i];
+                done += plugMove.grip[i] * juce::jlimit (0.0f, 1.0f, at - (float) i);
+            }
+            shared.plugDepth = done / total;
+            processor.setPatchNoise (t < 0.92f ? 0.9f * std::sin (juce::MathConstants<float>::pi * juce::jmin (1.0f, t * 1.1f)) : 0.0f);
+        }
+        if (t < 1.0f)
+            return;
+
+        auto s = currentPatch();
+        if (plugMove.cord < (int) s.cords.size())
+        {
+            auto& c = s.cords[(size_t) plugMove.cord];
+            auto& end = plugMove.end == 0 ? c.a : c.b;
+            if (plugMove.inserting)
+                end = backs::bay::portAt (backs::bay::unitsInOrder(), plugMove.col, plugMove.row);
+            else
+            {
+                end = {};   // out: in the hand
+                const auto p = handAt (lastPointer);
+                shared.heldX = p.x; shared.heldY = p.y; shared.heldZ = p.z;
+            }
+            processor.setPatch (s);
+            sync();   // (the renderer has the new cords before it lets go of this one)
+            if (plugMove.inserting)
+            {
+                heldCord = -1;
+                shared.heldCord = -1;
+                processor.patchClick();
+            }
+        }
+        processor.setPatchNoise (0.0f);
+        shared.heldJackCol = -1;
+        plugMove.cord = -1;
+        setValidJacks();
+    }
+
+    void HardwareView::setTurned (bool back)
+    {
+        if (back)
+        {
+            if (glassPanel->isOpen())
+                openPanel (-1);
+            setFocus (-1, 0.0f);
+        }
+        shared.turnTarget = back ? 1.0f : 0.0f;
     }
 
     void HardwareView::setSimpleView (bool simple)
@@ -360,6 +743,16 @@ namespace pad
     void HardwareView::mouseMove (const juce::MouseEvent& e)
     {
         updateMouse (e.position);
+        lastPointer = e.position;
+        // turned round: what is under the pointer, and who made it
+        {
+            const int back = backUnitAt (e.position);
+            if (back != tipBack)
+            {
+                tipBack = back;
+                setTooltip (back < 0 ? juce::String() : descriptions::tooltip (back, true));
+            }
+        }
         if (glassPanel->hitTest (e.position).inside)
         {
             // Over the glass: its own hover (the details area explains what is under the pointer), and
@@ -475,7 +868,11 @@ namespace pad
             return;
         }
 
-        // 2. Controls on the rack work as always, panel open or not
+        // 2. Turned round: THE PATCH BAY's plugs (a click takes one out, or puts the one in the hand in)
+        if (patchMouseDown (e.position))
+            return;
+
+        // 3. Controls on the rack work as always, panel open or not
         const int hit = pickControl (e.position);
 
         if (hit < 0)
@@ -487,11 +884,24 @@ namespace pad
             if (unit >= 0 && shared.focusTarget.load() >= 0.15f)
                 shared.focusUnit = unit;   // close up: the camera glides to the unit clicked
             if (unit >= 0)
+            {
                 openPanel (glassPanel->getUnit() == unit ? -1 : unit);
-            else if (glassPanel->isOpen())
-                openPanel (-1);
-            else
-                setFocus (-1, 0.0f);
+                return;
+            }
+            // Turned round, a unit's back: the camera walks up to it (the same one again: steps back)
+            if (const int back = backUnitAt (e.position); back >= 0)
+            {
+                const bool same = shared.focusBack.load() == back && shared.focusTarget.load() > 0.5f;
+                shared.focusBack = back;
+                setFocus (-1, same ? 0.0f : 1.0f);
+                return;
+            }
+            // Empty space (or the rack's back): a sideways drag turns the rack round; a plain click is
+            // handled when the button comes up (it closes the panel, or steps back)
+            turnDrag = true;
+            turnDragMoved = false;
+            turnDragX = e.position.x;
+            turnDragFrom = shared.turnTarget.load();
             return;
         }
 
@@ -536,6 +946,21 @@ namespace pad
     void HardwareView::mouseDrag (const juce::MouseEvent& e)
     {
         updateMouse (e.position);
+        lastPointer = e.position;
+        if (turnDrag)
+        {
+            const float dx = e.position.x - turnDragX;
+            if (! turnDragMoved && std::abs (dx) > 6.0f)
+            {
+                turnDragMoved = true;
+                if (glassPanel->isOpen())
+                    openPanel (-1);
+                setFocus (-1, 0.0f);   // stepped back: the whole rack turns
+            }
+            if (turnDragMoved)   // (either way: it goes round the short way to where you drag it)
+                shared.turnTarget = juce::jlimit (0.0f, 1.0f, turnDragFrom + std::abs (dx) / juce::jmax (200.0f, 0.55f * (float) getWidth()) * (turnDragFrom > 0.5f ? -1.0f : 1.0f));
+            return;
+        }
         if (dragParam < 0)
             return;
 
@@ -551,6 +976,17 @@ namespace pad
 
     void HardwareView::mouseUp (const juce::MouseEvent&)
     {
+        if (turnDrag)
+        {
+            turnDrag = false;
+            if (turnDragMoved)
+                setTurned (shared.turnTarget.load() > 0.5f);   // settles round, one way or the other
+            else if (glassPanel->isOpen())
+                openPanel (-1);
+            else
+                setFocus (-1, 0.0f);
+            return;
+        }
         if (gestureParam >= 0)
         {
             bridge.endGesture (gestureParam);
@@ -625,6 +1061,11 @@ namespace pad
             const int unit = unitUnderPointer (e.position);
             if (unit >= 0 && step > 0.0f && shared.focusTarget.load() < 0.15f)
                 shared.focusUnit = unit;
+            if (shared.turnAmount.load() > 0.9f && step > 0.0f && shared.focusTarget.load() < 0.15f)
+            {
+                int col = 0, row = 0;
+                shared.focusBack = bayJackAt (e.position, col, row) ? -1 : backUnitAt (e.position);   // (turned: a unit's back, or the bay)
+            }
             setFocus (-1, shared.focusTarget.load() + step * 0.45f);
             return;
         }
@@ -907,10 +1348,10 @@ namespace pad
             {
                 const float hz = enh::dsp::MixBalancer::centreHz[(size_t) b];
                 consider (-load (meters.balanceGainDb[(size_t) b]),
-                          "MIX BALANCER  " + (b == 0 ? "BELOW 100 Hz" : b == enh::dsp::MixBalancer::numBands - 1 ? "ABOVE 7.0 kHz" : "AT " + hzText (hz)));
+                          "MULTIBAND BALANCER  " + (b == 0 ? "BELOW 100 Hz" : b == enh::dsp::MixBalancer::numBands - 1 ? "ABOVE 7.0 kHz" : "AT " + hzText (hz)));
             }
             for (int k = 0; k < enh::dsp::MixBalancer::numFine; ++k)
-                consider (-load (meters.balanceFineGainDb[(size_t) k]), "MIX BALANCER  AT " + hzText (enh::dsp::MixBalancer::fineHz (k)));
+                consider (-load (meters.balanceFineGainDb[(size_t) k]), "MULTIBAND BALANCER  AT " + hzText (enh::dsp::MixBalancer::fineHz (k)));
             static const char* regionName[] { "BELOW 150 Hz", "AT 400 Hz", "AT 1.6 kHz", "ABOVE 4.0 kHz" };
             for (int r = 0; r < enh::dsp::FinalLimiter::numRegions; ++r)
                 consider (load (meters.outputRegionCutDb[(size_t) r]), juce::String ("OUTPUT LIMITER  ") + regionName[r] + "  (OVER 0 dB)");
@@ -999,8 +1440,24 @@ namespace pad
                                          artwork::renderDesignedScreens (customUnit, config.panelTextureWidth / 2));
     }
 
+    /** Newer units installed that were in the locker when the view opened: their print and screens baked now. */
+    void HardwareView::bakeInstalledUnits()
+    {
+        if (renderer == nullptr) return;
+        for (int k = 0; k < gen::count && k < (int) genBaked.size(); ++k)
+            if (! genBaked[(size_t) k] && ! layout::isStored (firstGenUnit + k))
+            {
+                genBaked[(size_t) k] = true;
+                renderer->setGenTextures (k, artwork::renderDesignedDecal (firstGenUnit + k, config.panelTextureWidth, &textItems),
+                                             artwork::renderDesignedScreens (firstGenUnit + k, config.panelTextureWidth / 2));
+            }
+    }
+
     void HardwareView::timerCallback()
     {
+        tickPatch();
+        glassPanel->tickTuner (1.0f / 30.0f);   // RACK TUNER: its glide and its faceplate's buttons, open or not
+        bakeInstalledUnits();   // (a unit just installed from the locker: its print, if it has none yet)
         if (processor.getCustomVersion() != seenCustomVersion)
             applyCustomDesign();
         // The LUNCHBOX's locker (its page in THE GEAR LOCKER, a session loaded): modules into their slots

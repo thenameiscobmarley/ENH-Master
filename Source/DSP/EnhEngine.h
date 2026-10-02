@@ -2,6 +2,7 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "BandAnalyzer.h"
+#include "TunerMatch.h"
 #include "PrecisionEQ.h"
 #include "HarmonicPlanner.h"
 #include "FootstepRadar.h"
@@ -96,10 +97,10 @@ namespace enh::dsp
         struct LatencyPart { const char* stage; int samples; };
         std::array<LatencyPart, 6> getLatencyBreakdown() const noexcept
         {
-            return {{ { "ADAPTIVE ENHANCER (oversampled exciters)", analog.getLatencySamples() },
-                      { "FOOTSTEP RADAR (look-ahead)", radar.getLatencySamples() },
-                      { "TONE & SPACE (oversampled TONE)", seraph.getLatencySamples() },
-                      { "CHARACTER (oversampled models)", character.getLatencySamples() },
+            return {{ { "ADAPTIVE ENHANCER EQ (oversampled exciters)", analog.getLatencySamples() },
+                      { "FOOTSTEP ENHANCER (look-ahead)", radar.getLatencySamples() },
+                      { "TONE & SPACE FINISHER (oversampled TONE)", seraph.getLatencySamples() },
+                      { "CONSOLE & TAPE EMULATOR (oversampled models)", character.getLatencySamples() },
                       { "EAR GUARD (look-ahead)", earGuard.getLatencySamples() },
                       { "OUTPUT LIMITER (look-ahead)", output.getLatencySamples() } }};
         }
@@ -112,6 +113,25 @@ namespace enh::dsp
         const ScopeFifo& getBalancerOutputScope() const noexcept { return scopeBalOut; }
         const FinalLimiter& getOutputLimiter() const noexcept { return output; }
         const EngineMeters& getMeters() const noexcept { return meters; }
+        /** RACK TUNER's level match (any thread): a tune starts (newReference: remember how loud the rack is
+            now), or A/B / UNDO changed it (match again to the same reference). TunerMatch.h. */
+        void requestTunerMatch (bool newReference) noexcept { (newReference ? tunerCapture : tunerRematch).fetch_add (1, std::memory_order_relaxed); }
+        /** THE PATCH BAY (DSP/PatchBay.h; any thread): `muted` - a cord is out of the chain, the rack goes silent
+            (faded; back slowly when it is whole again); `noise` 0..1 - a plug half in: a quiet crackle and hum. */
+        void setPatch (bool muted, float noise) noexcept { patchMuted.store (muted, std::memory_order_relaxed); patchNoise.store (noise, std::memory_order_relaxed); }
+        void patchClick() noexcept { patchClicks.fetch_add (1, std::memory_order_relaxed); }
+        /** The order the units after the enhancer run in (THE PATCH BAY's cords; message thread): stage codes, each
+            once - see Stage. Stages left out run after, in their usual order. */
+        enum Stage : int { stLumen = 0, stDeep, stLimiter, stBalancer, stTide, stRadar, stSeraph, stCharacter, stX4, stVelvet,
+                           stTakeback, stCustom, stLunchbox, numCoreStages, stNewer = 100 };   // stNewer + k: newer unit k
+        static constexpr int numStages = numCoreStages + units::count;
+        void setChainOrder (const std::vector<int>& codes) noexcept
+        {
+            for (size_t i = 0; i < chainOrder.size(); ++i)
+                chainOrder[i].store (i < codes.size() ? codes[i] + 1 : 0, std::memory_order_relaxed);
+        }
+        /** A loop of cords: what leaves the chain comes round into it again (any thread; a new call clears a runaway). */
+        void setFeedback (bool on) noexcept { feedbackOn.store (on, std::memory_order_relaxed); feedbackEpoch.fetch_add (1, std::memory_order_relaxed); }
         /** CUSTOM: the loaded design's chain (message thread; the caller keeps every config alive). */
         void setCustomConfig (const units::CustomConfig* c) noexcept { custom->setConfig (c); }
 
@@ -171,6 +191,24 @@ namespace enh::dsp
         Character character;     // CHARACTER, after TONE & SPACE
         Lunchbox lunchbox;       // LUNCHBOX, after CHARACTER (zero latency)
         OutputStage outputStage; // the rack's output amplifier: one analog signal path (only while an analog unit is in)
+        TunerMatch tunerMatch;   // RACK TUNER: the rack kept as loud after a tune as before it
+        std::atomic<bool> patchMuted { false };
+        std::atomic<float> patchNoise { 0.0f };
+        float patchGain = 1.0f, humPhase = 0.0f, crackle = 0.0f, clickEnv = 0.0f, clickPhase = 0.0f;
+        std::atomic<int> patchClicks { 0 };
+        int clicksDone = 0;
+        juce::uint32 crackleSeed = 0x9e3779b9u;
+        std::array<std::atomic<int>, numStages> chainOrder {};   // each stage code + 1 (0: the usual order)
+        std::atomic<bool> feedbackOn { false };
+        std::atomic<int> feedbackEpoch { 0 };
+        int feedbackEpochSeen = 0, fbPos = 0;
+        std::array<std::vector<float>, 2> fbRing;
+        std::array<float, 2> fbHp {}, fbLp {};
+        float fbLevel = 0.0f, fbInLevel = 0.0f, runawayS = 0.0f;
+        bool runaway = false;
+        void runStage (int code, float* const* chunk, int chans, int n, int start, const Parameters& p) noexcept;
+        void patchStage (float* const* chunk, int chans, int n) noexcept;
+        std::atomic<int> tunerCapture { 0 }, tunerRematch { 0 };
 
         std::array<std::vector<float>, 3> msScratch;   // mid/side: the part worked on (two channels), the part kept
         std::array<KeepDelay, 6> keepDelays;            // one per unit with a STEREO setting

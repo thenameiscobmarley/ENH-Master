@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 #include "RoomScreen.h"
-#include "../../DSP/units/Sims2.h"
+#include "../../DSP/units/Sims3.h"
 
 /*  The simulated units' screens (DSP/units/Sims.h), white on black like RAY ROOM's: each draws the object it
     simulates, live, from the state the unit publishes - the record turning under its arm, the rotors in their
@@ -17,14 +17,22 @@ namespace pad::simscreen
     using roomscreen::Line;
     using roomscreen::Blob;
 
-    enum class Kind { none, vinyl, rotary, cassette, tapeEcho, valveAmp, speakerCab, radio, pendulum, bounce, sympathy, flyby, tesla, talkBox, lavaLamp };
+    enum class Kind { none, vinyl, rotary, cassette, tapeEcho, valveAmp, speakerCab, radio, pendulum, bounce, sympathy, flyby, tesla, talkBox, lavaLamp,
+                      clarity, subDriver, lathe, carTest, phoneCheck, club, pressure, balance, field, sonar, seismo, prism, furnace, dither, rider,
+                      compass, suspension, skyline, hourglass, aurora, detail };
 
     /** Each simulation: its unit's key and its POWER switch's parameter id, in Kind's order (after none). */
     struct Entry { const char* key; const char* power; };
     inline constexpr Entry entries[] { { "vinyl", "vdPower" }, { "rotary", "rcPower" }, { "cassette", "ccPower" }, { "tapeecho", "tePower" },
                                        { "valveamp", "vaPower" }, { "speakercab", "skPower" }, { "radio", "raPower" }, { "pendulum", "pdPower" },
                                        { "bounce", "bdPower" }, { "sympathy", "syPower" }, { "flyby", "fyPower" }, { "tesla", "tcPower" },
-                                       { "talkbox", "tbPower" }, { "lavalamp", "lvPower" } };
+                                       { "talkbox", "tbPower" }, { "lavalamp", "lvPower" },
+                                       { "clarity", "clPower" }, { "subdriver", "sdPower" }, { "lathe", "lhPower" }, { "cartest", "ctPower" },
+                                       { "phonecheck", "phPower" }, { "club", "cbPower" }, { "pressure", "pvPower" }, { "balance", "blPower" },
+                                       { "field", "fdPower" }, { "sonar", "soPower" }, { "seismo", "sePower" }, { "prism", "pmPower" },
+                                       { "furnace", "fuPower" }, { "dither", "diPower" }, { "rider", "rdPower" }, { "compass", "cpPower" },
+                                       { "suspension", "suPower" }, { "skyline", "slPower" }, { "hourglass", "hgPower" }, { "aurora", "auPower" },
+                                       { "detail", "dtPower" } };
 
     inline Kind kindOf (std::string_view key) noexcept
     {
@@ -657,6 +665,526 @@ namespace pad::simscreen
         }
     }
 
+    // =====================================================================================================
+    // The mastering simulations (DSP/units/Sims3.h)
+    namespace detail
+    {
+        inline float clamp01 (float v) noexcept { return std::clamp (v, 0.0f, 1.0f); }
+        inline void poly (std::vector<Line>& L, const float* xs, const float* ys, int n, float th, float br) { for (int i = 1; i < n; ++i) L.push_back ({ xs[i - 1], ys[i - 1], xs[i], ys[i], th, br }); }
+        inline void fillBox (std::vector<Line>& L, float x0, float y0, float x1, float y1, float step, float th, float br) { for (float y = y0; y <= y1; y += step) L.push_back ({ x0, y, x1, y, th, br }); }
+    }
+
+    /** SPECTRAL DETAIL ENHANCER: the 24 bands as the ear hears them - each band's level a dim bar, the masking
+        threshold a line over them (what is under it is hidden), and what it lifts out from under, bright, with
+        motes rising from it: the detail coming up into hearing. */
+    inline void detailSpectrum (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        constexpr int n = 24;
+        const float px = std::max (1.0f, w / 480.0f), x0 = 0.06f * w, x1 = 0.94f * w, base = 0.90f * h, top = 0.10f * h;
+        auto yOf = [&] (float v) { return base - (base - top) * clamp01 (v); };
+        L.push_back ({ x0, base, x1, base, 1.0f * px, 0.35f });
+        float px0 = 0.0f, py0 = 0.0f;
+        for (int b = 0; b < n; ++b)
+        {
+            const float x = x0 + (x1 - x0) * (float) b / (float) (n - 1);
+            const float lv = s[b], th = s[n + b], lift = clamp01 (s[2 * n + b]);
+            L.push_back ({ x, base, x, yOf (lv), 5.0f * px, 0.30f });                         // its level
+            if (lift > 0.01f)
+            {
+                const float y = yOf (lv), up = lift * 0.22f * h;
+                L.push_back ({ x, y, x, y - up, 5.0f * px, 0.55f + 0.45f * lift });            // what comes up
+                for (int m = 0; m < 2; ++m)                                                    // motes rising from it
+                {
+                    const float f = frac (time * (0.35f + 0.1f * (float) m) + (float) b * 0.137f + (float) m * 0.5f);
+                    B.push_back ({ x + (float) (m * 2 - 1) * 2.0f * px, y - up - f * 0.25f * h, (1.2f + 1.5f * lift) * px, (1.0f - f) * lift, false });
+                }
+            }
+            const float ty = yOf (th);                                                         // the masking threshold
+            if (b > 0) L.push_back ({ px0, py0, x, ty, 1.2f * px, 0.75f });
+            px0 = x; py0 = ty;
+        }
+        const float total = clamp01 (s[72]);
+        B.push_back ({ 0.5f * w, 0.06f * h, (2.0f + 4.0f * total) * px, 0.4f + 0.6f * total, false });
+    }
+
+    inline void clarityLens (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), lift = clamp01 (s[4]), lx = 0.42f * w, cy = 0.5f * h;
+        // the lens: two arcs
+        ring (L, lx - 0.30f * h, cy, 0.42f * h, 2.0f * px, 0.9f, 24, -0.8f, 0.8f);
+        ring (L, lx + 0.30f * h, cy, 0.42f * h, 2.0f * px, 0.9f, 24, 3.14159f - 0.8f, 3.14159f + 0.8f);
+        const float fx = lx + (0.42f - 0.22f * lift) * w;   // (the focus: nearer, sharper, the more it lifts)
+        for (int k = 0; k < 4; ++k)
+        {
+            const float y = cy + (-0.30f + 0.20f * (float) k) * h, b = clamp01 (s[k]), th = (1.0f + 4.0f * b) * px;
+            const float br = k == 2 ? 0.55f + 0.45f * b : 0.3f + 0.4f * b;
+            L.push_back ({ 0.04f * w, y, lx, y, th, br });
+            L.push_back ({ lx, y, fx, cy, th, br });
+            L.push_back ({ fx, cy, std::min (0.97f * w, fx + (fx - lx) * 0.35f), cy + (cy - y) * 0.35f, th * 0.7f, br * 0.6f });
+        }
+        B.push_back ({ fx, cy, (3.0f + 5.0f * lift) * px, 0.6f + 0.4f * lift, false });
+        B.push_back ({ fx, cy, (8.0f + 10.0f * lift) * px, 0.5f * lift, true });
+        const float ty = cy + 0.44f * h - 0.6f * h * clamp01 (s[5]);   // (FOCUS: the mark on the lens's edge)
+        L.push_back ({ lx - 6.0f * px, ty, lx + 6.0f * px, ty, 2.0f * px, 0.8f });
+    }
+
+    inline void subDriver (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), ex = std::clamp (s[0], -1.0f, 1.0f), xm = clamp01 (s[1]), lv = clamp01 (s[2] * 2.0f);
+        const float mx = 0.22f * w, cy = 0.5f * h, R = 0.33f * h, travel = 0.05f * w;
+        box (L, 0.05f * w, cy - 0.16f * h, mx - 0.02f * w, cy + 0.16f * h, 2.0f * px, 0.8f);                      // the magnet
+        fillBox (L, 0.06f * w, cy - 0.15f * h, mx - 0.03f * w, cy + 0.15f * h, 4.0f * px, 0.8f * px, 0.25f);
+        const float coil = mx + ex * travel;                                                                    // the voice coil, moving
+        box (L, coil - 0.01f * w, cy - 0.07f * h, coil + 0.03f * w, cy + 0.07f * h, 1.6f * px, 1.0f);
+        const float rim = 0.60f * w;
+        L.push_back ({ coil + 0.03f * w, cy - 0.07f * h, rim + ex * travel * 0.3f, cy - R, 2.2f * px, 0.95f });   // the cone
+        L.push_back ({ coil + 0.03f * w, cy + 0.07f * h, rim + ex * travel * 0.3f, cy + R, 2.2f * px, 0.95f });
+        ring (L, rim + ex * travel * 0.3f, cy - R - 0.03f * h, 0.03f * h, 1.4f * px, 0.7f, 10, 1.5708f, 4.712f);    // the surround
+        ring (L, rim + ex * travel * 0.3f, cy + R + 0.03f * h, 0.03f * h, 1.4f * px, 0.7f, 10, 1.5708f, 4.712f);
+        L.push_back ({ mx, cy - R - 0.06f * h, rim + 0.03f * w, cy - R - 0.06f * h, 1.4f * px, 0.6f });          // the basket
+        L.push_back ({ mx, cy + R + 0.06f * h, rim + 0.03f * w, cy + R + 0.06f * h, 1.4f * px, 0.6f });
+        for (float sgn : { -1.0f, 1.0f })                                                                        // XMAX, as far as it may go
+        {
+            const float x = mx + sgn * travel * (0.3f + 0.7f * xm) + 0.01f * w;
+            for (float y = cy - 0.12f * h; y < cy + 0.12f * h; y += 8.0f * px) L.push_back ({ x, y, x, y + 4.0f * px, 1.0f * px, 0.5f });
+        }
+        for (int k = 1; k <= 3; ++k)                                                                             // the air it moves
+        {
+            const float r = 0.08f * w * ((float) k - frac (time * 1.5f));
+            ring (L, rim + 0.02f * w, cy, R * 0.6f + r, 1.2f * px, lv * (0.8f - 0.2f * (float) k), 10, -0.7f, 0.7f);
+        }
+    }
+
+    inline void lathe (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), cut = clamp01 (s[97]);
+        const int n = std::clamp ((int) s[0], 2, 48);
+        const float cy = 0.45f * h, x0 = 0.05f * w, x1 = 0.80f * w;
+        for (int g = -2; g <= 2; ++g) if (g != 0) L.push_back ({ x0, cy + (float) g * 0.16f * h, x1, cy + (float) g * 0.16f * h, 1.0f * px, 0.25f });   // (the grooves either side)
+        float xs[48], top[48], bot[48];
+        for (int i = 0; i < n; ++i)
+        {
+            const float lat = std::clamp (s[1 + 2 * i] * 3.0f, -1.0f, 1.0f), ver = std::clamp (std::abs (s[2 + 2 * i]) * 3.0f, 0.0f, 1.0f);
+            xs[i] = x0 + (x1 - x0) * (float) i / (float) (n - 1);
+            const float c = cy + lat * 0.06f * h, half = (2.0f + 7.0f * ver) * px;
+            top[i] = c - half; bot[i] = c + half;
+        }
+        poly (L, xs, top, n, 1.6f * px, 0.95f); poly (L, xs, bot, n, 1.6f * px, 0.95f);
+        // the cutting head: its stylus at the groove's newest end
+        const float sx = x1, sy = 0.5f * (top[n - 1] + bot[n - 1]);
+        L.push_back ({ sx, sy, sx + 0.05f * w, sy - 0.25f * h, 2.0f * px, 1.0f }); L.push_back ({ sx, sy, sx + 0.08f * w, sy - 0.22f * h, 2.0f * px, 1.0f });
+        box (L, sx + 0.04f * w, sy - 0.40f * h, sx + 0.14f * w, sy - 0.22f * h, 1.6f * px, 0.8f);
+        B.push_back ({ sx, sy, 3.0f * px, 1.0f, false });
+        // the treble the cutter is holding back
+        L.push_back ({ x0, 0.90f * h, x0 + (x1 - x0) * cut, 0.90f * h, 3.0f * px, 0.9f });
+        L.push_back ({ x0, 0.90f * h, x1, 0.90f * h, 1.0f * px, 0.25f });
+    }
+
+    inline void carTest (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), lvL = clamp01 (s[0]), lvR = clamp01 (s[1]), boom = clamp01 (s[2]), road = clamp01 (s[3]);
+        const int spk = std::clamp ((int) s[4], 0, 2), seat = std::clamp ((int) s[5], 0, 2);
+        const float cx = 0.5f * w, x0 = cx - 0.18f * w, x1 = cx + 0.18f * w, y0 = 0.06f * h, y1 = 0.94f * h;
+        box (L, x0, y0, x1, y1, 2.0f * px, 0.9f);                                                   // the body, nose up
+        L.push_back ({ x0 + 0.02f * w, 0.24f * h, x1 - 0.02f * w, 0.24f * h, 1.6f * px, 0.7f });   // the windscreen
+        L.push_back ({ x0 + 0.02f * w, 0.84f * h, x1 - 0.02f * w, 0.84f * h, 1.2f * px, 0.5f });   // the rear window
+        const float sxs[4] { cx - 0.08f * w, cx + 0.08f * w, cx - 0.08f * w, cx + 0.08f * w }, sys[4] { 0.40f * h, 0.40f * h, 0.66f * h, 0.66f * h };
+        const int you = seat == 0 ? 0 : seat == 1 ? -1 : 2;
+        for (int k = 0; k < 4; ++k) { box (L, sxs[k] - 0.035f * w, sys[k] - 0.07f * h, sxs[k] + 0.035f * w, sys[k] + 0.07f * h, 1.2f * px, 0.5f); if (k == you) B.push_back ({ sxs[k], sys[k], 0.03f * h, 1.0f, false }); }
+        if (you < 0) B.push_back ({ cx, 0.53f * h, 0.03f * h, 1.0f, false });
+        auto speaker = [&] (float x, float y, float lv) { B.push_back ({ x, y, (3.0f + 4.0f * lv) * px, 0.5f + 0.5f * lv, true }); B.push_back ({ x, y, 2.0f * px, 0.9f, false }); };
+        if (spk == 1) { speaker (cx - 0.12f * w, 0.20f * h, lvL); speaker (cx + 0.12f * w, 0.20f * h, lvR); }
+        else { speaker (x0, 0.36f * h, lvL); speaker (x1, 0.36f * h, lvR); speaker (x0, 0.66f * h, lvL * 0.8f); speaker (x1, 0.66f * h, lvR * 0.8f); }
+        if (spk == 2) { box (L, cx - 0.05f * w, 0.87f * h, cx + 0.05f * w, 0.92f * h, 1.4f * px, 0.9f); B.push_back ({ cx, 0.895f * h, (4.0f + 6.0f * boom) * px, 0.4f + 0.6f * boom, true }); }
+        ring (L, cx, 0.53f * h, (0.05f + 0.12f * boom) * h, 1.2f * px, 0.2f + 0.6f * boom);        // the cabin's boom
+        for (int k = 0; k < 8; ++k)                                                                // the road going by
+        {
+            const float y = frac ((float) k / 8.0f + time * (0.3f + 1.2f * road)) * h;
+            for (float x : { 0.12f * w, 0.88f * w }) L.push_back ({ x, y, x, y + 0.05f * h, 2.0f * px, 0.25f + 0.5f * road });
+        }
+    }
+
+    inline void phoneCheck (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), squash = clamp01 (s[1]), lv = clamp01 (s[2] * 2.0f);
+        const int dev = std::clamp ((int) s[0], 0, 2);
+        const float cx = 0.25f * w, cy = 0.5f * h;
+        if (dev == 0)
+        {
+            box (L, cx - 0.09f * w, 0.08f * h, cx + 0.09f * w, 0.92f * h, 2.0f * px, 0.9f);
+            L.push_back ({ cx - 0.03f * w, 0.13f * h, cx + 0.03f * w, 0.13f * h, 2.0f * px, 0.6f });
+            for (int k = 0; k < 7; ++k) B.push_back ({ cx - 0.045f * w + 0.015f * w * (float) k, 0.86f * h, (1.2f + 1.2f * lv) * px, 0.5f + 0.5f * lv, false });
+        }
+        else if (dev == 1)
+        {
+            box (L, cx - 0.17f * w, 0.18f * h, cx + 0.17f * w, 0.66f * h, 2.0f * px, 0.9f);
+            L.push_back ({ cx - 0.21f * w, 0.72f * h, cx + 0.21f * w, 0.72f * h, 2.0f * px, 0.9f });
+            L.push_back ({ cx - 0.17f * w, 0.66f * h, cx - 0.21f * w, 0.72f * h, 2.0f * px, 0.9f }); L.push_back ({ cx + 0.17f * w, 0.66f * h, cx + 0.21f * w, 0.72f * h, 2.0f * px, 0.9f });
+            for (int k = 0; k < 10; ++k) for (float side : { -1.0f, 1.0f }) B.push_back ({ cx + side * (0.12f * w + 0.01f * w * (float) (k % 2)), 0.76f * h + 0.012f * h * (float) (k / 2), 1.0f * px, 0.4f + 0.6f * lv, false });
+        }
+        else
+            for (float side : { -1.0f, 1.0f })
+            {
+                const float bx = cx + side * 0.09f * w;
+                ring (L, bx, 0.40f * h, 0.12f * h, 2.0f * px, 0.9f);
+                L.push_back ({ bx + side * 0.02f * w, 0.50f * h, bx + side * 0.04f * w, 0.80f * h, 3.0f * px, 0.8f });
+                B.push_back ({ bx, 0.40f * h, (2.0f + 6.0f * lv) * px, 0.5f + 0.5f * lv, false });
+            }
+        // what comes out: a wave, its tops squashed flat as far as the device's limiter squashes
+        const float wx0 = 0.52f * w, wx1 = 0.95f * w, a = 0.25f * h, lim = a * (1.0f - 0.75f * squash);
+        L.push_back ({ wx0, cy - lim, wx1, cy - lim, 1.0f * px, 0.35f }); L.push_back ({ wx0, cy + lim, wx1, cy + lim, 1.0f * px, 0.35f });
+        float lx = wx0, ly = cy;
+        for (int i = 1; i <= 80; ++i)
+        {
+            const float t = (float) i / 80.0f, x = wx0 + (wx1 - wx0) * t;
+            const float y = cy - std::clamp (a * (0.4f + 0.6f * lv) * std::sin (t * 18.0f + time * 6.0f) * (0.7f + 0.3f * std::sin (t * 3.0f)), -lim, lim);
+            L.push_back ({ lx, ly, x, y, 1.6f * px, 0.95f }); lx = x; ly = y;
+        }
+        if (s[3] > 0.5f) B.push_back ({ 0.95f * w, 0.1f * h, 3.0f * px, 0.9f, false });   // (MONO: a single dot)
+        else { B.push_back ({ 0.93f * w, 0.1f * h, 3.0f * px, 0.9f, false }); B.push_back ({ 0.965f * w, 0.1f * h, 3.0f * px, 0.9f, false }); }
+    }
+
+    inline void club (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), press = clamp01 (s[0]), size = clamp01 (s[2]), crowd = clamp01 (s[3]), dist = clamp01 (s[4]);
+        const float hw = (0.25f + 0.2f * size) * w, cx = 0.5f * w, y0 = 0.06f * h, y1 = 0.94f * h;
+        box (L, cx - hw, y0, cx + hw, y1, 2.0f * px, 0.8f);
+        box (L, cx - hw * 0.6f, y0, cx + hw * 0.6f, y0 + 0.12f * h, 1.4f * px, 0.6f);   // the stage
+        for (float side : { -1.0f, 1.0f })
+        {
+            const float sx = cx + side * hw * 0.75f;
+            box (L, sx - 0.03f * w, y0 + 0.02f * h, sx + 0.03f * w, y0 + 0.16f * h, 1.6f * px, 0.9f);          // a stack
+            for (int k = 0; k < 3; ++k)
+            {
+                const float r = (0.05f + 0.25f * frac (time * 1.2f + (float) k / 3.0f)) * h;
+                ring (L, sx, y0 + 0.16f * h, r, 1.2f * px, press * (1.0f - frac (time * 1.2f + (float) k / 3.0f)), 16, 0.3f, 2.84f);
+            }
+        }
+        const int people = 8 + (int) (40.0f * crowd);
+        unsigned rs = 12345u;
+        for (int k = 0; k < people; ++k)
+        {
+            rs = rs * 1664525u + 1013904223u; const float rx = (float) (rs >> 8) / 16777216.0f;
+            rs = rs * 1664525u + 1013904223u; const float ry = (float) (rs >> 8) / 16777216.0f;
+            const float bob = 0.006f * h * std::sin (time * 8.0f + (float) k) * press;
+            B.push_back ({ cx - hw * 0.9f + 1.8f * hw * 0.9f * rx, y0 + 0.24f * h + 0.60f * h * ry + bob, 1.6f * px, 0.45f, false });
+        }
+        const float yy = y0 + 0.24f * h + 0.62f * h * dist;   // you
+        B.push_back ({ cx, yy, 5.0f * px, 1.0f, true }); B.push_back ({ cx, yy, 2.0f * px, 1.0f, false });
+    }
+
+    inline void pressure (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), fill = clamp01 (s[0]), vent = clamp01 (s[1]), ceil = clamp01 (s[3]);
+        const float cx = 0.35f * w, tw = 0.14f * w, top = 0.22f * h, bot = 0.90f * h;
+        L.push_back ({ cx - tw, top, cx - tw, bot, 2.0f * px, 0.9f }); L.push_back ({ cx + tw, top, cx + tw, bot, 2.0f * px, 0.9f });
+        ring (L, cx, top, tw, 2.0f * px, 0.9f, 16, 3.14159f, tau); L.push_back ({ cx - tw, bot, cx + tw, bot, 2.0f * px, 0.9f });
+        const float lvl = bot - (bot - top) * fill;
+        fillBox (L, cx - tw + 3.0f * px, lvl, cx + tw - 3.0f * px, bot - 2.0f * px, 5.0f * px, 1.0f * px, 0.35f);
+        L.push_back ({ cx - tw, bot - (bot - top) * ceil * 0.95f, cx + tw, bot - (bot - top) * ceil * 0.95f, 1.2f * px, 0.6f });   // the valve's setting
+        // the valve on top, and what it vents
+        box (L, cx - 0.02f * w, top - tw - 0.08f * h, cx + 0.02f * w, top - tw, 1.6f * px, 0.9f);
+        for (int k = 0; k < 4; ++k)
+        {
+            const float t = frac (time * 2.0f + (float) k / 4.0f);
+            B.push_back ({ cx + 0.03f * w * std::sin ((float) k * 2.0f), top - tw - 0.10f * h - t * 0.12f * h, (2.0f + 6.0f * t) * px, vent * (1.0f - t), true });
+        }
+        // the gauge
+        const float gx = 0.72f * w, gy = 0.5f * h, gr = 0.26f * h;
+        ring (L, gx, gy, gr, 2.0f * px, 0.9f, 32, 2.356f, 7.069f);
+        for (int k = 0; k <= 10; ++k) { const float a = 2.356f + 4.712f * (float) k / 10.0f; L.push_back ({ gx + std::cos (a) * gr * 0.85f, gy + std::sin (a) * gr * 0.85f, gx + std::cos (a) * gr, gy + std::sin (a) * gr, (k >= 8 ? 2.4f : 1.2f) * px, k >= 8 ? 1.0f : 0.6f }); }
+        const float na = 2.356f + 4.712f * fill;
+        L.push_back ({ gx, gy, gx + std::cos (na) * gr * 0.8f, gy + std::sin (na) * gr * 0.8f, 2.4f * px, 1.0f });
+        B.push_back ({ gx, gy, 3.0f * px, 1.0f, false });
+    }
+
+    inline void balance (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), beam = std::clamp (s[0], -1.0f, 1.0f), corr = std::clamp (s[1], -1.0f, 1.0f), lo = clamp01 (s[2]), hi = clamp01 (s[3]);
+        const float cx = 0.5f * w, cy = 0.55f * h, half = 0.38f * w, a = 0.30f * beam;   // (right side down: the top heavier)
+        L.push_back ({ cx, cy, cx - 0.05f * w, 0.88f * h, 2.0f * px, 0.9f }); L.push_back ({ cx, cy, cx + 0.05f * w, 0.88f * h, 2.0f * px, 0.9f });
+        L.push_back ({ cx - 0.10f * w, 0.88f * h, cx + 0.10f * w, 0.88f * h, 2.0f * px, 0.9f });
+        const float dx = std::cos (a) * half, dy = std::sin (a) * half;
+        L.push_back ({ cx - dx, cy - dy, cx + dx, cy + dy, 3.0f * px, 1.0f });
+        auto weight = [&] (float t, float size, bool ring_)
+        {
+            const float x = cx + dx * t, y = cy + dy * t, r = (0.03f + 0.07f * size) * h;
+            if (ring_) B.push_back ({ x, y - r, r, 0.9f, true }); else box (L, x - r, y - 2.0f * r, x + r, y, 1.6f * px, 0.9f);
+        };
+        weight (-0.85f, lo, false); weight (0.85f, hi, true);
+        weight (-corr * 0.6f, 0.15f, false);   // (the counterweight, slid to level it: the correction)
+        B.push_back ({ cx, cy, 3.0f * px, 1.0f, false });
+    }
+
+    inline void field (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), width = std::clamp (s[0], 0.0f, 2.0f), corr = std::clamp (s[1], -1.0f, 1.0f), lvL = clamp01 (s[2]), lvR = clamp01 (s[3]);
+        const float xl = 0.15f * w, xr = 0.85f * w, cy = 0.5f * h;
+        B.push_back ({ xl, cy, (6.0f + 8.0f * lvL) * px, 1.0f, true }); B.push_back ({ xl, cy, 3.0f * px, 1.0f, false });
+        B.push_back ({ xr, cy, (6.0f + 8.0f * lvR) * px, 1.0f, true }); B.push_back ({ xr, cy, 3.0f * px, 1.0f, false });
+        for (int k = -3; k <= 3; ++k)
+        {
+            const float bulge = (float) k * 0.13f * h * (0.2f + 0.8f * width / 2.0f);
+            float lx = xl, ly = cy;
+            for (int i = 1; i <= 40; ++i)
+            {
+                const float t = (float) i / 40.0f, x = xl + (xr - xl) * t, y = cy + bulge * 4.0f * t * (1.0f - t);
+                const bool broken = corr < 0.0f && (i % 3 == 0);   // (cancelling: the lines break up)
+                if (! broken) L.push_back ({ lx, ly, x, y, 1.2f * px, (k == 0 ? 0.9f : 0.6f) * (0.5f + 0.5f * std::abs (corr)) });
+                lx = x; ly = y;
+            }
+        }
+        L.push_back ({ 0.5f * w, 0.92f * h, 0.5f * w + corr * 0.3f * w, 0.92f * h, 3.0f * px, 0.9f });   // correlation
+        L.push_back ({ 0.5f * w, 0.89f * h, 0.5f * w, 0.95f * h, 1.0f * px, 0.5f });
+    }
+
+    inline void sonar (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), cx = 0.5f * w, cy = 0.5f * h, R = 0.45f * h, sw = frac (s[0]);
+        for (int k = 1; k <= 3; ++k) ring (L, cx, cy, R * (float) k / 3.0f, 1.0f * px, 0.3f);
+        L.push_back ({ cx - R, cy, cx + R, cy, 0.8f * px, 0.2f }); L.push_back ({ cx, cy - R, cx, cy + R, 0.8f * px, 0.2f });
+        for (int k = 0; k < 8; ++k) { const float a = tau * sw - 0.06f * (float) k - 1.5708f; L.push_back ({ cx, cy, cx + std::cos (a) * R, cy + std::sin (a) * R, (2.0f - 0.2f * (float) k) * px, 0.9f - 0.1f * (float) k }); }
+        const int n = std::clamp ((int) s[1], 0, 20);
+        for (int k = 0; k < n; ++k)
+        {
+            const float a = tau * s[2 + 3 * k] - 1.5708f, st = clamp01 (s[3 + 3 * k]), age = std::max (0.0f, s[4 + 3 * k]);
+            const float r = R * (0.25f + 0.7f * st), b = clamp01 (1.0f - age / 2.0f);
+            B.push_back ({ cx + std::cos (a) * r, cy + std::sin (a) * r, (2.0f + 3.0f * st) * px, b, false });
+            B.push_back ({ cx + std::cos (a) * r, cy + std::sin (a) * r, (4.0f + 10.0f * age) * px, b * 0.6f, true });
+        }
+    }
+
+    inline void seismo (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), gr = clamp01 (s[65]), thr = clamp01 (s[66]);
+        const int n = std::clamp ((int) s[0], 2, 64);
+        const float x0 = 0.05f * w, x1 = 0.80f * w, cy = 0.5f * h, a = 0.38f * h;
+        box (L, x0, cy - a - 0.04f * h, x1, cy + a + 0.04f * h, 1.2f * px, 0.4f);
+        for (int k = 1; k < 8; ++k) { const float x = x0 + (x1 - x0) * (float) k / 8.0f; L.push_back ({ x, cy - a, x, cy + a, 0.8f * px, 0.15f }); }
+        L.push_back ({ x0, cy, x1, cy, 0.8f * px, 0.3f });
+        for (float sgn : { -1.0f, 1.0f }) for (float x = x0; x < x1; x += 10.0f * px) L.push_back ({ x, cy + sgn * a * (0.15f + 0.85f * thr), x + 5.0f * px, cy + sgn * a * (0.15f + 0.85f * thr), 1.0f * px, 0.5f });
+        float lx = x0, ly = cy;
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < 3; ++j)
+            {
+                const float t = ((float) i + (float) j / 3.0f) / (float) n, x = x0 + (x1 - x0) * t;
+                const float y = cy + a * clamp01 (s[1 + i]) * std::sin ((float) (i * 3 + j) * 2.1f);
+                L.push_back ({ lx, ly, x, y, 1.4f * px, 0.95f }); lx = x; ly = y;
+            }
+        // the pen's arm, and the damper holding it (as hard as it is damping)
+        L.push_back ({ x1, ly, 0.93f * w, 0.5f * h, 2.0f * px, 0.9f });
+        B.push_back ({ 0.93f * w, 0.5f * h, 4.0f * px, 0.9f, true });
+        box (L, 0.88f * w, 0.72f * h, 0.98f * w, 0.72f * h + 0.18f * h * gr + 2.0f * px, 1.4f * px, 0.9f);
+    }
+
+    inline void prism (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), cx = 0.38f * w, cy = 0.5f * h, r = 0.30f * h;
+        const float ax = cx, ay = cy - r, bx = cx - r * 0.87f, by = cy + r * 0.5f, qx = cx + r * 0.87f, qy = cy + r * 0.5f;
+        L.push_back ({ ax, ay, bx, by, 2.0f * px, 0.9f }); L.push_back ({ bx, by, qx, qy, 2.0f * px, 0.9f }); L.push_back ({ qx, qy, ax, ay, 2.0f * px, 0.9f });
+        const float ix = 0.5f * (ax + bx), iy = 0.5f * (ay + by), ox = 0.5f * (ax + qx), oy = 0.5f * (ay + qy);
+        L.push_back ({ 0.02f * w, cy + 0.06f * h, ix, iy, (2.0f + 3.0f * clamp01 (s[5] * 2.0f)) * px, 1.0f });
+        L.push_back ({ ix, iy, ox, oy, 2.0f * px, 0.6f });
+        for (int b = 0; b < 5; ++b)
+        {
+            const float g = clamp01 (s[b]), ang = -0.35f + 0.16f * (float) b;
+            const float ex = ox + std::cos (ang) * 0.55f * w, ey = oy + std::sin (ang) * 0.55f * w;
+            L.push_back ({ ox, oy, ex, ey, (1.0f + 5.0f * g) * px, 0.35f + 0.65f * g });
+        }
+    }
+
+    inline void furnace (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), temp = clamp01 (s[0]);
+        const float x0 = 0.12f * w, x1 = 0.62f * w, y0 = 0.10f * h, y1 = 0.90f * h;
+        box (L, x0, y0, x1, y1, 2.0f * px, 0.9f);
+        fillBox (L, x0, y0, x1, y0 + 0.08f * h, 5.0f * px, 1.0f * px, 0.4f);
+        const float mx = 0.5f * (x0 + x1), mw = 0.18f * w, mt = 0.40f * h;
+        ring (L, mx, mt, mw, 1.6f * px, 0.8f, 20, 3.14159f, tau);
+        L.push_back ({ mx - mw, mt, mx - mw, y1 - 0.06f * h, 1.6f * px, 0.8f }); L.push_back ({ mx + mw, mt, mx + mw, y1 - 0.06f * h, 1.6f * px, 0.8f });
+        for (int f = 0; f < 7; ++f)   // the flames
+        {
+            const float fx = mx - mw * 0.8f + mw * 1.6f * (float) f / 6.0f, fh = (0.08f + 0.30f * temp) * h * (0.7f + 0.3f * std::sin (time * 9.0f + (float) f * 1.7f));
+            float lx = fx, ly = y1 - 0.07f * h;
+            for (int k = 1; k <= 6; ++k)
+            {
+                const float y = y1 - 0.07f * h - fh * (float) k / 6.0f, x = fx + std::sin (time * 11.0f + (float) (k + f)) * 0.012f * w;
+                L.push_back ({ lx, ly, x, y, (2.5f - 0.3f * (float) k) * px, 0.4f + 0.6f * temp }); lx = x; ly = y;
+            }
+        }
+        // the thermometer
+        const float tx = 0.80f * w, tt = 0.12f * h, tb = 0.78f * h;
+        L.push_back ({ tx - 0.015f * w, tt, tx - 0.015f * w, tb, 1.4f * px, 0.9f }); L.push_back ({ tx + 0.015f * w, tt, tx + 0.015f * w, tb, 1.4f * px, 0.9f });
+        ring (L, tx, tb + 0.05f * h, 0.05f * h, 1.4f * px, 0.9f);
+        B.push_back ({ tx, tb + 0.05f * h, 0.035f * h, 0.9f, false });
+        L.push_back ({ tx, tb, tx, tb - (tb - tt) * temp, 4.0f * px, 1.0f });
+        for (int k = 0; k <= 5; ++k) L.push_back ({ tx + 0.02f * w, tb - (tb - tt) * (float) k / 5.0f, tx + 0.04f * w, tb - (tb - tt) * (float) k / 5.0f, 1.0f * px, 0.6f });
+    }
+
+    inline void dither (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f);
+        const int n = std::clamp ((int) s[2], 2, 48), bits = (int) s[0], mode = std::clamp ((int) s[1], 0, 2);
+        const float x0 = 0.05f * w, x1 = 0.85f * w, cy = 0.5f * h, step = 0.42f * h / 12.0f;
+        for (int k = -12; k <= 12; ++k) L.push_back ({ x0, cy - step * (float) k, x1, cy - step * (float) k, 0.8f * px, k == 0 ? 0.35f : 0.12f });   // (one line each step of the last bit)
+        float xs[48], yi[48];
+        for (int i = 0; i < n; ++i) { xs[i] = x0 + (x1 - x0) * (float) i / (float) (n - 1); yi[i] = cy - step * s[3 + 2 * i]; }
+        poly (L, xs, yi, n, 1.0f * px, 0.5f);   // the signal as it came
+        for (int i = 0; i < n; ++i)   // as it leaves: the steps
+        {
+            const float y = cy - step * std::round (s[4 + 2 * i]);
+            const float xe = i + 1 < n ? xs[i + 1] : x1;
+            L.push_back ({ xs[i], y, xe, y, 2.0f * px, 1.0f });
+            if (i + 1 < n) L.push_back ({ xe, y, xe, cy - step * std::round (s[4 + 2 * (i + 1)]), 1.0f * px, 0.7f });
+        }
+        const int marks = bits == 16 ? 3 : bits == 20 ? 2 : 1;   // (the bits: fewer marks, finer steps)
+        for (int k = 0; k < marks; ++k) L.push_back ({ 0.90f * w + 0.025f * w * (float) k, 0.15f * h, 0.90f * w + 0.025f * w * (float) k, 0.30f * h, 3.0f * px, 0.9f });
+        for (int k = 0; k < 3; ++k) B.push_back ({ 0.90f * w + 0.025f * w * (float) k, 0.80f * h, 3.0f * px, k == mode ? 1.0f : 0.35f, k != mode });
+    }
+
+    inline void rider (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), fader = std::clamp (s[0], -1.0f, 1.0f), target = clamp01 (s[2]);
+        const float fx = 0.15f * w, ft = 0.10f * h, fb = 0.90f * h, fy = 0.5f * (ft + fb) - fader * 0.4f * (fb - ft);
+        L.push_back ({ fx, ft, fx, fb, 3.0f * px, 0.5f });
+        for (int k = 0; k <= 8; ++k) L.push_back ({ fx - 0.03f * w, ft + (fb - ft) * (float) k / 8.0f, fx - 0.015f * w, ft + (fb - ft) * (float) k / 8.0f, 1.0f * px, 0.5f });
+        box (L, fx - 0.04f * w, fy - 0.035f * h, fx + 0.04f * w, fy + 0.035f * h, 2.0f * px, 1.0f);
+        L.push_back ({ fx - 0.03f * w, fy, fx + 0.03f * w, fy, 1.6f * px, 1.0f });
+        // the loudness it is riding, and the target
+        const int n = std::clamp ((int) s[3], 2, 48);
+        const float x0 = 0.30f * w, x1 = 0.95f * w, y0 = 0.10f * h, y1 = 0.90f * h;
+        box (L, x0, y0, x1, y1, 1.2f * px, 0.35f);
+        const float ty = y1 - (y1 - y0) * target;
+        for (float x = x0; x < x1; x += 10.0f * px) L.push_back ({ x, ty, x + 5.0f * px, ty, 1.4f * px, 0.8f });
+        float xs[48], ys[48];
+        for (int i = 0; i < n; ++i) { xs[i] = x0 + (x1 - x0) * (float) i / (float) (n - 1); ys[i] = y1 - (y1 - y0) * clamp01 (s[4 + i]); }
+        poly (L, xs, ys, n, 1.8f * px, 0.95f);
+        B.push_back ({ xs[n - 1], ys[n - 1], 3.0f * px, 1.0f, false });
+    }
+
+    inline void compass (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), corr = std::clamp (s[0], -1.0f, 1.0f), lag = std::clamp (s[1], -1.0f, 1.0f), app = clamp01 (s[2]);
+        const float cx = 0.42f * w, cy = 0.5f * h, R = 0.42f * h;
+        ring (L, cx, cy, R, 2.0f * px, 0.9f); ring (L, cx, cy, R * 0.9f, 1.0f * px, 0.4f);
+        for (int k = 0; k < 16; ++k) { const float a = tau * (float) k / 16.0f; const float r0 = k % 4 == 0 ? 0.72f : 0.82f; L.push_back ({ cx + std::cos (a) * R * r0, cy + std::sin (a) * R * r0, cx + std::cos (a) * R * 0.9f, cy + std::sin (a) * R * 0.9f, (k % 4 == 0 ? 2.0f : 1.0f) * px, 0.7f }); }
+        const float a = -1.5708f + (1.0f - corr) * 1.5708f * (lag >= 0.0f ? 1.0f : -1.0f);   // (north: in phase; south: cancelling)
+        const float nx = std::cos (a), ny = std::sin (a), qx = -ny, qy = nx;
+        L.push_back ({ cx - nx * R * 0.2f + qx * 5.0f * px, cy - ny * R * 0.2f + qy * 5.0f * px, cx + nx * R * 0.75f, cy + ny * R * 0.75f, 2.0f * px, 1.0f });
+        L.push_back ({ cx - nx * R * 0.2f - qx * 5.0f * px, cy - ny * R * 0.2f - qy * 5.0f * px, cx + nx * R * 0.75f, cy + ny * R * 0.75f, 2.0f * px, 1.0f });
+        B.push_back ({ cx, cy, 3.0f * px, 1.0f, false });
+        // the lag found (left / right of centre), and how much of it is corrected
+        const float bx0 = 0.78f * w, bx1 = 0.96f * w, bm = 0.5f * (bx0 + bx1), by = 0.3f * h;
+        L.push_back ({ bx0, by, bx1, by, 1.0f * px, 0.4f }); L.push_back ({ bm, by - 5.0f * px, bm, by + 5.0f * px, 1.0f * px, 0.5f });
+        B.push_back ({ bm + lag * 0.5f * (bx1 - bx0), by, 3.5f * px, 1.0f, false });
+        L.push_back ({ bx0, 0.7f * h, bx0 + (bx1 - bx0) * app, 0.7f * h, 3.0f * px, 0.9f });
+    }
+
+    inline void suspension (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), body = clamp01 (s[1]), wheel = frac (s[2]);
+        const int n = std::clamp ((int) s[3], 2, 32);
+        const float x0 = 0.03f * w, x1 = 0.97f * w, base = 0.92f * h, rh = 0.30f * h;
+        float xs[32], ys[32];
+        for (int i = 0; i < n; ++i) { xs[i] = x0 + (x1 - x0) * (float) i / (float) (n - 1); ys[i] = base - rh * clamp01 (s[4 + i]); }
+        poly (L, xs, ys, n, 2.0f * px, 0.9f);
+        fillBox (L, x0, base, x1, base + 0.05f * h, 4.0f * px, 0.8f * px, 0.2f);
+        // the wheel, at the road's height where it is, turning
+        const int wi = (int) (0.4f * (float) (n - 1)); const float wx = xs[wi], wr = 0.08f * h, wy = ys[wi] - wr;
+        ring (L, wx, wy, wr, 2.0f * px, 1.0f);
+        for (int k = 0; k < 4; ++k) { const float a = tau * (wheel + (float) k / 4.0f); L.push_back ({ wx, wy, wx + std::cos (a) * wr, wy + std::sin (a) * wr, 1.2f * px, 0.7f }); }
+        // the body above it, on its spring
+        const float by = 0.12f * h + (1.0f - body) * 0.30f * h;
+        box (L, wx - 0.20f * w, by, wx + 0.30f * w, by + 0.10f * h, 2.0f * px, 0.9f);
+        float lx = wx, ly = by + 0.10f * h;
+        for (int k = 1; k <= 8; ++k)
+        {
+            const float y = by + 0.10f * h + (wy - by - 0.10f * h) * (float) k / 8.0f, x = wx + ((k & 1) ? 0.02f : -0.02f) * w;
+            L.push_back ({ lx, ly, k == 8 ? wx : x, y, 1.4f * px, 0.9f }); lx = k == 8 ? wx : x; ly = y;
+        }
+        (void) time;
+    }
+
+    inline void skyline (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), x0 = 0.04f * w, x1 = 0.96f * w, base = 0.92f * h, top = 0.10f * h;
+        const float bw = (x1 - x0) / 16.0f;
+        L.push_back ({ x0, base, x1, base, 2.0f * px, 0.9f });
+        for (int b = 0; b < 16; ++b)
+        {
+            const float lv = clamp01 (s[b]), trim = clamp01 (s[16 + b]);
+            const float xa = x0 + bw * (float) b + 0.12f * bw, xb = xa + 0.76f * bw;
+            const float yTop = base - (base - top) * lv, yCut = yTop + (base - top) * 0.25f * trim;
+            L.push_back ({ xa, base, xa, yCut, 1.4f * px, 0.9f }); L.push_back ({ xb, base, xb, yCut, 1.4f * px, 0.9f });
+            L.push_back ({ xa, yCut, xb, yCut, 1.4f * px, 0.9f });
+            for (float y = yCut + 6.0f * px; y < base - 4.0f * px; y += 7.0f * px) B.push_back ({ 0.5f * (xa + xb), y, 1.0f * px, 0.35f, false });   // (lit windows)
+            if (trim > 0.05f)   // what was trimmed off: its outline, dashed
+                for (float y = yTop; y < yCut; y += 5.0f * px) { L.push_back ({ xa, y, xa, std::min (yCut, y + 2.5f * px), 1.0f * px, 0.5f }); L.push_back ({ xb, y, xb, std::min (yCut, y + 2.5f * px), 1.0f * px, 0.5f }); }
+        }
+    }
+
+    inline void hourglass (const float* s, float w, float h, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f), topSand = clamp01 (s[0]), flow = clamp01 (s[1]);
+        const float cx = 0.40f * w, hw = 0.16f * w, y0 = 0.08f * h, ym = 0.5f * h, y1 = 0.92f * h;
+        L.push_back ({ cx - hw, y0, cx + hw, y0, 2.4f * px, 0.9f }); L.push_back ({ cx - hw, y1, cx + hw, y1, 2.4f * px, 0.9f });
+        L.push_back ({ cx - hw, y0, cx - 0.01f * w, ym, 2.0f * px, 0.9f }); L.push_back ({ cx + hw, y0, cx + 0.01f * w, ym, 2.0f * px, 0.9f });
+        L.push_back ({ cx - 0.01f * w, ym, cx - hw, y1, 2.0f * px, 0.9f }); L.push_back ({ cx + 0.01f * w, ym, cx + hw, y1, 2.0f * px, 0.9f });
+        // the sand above (a wedge, from the neck up to its level), the pile below, the stream between
+        const float topLevel = ym - (ym - y0) * 0.9f * topSand;
+        for (float y = topLevel; y < ym - 2.0f * px; y += 3.0f * px) { const float half = 0.01f * w + (hw - 0.01f * w) * (ym - y) / (ym - y0) - 3.0f * px; L.push_back ({ cx - half, y, cx + half, y, 1.0f * px, 0.6f }); }
+        const float pile = (y1 - ym) * 0.9f * (1.0f - topSand);
+        for (float y = y1 - 2.0f * px; y > y1 - pile; y -= 3.0f * px) { const float half = (hw - 3.0f * px) * (1.0f - (y1 - y) / std::max (1.0f, pile)) ; L.push_back ({ cx - half, y, cx + half, y, 1.0f * px, 0.6f }); }
+        if (flow > 0.02f) L.push_back ({ cx, ym, cx, y1 - pile, (1.0f + 3.0f * flow) * px, 0.5f + 0.5f * flow });
+        L.push_back ({ 0.70f * w, 0.9f * h, 0.70f * w, 0.9f * h - 0.8f * h * flow, 4.0f * px, 0.9f });   // (how hard it is holding)
+        L.push_back ({ 0.67f * w, 0.9f * h, 0.73f * w, 0.9f * h, 1.0f * px, 0.4f });
+    }
+
+    inline void aurora (const float* s, float w, float h, float time, std::vector<Line>& L, std::vector<Blob>& B)
+    {
+        using namespace detail;
+        const float px = std::max (1.0f, w / 480.0f);
+        unsigned rs = 777u;
+        for (int k = 0; k < 30; ++k) { rs = rs * 1664525u + 1013904223u; const float x = (float) (rs >> 8) / 16777216.0f * w; rs = rs * 1664525u + 1013904223u; const float y = (float) (rs >> 8) / 16777216.0f * 0.6f * h; B.push_back ({ x, y, 1.0f * px, 0.35f, false }); }
+        for (int c = 0; c < 8; ++c)
+        {
+            const float v = clamp01 (s[c]), xc = (0.08f + 0.84f * (float) c / 7.0f) * w;
+            for (int strand = 0; strand < 3; ++strand)
+            {
+                float lx = 0.0f, ly = 0.0f;
+                for (int i = 0; i <= 20; ++i)
+                {
+                    const float t = (float) i / 20.0f, y = 0.10f * h + (0.55f + 0.2f * v) * h * t;
+                    const float x = xc + (float) (strand - 1) * 0.012f * w + std::sin (t * 5.0f + time * 1.3f + (float) c) * 0.03f * w;
+                    if (i > 0) L.push_back ({ lx, ly, x, y, (1.0f + 1.5f * v) * px, (0.15f + 0.8f * v) * (1.0f - 0.6f * t) });
+                    lx = x; ly = y;
+                }
+            }
+        }
+        float lx = 0.0f, ly = 0.88f * h;   // the hills
+        for (int i = 1; i <= 24; ++i) { const float x = w * (float) i / 24.0f, y = 0.88f * h - 0.06f * h * std::abs (std::sin ((float) i * 0.7f)); L.push_back ({ lx, ly, x, y, 1.6f * px, 0.8f }); lx = x; ly = y; }
+    }
+
     /** The screen of unit `k` from its state `s` (w x h pixels) at `time` s. */
     inline void build (Kind k, const float* s, float w, float h, float time, std::vector<Line>& lines, std::vector<Blob>& blobs)
     {
@@ -677,6 +1205,27 @@ namespace pad::simscreen
             case Kind::tesla:    tesla (s, w, h, time, lines, blobs); break;
             case Kind::talkBox:  talkBox (s, w, h, lines, blobs); break;
             case Kind::lavaLamp: lavaLamp (s, w, h, lines, blobs); break;
+            case Kind::clarity:  clarityLens (s, w, h, lines, blobs); break;
+            case Kind::detail:   detailSpectrum (s, w, h, time, lines, blobs); break;
+            case Kind::subDriver: subDriver (s, w, h, time, lines, blobs); break;
+            case Kind::lathe:    lathe (s, w, h, lines, blobs); break;
+            case Kind::carTest:  carTest (s, w, h, time, lines, blobs); break;
+            case Kind::phoneCheck: phoneCheck (s, w, h, time, lines, blobs); break;
+            case Kind::club:     club (s, w, h, time, lines, blobs); break;
+            case Kind::pressure: pressure (s, w, h, time, lines, blobs); break;
+            case Kind::balance:  balance (s, w, h, lines, blobs); break;
+            case Kind::field:    field (s, w, h, lines, blobs); break;
+            case Kind::sonar:    sonar (s, w, h, lines, blobs); break;
+            case Kind::seismo:   seismo (s, w, h, lines, blobs); break;
+            case Kind::prism:    prism (s, w, h, lines, blobs); break;
+            case Kind::furnace:  furnace (s, w, h, time, lines, blobs); break;
+            case Kind::dither:   dither (s, w, h, lines, blobs); break;
+            case Kind::rider:    rider (s, w, h, lines, blobs); break;
+            case Kind::compass:  compass (s, w, h, lines, blobs); break;
+            case Kind::suspension: suspension (s, w, h, time, lines, blobs); break;
+            case Kind::skyline:  skyline (s, w, h, lines, blobs); break;
+            case Kind::hourglass: hourglass (s, w, h, lines, blobs); break;
+            case Kind::aurora:   aurora (s, w, h, time, lines, blobs); break;
             case Kind::none: break;
         }
     }
@@ -739,6 +1288,35 @@ namespace pad::simscreen
                 o[0] = 4.0f;
                 for (int b = 0; b < 4; ++b) { o[1 + 4 * b] = 0.5f * std::sin (t * 0.1f + (float) b * 2.0f); o[2 + 4 * b] = 0.5f + 0.45f * std::sin (t * (0.12f + 0.03f * (float) b) + (float) b * 1.7f); o[3 + 4 * b] = 0.4f + 0.15f * (float) b; o[4 + 4 * b] = 0.5f + 0.5f * std::cos (t * 0.12f + (float) b); }
                 break;
+            case Kind::detail:
+                for (int b = 0; b < 24; ++b)
+                {
+                    const float lv = 0.75f - 0.018f * (float) b + 0.12f * std::sin (t * 1.3f + (float) b * 0.7f);
+                    o[b] = lv;
+                    o[24 + b] = 0.72f - 0.012f * (float) b + 0.05f * std::sin (t * 0.7f + (float) b);
+                    o[48 + b] = std::max (0.0f, o[24 + b] - lv) * 3.0f;
+                }
+                o[72] = 0.4f; o[73] = 0.2f; break;
+            case Kind::clarity: for (int k = 0; k < 4; ++k) o[k] = 0.4f + 0.3f * std::sin (t * (1.0f + 0.3f * (float) k) + (float) k); o[4] = 0.5f + 0.4f * std::sin (t * 0.5f); o[5] = 0.4f; break;
+            case Kind::subDriver: o[0] = 0.8f * std::sin (t * 7.0f); o[1] = 0.6f; o[2] = 0.35f; o[3] = 45.0f; break;
+            case Kind::lathe: o[0] = 48.0f; for (int i = 0; i < 48; ++i) { o[1 + 2 * i] = 0.2f * std::sin ((float) i * 0.5f + t * 4.0f); o[2 + 2 * i] = 0.1f * std::sin ((float) i * 0.23f + t); } o[97] = 0.3f + 0.2f * std::sin (t); o[98] = 0.3f; break;
+            case Kind::carTest: o[0] = 0.6f + 0.3f * std::sin (t * 3.0f); o[1] = 0.5f + 0.3f * std::sin (t * 2.6f); o[2] = 0.5f + 0.4f * std::sin (t * 1.3f); o[3] = 0.3f; o[4] = 0.0f; o[5] = 0.0f; break;
+            case Kind::phoneCheck: o[0] = (float) ((int) (t / 4.0f) % 3); o[1] = 0.4f + 0.3f * std::sin (t); o[2] = 0.35f; o[3] = 1.0f; break;
+            case Kind::club: o[0] = 0.5f + 0.5f * std::sin (t * 4.0f); o[1] = 0.4f; o[2] = 0.6f; o[3] = 0.6f; o[4] = 0.5f; break;
+            case Kind::pressure: o[0] = 0.6f + 0.3f * std::sin (t * 1.7f); o[1] = std::max (0.0f, std::sin (t * 1.7f)); o[2] = 0.4f; o[3] = 0.9f; break;
+            case Kind::balance: o[0] = 0.5f * std::sin (t * 0.5f); o[1] = -o[0] * 0.8f; o[2] = 0.6f; o[3] = 0.5f + 0.3f * std::sin (t * 0.5f); break;
+            case Kind::field: o[0] = 1.2f + 0.6f * std::sin (t * 0.4f); o[1] = 0.6f + 0.35f * std::sin (t * 0.7f); o[2] = 0.5f; o[3] = 0.6f; break;
+            case Kind::sonar: o[0] = frac (t * 0.5f); o[1] = 6.0f; for (int k = 0; k < 6; ++k) { o[2 + 3 * k] = frac (o[0] - 0.1f * (float) (k + 1)); o[3 + 3 * k] = 0.3f + 0.1f * (float) k; o[4 + 3 * k] = 0.2f * (float) (k + 1); } break;
+            case Kind::seismo: o[0] = 64.0f; for (int i = 0; i < 64; ++i) o[1 + i] = 0.2f + 0.6f * std::max (0.0f, std::sin ((float) i * 0.3f + t * 3.0f)); o[65] = 0.4f; o[66] = 0.5f; break;
+            case Kind::prism: for (int b = 0; b < 5; ++b) o[b] = 0.4f + 0.4f * std::sin (t * (1.0f + 0.2f * (float) b) + (float) b); o[5] = 0.4f; break;
+            case Kind::furnace: o[0] = 0.5f + 0.3f * std::sin (t * 0.4f); o[1] = 0.4f; o[2] = 0.5f; break;
+            case Kind::dither: o[0] = 16.0f; o[1] = 1.0f; o[2] = 48.0f; for (int i = 0; i < 48; ++i) { const float v = 8.0f * std::sin ((float) i * 0.18f + t); o[3 + 2 * i] = v; o[4 + 2 * i] = std::round (v + 0.4f * std::sin ((float) i * 7.1f + t * 13.0f)); } break;
+            case Kind::rider: o[0] = 0.4f * std::sin (t * 0.3f); o[1] = 0.6f; o[2] = 0.65f; o[3] = 48.0f; for (int i = 0; i < 48; ++i) o[4 + i] = 0.65f + 0.1f * std::sin ((float) i * 0.4f + t); break;
+            case Kind::compass: o[0] = 0.4f + 0.5f * std::sin (t * 0.5f); o[1] = 0.4f * std::sin (t * 0.3f); o[2] = 0.6f; o[3] = 0.4f; break;
+            case Kind::suspension: o[1] = 0.6f + 0.1f * std::sin (t * 2.0f); o[2] = frac (t * 1.5f); o[3] = 32.0f; for (int i = 0; i < 32; ++i) o[4 + i] = 0.4f + 0.25f * std::sin ((float) i * 0.6f + t * 5.0f) * std::sin ((float) i * 0.13f); o[0] = o[4 + 31]; break;
+            case Kind::skyline: for (int b = 0; b < 16; ++b) { o[b] = 0.35f + 0.25f * std::sin ((float) b * 0.9f + t * 0.5f) + (b == 9 ? 0.3f : 0.0f); o[16 + b] = b == 9 ? 0.7f : b == 4 ? 0.3f : 0.0f; } break;
+            case Kind::hourglass: o[0] = 0.5f + 0.4f * std::sin (t * 0.3f); o[1] = std::max (0.0f, std::sin (t * 2.0f)) * 0.6f; o[2] = 0.4f; o[3] = 0.97f; break;
+            case Kind::aurora: for (int c = 0; c < 8; ++c) o[c] = 0.3f + 0.5f * std::max (0.0f, std::sin (t * 0.7f + (float) c * 0.8f)); o[8] = 0.3f; break;
             case Kind::none: break;
         }
     }
