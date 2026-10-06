@@ -71,6 +71,15 @@ namespace pad::descriptions
         { "tuner",      "An automatic rack tuner: type what you want and it sets every unit in the rack to match." },
         { "detail",     "A spectral detail enhancer: simulates how the ear masks quiet sounds under loud ones, and brings out what is hidden - "
                         "tails, breaths, ghost notes, air - with clarity, at the same level." },
+        { "voice",      "A voice changer that sounds like another person: pitch, vocal tract and breath each changed on their own - "
+                        "twelve characters from a child to an elderly man, and a whisper. Only voices are changed."
+                        " For vocal tracks: put it on the vocal track or a mic, not on a full song - on a full mix it changes the music in the middle too." },
+        { "pitchfix",   "Autotune: moves each note of a voice to the nearest note of the key - from an invisible nudge to the hard, "
+                        "stepped effect. AUTO finds the key and the right amount itself."
+                        " For vocal tracks: put it on the vocal track or a mic, not on a full song - on a full mix it changes the music in the middle too." },
+        { "vocalstation", "Everything for a voice in one unit: the twelve characters, pitch, formants, age and gender, breath and fry, "
+                        "and autotune with AUTO."
+                        " For vocal tracks: put it on the vocal track or a mic, not on a full song - on a full mix it changes the music in the middle too." },
         // the 500-series modules
         { "pre",    "A preamp module: gain and drive with a colour of its own." },
         { "filter", "A high and low-pass filter module." },

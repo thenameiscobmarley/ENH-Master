@@ -4,8 +4,8 @@
 
 namespace enh::dsp::units
 {
-    inline constexpr int count = 57;
-    inline constexpr int firstParam = 62, numParams = 406;
+    inline constexpr int count = 60;
+    inline constexpr int firstParam = 62, numParams = 463;
     inline constexpr int firstUnit = 17;
     struct Info { const char* key; const char* name; int firstParam, numParams, heightU; };
     inline constexpr Info info[count] {
@@ -66,5 +66,8 @@ namespace enh::dsp::units
         { "hypercube", "MORPHING VISUALIZER", 439, 9, 3 },
         { "tuner", "AUTOMATIC RACK TUNER", 448, 10, 3 },
         { "detail", "SPECTRAL DETAIL ENHANCER", 458, 10, 3 },
+        { "voice", "VOCAL IDENTITY PROCESSOR", 468, 18, 4 },
+        { "pitchfix", "PITCH CORRECTOR", 486, 15, 3 },
+        { "vocalstation", "VOCAL TUNING AND IDENTITY PROCESSOR", 501, 24, 5 },
     };
 }

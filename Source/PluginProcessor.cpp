@@ -252,6 +252,10 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     applyKnobModifiers (k, buffer.getNumSamples());   // the host still sees the raw values
     const auto p = enh::dsp::mapKnobs (k);
     engine.process (buffer, p);
+    // VOCAL IDENTITY PROCESSOR looks ahead only while it is on: tell the host when the rack's delay changes
+    // (JUCE passes it on to the host from the message thread)
+    if (const int latency = engine.getLatencySamples(); latency != getLatencySamples())
+        setLatencySamples (latency);
 }
 
 /** Each knob through its modifiers (SMO, CRV, LIM), on its travel. A knob with all three off is left

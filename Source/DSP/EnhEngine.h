@@ -90,19 +90,23 @@ namespace enh::dsp
         void reset();
         void process (juce::AudioBuffer<float>&, const Parameters&) noexcept;
 
-        int getLatencySamples() const noexcept { return analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + earGuard.getLatencySamples() + output.getLatencySamples(); }
+        int getLatencySamples() const noexcept { return analog.getLatencySamples() + radar.getLatencySamples() + seraph.getLatencySamples() + character.getLatencySamples() + earGuard.getLatencySamples() + output.getLatencySamples() + newerLatency(); }
+        /** The newer units' look-ahead (VOCAL IDENTITY PROCESSOR), only while they are on: it changes when one is
+            switched on or its MODE changes, and the host is told again (PluginProcessor checks every block). */
+        int newerLatency() const noexcept { int s = 0; for (const auto& u : newer) if (u != nullptr) s += u->activeLatency(); return s; }
 
         /** Where the delay comes from, stage by stage (samples at the prepared rate): for the latency
             checks and the app's readout. The sum is getLatencySamples(). */
         struct LatencyPart { const char* stage; int samples; };
-        std::array<LatencyPart, 6> getLatencyBreakdown() const noexcept
+        std::array<LatencyPart, 7> getLatencyBreakdown() const noexcept
         {
             return {{ { "ADAPTIVE ENHANCER EQ (oversampled exciters)", analog.getLatencySamples() },
                       { "FOOTSTEP ENHANCER (look-ahead)", radar.getLatencySamples() },
                       { "TONE & SPACE FINISHER (oversampled TONE)", seraph.getLatencySamples() },
                       { "CONSOLE & TAPE EMULATOR (oversampled models)", character.getLatencySamples() },
                       { "EAR GUARD (look-ahead)", earGuard.getLatencySamples() },
-                      { "OUTPUT LIMITER (look-ahead)", output.getLatencySamples() } }};
+                      { "OUTPUT LIMITER (look-ahead)", output.getLatencySamples() },
+                      { "VOICE UNITS (look-ahead, while on)", newerLatency() } }};
         }
 
         /** The loudness meter's RESET (any thread): integrated loudness and true-peak hold start again. */
@@ -229,6 +233,9 @@ namespace enh::dsp
         ProX4 x4;                // LATINSPHIEL PRO X4 (after CHARACTER)
         Velvetizer velvet;       // VELVETIZER (after the PRO X4)
         Takeback takeback;       // TAKEBACK (after the VELVETIZER)
+        // the voice units run first, before the enhancer (a voice is changed while it is still the voice that came in):
+        // the pitch corrector, then the identity processor, then the all-in-one
+        static constexpr std::array<int, 3> voiceUnits { units::indexOfKey ("pitchfix"), units::indexOfKey ("voice"), units::indexOfKey ("vocalstation") };
         std::vector<std::unique_ptr<units::RackUnit>> newer;   // the newer units, in rack order (on the heap)
         std::vector<std::unique_ptr<units::RackUnit>> lbNewer; // the LUNCHBOX's 500-series modules (units/LbList.h)
         std::array<float, 192> displayScratch {};              // (a unit's picture state, on its way to the meters)

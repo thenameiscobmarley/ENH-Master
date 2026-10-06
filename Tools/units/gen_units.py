@@ -26,7 +26,7 @@ def C (id, label, texts, d = 0): return dict (id = id, label = label, kind = 2, 
 # MULTIPLY and STRENGTH (3.8.0.1): this release's new units that change the sound get both, last on their panel -
 # MULTIPLY scales their amount knobs, STRENGTH how much they change the sound (the base unit applies them: RackUnit.h)
 MODIFIED = { "clarity", "subdriver", "lathe", "cartest", "phonecheck", "club", "pressure", "balance", "field", "sonar", "seismo",
-             "prism", "furnace", "dither", "rider", "compass", "suspension", "skyline", "hourglass", "aurora", "chroma", "detail" }
+             "prism", "furnace", "dither", "rider", "compass", "suspension", "skyline", "hourglass", "aurora", "chroma", "detail", "voice", "pitchfix", "vocalstation" }
 
 UNITS = [
   dict (key = "shimmer", name = "SHIMMER REVERB", model = "SH-8", sub = "FDN REVERB - OCTAVE SHIMMER", u = 2, colour = (0.010, 0.020, 0.060), glow = (0.55, 0.75, 1.0), knob = "machinedBlack", role = "8-LINE REVERB - PITCHED SHIMMER",
@@ -206,6 +206,31 @@ UNITS = [
         screen = (-1.02, 0.13, 2.40, 1.38),
         params = [K ("dtDetail", "DETAIL", 0, 10, 5), K ("dtDepth", "DEPTH", 0, 24, 12, 0, " dB"), K ("dtClarity", "CLARITY", 0, 10, 4), K ("dtAir", "AIR", 0, 10, 3),
                   K ("dtSpeed", "SPEED", 0, 10, 5), T ("dtListen", "LISTEN", 0, "Off|Listen"), K ("dtMix", "MIX", 0, 100, 100, 0, "%")]),
+  # VOCAL IDENTITY PROCESSOR (3.8.1.1): another person's voice - pitch, vocal tract and glottal source each on their own
+  dict (grid4 = True, key = "voice", name = "VOCAL IDENTITY PROCESSOR", model = "VIP-12", sub = "FORMANT-PRESERVING VOICE TRANSFORMATION", u = 4, colour = (0.032, 0.033, 0.035), glow = (1.0, 0.72, 0.28), knob = "hifiBlackDisc", role = "ANOTHER PERSON'S VOICE - PITCH, TRACT AND BREATH, EACH ON ITS OWN",
+        screen = (-1.02, 0.13, 2.40, 1.38),
+        params = [C ("viCharacter", "CHARACTER", "CUSTOM|M TO F|F TO M|CHILD|TEEN|ELDERLY MAN|ELDERLY WOMAN|BIG MAN|SMALL PERSON|ANNOUNCER|HUSKY|WHISPER", 1),
+                  T ("viMode", "MODE", 0, "LIVE|HQ"), K ("viPitch", "PITCH", -12, 12, 0, 1, " st"), K ("viFormant", "FORMANT", -10, 10, 0),
+                  K ("viAge", "AGE", -10, 10, 0), K ("viGender", "GENDER", -10, 10, 0), K ("viBreath", "BREATH", 0, 10, 0), K ("viFry", "FRY", 0, 10, 0),
+                  K ("viRough", "ROUGHNESS", 0, 10, 0), K ("viVibrato", "VIBRATO", 0, 10, 0), K ("viGate", "GATE", -80, -20, -60, 0, " dB"),
+                  K ("viDeess", "DE-ESS", 0, 10, 3), K ("viMix", "MIX", 0, 100, 100, 0, "%"), K ("viOutput", "OUTPUT", -12, 12, 0, 1, " dB"), K ("viSmooth", "SMOOTH", 0, 10, 5)]),
+  # PITCH CORRECTOR (3.8.1.1): autotune - each period to the scale's note, the formants kept
+  dict (key = "pitchfix", name = "PITCH CORRECTOR", model = "PC-7", sub = "SCALE-AWARE PITCH CORRECTION", u = 3, colour = (0.032, 0.033, 0.035), glow = (1.0, 0.72, 0.28), knob = "hifiBlackDisc", role = "IN TUNE - FROM AN INVISIBLE NUDGE TO THE HARD, STEPPED SNAP",
+        screen = (-1.02, 0.13, 2.40, 1.38),
+        params = [T ("pfAuto", "AUTO", 1, "Off|On"), C ("pfKey", "KEY", "C|C#|D|D#|E|F|F#|G|G#|A|A#|B", 0), C ("pfScale", "SCALE", "CHROMATIC|MAJOR|MINOR|HARM. MINOR|MAJ. PENT.|MIN. PENT.|BLUES", 1),
+                  K ("pfSpeed", "SPEED", 0, 400, 40, 0, " ms"), K ("pfHumanize", "HUMANIZE", 0, 10, 3), K ("pfAmount", "AMOUNT", 0, 100, 100, 0, "%"),
+                  K ("pfFormant", "FORMANT", -10, 10, 0), T ("pfMode", "MODE", 0, "LIVE|HQ"), K ("pfGate", "GATE", -80, -20, -60, 0, " dB"),
+                  K ("pfMix", "MIX", 0, 100, 100, 0, "%"), K ("pfOutput", "OUTPUT", -12, 12, 0, 1, " dB"), K ("pfSmooth", "SMOOTH", 0, 10, 5)]),
+  # VOCAL TUNING AND IDENTITY PROCESSOR (3.8.1.1): everything in one - characters, pitch, formants, source, autotune
+  dict (grid4 = True, key = "vocalstation", name = "VOCAL TUNING AND IDENTITY PROCESSOR", model = "VT-24", sub = "PITCH, FORMANT, TUNING AND CHARACTER", u = 5, colour = (0.032, 0.033, 0.035), glow = (1.0, 0.72, 0.28), knob = "hifiBlackDisc", role = "THE WHOLE VOICE - WHO IT SOUNDS LIKE AND WHETHER IT SINGS IN TUNE",
+        screen = (-1.02, 0.13, 2.40, 1.38),
+        params = [C ("vtCharacter", "CHARACTER", "CUSTOM|M TO F|F TO M|CHILD|TEEN|ELDERLY MAN|ELDERLY WOMAN|BIG MAN|SMALL PERSON|ANNOUNCER|HUSKY|WHISPER", 0),
+                  T ("vtAuto", "AUTO", 1, "Off|On"), C ("vtKey", "KEY", "C|C#|D|D#|E|F|F#|G|G#|A|A#|B", 0), C ("vtScale", "SCALE", "CHROMATIC|MAJOR|MINOR|HARM. MINOR|MAJ. PENT.|MIN. PENT.|BLUES", 1),
+                  K ("vtSpeed", "SPEED", 0, 400, 40, 0, " ms"), K ("vtHumanize", "HUMANIZE", 0, 10, 3), K ("vtTune", "TUNE", 0, 100, 100, 0, "%"),
+                  K ("vtPitch", "PITCH", -12, 12, 0, 1, " st"), K ("vtFormant", "FORMANT", -10, 10, 0), K ("vtAge", "AGE", -10, 10, 0), K ("vtGender", "GENDER", -10, 10, 0),
+                  K ("vtBreath", "BREATH", 0, 10, 0), K ("vtFry", "FRY", 0, 10, 0), K ("vtRough", "ROUGHNESS", 0, 10, 0), K ("vtVibrato", "VIBRATO", 0, 10, 0),
+                  K ("vtGate", "GATE", -80, -20, -60, 0, " dB"), K ("vtDeess", "DE-ESS", 0, 10, 3), T ("vtMode", "MODE", 0, "LIVE|HQ"),
+                  K ("vtMix", "MIX", 0, 100, 100, 0, "%"), K ("vtOutput", "OUTPUT", -12, 12, 0, 1, " dB"), K ("vtSmooth", "SMOOTH", 0, 10, 5)]),
 ]
 
 for _u in UNITS:
@@ -276,13 +301,14 @@ def layout (u):
         # A big screen on the left (a live picture), the knobs in a grid on the right
         sx, sz, sw, sh = u["screen"]
         prints.append (("D", sx, sz, sw, sh, 0, u["name"], 0, 0, 0, 0, 0, "#%02x%02x%02x" % tuple (int (255 * min (1, g)) for g in u["glow"])))
-        cols = 3 if len (knobs) > 8 else 2   # (more than eight: three across)
+        cols = 4 if u.get ("grid4") else 3 if len (knobs) > 8 else 2   # (more than eight: three across; the voice units: four)
         four = len (knobs) > 6   # (seven or eight knobs: four rows of smaller ones)
-        kr = 0.075 if cols == 3 else 0.085 if four else 0.105
+        kr = 0.07 if cols == 4 else 0.075 if cols == 3 else 0.085 if four else 0.105
         for i, p in enumerate (knobs):
             rr, cc = divmod (i, cols)
-            x = (0.38 + 0.44 * cc) if cols == 3 else (0.52 + 0.56 * cc)
-            z = (-0.63 + 0.42 * rr) if four else (-0.52 + 0.52 * rr)
+            x = (0.34 + 0.37 * cc) if cols == 4 else (0.38 + 0.44 * cc) if cols == 3 else (0.52 + 0.56 * cc)
+            rows4 = (len (knobs) + 3) // 4
+            z = (-halfH + 0.40 + min (0.50, (2 * halfH - 0.85) / max (1, rows4 - 1)) * rr) if cols == 4 else (-0.63 + 0.42 * rr) if four else (-0.52 + 0.52 * rr)
             sel = p["kind"] == 2
             prints.append (("K", x, z, kr, 0, 0, p["label"], 0, int (p["hi"] - p["lo"]) if sel else 10, 1 if sel else 0, 0, 270.0, p["id"]))
             ctrls.append (f'        {{ ControlKind::{"selector" if sel else "knob"}, {x:.4f}f, {z:.4f}f, "{p["id"]}", "{p["label"]}", nullptr, nullptr, {unit}, "{u["name"]}", {kr / 0.105:.3f}f, KnobStyle::{"chickenHeadKnob" if sel else u["knob"]} }},')

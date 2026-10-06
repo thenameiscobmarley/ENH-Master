@@ -1055,8 +1055,101 @@ namespace pad::layout::gen
         { 'T', 1.9600f, 0.0200f, 0.0000f, 0.0000f, 0.0000f, "LISTEN", 0, 0, 0, 0, 0.0f, "dtListen" },
         { 'V', 1.6200f, 0.8050f, 0.3000f, 0.0700f, 0.0000f, "", 0, 7, 0, 0, 0.0f, "" },
     }};
-    inline constexpr int count = 57;
-    inline constexpr int numControls = 406;   // (UnitControls.inc's rows)
+    inline constexpr std::array<Print, 28> print57 {{
+        { 'D', -1.0200f, 0.1300f, 2.4000f, 1.3800f, 0.0000f, "VOCAL IDENTITY PROCESSOR", 0, 0, 0, 0, 0.0f, "#ffb747" },
+        { 'K', 0.3400f, -0.7800f, 0.0700f, 0.0000f, 0.0000f, "CHARACTER", 0, 11, 1, 0, 270.0f, "viCharacter" },
+        { 'K', 0.7100f, -0.7800f, 0.0700f, 0.0000f, 0.0000f, "PITCH", 0, 10, 0, 0, 270.0f, "viPitch" },
+        { 'K', 1.0800f, -0.7800f, 0.0700f, 0.0000f, 0.0000f, "FORMANT", 0, 10, 0, 0, 270.0f, "viFormant" },
+        { 'K', 1.4500f, -0.7800f, 0.0700f, 0.0000f, 0.0000f, "AGE", 0, 10, 0, 0, 270.0f, "viAge" },
+        { 'K', 0.3400f, -0.2800f, 0.0700f, 0.0000f, 0.0000f, "GENDER", 0, 10, 0, 0, 270.0f, "viGender" },
+        { 'K', 0.7100f, -0.2800f, 0.0700f, 0.0000f, 0.0000f, "BREATH", 0, 10, 0, 0, 270.0f, "viBreath" },
+        { 'K', 1.0800f, -0.2800f, 0.0700f, 0.0000f, 0.0000f, "FRY", 0, 10, 0, 0, 270.0f, "viFry" },
+        { 'K', 1.4500f, -0.2800f, 0.0700f, 0.0000f, 0.0000f, "ROUGHNESS", 0, 10, 0, 0, 270.0f, "viRough" },
+        { 'K', 0.3400f, 0.2200f, 0.0700f, 0.0000f, 0.0000f, "VIBRATO", 0, 10, 0, 0, 270.0f, "viVibrato" },
+        { 'K', 0.7100f, 0.2200f, 0.0700f, 0.0000f, 0.0000f, "GATE", 0, 10, 0, 0, 270.0f, "viGate" },
+        { 'K', 1.0800f, 0.2200f, 0.0700f, 0.0000f, 0.0000f, "DE-ESS", 0, 10, 0, 0, 270.0f, "viDeess" },
+        { 'K', 1.4500f, 0.2200f, 0.0700f, 0.0000f, 0.0000f, "MIX", 0, 10, 0, 0, 270.0f, "viMix" },
+        { 'K', 0.3400f, 0.7200f, 0.0700f, 0.0000f, 0.0000f, "OUTPUT", 0, 10, 0, 0, 270.0f, "viOutput" },
+        { 'K', 0.7100f, 0.7200f, 0.0700f, 0.0000f, 0.0000f, "SMOOTH", 0, 10, 0, 0, 270.0f, "viSmooth" },
+        { 'K', 1.0800f, 0.7200f, 0.0700f, 0.0000f, 0.0000f, "MULTIPLY", 0, 10, 0, 0, 270.0f, "viMultiply" },
+        { 'K', 1.4500f, 0.7200f, 0.0700f, 0.0000f, 0.0000f, "STRENGTH", 0, 10, 0, 0, 270.0f, "viStrength" },
+        { 'E', 1.6200f, 0.4200f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.3171f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.2143f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.1114f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.0086f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, -0.0943f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ffcc33" },
+        { 'E', 1.6200f, -0.1971f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ffcc33" },
+        { 'E', 1.6200f, -0.3000f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ff3b30" },
+        { 'T', 2.2200f, 0.0200f, 0.0000f, 0.0000f, 0.0000f, "POWER", 0, 0, 0, 0, 0.0f, "viPower" },
+        { 'T', 1.9600f, 0.0200f, 0.0000f, 0.0000f, 0.0000f, "MODE", 0, 0, 0, 0, 0.0f, "viMode" },
+        { 'V', 1.6200f, 1.1000f, 0.3000f, 0.0700f, 0.0000f, "", 0, 7, 0, 0, 0.0f, "" },
+    }};
+    inline constexpr std::array<Print, 25> print58 {{
+        { 'D', -1.0200f, 0.1300f, 2.4000f, 1.3800f, 0.0000f, "PITCH CORRECTOR", 0, 0, 0, 0, 0.0f, "#ffb747" },
+        { 'K', 0.3800f, -0.6300f, 0.0750f, 0.0000f, 0.0000f, "KEY", 0, 11, 1, 0, 270.0f, "pfKey" },
+        { 'K', 0.8200f, -0.6300f, 0.0750f, 0.0000f, 0.0000f, "SCALE", 0, 6, 1, 0, 270.0f, "pfScale" },
+        { 'K', 1.2600f, -0.6300f, 0.0750f, 0.0000f, 0.0000f, "SPEED", 0, 10, 0, 0, 270.0f, "pfSpeed" },
+        { 'K', 0.3800f, -0.2100f, 0.0750f, 0.0000f, 0.0000f, "HUMANIZE", 0, 10, 0, 0, 270.0f, "pfHumanize" },
+        { 'K', 0.8200f, -0.2100f, 0.0750f, 0.0000f, 0.0000f, "AMOUNT", 0, 10, 0, 0, 270.0f, "pfAmount" },
+        { 'K', 1.2600f, -0.2100f, 0.0750f, 0.0000f, 0.0000f, "FORMANT", 0, 10, 0, 0, 270.0f, "pfFormant" },
+        { 'K', 0.3800f, 0.2100f, 0.0750f, 0.0000f, 0.0000f, "GATE", 0, 10, 0, 0, 270.0f, "pfGate" },
+        { 'K', 0.8200f, 0.2100f, 0.0750f, 0.0000f, 0.0000f, "MIX", 0, 10, 0, 0, 270.0f, "pfMix" },
+        { 'K', 1.2600f, 0.2100f, 0.0750f, 0.0000f, 0.0000f, "OUTPUT", 0, 10, 0, 0, 270.0f, "pfOutput" },
+        { 'K', 0.3800f, 0.6300f, 0.0750f, 0.0000f, 0.0000f, "SMOOTH", 0, 10, 0, 0, 270.0f, "pfSmooth" },
+        { 'K', 0.8200f, 0.6300f, 0.0750f, 0.0000f, 0.0000f, "MULTIPLY", 0, 10, 0, 0, 270.0f, "pfMultiply" },
+        { 'K', 1.2600f, 0.6300f, 0.0750f, 0.0000f, 0.0000f, "STRENGTH", 0, 10, 0, 0, 270.0f, "pfStrength" },
+        { 'E', 1.6200f, 0.4200f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.3171f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.2143f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.1114f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.0086f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, -0.0943f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ffcc33" },
+        { 'E', 1.6200f, -0.1971f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ffcc33" },
+        { 'E', 1.6200f, -0.3000f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ff3b30" },
+        { 'T', 2.0600f, -0.6900f, 0.0000f, 0.0000f, 0.0000f, "POWER", 0, 0, 0, 0, 0.0f, "pfPower" },
+        { 'T', 2.0600f, -0.3600f, 0.0000f, 0.0000f, 0.0000f, "AUTO", 0, 0, 0, 0, 0.0f, "pfAuto" },
+        { 'T', 2.0600f, -0.0300f, 0.0000f, 0.0000f, 0.0000f, "MODE", 0, 0, 0, 0, 0.0f, "pfMode" },
+        { 'V', 1.6200f, 0.8050f, 0.3000f, 0.0700f, 0.0000f, "", 0, 7, 0, 0, 0.0f, "" },
+    }};
+    inline constexpr std::array<Print, 34> print59 {{
+        { 'D', -1.0200f, 0.1300f, 2.4000f, 1.3800f, 0.0000f, "VOCAL TUNING AND IDENTITY PROCESSOR", 0, 0, 0, 0, 0.0f, "#ffb747" },
+        { 'K', 0.3400f, -1.0750f, 0.0700f, 0.0000f, 0.0000f, "CHARACTER", 0, 11, 1, 0, 270.0f, "vtCharacter" },
+        { 'K', 0.7100f, -1.0750f, 0.0700f, 0.0000f, 0.0000f, "KEY", 0, 11, 1, 0, 270.0f, "vtKey" },
+        { 'K', 1.0800f, -1.0750f, 0.0700f, 0.0000f, 0.0000f, "SCALE", 0, 6, 1, 0, 270.0f, "vtScale" },
+        { 'K', 1.4500f, -1.0750f, 0.0700f, 0.0000f, 0.0000f, "SPEED", 0, 10, 0, 0, 270.0f, "vtSpeed" },
+        { 'K', 0.3400f, -0.6550f, 0.0700f, 0.0000f, 0.0000f, "HUMANIZE", 0, 10, 0, 0, 270.0f, "vtHumanize" },
+        { 'K', 0.7100f, -0.6550f, 0.0700f, 0.0000f, 0.0000f, "TUNE", 0, 10, 0, 0, 270.0f, "vtTune" },
+        { 'K', 1.0800f, -0.6550f, 0.0700f, 0.0000f, 0.0000f, "PITCH", 0, 10, 0, 0, 270.0f, "vtPitch" },
+        { 'K', 1.4500f, -0.6550f, 0.0700f, 0.0000f, 0.0000f, "FORMANT", 0, 10, 0, 0, 270.0f, "vtFormant" },
+        { 'K', 0.3400f, -0.2350f, 0.0700f, 0.0000f, 0.0000f, "AGE", 0, 10, 0, 0, 270.0f, "vtAge" },
+        { 'K', 0.7100f, -0.2350f, 0.0700f, 0.0000f, 0.0000f, "GENDER", 0, 10, 0, 0, 270.0f, "vtGender" },
+        { 'K', 1.0800f, -0.2350f, 0.0700f, 0.0000f, 0.0000f, "BREATH", 0, 10, 0, 0, 270.0f, "vtBreath" },
+        { 'K', 1.4500f, -0.2350f, 0.0700f, 0.0000f, 0.0000f, "FRY", 0, 10, 0, 0, 270.0f, "vtFry" },
+        { 'K', 0.3400f, 0.1850f, 0.0700f, 0.0000f, 0.0000f, "ROUGHNESS", 0, 10, 0, 0, 270.0f, "vtRough" },
+        { 'K', 0.7100f, 0.1850f, 0.0700f, 0.0000f, 0.0000f, "VIBRATO", 0, 10, 0, 0, 270.0f, "vtVibrato" },
+        { 'K', 1.0800f, 0.1850f, 0.0700f, 0.0000f, 0.0000f, "GATE", 0, 10, 0, 0, 270.0f, "vtGate" },
+        { 'K', 1.4500f, 0.1850f, 0.0700f, 0.0000f, 0.0000f, "DE-ESS", 0, 10, 0, 0, 270.0f, "vtDeess" },
+        { 'K', 0.3400f, 0.6050f, 0.0700f, 0.0000f, 0.0000f, "MIX", 0, 10, 0, 0, 270.0f, "vtMix" },
+        { 'K', 0.7100f, 0.6050f, 0.0700f, 0.0000f, 0.0000f, "OUTPUT", 0, 10, 0, 0, 270.0f, "vtOutput" },
+        { 'K', 1.0800f, 0.6050f, 0.0700f, 0.0000f, 0.0000f, "SMOOTH", 0, 10, 0, 0, 270.0f, "vtSmooth" },
+        { 'K', 1.4500f, 0.6050f, 0.0700f, 0.0000f, 0.0000f, "MULTIPLY", 0, 10, 0, 0, 270.0f, "vtMultiply" },
+        { 'K', 0.3400f, 1.0250f, 0.0700f, 0.0000f, 0.0000f, "STRENGTH", 0, 10, 0, 0, 270.0f, "vtStrength" },
+        { 'E', 1.6200f, 0.4200f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.3171f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.2143f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.1114f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, 0.0086f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#46e070" },
+        { 'E', 1.6200f, -0.0943f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ffcc33" },
+        { 'E', 1.6200f, -0.1971f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ffcc33" },
+        { 'E', 1.6200f, -0.3000f, 0.0160f, 0.0000f, 0.0000f, "", 0, 0, 0, 0, 0.0f, "#ff3b30" },
+        { 'T', 2.0600f, -0.6900f, 0.0000f, 0.0000f, 0.0000f, "POWER", 0, 0, 0, 0, 0.0f, "vtPower" },
+        { 'T', 2.0600f, -0.3600f, 0.0000f, 0.0000f, 0.0000f, "AUTO", 0, 0, 0, 0, 0.0f, "vtAuto" },
+        { 'T', 2.0600f, -0.0300f, 0.0000f, 0.0000f, 0.0000f, "MODE", 0, 0, 0, 0, 0.0f, "vtMode" },
+        { 'V', 1.6200f, 1.3950f, 0.3000f, 0.0700f, 0.0000f, "", 0, 7, 0, 0, 0.0f, "" },
+    }};
+    inline constexpr int count = 60;
+    inline constexpr int numControls = 463;   // (UnitControls.inc's rows)
     inline constexpr Look looks[count] {
         { "SHIMMER REVERB", "SH-8", "FDN REVERB - OCTAVE SHIMMER", "8-LINE REVERB - PITCHED SHIMMER", { 0.01f, 0.02f, 0.06f }, { 0.55f, 0.75f, 1.0f }, 2 },
         { "PLATE REVERB", "EMT-STYLE", "DATTORRO PLATE REVERB", "PLATE REVERB", { 0.3f, 0.3f, 0.29f }, { 1.0f, 0.8f, 0.5f }, 1 },
@@ -1115,6 +1208,9 @@ namespace pad::layout::gen
         { "MORPHING VISUALIZER", "HC-4D", "VECTOR MORPHING VISUALISER", "A NEON VECTOR CUBE THAT MORPHS WITH WHAT PLAYS - THE SOUND UNTOUCHED", { 0.008f, 0.008f, 0.01f }, { 0.75f, 0.45f, 1.0f }, 3 },
         { "AUTOMATIC RACK TUNER", "RT-60K", "TUNES THE WHOLE RACK FROM WORDS", "60,000 SETTINGS - PICKS THE BEST FOR EVERY UNIT FROM WHAT YOU ASK", { 0.012f, 0.011f, 0.016f }, { 1.0f, 0.85f, 0.55f }, 3 },
         { "SPECTRAL DETAIL ENHANCER", "SD-24", "PSYCHOACOUSTIC MASKING SIMULATION", "BRINGS OUT WHAT THE MIX HIDES - MASKED DETAIL, TAILS, AIR - WITH CLARITY", { 0.01f, 0.014f, 0.022f }, { 0.75f, 0.92f, 1.0f }, 3 },
+        { "VOCAL IDENTITY PROCESSOR", "VIP-12", "FORMANT-PRESERVING VOICE TRANSFORMATION", "ANOTHER PERSON'S VOICE - PITCH, TRACT AND BREATH, EACH ON ITS OWN", { 0.032f, 0.033f, 0.035f }, { 1.0f, 0.72f, 0.28f }, 4 },
+        { "PITCH CORRECTOR", "PC-7", "SCALE-AWARE PITCH CORRECTION", "IN TUNE - FROM AN INVISIBLE NUDGE TO THE HARD, STEPPED SNAP", { 0.032f, 0.033f, 0.035f }, { 1.0f, 0.72f, 0.28f }, 3 },
+        { "VOCAL TUNING AND IDENTITY PROCESSOR", "VT-24", "PITCH, FORMANT, TUNING AND CHARACTER", "THE WHOLE VOICE - WHO IT SOUNDS LIKE AND WHETHER IT SINGS IN TUNE", { 0.032f, 0.033f, 0.035f }, { 1.0f, 0.72f, 0.28f }, 5 },
     };
     /** Unit k's print (0 .. count-1). */
     inline std::pair<const Print*, int> printOf (int k) noexcept
@@ -1178,6 +1274,9 @@ namespace pad::layout::gen
             case 54: return { print54.data(), (int) print54.size() };
             case 55: return { print55.data(), (int) print55.size() };
             case 56: return { print56.data(), (int) print56.size() };
+            case 57: return { print57.data(), (int) print57.size() };
+            case 58: return { print58.data(), (int) print58.size() };
+            case 59: return { print59.data(), (int) print59.size() };
             default: return { nullptr, 0 };
         }
     }

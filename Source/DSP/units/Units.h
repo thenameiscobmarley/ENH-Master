@@ -15,6 +15,7 @@
 #include "Sims4.h"
 #include "Sims5.h"
 #include "Sims6.h"
+#include "Sims7.h"
 
 /*  The newer units, made by their place in UnitList.h (Tools/units/gen_units.py writes that list: keep the
     order of this switch the same as its). */
@@ -81,6 +82,9 @@ namespace enh::dsp::units
             case 54: return std::make_unique<Hypercube>();
             case 55: return std::make_unique<RackTunerUnit>();
             case 56: return std::make_unique<DetailEnhancer>();
+            case 57: return std::make_unique<VoiceIdentity>();
+            case 58: return std::make_unique<PitchCorrector>();
+            case 59: return std::make_unique<VocalStation>();
             default: return nullptr;
         }
     }
@@ -104,9 +108,13 @@ namespace enh::dsp::units
                              && row.label.find ("GAIN") == std::string_view::npos && row.label.find ("THRESH") == std::string_view::npos
                              && row.label.find ("CEILING") == std::string_view::npos && row.label.find ("VOLUME") == std::string_view::npos
                              && row.label.find ("TARGET") == std::string_view::npos
+                             && row.label.find ("SMOOTH") == std::string_view::npos
                              && row.unit.find ("Hz") == std::string_view::npos && row.unit.find ("ms") == std::string_view::npos
                              && row.unit != " s" && row.unit.find ("st") == std::string_view::npos && row.unit.find ("ct") == std::string_view::npos;
             scaled[(size_t) i] = amount ? 1 : 0;
+            // (VOCAL IDENTITY PROCESSOR: MULTIPLY scales the source's textures, STRENGTH the whole move - both inside the unit)
+            if (std::string_view (info[k].key) == "voice" || std::string_view (info[k].key) == "vocalstation")
+                scaled[(size_t) i] = 0;   // (it scales them itself, with the character's own: VoiceIdentity::render)
         }
         if (mul >= 0 && str >= 0)
             u->setModifiers (mul, str, std::move (scaled), std::move (lo), std::move (hi));
@@ -125,5 +133,5 @@ namespace enh::dsp::units
     }
     inline constexpr int tunerIndex = indexOfKey ("tuner");
     static_assert (tunerIndex >= 0, "Units.h: RACK TUNER is in UnitList.h");
-    static_assert (count == 57, "Units.h: one case per unit in UnitList.h");
+    static_assert (count == 60, "Units.h: one case per unit in UnitList.h");
 }

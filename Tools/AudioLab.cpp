@@ -46,6 +46,7 @@
 #include "Parameters/ParameterSpecs.h"
 #include "Parameters/PresetLibrary.h"
 #include "Tuner/TunerCore.h"
+#include "../Tests/VoiceMeasure.h"
 
 namespace lab
 {
@@ -2412,6 +2413,274 @@ namespace lab
         }
     }
 
+    /** VOCAL IDENTITY PROCESSOR on real speech: every clip in build/lab/voice/corpus (or --in DIR) through every
+        character, LIVE and HQ; writes the A/B files (the latency taken out, so before and after line up) and a
+        report of what was measured on them: pitch moved, formants moved (LPC envelope), level, peaks, periodicity. */
+    int voiceAB (const juce::StringArray& args)
+    {
+        namespace U = enh::dsp::units;
+        namespace VM = voicemeasure;
+        juce::File in = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/voice/corpus");
+        juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/voice/out");
+        for (int i = 1; i < args.size(); ++i)
+        {
+            if (args[i] == "--in" && i + 1 < args.size()) in = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
+            else if (args[i] == "--out" && i + 1 < args.size()) out = juce::File::getCurrentWorkingDirectory().getChildFile (args[++i]);
+        }
+        out.createDirectory();
+        const int k = U::indexOfKey ("voice");
+        static const char* names[] { "CUSTOM", "M TO F", "F TO M", "CHILD", "TEEN", "ELDERLY MAN", "ELDERLY WOMAN", "BIG MAN", "SMALL PERSON", "ANNOUNCER", "HUSKY", "WHISPER" };
+        juce::String report;
+        report << "VOCAL IDENTITY PROCESSOR on real speech (" << in.getFullPathName() << ")\n"
+               << "pitch: how far it moved, the median frame-by-frame shift at the same moments; tract: how far the LPC envelope moved (x); level and peak: against the original\n\n";
+        double offSum = 0, jitSum = 0, hfSum = 0; int nSum = 0;
+        const bool quick = args.contains ("--quick");   // (LIVE only, and the 48 kHz clips: the realism score in a few minutes)
+        auto files = in.findChildFiles (juce::File::findFiles, false, "*.wav");
+        files.sort();
+        for (const auto& f : files)
+        {
+            const auto b = readWav (f);
+            if (b.getNumSamples() == 0) continue;
+            VM::Buf x ((size_t) b.getNumSamples());
+            for (int i = 0; i < b.getNumSamples(); ++i) x[(size_t) i] = 0.5f * (b.getSample (0, i) + b.getSample (1, i));
+            {   // (played at a mic's usual level - peaks at -3 dBFS - the original too, so the A/B is fair)
+                float pk = 1.0e-9f; for (float v : x) pk = std::max (pk, std::abs (v));
+                for (auto& v : x) v *= 0.708f / pk;
+            }
+            const double dur = (double) x.size() / sr;
+            const auto dir = out.getChildFile (f.getFileNameWithoutExtension()); dir.createDirectory();
+            auto save = [&] (const VM::Buf& y, const juce::String& name) {
+                Buffer o (2, (int) y.size());
+                for (int c = 0; c < 2; ++c) std::copy (y.begin(), y.end(), o.getWritePointer (c));
+                writeWav (o, dir.getChildFile (name)); };
+            save (x, "00 ORIGINAL.wav");
+            const double f0 = VM::pitchOf (x, sr, 0.0, dur);
+            report << f.getFileName() << " (" << juce::String (dur, 1) << " s, pitch " << juce::String (f0, 0) << " Hz)\n";
+            if (quick && ! f.getFileName().startsWith ("ears")) continue;
+            for (int mode : { 0, 1 })
+                for (int c = 0; c < U::VoiceIdentity::numCharacters; ++c)
+                    if (! (quick && mode == 1))
+                {
+                    auto u = U::make (k); u->prepare (sr, 512);
+                    std::vector<float> q ((size_t) U::info[k].numParams);
+                    for (int j = 0; j < U::info[k].numParams; ++j) q[(size_t) j] = enh::dsp::designed::params[(size_t) (U::info[k].firstParam + j)].defaultValue;
+                    q[0] = 1.0f; q[1] = (float) c; q[2] = (float) mode;
+                    if (c == 0) q[3] = 5.0f;   // (CUSTOM: PITCH +5 st alone - the pitch shift on its own)
+                    std::array<VM::Buf, 2> io { x, x };
+                    const int pad = u->latencySamples();
+                    for (auto& v : io) v.resize (v.size() + (size_t) pad, 0.0f);
+                    for (int pos = 0; pos < (int) io[0].size(); pos += 256)
+                    {
+                        const int m = std::min (256, (int) io[0].size() - pos);
+                        float* ch[2] { io[0].data() + pos, io[1].data() + pos };
+                        u->process (ch, 2, m, q.data());
+                    }
+                    const int lat = u->latencySamples();
+                    VM::Buf y (io[0].begin() + lat, io[0].begin() + lat + (long) x.size());
+                    juce::String learnt;
+                    if (auto* e = dynamic_cast<U::VoiceEngine*> (u.get()))
+                        learnt << "  learnt " << juce::String (e->learnedPitchHz(), 0) << " Hz " << juce::String (e->learnedTractCm(), 1) << " cm -> out "
+                               << juce::String (VM::pitchOf (y, sr, 0.0, dur), 0) << " Hz";
+                    const double scale = VM::envelopeScale (x, sr, 0.0, dur, y, 0.0, dur);
+                    float pin = 0.0f, pout = 0.0f; for (float v : x) pin = std::max (pin, std::abs (v)); for (float v : y) pout = std::max (pout, std::abs (v));
+                    report << "  " << (mode == 0 ? "LIVE " : "HQ   ") << juce::String (names[c]).paddedRight (' ', 14)
+                           << " pitch " << juce::String (VM::pitchShiftSt (x, y, sr, 0.0, dur), 1) << " st"
+                           << "  tract x" << juce::String (scale, 3)
+                           << "  level " << juce::String (VM::rmsDb (y, sr, 0.0, dur) - VM::rmsDb (x, sr, 0.0, dur), 2) << " dB"
+                           << "  peak " << juce::String (20.0 * std::log10 (pout / std::max (1.0e-9f, pin)), 2) << " dB"
+                           << "  periodicity " << juce::String (VM::periodicity (y, sr, 0.0, std::min (dur, 4.0), 6), 3)
+                           << " (in " << juce::String (VM::periodicity (x, sr, 0.0, std::min (dur, 4.0), 6), 3) << ")";
+                    report << learnt;
+                    {   // (how processed it sounds: flicker, roughness added, harsh highs added)
+                        const auto rr = VM::realism (x, y, sr, 0.0, dur);
+                        report << "  off-shift " << juce::String (rr.offShift, 1) << " %  jitter " << juce::String (rr.jitterOut, 1) << " (in " << juce::String (rr.jitterIn, 1)
+                               << ") c  highs " << juce::String (rr.hfOut - rr.hfIn, 1) << " dB";
+                        if (c != U::VoiceIdentity::whisper && ! f.getFileName().contains ("whisper"))   // (no pitch to shift in a whisper)
+                            { offSum += rr.offShift; jitSum += rr.jitterOut - rr.jitterIn; hfSum += rr.hfOut - rr.hfIn; ++nSum; }
+                    }
+                    {   // (never silent while the voice talks: the deepest drop of a 100 ms stretch where the input is loud - over
+                        //  150 Hz only: rumble and breath pops under a voice are cleaned away on purpose, and that is no mute)
+                        auto hp150 = [&] (const VM::Buf& v) {
+                            const double w0 = 6.283185307 * 150.0 / sr, cw = std::cos (w0), al = std::sin (w0) / (2 * 0.7071);
+                            const double b0 = (1 + cw) / 2 / (1 + al), b1 = -(1 + cw) / (1 + al), a1 = -2 * cw / (1 + al), a2 = (1 - al) / (1 + al);
+                            VM::Buf o2 (v.size()); double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+                            for (size_t i = 0; i < v.size(); ++i) { const double xx = v[i], yy = b0 * xx + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2; x2 = x1; x1 = xx; y2 = y1; y1 = yy; o2[i] = (float) yy; }
+                            return o2; };
+                        const auto xh = hp150 (x), yh = hp150 (y);
+                        double worst = 0.0;
+                        for (double t0 = 0.0; t0 + 0.1 < dur; t0 += 0.05)
+                            if (const double li = VM::rmsDb (xh, sr, t0, t0 + 0.1); li > -30.0) worst = std::min (worst, VM::rmsDb (yh, sr, t0, t0 + 0.1) - li);
+                        report << "  deepest drop " << juce::String (worst, 1) << " dB" << (worst < -12.0 ? "  <-- MUTED?" : "");
+                    }
+                    report << "\n";
+                    save (y, juce::String (mode == 0 ? "LIVE " : "HQ ") + juce::String (c + 1).paddedLeft ('0', 2) + " " + names[c] + ".wav");
+                }
+            std::printf ("%s done\n", f.getFileName().toRawUTF8());
+        }
+        report << "\nREALISM (mean over every clip and character): off-shift " << juce::String (offSum / std::max (1, nSum), 2) << " %, jitter added "
+               << juce::String (jitSum / std::max (1, nSum), 2) << " cents, highs added " << juce::String (hfSum / std::max (1, nSum), 2) << " dB\n";
+        out.getChildFile ("report.txt").replaceWithText (report);
+        std::printf ("%s", report.toRawUTF8());
+        return 0;
+    }
+
+    /** How a changed voice's long-term spectrum differs from the real thing: third-octave bands (100 Hz .. 8 kHz) of
+        real women against M TO F on real men, and real men against F TO M on real women - each level-normalised, voiced
+        speech only. The difference (real minus changed, dB) is what still gives the trick away: the per-character
+        correction EQ is fitted to it. Uses the corpus (EARS for the full band; CMU up to 7 kHz). */
+    int voiceFit (const juce::StringArray& args)
+    {
+        namespace U = enh::dsp::units;
+        namespace VM = voicemeasure;
+        juce::ignoreUnused (args);
+        const auto dir = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/voice/corpus");
+        const juce::StringArray women { "ears_p002_regular.wav", "ears_p003_regular.wav", "slt_a0001.wav", "slt_a0002.wav", "slt_a0003.wav", "clb_a0001.wav", "clb_a0002.wav", "clb_a0003.wav" };
+        const juce::StringArray men { "ears_p001_regular.wav", "bdl_a0001.wav", "bdl_a0002.wav", "bdl_a0003.wav", "rms_a0001.wav", "rms_a0002.wav", "rms_a0003.wav" };
+        constexpr int nb = 19;
+        auto centre = [] (int b) { return 100.0 * std::pow (2.0, b / 3.0); };   // 100 Hz .. 6.35 kHz .. ~8 kHz
+        // a clip's third-octave levels (dB re its total), loud frames only
+        auto ltas = [&] (const VM::Buf& x, bool full) {
+            std::array<double, nb> e {}; double tot = 0.0;
+            juce::dsp::FFT f (12); std::vector<float> buf (8192);
+            double loud = 0; for (size_t i = 0; i + 4096 < x.size(); i += 2048) { double s2 = 0; for (int j = 0; j < 4096; j += 8) s2 += (double) x[i + (size_t) j] * x[i + (size_t) j]; loud = std::max (loud, s2); }
+            for (size_t i = 0; i + 4096 < x.size(); i += 2048)
+            {
+                double s2 = 0; for (int j = 0; j < 4096; j += 8) s2 += (double) x[i + (size_t) j] * x[i + (size_t) j];
+                if (s2 < 0.05 * loud) continue;
+                std::fill (buf.begin(), buf.end(), 0.0f);
+                for (int j = 0; j < 4096; ++j) buf[(size_t) j] = x[i + (size_t) j] * (0.5f - 0.5f * std::cos (6.2831853f * j / 4096.0f));
+                f.performFrequencyOnlyForwardTransform (buf.data());
+                for (int k = 1; k < 2048; ++k)
+                {
+                    const double hz = k * sr / 4096.0, p = (double) buf[(size_t) k] * buf[(size_t) k];
+                    const int b = (int) std::floor (3.0 * std::log2 (hz / 100.0) + 0.5);
+                    if (b < 0 || b >= nb || (! full && hz > 7000.0)) continue;
+                    e[(size_t) b] += p; tot += p;
+                }
+            }
+            std::array<double, nb> d {}; for (int b = 0; b < nb; ++b) d[(size_t) b] = 10.0 * std::log10 (e[(size_t) b] / (tot + 1e-30) + 1e-30);
+            return d; };
+        auto load = [&] (const juce::String& n) { const auto b = readWav (dir.getChildFile (n)); VM::Buf x ((size_t) b.getNumSamples()); for (int i = 0; i < b.getNumSamples(); ++i) x[(size_t) i] = 0.5f * (b.getSample (0, i) + b.getSample (1, i)); return x; };
+        auto change = [&] (const VM::Buf& x, int character) {
+            const int k = U::indexOfKey ("voice"); auto u = U::make (k); u->prepare (sr, 512);
+            std::vector<float> q ((size_t) U::info[k].numParams);
+            for (int j = 0; j < U::info[k].numParams; ++j) q[(size_t) j] = enh::dsp::designed::params[(size_t) (U::info[k].firstParam + j)].defaultValue;
+            q[0] = 1.0f; q[1] = (float) character;
+            std::array<VM::Buf, 2> io { x, x }; for (auto& v : io) v.resize (v.size() + 8192, 0.0f);
+            for (int pos = 0; pos < (int) io[0].size(); pos += 256) { const int m = std::min (256, (int) io[0].size() - pos); float* ch[2] { io[0].data() + pos, io[1].data() + pos }; u->process (ch, 2, m, q.data()); }
+            const int lat = u->latencySamples(); return VM::Buf (io[0].begin() + lat, io[0].begin() + lat + (long) x.size()); };
+        auto average = [&] (const juce::StringArray& set, int character, bool fullOnly) {
+            std::array<double, nb> sum {}; int n = 0;
+            for (const auto& name : set)
+            {
+                const bool full = name.startsWith ("ears");
+                if (fullOnly && ! full) continue;
+                auto x = load (name); if (x.empty()) continue;
+                const auto d = ltas (character >= 0 ? change (x, character) : x, full);
+                for (int b = 0; b < nb; ++b) sum[(size_t) b] += d[(size_t) b];
+                ++n;
+            }
+            for (auto& v : sum) v /= std::max (1, n);
+            return sum; };
+        juce::String r = "Long-term spectrum, third-octave bands (dB re total), real voices vs changed ones\n\n  Hz      ";
+        for (int b = 0; b < nb; b += 2) r << juce::String ((int) centre (b)).paddedLeft (' ', 7);
+        r << "\n";
+        auto row = [&] (const char* name, const std::array<double, nb>& a, const std::array<double, nb>& b2) {
+            r << "  " << juce::String (name).paddedRight (' ', 8);
+            for (int b = 0; b < nb; b += 2) r << juce::String (a[(size_t) b] - b2[(size_t) b], 1).paddedLeft (' ', 7);
+            r << "\n"; };
+        const auto realW = average (women, -1, false), realM = average (men, -1, false);
+        const auto mtof = average (men, 1, false), ftom = average (women, 2, false);
+        const auto realWf = average (women, -1, true), mtofF = average (men, 1, true);
+        r << "M TO F correction (real women minus M TO F on men):\n"; row ("all", realW, mtof); row ("EARS", realWf, mtofF);
+        r << "F TO M correction (real men minus F TO M on women):\n"; row ("all", realM, ftom);
+        r << "(for scale: real women minus real men)\n"; row ("all", realW, realM);
+        std::printf ("%s", r.toRawUTF8());
+        juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/voice/fit.txt").replaceWithText (r);
+        return 0;
+    }
+
+    /** The voice units on a full TRACK: a real voice (EARS) in the middle of the stereo "music" scene, as loud as the
+        music. Measures what a song needs kept: the stereo width (side out vs in), the level and peaks, and how much the
+        MUSIC is damaged (the mix's output minus the voice's own output, against the music as it went in). Writes the
+        A/B files to build/lab/voice/mix. */
+    int voiceMix (const juce::StringArray& args)
+    {
+        namespace U = enh::dsp::units;
+        namespace VM = voicemeasure;
+        juce::ignoreUnused (args);
+        const auto out = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/voice/mix");
+        out.createDirectory();
+        const auto vf = juce::File::getCurrentWorkingDirectory().getChildFile ("build/lab/voice/corpus/ears_p001_regular.wav");
+        const auto vb = readWav (vf);
+        if (vb.getNumSamples() == 0) { std::printf ("no voice clip at %s\n", vf.getFullPathName().toRawUTF8()); return 1; }
+        const int n = vb.getNumSamples();
+        const auto bed = makeScene ("music", (double) n / sr + 0.1);
+        // the voice in the middle, as loud as the music (RMS), the whole mix peaking at -1 dBFS
+        double ev = 0, em = 0;
+        for (int i = 0; i < n; ++i) { const double v = 0.5 * (vb.getSample (0, i) + vb.getSample (1, i)); ev += v * v; em += 0.5 * ((double) bed.getSample (0, i) * bed.getSample (0, i) + (double) bed.getSample (1, i) * bed.getSample (1, i)); }
+        const float vg = (float) std::sqrt (em / std::max (1e-12, ev));
+        Buffer voice (2, n), music (2, n), mix (2, n);
+        for (int i = 0; i < n; ++i)
+        {
+            const float v = vg * 0.5f * (vb.getSample (0, i) + vb.getSample (1, i));
+            for (int c = 0; c < 2; ++c) { voice.setSample (c, i, v); music.setSample (c, i, bed.getSample (c, i)); mix.setSample (c, i, v + bed.getSample (c, i)); }
+        }
+        const float pk = std::max (mix.getMagnitude (0, 0, n), mix.getMagnitude (1, 0, n));
+        for (auto* b : { &voice, &music, &mix }) b->applyGain (0.89f / pk);
+        writeWav (mix, out.getChildFile ("00 ORIGINAL MIX.wav"));
+        struct Case { const char* key; const char* name; std::vector<std::pair<int, float>> set; };
+        const std::vector<Case> cases {
+            { "voice", "VIP CUSTOM +5 st", { { 1, 0.0f }, { 3, 5.0f } } }, { "voice", "VIP M TO F", { { 1, 1.0f } } },
+            { "voice", "VIP HUSKY", { { 1, 10.0f } } }, { "voice", "VIP WHISPER", { { 1, 11.0f } } },
+            { "pitchfix", "PITCH CORRECTOR AUTO", {} }, { "vocalstation", "ALL-IN-ONE M TO F + TUNE", { { 1, 1.0f } } } };
+        auto run = [&] (const Case& cs, const Buffer& in, int& lat) {
+            const int k = U::indexOfKey (cs.key);
+            auto u = U::make (k); u->prepare (sr, 512);
+            std::vector<float> q ((size_t) U::info[k].numParams);
+            for (int j = 0; j < U::info[k].numParams; ++j) q[(size_t) j] = enh::dsp::designed::params[(size_t) (U::info[k].firstParam + j)].defaultValue;
+            q[0] = 1.0f; for (auto [j, v] : cs.set) q[(size_t) j] = v;
+            lat = u->latencySamples();
+            Buffer b (2, n + lat); b.clear();
+            for (int c = 0; c < 2; ++c) b.copyFrom (c, 0, in, c, 0, n);
+            for (int pos = 0; pos < b.getNumSamples(); pos += 256)
+            {
+                const int m = std::min (256, b.getNumSamples() - pos);
+                float* ch[2] { b.getWritePointer (0) + pos, b.getWritePointer (1) + pos };
+                u->process (ch, 2, m, q.data());
+            }
+            Buffer o (2, n);
+            for (int c = 0; c < 2; ++c) o.copyFrom (c, 0, b, c, lat, n);
+            return o; };
+        auto db = [] (double a, double b) { return 10.0 * std::log10 ((a + 1e-20) / (b + 1e-20)); };
+        juce::String report = "The voice units on a full track (EARS p001 in the middle of the stereo music scene, as loud as it)\n"
+                              "width: side out vs in; level / peak: out vs in; music damage: the music in the output against the music as it went in\n\n";
+        for (const auto& cs : cases)
+        {
+            int lat = 0;
+            const auto y = run (cs, mix, lat), yv = run (cs, voice, lat);
+            double sIn = 0, sOut = 0, pIn = 0, pOut = 0, mErr = 0, mRef = 0; float pkIn = 0, pkOut = 0;
+            for (int i = 0; i < n; ++i)
+            {
+                const double li = mix.getSample (0, i), ri = mix.getSample (1, i), lo = y.getSample (0, i), ro = y.getSample (1, i);
+                sIn += 0.25 * (li - ri) * (li - ri); sOut += 0.25 * (lo - ro) * (lo - ro);
+                pIn += 0.5 * (li * li + ri * ri); pOut += 0.5 * (lo * lo + ro * ro);
+                pkIn = std::max (pkIn, (float) std::max (std::abs (li), std::abs (ri))); pkOut = std::max (pkOut, (float) std::max (std::abs (lo), std::abs (ro)));
+                for (int c = 0; c < 2; ++c)
+                {
+                    const double mo = y.getSample (c, i) - yv.getSample (c, i), mi = music.getSample (c, i);
+                    mErr += (mo - mi) * (mo - mi); mRef += mi * mi;
+                }
+            }
+            report << juce::String (cs.name).paddedRight (' ', 28) << " width " << juce::String (db (sOut, sIn), 1) << " dB   level " << juce::String (db (pOut, pIn), 1)
+                   << " dB   peak " << juce::String (20.0 * std::log10 (pkOut / pkIn), 1) << " dB   music damage " << juce::String (db (mErr, mRef), 1) << " dB\n";
+            writeWav (y, out.getChildFile (juce::String (cs.name) + ".wav"));
+        }
+        out.getChildFile ("report.txt").replaceWithText (report);
+        std::printf ("%s", report.toRawUTF8());
+        return 0;
+    }
+
     int demos (const juce::StringArray& args)
     {
         juce::File out = juce::File::getCurrentWorkingDirectory().getChildFile ("build/site-units/audio");
@@ -2633,6 +2902,9 @@ int main (int argc, char** argv)
     if (command == "listen") return listen (args.size() > 1 ? args[1] : juce::String());
     if (command == "check") return check (args);
     if (command == "demos") return demos (args);
+    if (command == "voice") return voiceAB (args);
+    if (command == "voicemix") return voiceMix (args);
+    if (command == "voicefit") return voiceFit (args);
     if (command == "tunerbank") return tunerlab::tunerbank (args);
     if (command == "tunercheck") return tunerlab::tunercheck (args);
     if (command == "tunerverify") return tunerlab::tunerverify (args);

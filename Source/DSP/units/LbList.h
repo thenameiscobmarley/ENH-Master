@@ -8,19 +8,19 @@ namespace enh::dsp::lbmods
     inline constexpr int numParams = 72;
     struct Info { const char* key; const char* name; const char* model; const char* role; int firstParam, numParams, width; bool pre; float plate[3]; };
     inline constexpr Info info[count] {
-        { "pre", "PREAMP", "PR-5", "CLEAN PREAMP THAT WARMS AS YOU DRIVE IT", 489, 6, 1, true, { 0.26f, 0.25f, 0.23f } },
-        { "filter", "HIGH & LOW-PASS FILTER", "FL-5", "HIGH-PASS AND LOW-PASS, 12 OR 24 DB", 495, 4, 1, true, { 0.1f, 0.11f, 0.12f } },
-        { "eq550", "3-BAND EQ", "PROP-Q", "3-BAND EQ, PROPORTIONAL Q", 499, 8, 2, true, { 0.07f, 0.08f, 0.1f } },
-        { "tubeeq", "TUBE EQ", "EQP-5", "PASSIVE TUBE PROGRAM EQ, BOOST AND CUT TOGETHER", 507, 9, 3, true, { 0.12f, 0.2f, 0.3f } },
-        { "tilt", "TILT EQ", "TL-5", "ONE-KNOB TILT ABOUT A PIVOT", 516, 3, 1, true, { 0.3f, 0.1f, 0.05f } },
-        { "air", "AIR EQ", "AB-5", "WIDE AIR-BAND SHELF", 519, 3, 1, true, { 0.3f, 0.32f, 0.34f } },
-        { "loud", "LOUDNESS CONTOUR", "ISO-226", "PUTS BACK THE BASS YOUR EARS LOSE WHEN QUIET", 522, 4, 1, true, { 0.04f, 0.1f, 0.08f } },
-        { "deess", "DE-ESSER", "DS-5", "SWEEPABLE DE-ESSER, SPLIT OR WIDE", 526, 6, 1, false, { 0.14f, 0.05f, 0.12f } },
-        { "trans", "TRANSIENT DESIGNER", "TD-5", "ATTACK AND SUSTAIN, LEVEL-INDEPENDENT", 532, 4, 1, false, { 0.6f, 0.45f, 0.1f } },
-        { "gate", "NOISE GATE", "GX-5", "CLEAN EXPANDER AND GATE", 536, 5, 1, false, { 0.06f, 0.06f, 0.06f } },
-        { "comp", "BUS COMPRESSOR", "VCA-5", "CLEAN VCA BUS COMPRESSOR", 541, 7, 2, false, { 0.16f, 0.17f, 0.19f } },
-        { "sat", "SATURATOR", "ST-5", "TAPE, TUBE OR CONSOLE WARMTH", 548, 5, 1, false, { 0.35f, 0.12f, 0.05f } },
-        { "width", "MID/SIDE WIDTH", "MS-5", "MID/SIDE WIDTH AND BASS MONO", 553, 4, 1, false, { 0.05f, 0.08f, 0.16f } },
-        { "limit", "PEAK LIMITER", "PL-5", "ZERO-LATENCY PEAK LIMITER", 557, 4, 1, false, { 0.1f, 0.02f, 0.02f } },
+        { "pre", "PREAMP", "PR-5", "CLEAN PREAMP THAT WARMS AS YOU DRIVE IT", 546, 6, 1, true, { 0.26f, 0.25f, 0.23f } },
+        { "filter", "HIGH & LOW-PASS FILTER", "FL-5", "HIGH-PASS AND LOW-PASS, 12 OR 24 DB", 552, 4, 1, true, { 0.1f, 0.11f, 0.12f } },
+        { "eq550", "3-BAND EQ", "PROP-Q", "3-BAND EQ, PROPORTIONAL Q", 556, 8, 2, true, { 0.07f, 0.08f, 0.1f } },
+        { "tubeeq", "TUBE EQ", "EQP-5", "PASSIVE TUBE PROGRAM EQ, BOOST AND CUT TOGETHER", 564, 9, 3, true, { 0.12f, 0.2f, 0.3f } },
+        { "tilt", "TILT EQ", "TL-5", "ONE-KNOB TILT ABOUT A PIVOT", 573, 3, 1, true, { 0.3f, 0.1f, 0.05f } },
+        { "air", "AIR EQ", "AB-5", "WIDE AIR-BAND SHELF", 576, 3, 1, true, { 0.3f, 0.32f, 0.34f } },
+        { "loud", "LOUDNESS CONTOUR", "ISO-226", "PUTS BACK THE BASS YOUR EARS LOSE WHEN QUIET", 579, 4, 1, true, { 0.04f, 0.1f, 0.08f } },
+        { "deess", "DE-ESSER", "DS-5", "SWEEPABLE DE-ESSER, SPLIT OR WIDE", 583, 6, 1, false, { 0.14f, 0.05f, 0.12f } },
+        { "trans", "TRANSIENT DESIGNER", "TD-5", "ATTACK AND SUSTAIN, LEVEL-INDEPENDENT", 589, 4, 1, false, { 0.6f, 0.45f, 0.1f } },
+        { "gate", "NOISE GATE", "GX-5", "CLEAN EXPANDER AND GATE", 593, 5, 1, false, { 0.06f, 0.06f, 0.06f } },
+        { "comp", "BUS COMPRESSOR", "VCA-5", "CLEAN VCA BUS COMPRESSOR", 598, 7, 2, false, { 0.16f, 0.17f, 0.19f } },
+        { "sat", "SATURATOR", "ST-5", "TAPE, TUBE OR CONSOLE WARMTH", 605, 5, 1, false, { 0.35f, 0.12f, 0.05f } },
+        { "width", "MID/SIDE WIDTH", "MS-5", "MID/SIDE WIDTH AND BASS MONO", 610, 4, 1, false, { 0.05f, 0.08f, 0.16f } },
+        { "limit", "PEAK LIMITER", "PL-5", "ZERO-LATENCY PEAK LIMITER", 614, 4, 1, false, { 0.1f, 0.02f, 0.02f } },
     };
 }

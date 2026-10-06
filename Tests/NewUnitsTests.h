@@ -346,6 +346,8 @@ static void runSimTests3 (double sr)
                 if (label == "STRENGTH") str = i;
             }
             if (mul < 0 || str < 0) continue;
+            if (std::string (U::info[k].key) == "voice" || std::string (U::info[k].key) == "pitchfix" || std::string (U::info[k].key) == "vocalstation")
+                continue;   // (the voice units pass music untouched: their own tests, --voice and --tune)
             ++tested;
             const auto x = music (sr, 3.0, 11u);
             auto change = [&] (float m, float st)
@@ -960,5 +962,781 @@ static void runPatchBayTests (double sr)
         double rmsFree = 0;
         runFor (1.5, peak, step, rmsFree);
         check (! engine.getMeters().patchRunaway.load() && rmsFree > rmsOn * 0.5, "re-patched: the runaway clears and it plays again");
+    }
+}
+
+// VOCAL IDENTITY PROCESSOR: measured, not guessed. A synthetic voice (glottal pulses through formant
+// resonators, with fricatives and a plosive) is played through it; the test measures pitch (its own
+// autocorrelation tracker), formants (its own LPC), latency, clicks, CPU and level.   EnhDspTests --voice
+#include "VoiceMeasure.h"
+namespace voicetest
+{
+    using namespace voicemeasure;
+    using Buf = std::vector<float>;
+    struct Rng { unsigned s = 77u; float uni() { s = s * 1664525u + 1013904223u; return (float) (s >> 8) / 16777216.0f; } float bi() { return 2.0f * uni() - 1.0f; } };
+
+    /** Three formant resonators in cascade (all-pole, unity gain at DC-ish). */
+    struct Tract
+    {
+        std::array<double, 3> a1 {}, a2 {}, g {}; std::array<std::array<double, 2>, 3> z {};
+        void set (double sr, std::array<double, 3> f, std::array<double, 3> bw = { 80.0, 100.0, 140.0 })
+        {
+            for (int k = 0; k < 3; ++k)
+            {
+                const double r = std::exp (-3.141592653589793 * bw[(size_t) k] / sr), th = 6.283185307179586 * f[(size_t) k] / sr;
+                a1[(size_t) k] = 2.0 * r * std::cos (th); a2[(size_t) k] = -r * r; g[(size_t) k] = 1.0 - a1[(size_t) k] - a2[(size_t) k];
+            }
+        }
+        float process (float x)
+        {
+            double v = x;
+            for (int k = 0; k < 3; ++k) { const double y = g[(size_t) k] * v + a1[(size_t) k] * z[(size_t) k][0] + a2[(size_t) k] * z[(size_t) k][1]; z[(size_t) k][1] = z[(size_t) k][0]; z[(size_t) k][0] = y; v = y; }
+            return (float) v;
+        }
+    };
+
+    /** A vowel: Rosenberg glottal pulses at f0 (glide f0 -> f1), through the formants; 20 ms ramps. */
+    inline void addVowel (Buf& x, double sr, double t0, double dur, double f0a, double f0b, std::array<double, 3> fm, float level = 0.25f, double jitter = 0.008)
+    {
+        Tract tr; tr.set (sr, fm); Rng r; r.s = (unsigned) (t0 * 1000 + 3);
+        const int i0 = (int) (t0 * sr), n = (int) (dur * sr);
+        double ph = 0.0, prev = 0.0, jit = 1.0, shim = 1.0;
+        std::vector<float> tmp ((size_t) n);
+        float peak = 1.0e-9f;
+        for (int i = 0; i < n; ++i)
+        {
+            // a real voice: each period a little longer or shorter (jitter ~0.8 %) and louder or softer (shimmer)
+            const double f0 = f0a + (f0b - f0a) * i / n;
+            ph += f0 * jit / sr;
+            if (ph >= 1.0) { ph -= 1.0; jit = 1.0 + jitter * 2.0 * (r.bi() + r.bi() + r.bi()) / 3.0; shim = 1.0 + 0.06 * r.bi(); }
+            const double op = 0.6, rise = 0.4 * op;   // (open quotient; Rosenberg)
+            const double gsrc = ph < rise ? 0.5 * (1.0 - std::cos (3.141592653589793 * ph / rise)) : ph < op ? std::cos (1.5707963 * (ph - rise) / (op - rise)) : 0.0;
+            const double d = gsrc - prev; prev = gsrc;   // (the glottal flow's derivative: lip radiation)
+            tmp[(size_t) i] = tr.process ((float) (d * shim) + 0.002f * r.bi());
+            peak = std::max (peak, std::abs (tmp[(size_t) i]));
+        }
+        for (int i = 0; i < n && i0 + i < (int) x.size(); ++i)
+        {
+            const double ramp = std::min ({ 1.0, i / (0.02 * sr), (n - i) / (0.02 * sr) });
+            x[(size_t) (i0 + i)] += (float) (level / peak * ramp) * tmp[(size_t) i];
+        }
+    }
+    /** A fricative: noise band-passed lo..hi. */
+    inline void addFricative (Buf& x, double sr, double t0, double dur, double lo, double hi, float level = 0.06f)
+    {
+        enh::dsp::units::sim::Svf a, b; a.set (sr, std::sqrt (lo * hi), std::sqrt (lo * hi) / (hi - lo)); b.set (sr, std::sqrt (lo * hi), std::sqrt (lo * hi) / (hi - lo));
+        Rng r; r.s = (unsigned) (t0 * 977 + 11);
+        const int i0 = (int) (t0 * sr), n = (int) (dur * sr);
+        for (int i = 0; i < n && i0 + i < (int) x.size(); ++i)
+        {
+            float l, h; const float v = b.process (a.process (r.bi(), l, h), l, h);
+            const double ramp = std::min ({ 1.0, i / (0.015 * sr), (n - i) / (0.015 * sr) });
+            x[(size_t) (i0 + i)] += (float) (level * 3.0 * ramp) * v;
+        }
+    }
+    /** A plosive burst: 3 ms of noise, then 25 ms of aspiration. */
+    inline void addPlosive (Buf& x, double sr, double t0, float level = 0.4f)
+    {
+        Rng r; r.s = (unsigned) (t0 * 131 + 5);
+        const int i0 = (int) (t0 * sr);
+        for (int i = 0; i < (int) (0.028 * sr) && i0 + i < (int) x.size(); ++i)
+            x[(size_t) (i0 + i)] += (i < (int) (0.003 * sr) ? level : 0.04f * (float) std::exp (-i / (0.01 * sr))) * r.bi();
+    }
+    /** A short "sentence": s - a - (gap) t - e - sh - u, f0 around 120 Hz. */
+    /** Someone already talking: a 1 s phrase, a 0.3 s pause, then the sentence (which starts at `talking`). */
+    inline constexpr double talking = 1.3;
+    inline Buf sentence (double sr, double f0 = 120.0, double fs = 1.0, bool warm = false)
+    {
+        const double o = warm ? talking : 0.0;
+        Buf x ((size_t) ((2.4 + o) * sr), 0.0f);
+        if (warm) { addVowel (x, sr, 0.0, 0.45, f0 * 0.95, f0 * 1.1, { 450 * fs, 800 * fs, 2830 * fs }); addVowel (x, sr, 0.5, 0.5, f0 * 1.05, f0 * 0.9, { 400 * fs, 2000 * fs, 2550 * fs }); }
+        Buf y ((size_t) (2.4 * sr), 0.0f);
+        Buf& z = warm ? y : x;
+        addFricative (z, sr, 0.10, 0.16, 4000, 9000);
+        addVowel (z, sr, 0.26, 0.40, f0, f0 * 1.12, { 730 * fs, 1090 * fs, 2440 * fs });
+        addPlosive (z, sr, 0.76);
+        addVowel (z, sr, 0.79, 0.35, f0 * 1.1, f0 * 0.95, { 530 * fs, 1840 * fs, 2480 * fs });
+        addFricative (z, sr, 1.16, 0.14, 2200, 6500);
+        addVowel (z, sr, 1.32, 0.45, f0 * 0.97, f0 * 0.85, { 300 * fs, 870 * fs, 2240 * fs });
+        if (warm) for (size_t i = 0; i < y.size() && i + (size_t) (o * sr) < x.size(); ++i) x[i + (size_t) (o * sr)] += y[i];
+        return x;
+    }
+
+    inline std::vector<float> params (double characterIndex)
+    {
+        auto p = newunitstest::defaults (enh::dsp::units::indexOfKey ("voice"));
+        p[0] = 1.0f; p[1] = (float) characterIndex; return p;
+    }
+    /** Plays a mono buffer (both sides) through a fresh unit; returns the left output. */
+    inline Buf play (double sr, const Buf& in, const std::function<void (std::vector<float>&, int)>& set, int block = 128, int* latencyOut = nullptr)
+    {
+        namespace U = enh::dsp::units;
+        const int k = U::indexOfKey ("voice");
+        auto u = U::make (k); u->prepare (sr, 2048);
+        std::array<Buf, 2> x { in, in };
+        auto p = params (0);
+        for (int pos = 0; pos < (int) in.size(); pos += block)
+        {
+            const int n = std::min (block, (int) in.size() - pos);
+            set (p, pos);
+            float* ch[2] { x[0].data() + pos, x[1].data() + pos };
+            u->process (ch, 2, n, p.data());
+        }
+        if (latencyOut != nullptr) *latencyOut = u->latencySamples();
+        return x[0];
+    }
+}
+
+static void runVoiceTests (double sr)
+{
+    using namespace voicetest;
+    namespace U = enh::dsp::units;
+    std::printf ("\n== VOCAL IDENTITY PROCESSOR at %.1f kHz ==\n", sr / 1000.0);
+    const int k = U::indexOfKey ("voice");
+    check (k >= 0, "the unit is in the rack's list");
+    if (k < 0) return;
+    const auto voice = sentence (sr), warmVoice = sentence (sr, 120.0, 1.0, true);   // (warm: someone already talking)
+    // the vowels' steady middles (input time)
+    struct Span { double t0, t1; std::array<double, 2> f; };
+    // (/e/ has its formants far apart and well above the pitch: LPC resolves it to a few %. /a/'s F1 and F2 are 360 Hz
+    //  apart and /u/'s F1 sits at 2.5x the pitch - there order-12 LPC itself is ~10 % off, so they get a looser bound)
+    // (in the warm sentence; /u/: F1 at 300 Hz beside a 230 Hz pitch at +12 st - order-12 LPC can't place it closer)
+    const Span vowels[] { { talking + 0.33, talking + 0.62, { 730, 1090 } }, { talking + 0.86, talking + 1.08, { 530, 1840 } }, { talking + 1.40, talking + 1.70, { 300, 870 } } };
+    const double formBound[] { 0.15, 0.06, 0.20 };
+    const int customAt = 0;
+    const int modes[] { 0, 1 };
+    for (int mode : modes)
+    {
+        const char* mn = mode == 0 ? "LIVE" : "HQ";
+        // 1. latency: unchanged settings, the output is the input this many samples later
+        int lat = 0;
+        const auto same = play (sr, voice, [&] (auto& p, int) { p[1] = (float) customAt; p[2] = (float) mode; p[12] = 0.0f; }, 128, &lat);
+        int bestLag = 0; double bestC = -1.0;
+        for (int lag = 0; lag < (int) (0.15 * sr); ++lag)
+        {
+            double c = 0.0, e0 = 0.0, e1 = 0.0;
+            for (int i = (int) (0.10 * sr); i < (int) (0.28 * sr); i += 2)   // (the 's': noise - only one lag fits it)
+            { c += (double) voice[(size_t) i] * same[(size_t) (i + lag)]; e0 += (double) voice[(size_t) i] * voice[(size_t) i]; e1 += (double) same[(size_t) (i + lag)] * same[(size_t) (i + lag)]; }
+            c /= std::sqrt (e0 * e1 + 1e-18);
+            if (c > bestC) { bestC = c; bestLag = lag; }
+        }
+        const double latMs = 1000.0 * lat / sr;
+        if (const char* dump = std::getenv ("VOICE_DUMP"))
+        {
+            auto write = [&] (const Buf& b, const juce::String& name) {
+                juce::File f = juce::File (dump).getChildFile (name); f.deleteFile(); juce::WavAudioFormat wav;
+                std::unique_ptr<juce::OutputStream> os (f.createOutputStream());
+                juce::AudioBuffer<float> ab (1, (int) b.size()); std::copy (b.begin(), b.end(), ab.getWritePointer (0));
+                if (auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions().withSampleRate (sr).withNumChannels (1).withBitsPerSample (32))) w->writeFromAudioSampleBuffer (ab, 0, ab.getNumSamples()); };
+            const auto tag = juce::String (mn) + "-" + juce::String ((int) sr); write (voice, "in-" + tag + ".wav"); write (same, "same-" + tag + ".wav");
+        }
+        std::printf ("  %s: latency reported %d samples (%.1f ms), measured %d (correlation %.3f) [out %.1f dB, in %.1f dB over the 's']\n", mn, lat, latMs, bestLag, bestC,
+                     rmsDb (same, sr, 0.10, 0.40), rmsDb (voice, sr, 0.10, 0.28));
+        check (std::abs (bestLag - lat) <= 2, juce::String (mn) + ": the measured delay is the reported latency");
+        check (mode == 0 ? latMs <= 30.0 : latMs <= 85.0, juce::String (mn) + ": latency within its budget (LIVE 30 ms, HQ 85 ms)");
+        // (unchanged: the voice through as it was)
+        double err = 0.0, ref = 0.0;
+        for (int i = (int) (0.3 * sr); i < (int) (1.7 * sr); ++i) { const double d = same[(size_t) (i + lat)] - voice[(size_t) i]; err += d * d; ref += (double) voice[(size_t) i] * voice[(size_t) i]; }
+        const double nullDb = 10.0 * std::log10 (err / ref + 1e-20);
+        std::printf ("  %s: nothing asked of it: the voice comes back %.1f dB under itself in difference\n", mn, nullDb);
+        check (nullDb < -20.0, juce::String (mn) + ": with nothing to change, the voice passes nearly as it was (difference < -20 dB)");
+
+        // 2. pitch accuracy (cents) and formants kept, at -12 .. +12 st
+        double worstCents = 0.0, worstForm = 0.0; bool formOk = true;
+        for (float st : { -12.0f, -7.0f, -3.0f, 3.0f, 7.0f, 12.0f })
+        {
+            const auto y = play (sr, warmVoice, [&] (auto& p, int) { p[1] = (float) customAt; p[2] = (float) mode; p[3] = st; });
+            const auto truth = sentence (sr, 120.0 * std::exp2 (st / 12.0), 1.0, true);   // (the same voice, really at that pitch)
+            for (const auto& v : vowels)
+            {
+                const double tL = (double) lat / sr;
+                const double fin = pitchOf (warmVoice, sr, v.t0, v.t1), fout = pitchOf (y, sr, v.t0 + tL, v.t1 + tL);
+                const double cents = fin > 0 && fout > 0 ? 1200.0 * std::log2 (fout / fin) - 100.0 * st : 9999.0;
+                worstCents = std::max (worstCents, std::abs (cents));
+                if (std::abs (cents) > 12.0) std::printf ("      PITCH %+.0f st, vowel at %.2f s: %.0f -> %.0f Hz, %+.1f cents off\n", st, v.t0, fin, fout, cents);
+                const double sc = envelopeScale (truth, sr, v.t0, v.t1, y, v.t0 + tL, v.t1 + tL);
+                worstForm = std::max (worstForm, std::abs (sc - 1.0));
+                if (std::abs (sc - 1.0) > formBound[&v - vowels]) formOk = false;
+                if (std::abs (sc - 1.0) > 0.06) std::printf ("      PITCH %+.0f st, vowel at %.2f s: envelope x%.3f of the real voice at that pitch\n", st, v.t0, sc);
+            }
+        }
+        std::printf ("  %s: PITCH -12..+12 st: worst pitch error %.1f cents; formants off the real voice at that pitch by at most %.1f %%\n", mn, worstCents, 100.0 * worstForm);
+        check (worstCents <= 15.0, juce::String (mn) + ": pitch lands where asked (within 15 cents)");
+        check (formOk, juce::String (mn) + ": the formants stay put while the pitch moves (/e/ within 6 %, /a/ 15 %, /u/ 20 %, of the same voice really at that pitch)");
+
+        // 3. FORMANT: the tract moves, the pitch stays
+        for (float fk : { -6.0f, 6.0f })
+        {
+            const auto y = play (sr, warmVoice, [&] (auto& p, int) { p[1] = (float) customAt; p[2] = (float) mode; p[4] = fk; });
+            const double want = std::exp2 (fk * 0.05);
+            const auto truth = sentence (sr, 120.0, want, true);   // (the same pitch from a tract that really is that size)
+            double worstRatio = 0.0, worstC = 0.0; bool ok = true;
+            for (const auto& v : vowels)
+            {
+                const double tL = (double) lat / sr;
+                const auto fi = formantsOf (warmVoice, sr, v.t0, v.t1), fo = formantsOf (y, sr, v.t0 + tL, v.t1 + tL);
+                const double sc = envelopeScale (warmVoice, sr, v.t0, v.t1, y, v.t0 + tL, v.t1 + tL);
+                const double off = std::abs (envelopeScale (truth, sr, v.t0, v.t1, y, v.t0 + tL, v.t1 + tL) - 1.0);
+                worstRatio = std::max (worstRatio, off);
+                if (off > formBound[&v - vowels]) ok = false;
+                const double fin = pitchOf (warmVoice, sr, v.t0, v.t1), fout = pitchOf (y, sr, v.t0 + tL, v.t1 + tL);
+                worstC = std::max (worstC, fin > 0 && fout > 0 ? std::abs (1200.0 * std::log2 (fout / fin)) : 9999.0);
+                if (mode == 0) std::printf ("      vowel F1/F2 in %.0f / %.0f Hz -> out %.0f / %.0f Hz; whole envelope moved x%.3f (asked x%.3f)\n", fi[0], fi[1], fo[0], fo[1], sc, want);
+            }
+            std::printf ("  %s: FORMANT %+.0f (x%.3f): envelope off a real tract that size by at most %.1f %%, pitch moved %.1f cents\n", mn, fk, want, 100.0 * worstRatio, worstC);
+            check (ok && worstC <= 15.0, juce::String (mn) + ": FORMANT " + juce::String (fk, 0) + " moves the formants like a real tract that size (/e/ 6 %, /a/ 15 %, /u/ 20 %) and not the pitch (15 cents)");
+        }
+    }
+
+    // 3b. the first syllable after silence: how long it takes to be sure it is a voice (it passes as it came meanwhile)
+    for (int mode : modes)
+    {
+        int lat = 0;
+        const auto y = play (sr, voice, [&] (auto& p, int) { p[1] = (float) customAt; p[2] = (float) mode; p[3] = 7.0f; }, 128, &lat);
+        // 60 ms frames from the first vowel's start: changed once its pitch is 5-9 st over the input's
+        double changedAt = -1.0;
+        for (double t0 = 0.26; t0 < 0.62; t0 += 0.005)
+        {
+            const double fin = pitchOf (voice, sr, t0, t0 + 0.085), fout = pitchOf (y, sr, t0 + (double) lat / sr, t0 + 0.085 + (double) lat / sr);
+            if (fin > 0 && fout > 0 && std::abs (1200.0 * std::log2 (fout / fin) - 700.0) < 200.0) { changedAt = t0 - 0.26; break; }
+        }
+        std::printf ("  %s: after silence, the first syllable is changed %.0f ms after it starts (the rest of the sentence at once)\n", mode == 0 ? "LIVE" : "HQ", 1000.0 * changedAt);
+        check (changedAt >= 0.0 && changedAt <= (mode == 0 ? 0.14 : 0.11), juce::String (mode == 0 ? "LIVE" : "HQ") + ": the first syllable after silence is changed within " + (mode == 0 ? "140" : "110") + " ms");
+    }
+
+    // 3c. STRENGTH and MULTIPLY on the voice: 0 % the voice as it came (only later), 200 % further, MULTIPLY scales the textures
+    {
+        const int mulAt = U::info[k].numParams - 2, strAt = U::info[k].numParams - 1;
+        int lat = 0;
+        auto change = [&] (float m, float st, int character) {
+            const auto y = play (sr, warmVoice, [&] (auto& p, int) { p[1] = (float) character; p[(size_t) mulAt] = m; p[(size_t) strAt] = st; }, 128, &lat);
+            double e = 0.0, r = 0.0;
+            for (int i = (int) (talking * sr); i + lat < (int) y.size(); ++i) { const double d = y[(size_t) (i + lat)] - warmVoice[(size_t) i]; e += d * d; r += (double) warmVoice[(size_t) i] * warmVoice[(size_t) i]; }
+            return 10.0 * std::log10 (e / r + 1e-30); };
+        const double none = change (1.0f, 0.0f, 1), base = change (1.0f, 100.0f, 1);
+        const double half = change (1.0f, 50.0f, 1);
+        const auto pitchAt = [&] (float st) { const auto y = play (sr, warmVoice, [&] (auto& p, int) { p[1] = 1.0f; p[(size_t) strAt] = st; }, 128, &lat);
+                                              return 1200.0 * std::log2 (pitchOf (y, sr, vowels[1].t0 + (double) lat / sr, vowels[1].t1 + (double) lat / sr) / pitchOf (warmVoice, sr, vowels[1].t0, vowels[1].t1)); };
+        const double c100 = pitchAt (100.0f), c200 = pitchAt (200.0f);
+        // (HUSKY's textures alone: against the same pitch and tract with none - CUSTOM at -2 st, FORMANT -1.18)
+        const auto plain = play (sr, warmVoice, [&] (auto& p, int) { p[1] = 0.0f; p[3] = -2.0f; p[4] = -0.059f / 0.05f; p[12] = 0.0f; }, 128, &lat);
+        auto texture = [&] (float m) {   // (periodicity of the vowels: textures bring it down)
+            const auto y = play (sr, warmVoice, [&] (auto& p, int) { p[1] = 10.0f; p[(size_t) mulAt] = m; p[12] = 0.0f; }, 128, &lat);
+            double s2 = 0.0; for (const auto& v : vowels) s2 += periodicity (y, sr, v.t0 + (double) lat / sr, v.t1 + (double) lat / sr);
+            return s2 / 3.0; };
+        double plainP = 0.0; for (const auto& v : vowels) plainP += periodicity (plain, sr, v.t0 + (double) lat / sr, v.t1 + (double) lat / sr);
+        plainP /= 3.0;
+        const double tex1 = texture (1.0f), tex025 = texture (0.25f), tex3 = texture (3.0f);
+        std::printf ("  STRENGTH (M TO F): 0 %% -> difference %.1f dB, 50 %% %.1f dB, 100 %% %.1f dB; pitch moved %.0f cents at 100 %%, %.0f at 200 %%\n", none, half, base, c100, c200);
+        std::printf ("  MULTIPLY (HUSKY's breath, fry, roughness): periodicity of the vowels %.3f with none, %.3f at 0.25x, %.3f at 1x, %.3f at 3x\n", plainP, tex025, tex1, tex3);
+        check (none < -100.0, "STRENGTH 0: the voice exactly as it came (only later)");
+        check (c200 > 1.7 * c100 && c100 > 800.0, "STRENGTH 200 %: the character goes twice as far (pitch)");
+        check (plainP > tex025 && tex025 > tex1 && tex1 > tex3, "MULTIPLY: the source's textures (breath, fry, roughness) grow with it - 0.25x less rough than 1x, 3x more");
+    }
+
+    // 3d. DYNAMIC characters: M TO F takes a man AND a woman to a woman's voice (~210 Hz) - it learns who is speaking,
+    //     so a voice already high is moved only a little (no squeak)
+    {
+        const auto man = sentence (sr, 115.0, 1.0, true), woman = sentence (sr, 205.0, 1.17, true);
+        auto outPitch = [&] (const Buf& in, double& inHz) {
+            int lat = 0;
+            const auto y = play (sr, in, [&] (auto& p, int) { p[1] = 1.0f; }, 128, &lat);
+            inHz = pitchOf (in, sr, talking + 0.3, talking + 1.8);
+            return pitchOf (y, sr, talking + 0.3 + lat / sr, talking + 1.8 + lat / sr); };
+        double inM = 0, inW = 0;
+        const double outM = outPitch (man, inM), outW = outPitch (woman, inW);
+        std::printf ("  M TO F, dynamic: a man at %.0f Hz -> %.0f Hz, a woman at %.0f Hz -> %.0f Hz (a woman: ~210)\n", inM, outM, inW, outW);
+        check (std::abs (12.0 * std::log2 (outM / 210.0)) < 2.5 && std::abs (12.0 * std::log2 (outW / 210.0)) < 2.5 && std::abs (12.0 * std::log2 (outW / inW)) < 3.0,
+               "a character moves each speaker to its target voice (a man up a lot, a woman a little)");
+    }
+
+    // 4. every character: finite, the level matched, peaks within +3 dB of the input's
+    {
+        bool ok = true; double worstLevel = 0.0, worstPeak = -99.0;
+        for (int c = 0; c < U::VoiceIdentity::numCharacters; ++c)
+        {
+            int lat = 0;
+            const auto y = play (sr, voice, [&] (auto& p, int) { p[1] = (float) c; }, 128, &lat);
+            const double tL = (double) lat / sr;
+            const double lin = rmsDb (voice, sr, 0.26, 1.77), lout = rmsDb (y, sr, 0.26 + tL, 1.77 + tL);
+            float pin = 0.0f, pout = 0.0f; for (float v : voice) pin = std::max (pin, std::abs (v)); for (float v : y) { pout = std::max (pout, std::abs (v)); if (! std::isfinite (v)) ok = false; }
+            worstLevel = std::max (worstLevel, std::abs (lout - lin));
+            worstPeak = std::max (worstPeak, 20.0 * std::log10 (pout / pin));
+            static const char* names[] { "CUSTOM", "M TO F", "F TO M", "CHILD", "TEEN", "ELDERLY MAN", "ELDERLY WOMAN", "BIG MAN", "SMALL PERSON", "ANNOUNCER", "HUSKY", "WHISPER" };
+            std::printf ("      %-14s level %+.2f dB, peak %+.2f dB vs the input\n", names[c], lout - lin, 20.0 * std::log10 (pout / pin));
+        }
+        std::printf ("  every character: level within %.2f dB of the input, peaks at most %+.2f dB\n", worstLevel, worstPeak);
+        check (ok, "every character stays finite");
+        check (worstLevel <= 1.0, "every character comes out as loud as the voice went in (within 1 dB over the sentence)");
+        check (worstPeak <= 3.05, "no character's peaks go more than 3 dB over the input's");
+    }
+
+    // 5. unvoiced stays noise: an 's' alone, through M TO F: no tone appears (spectral peakiness as before)
+    {
+        Buf s ((size_t) (1.0 * sr), 0.0f); addFricative (s, sr, 0.1, 0.8, 4000, 9000);
+        int lat = 0;
+        const auto y = play (sr, s, [&] (auto& p, int) { p[1] = 1.0f; p[11] = -70.0f; }, 128, &lat);
+        auto peakiness = [&] (const Buf& x, int from) {
+            const int N = 4096; juce::dsp::FFT f (12); std::vector<float> acc ((size_t) N / 2, 0.0f), b ((size_t) 2 * N);
+            for (int s0 = from; s0 + N < from + (int) (0.6 * sr); s0 += N / 2)
+            { std::fill (b.begin(), b.end(), 0.0f); for (int i = 0; i < N; ++i) b[(size_t) i] = x[(size_t) (s0 + i)] * (0.5f - 0.5f * std::cos (6.2831853f * i / N));
+              f.performFrequencyOnlyForwardTransform (b.data()); for (int i = 0; i < N / 2; ++i) acc[(size_t) i] += b[(size_t) i] * b[(size_t) i]; }
+            const int k0 = (int) (2000.0 * N / sr), k1 = (int) (10000.0 * N / sr);
+            std::vector<float> band (acc.begin() + k0, acc.begin() + k1); std::vector<float> sorted = band; std::sort (sorted.begin(), sorted.end());
+            return 10.0 * std::log10 (*std::max_element (band.begin(), band.end()) / (sorted[sorted.size() / 2] + 1e-20)); };
+        const double pin = peakiness (s, (int) (0.2 * sr)), pout = peakiness (y, (int) (0.2 * sr) + lat);
+        std::printf ("  an 's' through M TO F: spectral peak over median %.1f dB in, %.1f dB out\n", pin, pout);
+        check (pout <= pin + 3.0, "unvoiced sounds stay noise: no tone is made of an 's' (peakiness within 3 dB of the input's)");
+    }
+
+    // 6. a plosive comes out once (no doubled transient), in M TO F
+    {
+        Buf x ((size_t) (1.2 * sr), 0.0f);
+        addVowel (x, sr, 0.10, 0.40, 120, 125, { 730, 1090, 2440 });
+        addPlosive (x, sr, 0.55, 0.5f);
+        addVowel (x, sr, 0.58, 0.40, 125, 118, { 530, 1840, 2480 });
+        int lat = 0;
+        const auto y = play (sr, x, [&] (auto& p, int) { p[1] = 1.0f; }, 128, &lat);
+        // the 2 ms envelope around the burst: the strongest after the first must be far smaller
+        auto env = [&] (int at) { double s = 0.0; for (int i = 0; i < (int) (0.002 * sr); ++i) s += (double) y[(size_t) (at + i)] * y[(size_t) (at + i)]; return s; };
+        const int b0 = (int) (0.55 * sr) + lat;
+        double first = 0.0; for (int d = -(int) (0.003 * sr); d < (int) (0.004 * sr); d += (int) (0.001 * sr)) first = std::max (first, env (b0 + d));
+        double echo = 0.0; for (int d = (int) (0.006 * sr); d < (int) (0.030 * sr); d += (int) (0.001 * sr)) echo = std::max (echo, env (b0 + d));
+        const double ratioDb = 10.0 * std::log10 (echo / (first + 1e-20));
+        std::printf ("  a plosive in M TO F: the strongest 2 ms after it is %.1f dB under the burst\n", ratioDb);
+        check (ratioDb < -10.0, "a plosive comes out once: no doubled or smeared burst (anything after it 10 dB down)");
+    }
+
+    // 7. knob moves: no clicks or zipper (the sharpest sample-to-sample bend no worse than at fixed settings)
+    {
+        auto bend = [&] (const Buf& y, int from, int to) { double m = 0.0; for (int i = std::max (2, from); i < to; ++i) m = std::max (m, (double) std::abs (y[(size_t) i] - 2.0f * y[(size_t) i - 1] + y[(size_t) i - 2])); return m; };
+        // (a voice with intonation - a dead-flat tone is not taken for a voice, and would pass untouched)
+        Buf x ((size_t) (2.0 * sr), 0.0f); addVowel (x, sr, 0.05, 1.9, 105, 140, { 730, 1090, 2440 });
+        int lat = 0;
+        const auto still0 = play (sr, x, [&] (auto& p, int) { p[1] = 0.0f; p[3] = -12.0f; p[4] = -8.0f; }, 128, &lat);
+        const auto still1 = play (sr, x, [&] (auto& p, int) { p[1] = 0.0f; p[3] = 12.0f; p[4] = 8.0f; p[7] = 10.0f; p[9] = 10.0f; p[10] = 10.0f; });
+        const auto still2 = play (sr, x, [&] (auto& p, int) { p[1] = 5.0f; p[3] = 12.0f; p[4] = 8.0f; p[7] = 10.0f; p[9] = 10.0f; p[10] = 10.0f; });
+        const auto sweep = play (sr, x, [&] (auto& p, int pos) { const float a = std::clamp ((float) (pos / sr - 0.5), 0.0f, 1.0f); p[1] = 0.0f; p[3] = -12.0f + 24.0f * a; p[4] = -8.0f + 16.0f * a;
+                                                                 p[7] = 10.0f * a; p[9] = 10.0f * a; p[10] = 10.0f * a; p[1] = pos > (int) (1.2 * sr) ? 5.0f : 0.0f; });
+        const int a = (int) (0.4 * sr) + lat, b = (int) (1.8 * sr) + lat;
+        // (and it really was changed: the held renders differ from the input)
+        double dChanged = 0.0, dRef = 0.0;
+        for (int i = a; i < b; ++i) { const double d = still1[(size_t) i] - x[(size_t) (i - lat)]; dChanged += d * d; dRef += (double) x[(size_t) (i - lat)] * x[(size_t) (i - lat)]; }
+        check (dChanged > 0.1 * dRef, "(the click test's voice is really being changed)");
+        std::printf ("  knobs swept (PITCH, FORMANT, BREATH, ROUGHNESS, VIBRATO, then CHARACTER): sharpest bend %.4f vs %.4f held\n",
+                     bend (sweep, a, b), std::max ({ bend (still0, a, b), bend (still1, a, b), bend (still2, a, b) }));
+        // (the sharpest bend with breath and roughness at full is the biggest noise peak - it varies 0.5x .. 1.5x run to
+        //  run; a click from a jumping gain lands far above that)
+        check (bend (sweep, a, b) <= 2.0 * std::max ({ bend (still0, a, b), bend (still1, a, b), bend (still2, a, b) }),
+               "moving its knobs and CHARACTER never clicks or zips (no bend over 2x the sharpest at held settings)");
+    }
+
+    // 8. only voice: music alone comes through untouched (only delayed)
+    {
+        auto m = newunitstest::music (sr, 2.0);
+        int lat = 0;
+        const auto y = play (sr, m[0], [&] (auto& p, int) { p[1] = 1.0f; }, 128, &lat);
+        double err = 0.0, ref = 0.0;
+        for (int i = (int) (0.5 * sr); i + lat < (int) y.size(); ++i) { const double d = y[(size_t) (i + lat)] - m[0][(size_t) i]; err += d * d; ref += (double) m[0][(size_t) i] * m[0][(size_t) i]; }
+        const double db = 10.0 * std::log10 (err / ref + 1e-20);
+        std::printf ("  music alone through M TO F: difference from the (delayed) input %.1f dB\n", db);
+        check (db < -40.0, "music and game sound pass untouched: only a voice is changed (difference < -40 dB)");
+    }
+
+    // 9. a howl building up (a mic near speakers) is muted
+    {
+        Buf x ((size_t) (3.0 * sr), 0.0f);
+        for (int i = 0; i < (int) x.size(); ++i) x[(size_t) i] = (float) (std::pow (10.0, (-40.0 + 37.0 * std::min (1.0, i / (2.0 * sr))) / 20.0) * std::sin (6.283185307179586 * 1020.0 * i / sr));
+        int lat = 0;
+        const auto y = play (sr, x, [&] (auto& p, int) { p[1] = 0.0f; p[3] = 2.0f; }, 128, &lat);
+        const double tail = rmsDb (y, sr, 2.6, 3.0), in = rmsDb (x, sr, 2.6, 3.0);
+        std::printf ("  a howl growing to -3 dBFS: the last 0.4 s at %.1f dB (input %.1f dB)\n", tail, in);
+        check (tail < in - 30.0, "a feedback howl building up is muted (30 dB down)");
+    }
+
+    // 9b. but a loud voice is never taken for a howl: a vowel swelling from -30 to -3 dBFS, and the whole sentence
+    //     at full scale, are never muted
+    {
+        Buf x ((size_t) (3.0 * sr), 0.0f);
+        addVowel (x, sr, 0.1, 2.8, 150, 190, { 730, 1090, 2440 }, 1.0f);
+        for (size_t i = 0; i < x.size(); ++i) x[i] *= (float) std::pow (10.0, (-30.0 + 28.0 * std::min (1.0, i / (2.2 * sr))) / 20.0);
+        int lat = 0;
+        const auto y = play (sr, x, [&] (auto& p, int) { p[1] = 1.0f; }, 128, &lat);
+        auto loud = sentence (sr); { float pk = 0.0f; for (float v : loud) pk = std::max (pk, std::abs (v)); for (auto& v : loud) v *= 0.95f / pk; }
+        const auto z = play (sr, loud, [&] (auto& p, int) { p[1] = 1.0f; }, 128, &lat);
+        // the quietest 100 ms of output while the input is over -30 dBFS, against the input there
+        double worstAt = 0.0;
+        auto worstDrop = [&] (const Buf& in, const Buf& out) {
+            double worst = 0.0;
+            for (int s0 = (int) (0.3 * sr); s0 + (int) (0.1 * sr) + lat < (int) out.size(); s0 += (int) (0.05 * sr))
+            {
+                const double li = rmsDb (in, sr, s0 / sr, s0 / sr + 0.1), lo = rmsDb (out, sr, (s0 + lat) / sr, (s0 + lat) / sr + 0.1);
+                if (li > -30.0 && lo - li < worst) { worst = lo - li; worstAt = s0 / sr; }
+            }
+            return worst; };
+        const double d1 = worstDrop (x, y); const double at1 = worstAt;
+        const double d2 = worstDrop (loud, z); const double at2 = worstAt;
+        std::printf ("      (deepest at %.2f s and %.2f s)\n", at1, at2);
+        std::printf ("  a loud voice is not a howl: a vowel swelling to -3 dBFS drops at most %.1f dB, the sentence at full scale %.1f dB\n", d1, d2);
+        check (d1 > -12.0 && d2 > -12.0, "a loud, swelling voice is never muted as a howl");
+    }
+
+    // 9c. on a track: the stereo stays (only the middle is processed) and a hot track never goes over full scale
+    {
+        namespace U2 = enh::dsp::units;
+        const int kv = U2::indexOfKey ("voice");
+        Rng r2; r2.s = 99u;
+        const auto v = sentence (sr, 120.0, 1.0, true);
+        std::array<Buf, 2> x { v, v };
+        float pk = 0.0f;
+        for (size_t i = 0; i < v.size(); ++i)   // (a wide bed: different noise each side, band-passed by a gentle slope)
+        {
+            const float a2 = 0.08f * r2.bi(), b2 = 0.08f * r2.bi();
+            x[0][i] += a2; x[1][i] += b2;
+            pk = std::max ({ pk, std::abs (x[0][i]), std::abs (x[1][i]) });
+        }
+        for (auto& c : x) for (auto& s2 : c) s2 *= 0.99f / pk;   // (hot: peaking at -0.1 dBFS)
+        bool okAll = true; double worstWidth = 0.0; float worstPeak = 0.0f;
+        for (int c : { 1, 10, 11 })   // M TO F, HUSKY, WHISPER
+        {
+            auto u = U2::make (kv); u->prepare (sr, 512);
+            auto p = params ((double) c);
+            auto y = x;
+            for (int pos = 0; pos < (int) v.size(); pos += 128)
+            {
+                const int n = std::min (128, (int) v.size() - pos);
+                float* ch[2] { y[0].data() + pos, y[1].data() + pos };
+                u->process (ch, 2, n, p.data());
+            }
+            const int lat = u->latencySamples();
+            double sIn = 0, sOut = 0; float pOut = 0.0f;
+            for (int i = 0; i + lat < (int) v.size(); ++i)
+            {
+                const double di = 0.5 * (x[0][(size_t) i] - x[1][(size_t) i]), dout = 0.5 * (y[0][(size_t) (i + lat)] - y[1][(size_t) (i + lat)]);
+                sIn += di * di; sOut += dout * dout;
+                pOut = std::max ({ pOut, std::abs (y[0][(size_t) (i + lat)]), std::abs (y[1][(size_t) (i + lat)]) });
+            }
+            const double w = 10.0 * std::log10 (sOut / sIn);
+            worstWidth = std::max (worstWidth, std::abs (w)); worstPeak = std::max (worstPeak, pOut);
+            if (std::abs (w) > 0.1 || pOut > 0.99f + 1.0e-4f) okAll = false;
+        }
+        std::printf ("  on a track (a wide bed, peaking at -0.1 dBFS): the side changed at most %.2f dB, highest peak %.4f\n", worstWidth, worstPeak);
+        check (okAll, "a track keeps its stereo (only the middle changes) and never goes over its own peak at full scale");
+    }
+
+    // 10. fuzz: random knobs per block, random block sizes, loud noise, silence, full scale: always finite and bounded
+    {
+        Rng r; bool finite = true; float peak = 0.0f;
+        auto u = U::make (k); u->prepare (sr, 2048);
+        auto p = params (1);
+        std::array<Buf, 2> x { Buf (2048), Buf (2048) };
+        for (int blockNo = 0; blockNo < (int) (8.0 * sr / 300); ++blockNo)
+        {
+            const int n = 1 + (int) (r.uni() * 600.0f);
+            if (r.uni() < 0.1f)
+                for (int i = 1; i < (int) U::info[k].numParams; ++i)
+                {
+                    const auto& d = enh::dsp::designed::params[(size_t) (U::info[k].firstParam + i)];
+                    p[(size_t) i] = d.minValue + (d.maxValue - d.minValue) * r.uni();
+                    if (d.kind != 0) p[(size_t) i] = std::round (p[(size_t) i]);
+                }
+            const int kind = (blockNo / 40) % 4;
+            for (int i = 0; i < n; ++i)
+            {
+                const float v = kind == 0 ? r.bi() : kind == 1 ? 0.0f : kind == 2 ? (r.uni() < 0.5f ? 1.0f : -1.0f) : 0.3f * (float) std::sin (0.05 * (blockNo * 600 + i));
+                x[0][(size_t) i] = v; x[1][(size_t) i] = r.bi() * 0.5f;
+            }
+            float* ch[2] { x[0].data(), x[1].data() };
+            u->process (ch, 2, n, p.data());
+            for (int c = 0; c < 2; ++c) for (int i = 0; i < n; ++i) { if (! std::isfinite (x[(size_t) c][(size_t) i])) finite = false; peak = std::max (peak, std::abs (x[(size_t) c][(size_t) i])); }
+        }
+        std::printf ("  fuzz (8 s, random knobs and blocks, noise, silence, full scale): finite %s, peak %.2f\n", finite ? "yes" : "NO", peak);
+        check (finite && peak <= 2.0f, "fuzz: always finite and under the ceiling");
+    }
+
+    // 11. CPU on this machine: seconds of work per second of sound, LIVE and HQ, plain and with breath + whisper
+    if (sr == 48000.0)
+    {
+        Buf x ((size_t) (6.0 * sr)); { auto s = sentence (sr); for (size_t i = 0; i < x.size(); ++i) x[i] = s[i % s.size()]; }
+        for (int mode : { 0, 1 })
+            for (int c : { 1, 11 })
+            {
+                double best = 1e9;
+                for (int rep = 0; rep < 2; ++rep)
+                {
+                    const auto t0 = juce::Time::getHighResolutionTicks();
+                    play (sr, x, [&] (auto& p, int) { p[1] = (float) c; p[2] = (float) mode; p[7] = 3.0f; });
+                    best = std::min (best, juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0));
+                }
+                const double pct = 100.0 * best / 6.0;
+                std::printf ("  CPU %s, %s: %.1f %% of one core (48 kHz, 128-sample blocks)\n", mode == 0 ? "LIVE" : "HQ", c == 11 ? "WHISPER" : "M TO F + BREATH 3", pct);
+                check (pct <= 20.0, juce::String ("CPU within 20 % of one core: ") + (mode == 0 ? "LIVE" : "HQ") + (c == 11 ? " WHISPER" : " M TO F"));
+            }
+    }
+
+    // 12. in the rack: off, the rack's latency is as it was; on, it grows by the unit's and the host is told
+    {
+        enh::dsp::EnhEngine e; e.prepare (sr, 256, 2);
+        const int before = e.getLatencySamples();
+        auto pr = presetParameters (presetNamed ("TRANSPARENT (ALL OUT)"), [] (auto&) {});
+        const int first = U::info[k].firstParam - U::firstParam;
+        juce::AudioBuffer<float> buf (2, 256); buf.clear();
+        e.process (buf, pr);
+        const int off = e.getLatencySamples();
+        pr.unitParams[(size_t) first] = 1.0f;
+        e.process (buf, pr);
+        const int on = e.getLatencySamples();
+        int sum = 0; for (auto& part : e.getLatencyBreakdown()) sum += part.samples;
+        std::printf ("  in the rack: latency %d samples off, %d on (the unit adds %d)\n", off, on, on - off);
+        check (before == off && on > off && sum == on, "the rack's latency grows only while the unit is on, and its breakdown adds up");
+    }
+}
+
+// PITCH CORRECTOR and VOCAL TUNING AND IDENTITY PROCESSOR: the autotune, measured.   EnhDspTests --tune
+namespace tunetest
+{
+    using namespace voicetest;
+    /** A sung note: a warm-up phrase (so it is taken for a voice), then f0 with a slow drift (+-12 cents) and an
+        optional vibrato, through the /a/ formants. f0 may glide (f0 -> f1). */
+    inline Buf sung (double sr, double f0, double f1, double seconds, double vibCents = 0.0, double vibHz = 5.5)
+    {
+        Buf x ((size_t) ((1.3 + seconds) * sr), 0.0f);
+        addVowel (x, sr, 0.0, 0.45, 110 * 0.95, 110 * 1.1, { 450, 800, 2830 }); addVowel (x, sr, 0.5, 0.5, 120, 105, { 400, 2000, 2550 });
+        // the note: a phase accumulator so the pitch can drift, glide and shake
+        Tract tr; tr.set (sr, { 730, 1090, 2440 });
+        Rng r; double ph = 0.0, prev = 0.0, jit = 1.0; float peak = 1.0e-9f;
+        const int i0 = (int) (1.3 * sr), n = (int) (seconds * sr);
+        std::vector<float> tmp ((size_t) n);
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = i / sr;
+            const double f = f0 * std::pow (f1 / f0, t / seconds) * std::exp2 ((12.0 * std::sin (6.283 * 0.7 * t) + vibCents * std::sin (6.283 * vibHz * t)) / 1200.0);
+            ph += f * jit / sr;
+            if (ph >= 1.0) { ph -= 1.0; jit = 1.0 + 0.006 * (r.bi() + r.bi() + r.bi()) / 3.0; }
+            const double op = 0.6, rise = 0.24;
+            const double g = ph < rise ? 0.5 * (1.0 - std::cos (3.14159265 * ph / rise)) : ph < op ? std::cos (1.5707963 * (ph - rise) / (op - rise)) : 0.0;
+            tmp[(size_t) i] = tr.process ((float) (g - prev) + 0.002f * r.bi()); prev = g;
+            peak = std::max (peak, std::abs (tmp[(size_t) i]));
+        }
+        for (int i = 0; i < n; ++i) x[(size_t) (i0 + i)] += 0.25f / peak * (float) std::min ({ 1.0, i / (0.02 * sr), (n - i) / (0.02 * sr) }) * tmp[(size_t) i];
+        return x;
+    }
+    inline double midiOf (double hz) { return 69.0 + 12.0 * std::log2 (hz / 440.0); }
+    /** The pitch every `hop` seconds (`win` long frames), best normalised autocorrelation (0: none). */
+    inline std::vector<double> track (const Buf& x, double sr, double t0, double t1, double win = 0.03, double hop = 0.01)
+    {
+        std::vector<double> out;
+        const int w = (int) (win * sr), lagMin = (int) (sr / 900), lagMax = (int) (sr / 70);
+        for (double t = t0; t + win + 1.0 / 70 < t1; t += hop)
+        {
+            const int s = (int) (t * sr);
+            double e0 = 0; for (int i = 0; i < w; ++i) e0 += (double) x[(size_t) (s + i)] * x[(size_t) (s + i)];
+            // (the first strong peak - within 10 % of the best: a periodic sound correlates nearly as well at 2 and 3 periods)
+            std::vector<double> cs ((size_t) lagMax + 2, 0.0);
+            double top = 0;
+            for (int lag = lagMin - 1; lag <= lagMax + 1; ++lag)
+            {
+                double xy = 0, e1 = 0;
+                for (int i = 0; i < w; ++i) { xy += (double) x[(size_t) (s + i)] * x[(size_t) (s + i + lag)]; e1 += (double) x[(size_t) (s + i + lag)] * x[(size_t) (s + i + lag)]; }
+                cs[(size_t) lag] = xy / std::sqrt (e0 * e1 + 1e-12);
+                if (lag >= lagMin && lag <= lagMax) top = std::max (top, cs[(size_t) lag]);
+            }
+            double bc = 0; int bl = 0;
+            for (int lag = lagMin; lag <= lagMax; ++lag)
+                if (cs[(size_t) lag] >= 0.9 * top && cs[(size_t) lag] >= cs[(size_t) lag - 1] && cs[(size_t) lag] >= cs[(size_t) lag + 1]) { bc = cs[(size_t) lag]; bl = lag; break; }
+            // parabolic refinement
+            double f = 0.0;
+            if (bl > lagMin && bl < lagMax && bc > 0.7)
+            {
+                auto cAt = [&] (int lag) { double xy = 0, e1 = 0; for (int i = 0; i < w; ++i) { xy += (double) x[(size_t) (s + i)] * x[(size_t) (s + i + lag)]; e1 += (double) x[(size_t) (s + i + lag)] * x[(size_t) (s + i + lag)]; } return xy / std::sqrt (e0 * e1 + 1e-12); };
+                const double a = cAt (bl - 1), b = bc, c = cAt (bl + 1), den = a - 2 * b + c;
+                f = sr / (bl + (std::abs (den) > 1e-12 ? 0.5 * (a - c) / den : 0.0));
+            }
+            out.push_back (f);
+        }
+        return out;
+    }
+    inline std::vector<float> paramsOf (const char* key)
+    {
+        auto p = newunitstest::defaults (enh::dsp::units::indexOfKey (key)); p[0] = 1.0f; return p;
+    }
+    inline Buf playUnit (const char* key, double sr, const Buf& in, const std::function<void (std::vector<float>&)>& set, int* lat = nullptr, int* foundKey = nullptr)
+    {
+        namespace U = enh::dsp::units;
+        const int k = U::indexOfKey (key);
+        auto u = U::make (k); u->prepare (sr, 512);
+        auto p = paramsOf (key); set (p);
+        std::array<Buf, 2> x { in, in };
+        for (int pos = 0; pos < (int) in.size(); pos += 128)
+        {
+            const int n = std::min (128, (int) in.size() - pos);
+            float* ch[2] { x[0].data() + pos, x[1].data() + pos };
+            u->process (ch, 2, n, p.data());
+        }
+        if (lat != nullptr) *lat = u->latencySamples();
+        if (foundKey != nullptr) if (auto* e = dynamic_cast<U::VoiceEngine*> (u.get())) *foundKey = e->foundKey();
+        return x[0];
+    }
+    /** Chords (triads with the root in the bass, 1 s each, repeated) and a voice singing the scale over them. */
+    inline Buf song (double sr, const std::vector<std::array<int, 3>>& chords, const std::vector<int>& melody, double seconds)
+    {
+        Buf x ((size_t) (seconds * sr), 0.0f);
+        for (int i = 0; i < (int) x.size(); ++i)
+        {
+            const double t = i / sr;
+            const auto& ch = chords[(size_t) ((int) t % (int) chords.size())];
+            double v = 0.0;
+            for (int m : ch) { const double f = 440.0 * std::exp2 ((m - 69) / 12.0); v += 0.05 * std::sin (6.283185307 * f * t) + 0.02 * std::sin (2 * 6.283185307 * f * t); }
+            v += 0.08 * std::sin (6.283185307 * 440.0 * std::exp2 ((ch[0] - 12 - 69) / 12.0) * t);
+            x[(size_t) i] = (float) v;
+        }
+        // the voice: half a second a note
+        Buf voice (x.size(), 0.0f);
+        for (int n = 0; n * 0.5 + 0.45 < seconds; ++n)
+        {
+            const double f = 440.0 * std::exp2 ((melody[(size_t) n % melody.size()] - 69) / 12.0);
+            addVowel (voice, sr, n * 0.5, 0.45, f, f * 1.01, { 730, 1090, 2440 }, 0.2f);
+        }
+        for (size_t i = 0; i < x.size(); ++i) x[i] += voice[i];
+        return x;
+    }
+}
+
+static void runTuneTests (double sr)
+{
+    using namespace tunetest;
+    namespace U = enh::dsp::units;
+    std::printf ("\n== PITCH CORRECTOR / VOCAL TUNING AND IDENTITY PROCESSOR at %.1f kHz ==\n", sr / 1000.0);
+    check (U::indexOfKey ("pitchfix") >= 0 && U::indexOfKey ("vocalstation") >= 0, "both units are in the rack's list");
+    // parameter places (PITCH CORRECTOR): 1 AUTO, 2 KEY, 3 SCALE, 4 SPEED, 5 HUMANIZE, 6 AMOUNT, 7 FORMANT, 8 MODE, 9 GATE, 10 MIX, 11 OUTPUT
+    auto pc = [&] (bool autoOn, int key, int scale, float speed, float humanize) {
+        return [=] (std::vector<float>& p) { p[1] = autoOn ? 1.0f : 0.0f; p[2] = (float) key; p[3] = (float) scale; p[4] = speed; p[5] = humanize; }; };
+    // 1. accuracy: A3 sung 40 cents sharp, C major, SPEED 0 -> on A3
+    {
+        const auto x = sung (sr, 220.0 * std::exp2 (40.0 / 1200.0), 220.0 * std::exp2 (40.0 / 1200.0), 1.5);
+        int lat = 0;
+        const auto y = playUnit ("pitchfix", sr, x, pc (false, 0, 1, 0.0f, 0.0f), &lat);
+        const auto tr = track (y, sr, 1.6 + lat / sr, 2.7 + lat / sr), ti = track (x, sr, 1.6, 2.7);
+        std::vector<double> err, inErr;
+        for (double f : tr) if (f > 0) err.push_back (100.0 * (midiOf (f) - 57.0));
+        for (double f : ti) if (f > 0) inErr.push_back (100.0 * (midiOf (f) - 57.0));
+        std::sort (err.begin(), err.end()); std::sort (inErr.begin(), inErr.end());
+        const double med = err.empty() ? 999.0 : err[err.size() / 2], medIn = inErr.empty() ? 999.0 : inErr[inErr.size() / 2];
+        std::printf ("  A3 sung %+.0f cents sharp -> %+.1f cents after correction (C major, SPEED 0)\n", medIn, med);
+        check (std::abs (med) <= 8.0, "a sharp note lands on its scale note (within 8 cents)");
+    }
+    // 2. SPEED: 0 ms corrects at once; 300 ms is still on its way 60 ms into the note
+    {
+        const auto x = sung (sr, 220.0 * std::exp2 (45.0 / 1200.0), 220.0 * std::exp2 (45.0 / 1200.0), 1.0);
+        auto earlyCents = [&] (float speed) {
+            int lat = 0;
+            const auto y = playUnit ("pitchfix", sr, x, pc (false, 0, 1, speed, 0.0f), &lat);
+            const auto tr = track (y, sr, 1.3 + 0.03 + lat / sr, 1.3 + 0.10 + lat / sr);
+            double s = 0; int n = 0; for (double f : tr) if (f > 0) { s += 100.0 * (midiOf (f) - 57.0); ++n; }
+            return n > 0 ? s / n : 999.0; };
+        const double fast = earlyCents (0.0f), slow = earlyCents (300.0f);
+        std::printf ("  SPEED: 30-100 ms into a note 45 cents sharp: %+.1f cents at 0 ms, %+.1f cents at 300 ms\n", fast, slow);
+        check (std::abs (fast) <= 12.0 && slow > 20.0, "SPEED 0 snaps at once; a slow SPEED glides there (natural)");
+    }
+    // 3. the hard sound: a slide G3 -> G4 at SPEED 0 comes out as steps on C major's notes
+    {
+        const auto x = sung (sr, 196.0, 392.0, 3.0);
+        int lat = 0;
+        const auto y = playUnit ("pitchfix", sr, x, pc (false, 0, 1, 0.0f, 0.0f), &lat);
+        const auto tr = track (y, sr, 1.5 + lat / sr, 4.1 + lat / sr);
+        static const int cMajor[] { 0, 2, 4, 5, 7, 9, 11 };
+        int on = 0, all = 0;
+        for (double f : tr)
+            if (f > 0)
+            {
+                const double m = midiOf (f); double best = 99.0;
+                for (int oct = 3; oct <= 6; ++oct) for (int s2 : cMajor) best = std::min (best, std::abs (m - (12 * (oct + 1) + s2)));
+                ++all; if (best * 100.0 < 15.0) ++on;
+            }
+        std::printf ("  a slide G3 -> G4, SPEED 0: %d of %d frames within 15 cents of a C major note\n", on, all);
+        check (all > 50 && on >= (int) (0.85 * all), "the hard, stepped sound: a slide comes out as the scale's notes");
+    }
+    // 4. HUMANIZE keeps a vibrato; without it the vibrato is flattened
+    {
+        const auto x = sung (sr, 220.0, 220.0, 2.0, 60.0);
+        auto depth = [&] (const Buf& y, double off) {
+            const auto tr = track (y, sr, 1.6 + off, 3.2 + off, 0.02, 0.01);
+            std::vector<double> c; for (double f : tr) if (f > 0) c.push_back (100.0 * midiOf (f));
+            double m = 0; for (double v : c) m += v; m /= std::max<size_t> (1, c.size());
+            double sd = 0; for (double v : c) sd += (v - m) * (v - m); return std::sqrt (sd / std::max<size_t> (1, c.size())); };
+        int lat = 0;
+        const auto keep = playUnit ("pitchfix", sr, x, pc (false, 0, 1, 20.0f, 10.0f), &lat);
+        const auto flat = playUnit ("pitchfix", sr, x, pc (false, 0, 1, 0.0f, 0.0f));
+        const double dIn = depth (x, 0.0), dKeep = depth (keep, lat / sr), dFlat = depth (flat, lat / sr);
+        std::printf ("  vibrato (+-60 cents): %.0f cents RMS in, %.0f with HUMANIZE 10, %.0f with HUMANIZE 0 at SPEED 0\n", dIn, dKeep, dFlat);
+        check (dKeep >= 0.5 * dIn && dFlat <= 0.5 * dKeep, "HUMANIZE lets a vibrato through; without it the note is held flat");
+    }
+    // 5. AUTO finds the key from the whole input: C major, then A minor
+    {
+        const auto cMaj = song (sr, { { 60, 64, 67 }, { 65, 69, 72 }, { 67, 71, 74 }, { 60, 64, 67 } }, { 60, 62, 64, 65, 67, 69, 71, 72, 67, 64 }, 12.0);
+        const auto aMin = song (sr, { { 57, 60, 64 }, { 62, 65, 69 }, { 64, 68, 71 }, { 57, 60, 64 } }, { 57, 59, 60, 62, 64, 65, 68, 69, 64, 60 }, 12.0);
+        static const char* names[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        int k1 = -1, k2 = -1;
+        playUnit ("pitchfix", sr, cMaj, pc (true, 0, 1, 40.0f, 3.0f), nullptr, &k1);
+        playUnit ("pitchfix", sr, aMin, pc (true, 0, 1, 40.0f, 3.0f), nullptr, &k2);
+        auto name = [&] (int k) { return k < 0 ? juce::String ("(not sure)") : juce::String (names[k % 12]) + (k < 12 ? " major" : " minor"); };
+        std::printf ("  AUTO key: a C major song -> %s, an A minor song -> %s\n", name (k1).toRawUTF8(), name (k2).toRawUTF8());
+        check (k1 == 0 && k2 == 12 + 9, "AUTO finds the key and scale from what plays (C major, A minor)");
+    }
+    // 6. AUTO corrects a well-off note firmly
+    {
+        const auto x = sung (sr, 220.0 * std::exp2 (45.0 / 1200.0), 220.0 * std::exp2 (45.0 / 1200.0), 3.0);
+        int lat = 0;
+        // (AUTO on, no music to learn a key from: chromatic - the nearest semitone, A)
+        const auto y = playUnit ("pitchfix", sr, x, pc (true, 0, 1, 40.0f, 3.0f), &lat);
+        const auto tr = track (y, sr, 2.5 + lat / sr, 4.2 + lat / sr);
+        std::vector<double> e; for (double f : tr) if (f > 0) e.push_back (100.0 * (midiOf (f) - 57.0));
+        std::sort (e.begin(), e.end());
+        const double med = e.empty() ? 999.0 : e[e.size() / 2];
+        std::printf ("  AUTO on a note 45 cents sharp: %+.1f cents after\n", med);
+        check (std::abs (med) <= 15.0, "AUTO corrects a well-off note firmly");
+    }
+    // 7. the all-in-one: M TO F and the tuning together - the new voice lands on a scale note
+    {
+        // VT: 1 CHARACTER, 2 AUTO, 3 KEY, 4 SCALE, 5 SPEED, 6 HUMANIZE, 7 TUNE, ... 18 MODE
+        const auto x = sung (sr, 220.0 * std::exp2 (30.0 / 1200.0), 220.0 * std::exp2 (30.0 / 1200.0), 1.5);
+        int lat = 0;
+        // (CUSTOM with PITCH +9: a fixed move - the characters move each speaker to a target, tested in --voice)
+        const auto y = playUnit ("vocalstation", sr, x, [] (auto& p) { p[1] = 0.0f; p[2] = 0.0f; p[3] = 0.0f; p[4] = 1.0f; p[5] = 0.0f; p[6] = 0.0f; p[7] = 100.0f; p[8] = 9.0f; }, &lat);
+        const auto tr = track (y, sr, 1.7 + lat / sr, 2.7 + lat / sr);
+        std::vector<double> m; for (double f : tr) if (f > 0) m.push_back (midiOf (f));
+        std::sort (m.begin(), m.end());
+        const double med = m.empty() ? 0.0 : m[m.size() / 2];
+        // A3 + 30 cents, +9 st = F#4 + 30 cents: nearest C major note G4 (67)
+        std::printf ("  all-in-one, PITCH +9 + TUNE (C major): A3+30c -> %.2f (G4 = 67)\n", med);
+        check (std::abs (med - 67.0) <= 0.12, "the all-in-one changes the voice and puts it in tune");
+    }
+    // 8. music passes untouched; CPU; fuzz
+    {
+        auto m = newunitstest::music (sr, 2.0);
+        for (const char* key : { "pitchfix", "vocalstation" })
+        {
+            int lat = 0;
+            const auto y = playUnit (key, sr, m[0], [] (auto&) {}, &lat);
+            double e = 0, r = 0; for (int i = (int) (0.5 * sr); i + lat < (int) y.size(); ++i) { const double d = y[(size_t) (i + lat)] - m[0][(size_t) i]; e += d * d; r += (double) m[0][(size_t) i] * m[0][(size_t) i]; }
+            const double db = 10.0 * std::log10 (e / r + 1e-30);
+            std::printf ("  %s: music alone %.1f dB from the delayed input\n", key, db);
+            check (db < -40.0, juce::String (key) + ": music passes untouched");
+        }
+        if (sr == 48000.0)
+            for (const char* key : { "pitchfix", "vocalstation" })
+                for (int mode : { 0, 1 })
+                {
+                    const auto x = song (sr, { { 60, 64, 67 }, { 65, 69, 72 } }, { 60, 64, 67, 72 }, 6.0);
+                    double best = 1e9;
+                    for (int rep = 0; rep < 2; ++rep)
+                    {
+                        const auto t0 = juce::Time::getHighResolutionTicks();
+                        playUnit (key, sr, x, [&] (auto& p) { const bool vt = std::string (key) == "vocalstation"; p[vt ? 18 : 8] = (float) mode; if (vt) p[1] = 1.0f; });
+                        best = std::min (best, juce::Time::highResolutionTicksToSeconds (juce::Time::getHighResolutionTicks() - t0));
+                    }
+                    std::printf ("  CPU %s %s: %.1f %% of one core\n", key, mode == 0 ? "LIVE" : "HQ", 100.0 * best / 6.0);
+                    check (100.0 * best / 6.0 <= 20.0, juce::String ("CPU within 20 % of one core: ") + key);
+                }
     }
 }

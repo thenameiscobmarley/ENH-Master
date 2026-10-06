@@ -31,10 +31,19 @@ namespace enh::dsp::units
             mono.assign ((size_t) std::max (1, maxBlock), 0.0f);
             fadeStep = (float) (1.0 / (0.030 * sr));
             prepareUnit (sr, std::max (1, maxBlock));
+            for (auto& d : lateDry) d.assign ((size_t) std::max (1, maxLatencySamples()), 0.0f);
+            for (auto& d : dryLate) d.assign ((size_t) std::max (1, maxBlock), 0.0f);
             resetAll();
         }
 
-        void resetAll() { fade = 0.0f; meterValue = 0.0f; primed = false; resetUnit(); }
+        void resetAll() { fade = 0.0f; meterValue = 0.0f; primed = false; clearLateDry(); resetUnit(); }
+        /** A unit that needs time to listen ahead (VOCAL IDENTITY PROCESSOR) delays its sound by this many samples;
+            the base delays the dry sound it fades and blends with by the same. 0: none (every other unit). */
+        virtual int latencySamples() const noexcept { return 0; }
+        /** The most it can ever need (sizes the dry delay once, in prepare). */
+        virtual int maxLatencySamples() const noexcept { return 0; }
+        /** Its latency as the rack sees it: only while it is on (off, it is bit-for-bit out, no delay). */
+        int activeLatency() const noexcept { return poweredOn ? latencySamples() : 0; }
         /** How many parameters it reads (its rows in DesignedUnits.h): the ones that glide. */
         void setParamCount (int n) { last.assign ((size_t) std::max (0, n), 0.0f); now.assign (last.size(), 0.0f); primed = false; }
         /** MULTIPLY and STRENGTH (this release's new units): where the two knobs are among its parameters, and which of
@@ -51,6 +60,7 @@ namespace enh::dsp::units
         void process (float* const* ch, int numChannels, int n, const float* p) noexcept
         {
             const float want = p[0] > 0.5f ? 1.0f : 0.0f;
+            poweredOn = want > 0.0f;
             const int nc = std::min (numChannels, 2);
             if (nc < 1 || n <= 0 || (fade == 0.0f && want == 0.0f) || n > (int) dry[0].size())
             {
@@ -58,9 +68,25 @@ namespace enh::dsp::units
                 return;
             }
             if (fade == 0.0f)
+            {
                 resetUnit();   // coming in: from a clean state (the fade covers the start)
+                clearLateDry();
+            }
             for (int c = 0; c < nc; ++c)
                 std::copy_n (ch[c], n, dry[(size_t) c].data());
+            const int lat = std::min (latencySamples(), (int) lateDry[0].size());
+            if (lat > 0)
+            {
+                // (the dry STRENGTH blends with, as late as its sound; POWER still fades from the dry as it is now)
+                if (lat != lateLen) { clearLateDry(); lateLen = lat; }
+                for (int c = 0; c < nc; ++c)
+                    for (int i = 0, pos = latePos; i < n; ++i, pos = pos + 1 == lat ? 0 : pos + 1)
+                    {
+                        dryLate[(size_t) c][(size_t) i] = lateDry[(size_t) c][(size_t) pos];
+                        lateDry[(size_t) c][(size_t) pos] = dry[(size_t) c][(size_t) i];
+                    }
+                latePos = (int) ((latePos + n) % lat);
+            }
             // A mono host: the unit still sees a stereo pair (the same on both sides)
             float* io[2] { ch[0], nc > 1 ? ch[1] : mono.data() };
             if (nc == 1) std::copy_n (ch[0], n, mono.data());   // (sized in prepare: nothing allocated here)
@@ -77,7 +103,7 @@ namespace enh::dsp::units
                 }
                 q = modParams.data();
             }
-            const float strengthWant = modStrength >= 0 ? std::clamp (p[modStrength] * 0.01f, 0.0f, 2.0f) : 1.0f;
+            const float strengthWant = modStrength >= 0 && ! strengthInside() ? std::clamp (p[modStrength] * 0.01f, 0.0f, 2.0f) : 1.0f;
             renderGliding (io, n, q);
             bool finite = true;
             for (int c = 0; c < 2 && finite; ++c)
@@ -96,8 +122,8 @@ namespace enh::dsp::units
                 strengthNow += strengthK * (strengthWant - strengthNow);   // (STRENGTH glides: no click)
                 for (int c = 0; c < nc; ++c)
                 {
-                    const float d = dry[(size_t) c][(size_t) i];
-                    float y = d + strengthNow * (io[c][i] - d);   // STRENGTH: how much of its change is kept
+                    const float d = dry[(size_t) c][(size_t) i], dl = lat > 0 ? dryLate[(size_t) c][(size_t) i] : d;
+                    float y = dl + strengthNow * (io[c][i] - dl);   // STRENGTH: how much of its change is kept
                     const float a = std::abs (y);
                     if (a > 1.5f) y = std::copysign (1.5f + 0.5f * std::tanh ((a - 1.5f) / 0.5f), y);   // (the ceiling: +6 dBFS, soft)
                     ch[c][i] = d + fade * (y - d);
@@ -110,6 +136,9 @@ namespace enh::dsp::units
         /** A unit with a picture to show (RAY ROOM's room) writes its state here after process (audio thread);
             returns how many floats (0: none). */
         virtual int displayState (float*, int) const noexcept { return 0; }
+        /** A unit that applies STRENGTH itself (reads it among its parameters) instead of the base's blend
+            (VOCAL IDENTITY PROCESSOR: a pitch can't be blended with the dry, only moved less or more). */
+        virtual bool strengthInside() const noexcept { return false; }
 
     protected:
         virtual void prepareUnit (double sampleRate, int maxBlock) = 0;
@@ -162,6 +191,10 @@ namespace enh::dsp::units
         std::vector<float> modLo, modHi, modParams;
         float strengthNow = 1.0f;
         float fade = 0.0f, fadeStep = 0.0f;
+        bool poweredOn = false;
+        std::array<std::vector<float>, 2> lateDry {}, dryLate {};
+        int latePos = 0, lateLen = 0;
+        void clearLateDry() noexcept { for (auto& d : lateDry) std::fill (d.begin(), d.end(), 0.0f); latePos = 0; }
     };
 
     // --- small shared pieces --------------------------------------------------------------------------

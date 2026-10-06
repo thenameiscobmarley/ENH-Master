@@ -2310,6 +2310,25 @@ int main (int argc, char** argv)
         return failures == 0 ? 0 : 1;
     }
 
+    if (argc > 1 && juce::String (argv[1]) == "--tune")
+    {
+        if (const char* only = std::getenv ("VOICE_RATE")) runTuneTests (std::atof (only));
+        else for (double rate : { 48000.0, 44100.0, 96000.0 })
+            runTuneTests (rate);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
+    if (argc > 1 && juce::String (argv[1]) == "--voice")
+    {
+        // (VOICE_RATE=96000: one rate only - a development aid)
+        if (const char* only = std::getenv ("VOICE_RATE")) runVoiceTests (std::atof (only));
+        else for (double rate : { 48000.0, 44100.0, 96000.0 })
+            runVoiceTests (rate);
+        std::printf ("\n%s (%d failure%s)\n", failures == 0 ? "ALL PASSED" : "FAILURES", failures, failures == 1 ? "" : "s");
+        return failures == 0 ? 0 : 1;
+    }
+
     if (argc > 1 && juce::String (argv[1]) == "--patchbay")
     {
         for (double rate : { 44100.0, 48000.0, 96000.0 })

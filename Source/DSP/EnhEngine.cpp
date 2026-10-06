@@ -196,6 +196,12 @@ namespace enh::dsp
             meters.levelDb.store (levelDbNow, std::memory_order_relaxed);
         }
 
+        // The voice units (PITCH CORRECTOR, VOCAL IDENTITY PROCESSOR, the all-in-one), first: a voice is changed while it is still the voice that came in (every unit
+        // after it treats the new voice). Bit for bit out until its POWER is on.
+        for (const int v : voiceUnits)
+            if (v >= 0 && v < (int) newer.size() && buffer.getNumChannels() > 0)
+                runStage (stNewer + v, buffer.getArrayOfWritePointers(), std::min (2, buffer.getNumChannels()), buffer.getNumSamples(), 0, p);
+
         // Analyser tap, before anything else: the audio thread only copies samples.
         scopeIn.push (buffer.getArrayOfReadPointers(), std::min (2, buffer.getNumChannels()), buffer.getNumSamples());
 
@@ -552,6 +558,7 @@ namespace enh::dsp
 
         // The units after the enhancer, in the order the cords take them (stages left out of the order: after)
         bool done[numStages] {};
+        for (const int v : voiceUnits) if (v >= 0) done[numCoreStages + v] = true;   // (they ran first, in process)
         auto indexOf = [] (int code) { return code >= stNewer ? numCoreStages + (code - stNewer) : code; };
         for (size_t s = 0; s < chainOrder.size(); ++s)
         {

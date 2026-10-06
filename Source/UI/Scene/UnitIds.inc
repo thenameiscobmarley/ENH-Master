@@ -56,3 +56,6 @@
                 hypercubeUnit = 71,
                 tunerUnit = 72,
                 detailUnit = 73,
+                voiceUnit = 74,
+                pitchfixUnit = 75,
+                vocalstationUnit = 76,

@@ -5,6 +5,24 @@
 Newest first. Versions are **MASSIVE.BIG.MEDIUM.SMALL**: when one number goes up, the ones after it
 stay. Downloads: [Releases](https://github.com/thenameiscobmarley/ENH-Master/releases).
 
+## 3.8.1.1 (work in progress) — three voice units: change who a voice sounds like, and autotune
+
+**Work in progress:** the sound is done and measured; the faceplates' live screens, the docs and the RACK TUNER words
+come next. **For vocal tracks only** — put these on a vocal track or a mic, not on a full song (on a full mix the music in
+the middle changes too).
+
+- **VOCAL IDENTITY PROCESSOR**: makes a voice sound like another person — twelve characters (man to woman, woman to man,
+  child, teen, elderly man and woman, big man, small person, announcer, husky, whisper). Pitch, vocal tract and breath
+  each change on their own, so it stays a real voice, not a chipmunk or a robot. It learns who is speaking and moves
+  them to the character's voice (a woman's voice made "female" only moves a little). LIVE about 25 ms, HQ about 76 ms;
+  the delay is only there while it is on.
+- **PITCH CORRECTOR**: autotune. KEY and SCALE, SPEED from an invisible nudge to the hard stepped sound, HUMANIZE keeps
+  vibrato. AUTO finds the key from what plays and corrects gently when nearly in tune, firmly when well off.
+- **VOCAL TUNING AND IDENTITY PROCESSOR**: everything in one — the characters, pitch, formants, age and gender, breath
+  and fry, and autotune with AUTO.
+- All three: a SMOOTH knob, the stereo kept (only the middle is changed), the level matched, never over full scale,
+  and a feedback howl muted. In the gear locker under Filters > Formant and vocal.
+
 ## 3.8.0.1 — the rack turned round: a patch bay, every back, real cables; plain names; twenty mastering simulations
 
 - **Twenty mastering simulations**, 3U each, each with its own live screen: [CLARITY LENS](Vault/Devices/CLARITY%20LENS.md), [SUB DRIVER](Vault/Devices/SUB%20DRIVER.md), [VINYL CUTTER](Vault/Devices/VINYL%20CUTTER.md), [CAR TEST](Vault/Devices/CAR%20TEST.md), [PHONE CHECK](Vault/Devices/PHONE%20CHECK.md), [CLUB SYSTEM](Vault/Devices/CLUB%20SYSTEM.md), [PRESSURE](Vault/Devices/PRESSURE.md), [BALANCE](Vault/Devices/BALANCE.md), [STEREO FIELD](Vault/Devices/STEREO%20FIELD.md), [SONAR](Vault/Devices/SONAR.md), [SEISMOGRAPH](Vault/Devices/SEISMOGRAPH.md), [PRISM](Vault/Devices/PRISM.md), [FURNACE](Vault/Devices/FURNACE.md), [DITHER](Vault/Devices/DITHER.md), [RIDER](Vault/Devices/RIDER.md), [COMPASS](Vault/Devices/COMPASS.md), [SUSPENSION](Vault/Devices/SUSPENSION.md), [SKYLINE](Vault/Devices/SKYLINE.md), [HOURGLASS](Vault/Devices/HOURGLASS.md), [AURORA](Vault/Devices/AURORA.md).

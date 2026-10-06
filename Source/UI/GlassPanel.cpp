@@ -724,7 +724,7 @@ namespace pad
                                 { "Transients and feel", { "sonar", "suspension", "takeback" } } } },
                 { "EQ and tone", { { "Tone and balance", { "tonespace", "dyneq", "balance", "balancer" } }, { "Clarity and presence", { "enhancer", "detail", "clarity", "maximizer" } },
                                    { "Air and sheen", { "aurora", "velvet" } }, { "Harshness and resonances", { "deharsh", "skyline" } } } },
-                { "Filters", { { "Resonant filters", { "lavalamp", "talkbox" } }, { "Formant and vocal", { "vocoder", "talkbox" } } } },
+                { "Filters", { { "Resonant filters", { "lavalamp", "talkbox" } }, { "Formant and vocal", { "voice", "pitchfix", "vocalstation", "vocoder", "talkbox" } } } },
                 { "Saturation and colour", { { "Tape", { "tape", "cassette" } }, { "Valve and heat", { "valveamp", "furnace", "character" } },
                                              { "Multiband colour", { "prism", "x4" } }, { "Clipping", { "clip" } } } },
                 { "Space", { { "Space and tone", { "chroma" } }, { "Reverbs", { "shimmer", "plate", "spring" } }, { "Rooms", { "rayroom", "club", "cartest" } }, { "Echoes and delays", { "tapeecho", "bounce", "grain" } } } },

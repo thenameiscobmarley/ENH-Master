@@ -1196,7 +1196,12 @@ namespace pad::artwork
                             const juce::Point<float> dir (std::sin (angle), -std::cos (angle));
                             const float rd = r * 1.25f, rr = r * 1.25f + 0.07f;
                             g.fillEllipse (m.rect (p.x + dir.x * rd - 0.008f, p.z + dir.y * rd - 0.008f, p.x + dir.x * rd + 0.008f, p.z + dir.y * rd + 0.008f));
-                            text (g, m, spec->texts[k].toUpperCase(), p.x + dir.x * rr, p.z + dir.y * rr, 0.016f, centred, true, 0.04f, 0.15f);
+                            // (more than nine long names - a voice unit's twelve characters: numbered, as a 12-way rotary is;
+                            //  the names show where the value does, in the glass panel and on hover)
+                            int longest = 0; for (const auto& t2 : spec->texts) longest = std::max (longest, t2.length());
+                            const bool numbered = n > 9 && longest > 2;   // (short names - a key's C, C#, D - stay as they are)
+                            const juce::String label = numbered ? juce::String (k + 1) : spec->texts[k].toUpperCase();
+                            text (g, m, label, p.x + dir.x * rr, p.z + dir.y * rr, numbered ? 0.018f : 0.016f, centred, true, 0.04f, 0.15f);
                         }
                         labelR = r * 1.62f;   // (level with a knob's: the stop names at the bottom sit either side of it)
                     }
